@@ -1,12 +1,12 @@
 {
   "name": "sklad-bot-server",
-  "version": "1.0.0",
-  "description": "Telegram bot server for Sklad app",
+  "version": "2.0.0",
+  "description": "Telegram bot server for Sklad app (PDF + commands)",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "pdfkit": "^0.15.0",
+    "dejavu-fonts-ttf": "^2.37.3"
   },
-  "engines": {
-    "node": ">=18"
-  }
+  "engines": { "node": ">=18" }
 }
