@@ -35,6 +35,7 @@ const HELP_TEXT =
   "📂 категории — список категорий товаров\n" +
   "👥 клиенты — список клиентов (далее по номеру — накладная PDF)\n" +
   "💰 /dolg — список должников\n" +
+  "🔗 ссылка — получить ссылку на веб-каталог\n" +
   "❓ помощь — показать это меню\n\n" +
   "Просто напишите слово команды.";
 
@@ -273,7 +274,7 @@ function mainMenu() {
     [{ text: "🛍 Каталог (PDF)", callback_data: "catalog" }],
     [{ text: "📂 Категории", callback_data: "cats" }, { text: "👥 Клиенты", callback_data: "clp:0" }],
     [{ text: "💰 Должники", callback_data: "dolg" }],
-    [{ text: "❓ Команды", callback_data: "help" }]
+    [{ text: "🔗 Ссылка на каталог", callback_data: "link" }, { text: "❓ Команды", callback_data: "help" }]
   ] } };
 }
 function catsView() {
@@ -321,6 +322,11 @@ async function handleCallback(cq) {
     if (data === "help") return edit({ text: HELP_TEXT, reply_markup: kbMenuOnly() });
     if (data === "cats") return edit(catsView());
     if (data === "dolg") return edit({ text: store.debtorsText || "Список должников ещё не получен.", reply_markup: kbMenuOnly() });
+    if (data === "link") {
+      if (!PUBLIC_URL) return edit({ text: "Ссылка появится после запуска на хостинге (Render).", reply_markup: kbMenuOnly() });
+      return edit({ text: "🔗 Ссылка на ваш каталог (нажмите и удерживайте, чтобы скопировать):\n\n" + PUBLIC_URL + "/catalog" + "\n\nОтправьте её клиентам или сделайте QR-код. Каталог всегда показывает последние данные.",
+        reply_markup: { inline_keyboard: [ ...catalogLinkRow(), [{ text: "🏠 Меню", callback_data: "menu" }] ] } });
+    }
     if (data === "catalog") {
       await edit({ text: "🛍 Отправляю каталог…", reply_markup: kbMenuOnly() });
       const r = await buildAndSendCatalog(chatId);
@@ -363,6 +369,20 @@ async function handleCommand(chatId, text) {
   if (/^\/(dolg|debt|долг|должники)/i.test(low)) {
     await tg("sendMessage", { chat_id: chatId, text: store.debtorsText || "Список должников ещё не получен.", reply_markup: kbMenuOnly() }); return;
   }
+  if (/^\/?(ссылка|ссылку|link|поделиться|share|ссылки)$/i.test(low)) {
+    await sendCatalogLink(chatId); return;
+  }
+}
+async function sendCatalogLink(chatId) {
+  if (!PUBLIC_URL) {
+    await tg("sendMessage", { chat_id: chatId, text: "Ссылка появится после запуска на хостинге (Render). Адрес каталога — это адрес вашего сервиса + /catalog.", reply_markup: kbMenuOnly() });
+    return;
+  }
+  const link = PUBLIC_URL + "/catalog";
+  await tg("sendMessage", { chat_id: chatId, text:
+    "🔗 Ссылка на ваш каталог (нажмите и удерживайте, чтобы скопировать):\n\n" + link +
+    "\n\nОтправьте её клиентам в Телеграм/WhatsApp, поставьте в описание канала или сделайте из неё QR-код. Каталог по ссылке всегда показывает то, что вы последним отправили боту.",
+    reply_markup: { inline_keyboard: [ ...catalogLinkRow(), [{ text: "🏠 Меню", callback_data: "menu" }] ] } });
 }
 
 /* ---------- polling ---------- */
