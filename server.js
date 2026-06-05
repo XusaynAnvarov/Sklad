@@ -23,6 +23,16 @@ let store = {
   catalog: { company: "", telegram: "", products: [] }   // ← каталог для бота
 };
 
+const HELP_TEXT =
+  "🤖 Что я умею:\n\n" +
+  "🛍 каталог — прислать каталог товаров в PDF (фото, наличие)\n" +
+  "      (также: /catalog, прайс)\n" +
+  "📂 категории — список категорий товаров\n" +
+  "👥 клиенты — список клиентов (далее по номеру — накладная PDF)\n" +
+  "💰 /dolg — список должников\n" +
+  "❓ помощь — показать это меню\n\n" +
+  "Просто напишите слово команды.";
+
 let FONT_PATH = null;
 try {
   FONT_PATH = require.resolve("dejavu-fonts-ttf/ttf/DejaVuSans.ttf");
@@ -186,78 +196,141 @@ function drawCatalogCell(doc, p, x, y, w, imgh, cellh, setFont, GOLD) {
     setFont(); doc.fillColor("#cccccc").fontSize(26).text("—", x, y + imgh / 2 - 8, { width: w, align: "center" });
   }
   setFont();
-  doc.fillColor("#1d2129").fontSize(9).text(clip(p.name, 64), x + 5, y + imgh + 8, { width: w - 10, height: 26, ellipsis: true });
-  const pr = p.priceLabel || "Цена по запросу";
-  if (p.price) { doc.fillColor(GOLD).fontSize(11); } else { doc.fillColor("#888888").fontSize(9); }
-  doc.text(clip(pr, 30), x + 5, y + cellh - 16, { width: w - 10, lineBreak: false });
+  doc.fillColor("#1d2129").fontSize(9).text(clip(p.name, 64), x + 5, y + imgh + 8, { width: w - 10, height: 24, ellipsis: true });
+  const inStock = !!p.inStock;
+  doc.fillColor(inStock ? "#3c8c1e" : "#b5701a").fontSize(9.5);
+  doc.text(inStock ? "✓ В наличии" : "Под заказ", x + 5, y + cellh - 15, { width: w - 10, lineBreak: false });
 }
-async function sendCatalog(chatId) {
+async function buildAndSendCatalog(chatId) {
   const cat = store.catalog || { products: [] };
-  if (!cat.products || !cat.products.length) {
-    await tg("sendMessage", { chat_id: chatId, text: "Каталог ещё не загружен. Откройте приложение → «🛍 Каталог» → кнопка «📤 Отправить каталог боту»." });
-    return;
-  }
-  await tg("sendMessage", { chat_id: chatId, text: "Готовлю каталог в PDF… ⏳" });
+  if (!cat.products || !cat.products.length) return { ok: false, reason: "empty" };
   try {
     if (PDFDocument && FONT_PATH) {
       const pdf = await buildCatalogPDF(cat);
       const r = await tgSendDocument(chatId, pdf, "catalog.pdf", "🛍 Каталог — " + (cat.company || ""));
-      if (r && r.ok) return;
+      if (r && r.ok) return { ok: true };
     }
   } catch (e) { console.log("Catalog PDF error:", e.message); }
-  // запасной вариант — текстовый прайс
+  // запасной вариант — текстовый список
   let msg = "🛍 КАТАЛОГ — " + (cat.company || "") + "\n\n";
   const groups = {};
   cat.products.forEach(p => { const k = (p.category || "Без категории"); (groups[k] = groups[k] || []).push(p); });
   Object.keys(groups).sort((a, b) => a.localeCompare(b, "ru")).forEach(cn => {
     msg += "▪ " + cn + "\n";
-    groups[cn].forEach(p => { msg += "  • " + p.name + " — " + (p.priceLabel || "Цена по запросу") + "\n"; });
+    groups[cn].forEach(p => { msg += "  • " + p.name + (p.inStock ? " — ✓ в наличии" : " — под заказ") + "\n"; });
     msg += "\n";
   });
   if (msg.length > 3900) msg = msg.slice(0, 3900) + "…";
   await tg("sendMessage", { chat_id: chatId, text: msg });
+  return { ok: true, text: true };
+}
+async function sendCatalog(chatId) {
+  const cat = store.catalog || { products: [] };
+  if (!cat.products || !cat.products.length) {
+    await tg("sendMessage", { chat_id: chatId, text: "Каталог ещё не загружен. В приложении: «🛍 Каталог» → «🤖 Отправить каталог боту».", reply_markup: kbMenuOnly() });
+    return;
+  }
+  await tg("sendMessage", { chat_id: chatId, text: "Готовлю каталог в PDF… ⏳" });
+  await buildAndSendCatalog(chatId);
+}
+
+/* ---------- меню с кнопками (нажал → прошлое сообщение заменяется) ---------- */
+const PAGE_SIZE = 8;
+function kbMenuOnly() { return { inline_keyboard: [[{ text: "🏠 Меню", callback_data: "menu" }]] }; }
+function mainMenu() {
+  return { text: "🤖 Главное меню\nВыберите действие:", reply_markup: { inline_keyboard: [
+    [{ text: "🛍 Каталог (PDF)", callback_data: "catalog" }],
+    [{ text: "📂 Категории", callback_data: "cats" }, { text: "👥 Клиенты", callback_data: "clp:0" }],
+    [{ text: "💰 Должники", callback_data: "dolg" }],
+    [{ text: "❓ Команды", callback_data: "help" }]
+  ] } };
+}
+function catsView() {
+  const prods = (store.catalog && store.catalog.products) || [];
+  if (!prods.length) return { text: "Каталог ещё не загружен. В приложении нажмите «🤖 Отправить каталог боту».", reply_markup: kbMenuOnly() };
+  const cnt = {}; prods.forEach(p => { const k = p.category || "Без категории"; cnt[k] = (cnt[k] || 0) + 1; });
+  let text = "📂 Категории в каталоге:\n\n";
+  Object.keys(cnt).sort((a, b) => a.localeCompare(b, "ru")).forEach(k => { text += "• " + k + " (" + cnt[k] + ")\n"; });
+  return { text, reply_markup: { inline_keyboard: [[{ text: "🛍 Каталог в PDF", callback_data: "catalog" }], [{ text: "🏠 Меню", callback_data: "menu" }]] } };
+}
+function clientsPage(page) {
+  const cs = store.clients || [];
+  if (!cs.length) return { text: "Список клиентов пуст. Откройте приложение с включённой синхронизацией.", reply_markup: kbMenuOnly() };
+  const pages = Math.max(1, Math.ceil(cs.length / PAGE_SIZE));
+  page = Math.max(0, Math.min(page, pages - 1));
+  const rows = [];
+  cs.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE).forEach((c, i) => {
+    const idx = page * PAGE_SIZE + i; rows.push([{ text: c.name, callback_data: "c:" + idx }]);
+  });
+  const nav = [];
+  if (page > 0) nav.push({ text: "◀", callback_data: "clp:" + (page - 1) });
+  nav.push({ text: (page + 1) + "/" + pages, callback_data: "noop" });
+  if (page < pages - 1) nav.push({ text: "▶", callback_data: "clp:" + (page + 1) });
+  rows.push(nav);
+  rows.push([{ text: "🏠 Меню", callback_data: "menu" }]);
+  return { text: "👥 Клиенты (" + cs.length + ") — выберите:", reply_markup: { inline_keyboard: rows } };
+}
+function clientCard(idx) {
+  const c = (store.clients || [])[idx];
+  if (!c) return { text: "Клиент не найден.", reply_markup: { inline_keyboard: [[{ text: "⬅️ К списку", callback_data: "clp:0" }]] } };
+  let text = "👤 " + c.name + "\n💰 Долг: " + (c.debt != null ? c.debt : "—") + "\n📊 Оборот: " + (c.turnover != null ? c.turnover : "—") + "\n\n";
+  const rows = []; const orders = c.orders || [];
+  if (orders.length) { text += "📦 Заказы — нажмите для накладной в PDF:"; orders.forEach((o, i) => { rows.push([{ text: "🧾 " + o.date + " — " + o.total, callback_data: "o:" + idx + ":" + i }]); }); }
+  else text += "Заказов нет.";
+  rows.push([{ text: "⬅️ К списку", callback_data: "clp:0" }, { text: "🏠 Меню", callback_data: "menu" }]);
+  return { text, reply_markup: { inline_keyboard: rows } };
+}
+async function handleCallback(cq) {
+  const data = cq.data || ""; const chatId = cq.message.chat.id; const mid = cq.message.message_id;
+  try { await tg("answerCallbackQuery", { callback_query_id: cq.id }); } catch (e) {}
+  const edit = (o) => tg("editMessageText", { chat_id: chatId, message_id: mid, text: o.text, reply_markup: o.reply_markup });
+  try {
+    if (data === "noop") return;
+    if (data === "menu") return edit(mainMenu());
+    if (data === "help") return edit({ text: HELP_TEXT, reply_markup: kbMenuOnly() });
+    if (data === "cats") return edit(catsView());
+    if (data === "dolg") return edit({ text: store.debtorsText || "Список должников ещё не получен.", reply_markup: kbMenuOnly() });
+    if (data === "catalog") {
+      await edit({ text: "🛍 Отправляю каталог…", reply_markup: kbMenuOnly() });
+      const r = await buildAndSendCatalog(chatId);
+      if (!r.ok && r.reason === "empty")
+        return edit({ text: "Каталог ещё не загружен. В приложении нажмите «🤖 Отправить каталог боту».", reply_markup: kbMenuOnly() });
+      return edit({ text: "🛍 Каталог отправлен ⬆️", reply_markup: { inline_keyboard: [[{ text: "🔄 Ещё раз", callback_data: "catalog" }, { text: "🏠 Меню", callback_data: "menu" }]] } });
+    }
+    if (data.indexOf("clp:") === 0) return edit(clientsPage(+data.slice(4) || 0));
+    if (data.indexOf("c:") === 0) return edit(clientCard(+data.slice(2)));
+    if (data.indexOf("o:") === 0) {
+      const parts = data.split(":"); const ci = +parts[1], oi = +parts[2];
+      const c = (store.clients || [])[ci]; const o = c && (c.orders || [])[oi];
+      if (!o) return edit({ text: "Заказ не найден.", reply_markup: kbMenuOnly() });
+      await edit({ text: "🧾 Готовлю накладную " + o.date + "…", reply_markup: { inline_keyboard: [[{ text: "⬅️ Назад", callback_data: "c:" + ci }]] } });
+      const inv = { title: "ТОВАРНАЯ НАКЛАДНАЯ", date: o.date, supplier: c.supplier || "", client: c.name, phone: c.phone || "", items: o.items, total: o.total };
+      await sendInvoice(chatId, inv);
+      return edit({ text: "🧾 Накладная " + o.date + " отправлена ⬆️", reply_markup: { inline_keyboard: [[{ text: "⬅️ К клиенту", callback_data: "c:" + ci }, { text: "🏠 Меню", callback_data: "menu" }]] } });
+    }
+  } catch (e) { console.log("callback:", e.message); }
 }
 
 /* ---------- работа с командами бота ---------- */
 async function handleCommand(chatId, text) {
-  const t = (text || "").trim();
-  const low = t.toLowerCase();
-  const st = store.userState[chatId] || {};
+  const low = (text || "").trim().toLowerCase();
 
-  if (low === "/start") {
-    await tg("sendMessage", { chat_id: chatId, text: "Здравствуйте! 👋\nНапишите «каталог» — пришлю каталог товаров в PDF.\nЕщё команды: «клиенты», /dolg (должники)." });
+  if (/^\/?(start|старт|help|помощь|команды|теги|меню|menu|\?)$/i.test(low)) {
+    const m = mainMenu();
+    await tg("sendMessage", { chat_id: chatId, text: m.text, reply_markup: m.reply_markup });
     return;
   }
-  // КАТАЛОГ → PDF
   if (/^\/?(каталог|katalog|catalog|прайс|price|narx)$/i.test(low)) {
     await sendCatalog(chatId); return;
   }
+  if (/^\/?(категории|категория|categories|kategoriya|kategorii)$/i.test(low)) {
+    const v = catsView(); await tg("sendMessage", { chat_id: chatId, text: v.text, reply_markup: v.reply_markup }); return;
+  }
   if (/^\/?(клиенты|clients|mijozlar)$/i.test(low)) {
-    if (!store.clients.length) { await tg("sendMessage", { chat_id: chatId, text: "Список клиентов ещё не получен от приложения. Откройте приложение и включите синхронизацию." }); return; }
-    let msg = "👥 КЛИЕНТЫ (напишите номер, чтобы выбрать):\n\n";
-    store.clients.forEach((c, i) => { msg += (i + 1) + ". " + c.name + "\n"; });
-    store.userState[chatId] = { mode: "pickClient" }; await tg("sendMessage", { chat_id: chatId, text: msg }); return;
+    const v = clientsPage(0); await tg("sendMessage", { chat_id: chatId, text: v.text, reply_markup: v.reply_markup }); return;
   }
   if (/^\/(dolg|debt|долг|должники)/i.test(low)) {
-    await tg("sendMessage", { chat_id: chatId, text: store.debtorsText || "Список должников ещё не получен." }); return;
-  }
-  // выбор клиента по номеру
-  if (st.mode === "pickClient" && /^\d+$/.test(t)) {
-    const c = store.clients[+t - 1];
-    if (!c) { await tg("sendMessage", { chat_id: chatId, text: "Нет клиента с таким номером." }); return; }
-    let msg = "👤 " + c.name + "\n💰 Долг: " + c.debt + "\n📊 Оборот: " + c.turnover + "\n\n📦 ЗАКАЗЫ (напишите номер для накладной PDF):\n";
-    (c.orders || []).forEach((o, i) => { msg += (i + 1) + ". " + o.date + " — " + o.total + "\n"; });
-    if (!(c.orders || []).length) msg += "(заказов нет)";
-    store.userState[chatId] = { mode: "pickOrder", clientIdx: +t - 1 };
-    await tg("sendMessage", { chat_id: chatId, text: msg }); return;
-  }
-  // выбор заказа по номеру -> PDF
-  if (st.mode === "pickOrder" && /^\d+$/.test(t)) {
-    const c = store.clients[st.clientIdx]; const o = c && c.orders[+t - 1];
-    if (!o) { await tg("sendMessage", { chat_id: chatId, text: "Нет заказа с таким номером." }); return; }
-    const inv = { title: "ТОВАРНАЯ НАКЛАДНАЯ", date: o.date, supplier: c.supplier || "", client: c.name, phone: c.phone || "", items: o.items, total: o.total };
-    await sendInvoice(chatId, inv);
-    store.userState[chatId] = { mode: "pickClient" }; return;
+    await tg("sendMessage", { chat_id: chatId, text: store.debtorsText || "Список должников ещё не получен.", reply_markup: kbMenuOnly() }); return;
   }
 }
 
@@ -265,10 +338,11 @@ async function handleCommand(chatId, text) {
 async function poll() {
   if (!CONFIG.botToken) { setTimeout(poll, 5000); return; }
   try {
-    const res = await tg("getUpdates", { offset: store.lastUpdateId + 1, timeout: 30, allowed_updates: ["message", "channel_post"] });
+    const res = await tg("getUpdates", { offset: store.lastUpdateId + 1, timeout: 30, allowed_updates: ["message", "channel_post", "callback_query"] });
     if (res && res.ok && res.result.length) {
       for (const upd of res.result) {
         store.lastUpdateId = upd.update_id;
+        if (upd.callback_query) { await handleCallback(upd.callback_query); continue; }
         const msg = upd.channel_post || upd.message;
         if (!msg || !msg.text) continue;
         const chatId = msg.chat.id;
@@ -351,4 +425,16 @@ const server = http.createServer(async (req, res) => {
   }
   res.writeHead(404); res.end(JSON.stringify({ error:"not found" }));
 });
-server.listen(CONFIG.port, () => { console.log("✅ Сервер на порту " + CONFIG.port + ", токен " + (CONFIG.botToken?"✓":"✗")); poll(); });
+server.listen(CONFIG.port, () => {
+  console.log("✅ Сервер на порту " + CONFIG.port + ", токен " + (CONFIG.botToken?"✓":"✗"));
+  if (CONFIG.botToken) {
+    tg("setMyCommands", { commands: [
+      { command: "catalog",    description: "🛍 Каталог товаров в PDF" },
+      { command: "kategorii",  description: "📂 Категории товаров" },
+      { command: "clients",    description: "👥 Список клиентов" },
+      { command: "dolg",       description: "💰 Должники" },
+      { command: "help",       description: "❓ Что умеет бот" }
+    ]}).catch(function(){});
+  }
+  poll();
+});
