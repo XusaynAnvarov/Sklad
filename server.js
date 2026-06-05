@@ -15,7 +15,12 @@ let PDFDocument = null;
 try { PDFDocument = require("pdfkit"); } catch (e) { console.log("pdfkit не установлен — PDF недоступен, отправлю текстом."); }
 
 const CONFIG = { botToken: process.env.BOT_TOKEN || "", apiKey: process.env.API_KEY || "sklad", port: process.env.PORT || 8787 };
+const PUBLIC_URL = (process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL || "").replace(/\/+$/, "");
 if (!CONFIG.botToken) console.log("⚠️  Не задан BOT_TOKEN!");
+
+// Чтобы случайная ошибка не «уронила» бота — логируем и продолжаем работать
+process.on("uncaughtException", e => console.error("uncaughtException:", (e && e.message) || e));
+process.on("unhandledRejection", e => console.error("unhandledRejection:", (e && e.message) || e));
 
 let store = {
   lastUpdateId: 0, seq: 0, payments: [], chatId: null,
@@ -96,11 +101,11 @@ function buildInvoicePDF(inv) {
       const doc = new PDFDocument({ size: "A4", margin: 40 });
       const chunks = []; doc.on("data", c => chunks.push(c)); doc.on("end", () => resolve(Buffer.concat(chunks)));
       if (FONT_PATH) { try { doc.font(FONT_PATH); } catch (e) {} }
-      doc.fontSize(18).text(inv.title || "НАКЛАДНАЯ", { align: "center" });
+      doc.fontSize(18).text(sanitizeForFont(inv.title) || "НАКЛАДНАЯ", { align: "center" });
       doc.moveDown(0.3).fontSize(10).text("от " + (inv.date || ""), { align: "center" });
       doc.moveDown(0.8).fontSize(11);
-      doc.text("Поставщик: " + (inv.supplier || "____________"));
-      doc.text("Покупатель: " + (inv.client || "") + (inv.phone ? ", тел. " + inv.phone : ""));
+      doc.text("Поставщик: " + (sanitizeForFont(inv.supplier) || "____________"));
+      doc.text("Покупатель: " + sanitizeForFont(inv.client) + (inv.phone ? ", тел. " + sanitizeForFont(inv.phone) : ""));
       doc.moveDown(0.6);
       const startX = 40; let y = doc.y;
       const cols = [30, 230, 60, 45, 75, 75]; const heads = ["№", "Наименование", "Кол-во", "Ед.", "Цена", "Сумма"];
@@ -108,8 +113,8 @@ function buildInvoicePDF(inv) {
       let x = startX; heads.forEach((h, i) => { doc.text(h, x + 2, y, { width: cols[i] - 4 }); x += cols[i]; });
       y += 16; doc.moveTo(startX, y - 3).lineTo(startX + cols.reduce((a, b) => a + b, 0), y - 3).stroke();
       (inv.items || []).forEach(it => {
-        x = startX; const cells = [it.n, it.name, it.qty, it.unit, fmtMoney(it.price, it.cur), fmtMoney(it.sum, it.cur)];
-        const h = Math.max(14, Math.ceil(String(it.name).length / 38) * 12);
+        x = startX; const cells = [it.n, sanitizeForFont(it.name), it.qty, it.unit, fmtMoney(it.price, it.cur), fmtMoney(it.sum, it.cur)];
+        const h = Math.max(14, Math.ceil(String(sanitizeForFont(it.name)).length / 38) * 12);
         cells.forEach((c, i) => { doc.text(String(c), x + 2, y, { width: cols[i] - 4 }); x += cols[i]; });
         y += h; if (y > 760) { doc.addPage(); y = 40; }
       });
@@ -135,7 +140,29 @@ async function sendInvoice(chatId, inv) {
 }
 
 /* ---------- генерация PDF каталога ---------- */
-function clip(s, n) { s = (s == null ? "" : String(s)).trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+// Убираем символы, которых нет в шрифте (иероглифы, эмодзи и т.п.),
+// чтобы в PDF не появлялись пустые квадраты / «вопросики».
+function sanitizeForFont(s) {
+  if (s == null) return "";
+  s = String(s).replace(/[\u200D\uFE0E\uFE0F]/g, "");
+  let out = "";
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    const ok =
+      c < 0x250 ||                         // лат., Latin-1, Latin Ext-A (½ × ° и т.д.)
+      (c >= 0x2B0 && c <= 0x36F) ||        // модификаторы (узб. oʻ gʻ) + комбинируемые
+      (c >= 0x400 && c <= 0x4FF) ||        // кириллица
+      (c >= 0x2010 && c <= 0x205F) ||      // тире, кавычки, • …
+      (c >= 0x20A0 && c <= 0x20BF) ||      // валюты
+      c === 0x2116 || c === 0x2122 ||      // № ™
+      (c >= 0x2150 && c <= 0x218F) ||      // дроби
+      c === 0x2713 ||                      // ✓
+      (c >= 0x25A0 && c <= 0x25FF);        // ◀ ▶ ■ …
+    if (ok) out += ch;
+  }
+  return out.replace(/\s{2,}/g, " ").trim();
+}
+function clip(s, n) { s = sanitizeForFont(s); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
 function buildCatalogPDF(cat) {
   return new Promise((resolve, reject) => {
@@ -232,6 +259,9 @@ async function sendCatalog(chatId) {
   }
   await tg("sendMessage", { chat_id: chatId, text: "Готовлю каталог в PDF… ⏳" });
   await buildAndSendCatalog(chatId);
+  if (PUBLIC_URL) {
+    await tg("sendMessage", { chat_id: chatId, text: "🔎 Чтобы листать с крупными фото (нажми на фото — откроется на весь экран):", reply_markup: { inline_keyboard: catalogLinkRow() } });
+  }
 }
 
 /* ---------- меню с кнопками (нажал → прошлое сообщение заменяется) ---------- */
@@ -239,6 +269,7 @@ const PAGE_SIZE = 8;
 function kbMenuOnly() { return { inline_keyboard: [[{ text: "🏠 Меню", callback_data: "menu" }]] }; }
 function mainMenu() {
   return { text: "🤖 Главное меню\nВыберите действие:", reply_markup: { inline_keyboard: [
+    ...catalogLinkRow(),
     [{ text: "🛍 Каталог (PDF)", callback_data: "catalog" }],
     [{ text: "📂 Категории", callback_data: "cats" }, { text: "👥 Клиенты", callback_data: "clp:0" }],
     [{ text: "💰 Должники", callback_data: "dolg" }],
@@ -295,7 +326,7 @@ async function handleCallback(cq) {
       const r = await buildAndSendCatalog(chatId);
       if (!r.ok && r.reason === "empty")
         return edit({ text: "Каталог ещё не загружен. В приложении нажмите «🤖 Отправить каталог боту».", reply_markup: kbMenuOnly() });
-      return edit({ text: "🛍 Каталог отправлен ⬆️", reply_markup: { inline_keyboard: [[{ text: "🔄 Ещё раз", callback_data: "catalog" }, { text: "🏠 Меню", callback_data: "menu" }]] } });
+      return edit({ text: "🛍 Каталог отправлен ⬆️", reply_markup: { inline_keyboard: [ ...catalogLinkRow(), [{ text: "🔄 Ещё раз", callback_data: "catalog" }, { text: "🏠 Меню", callback_data: "menu" }] ] } });
     }
     if (data.indexOf("clp:") === 0) return edit(clientsPage(+data.slice(4) || 0));
     if (data.indexOf("c:") === 0) return edit(clientCard(+data.slice(2)));
@@ -364,14 +395,92 @@ async function poll() {
 function cors(res){ res.setHeader("Access-Control-Allow-Origin","*"); res.setHeader("Access-Control-Allow-Methods","GET, POST, OPTIONS"); res.setHeader("Access-Control-Allow-Headers","Content-Type, X-Api-Key"); }
 function readBody(req){ return new Promise(r=>{ let b=""; req.on("data",c=>b+=c); req.on("end",()=>r(b)); }); }
 
+/* ---------- ВЕБ-КАТАЛОГ (страница с фото; тап по фото — на весь экран, тап ещё раз — назад) ---------- */
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function catalogHTML(cat){
+  const company = esc(cat.company || "Каталог");
+  const tg = (cat.telegram || "").trim();
+  const tgHref = tg ? (/^https?:\/\//i.test(tg) ? tg : "https://t.me/" + tg.replace(/^@/,"")) : "";
+  const groups = {};
+  (cat.products || []).forEach(p => { const k = p.category || "Без категории"; (groups[k] = groups[k] || []).push(p); });
+  const names = Object.keys(groups).sort((a,b)=>a.localeCompare(b,"ru"));
+  let cards = "";
+  names.forEach(cn => {
+    cards += '<h2 class="cathead" data-cat="'+esc(cn)+'">'+esc(cn)+' <span>('+groups[cn].length+')</span></h2><div class="grid">';
+    groups[cn].forEach(p => {
+      const img = p.photo ? '<div class="imgwrap"><img loading="lazy" src="'+p.photo+'" alt=""></div>' : '<div class="imgwrap"><span class="noimg">📦</span></div>';
+      const badge = p.inStock ? '<span class="badge yes">✓ В наличии</span>' : '<span class="badge no">Под заказ</span>';
+      const desc = p.desc ? '<div class="desc">'+esc(p.desc)+'</div>' : "";
+      cards += '<div class="card" data-name="'+esc((p.name||"").toLowerCase())+'" data-cat="'+esc(cn)+'">'+img+'<div class="cbody"><div class="cname">'+esc(p.name)+'</div>'+desc+badge+'</div></div>';
+    });
+    cards += '</div>';
+  });
+  const opt = names.map(c => '<option value="'+esc(c)+'">'+esc(c)+'</option>').join("");
+  const date = new Date().toLocaleDateString("ru-RU");
+  const contact = tgHref ? '<a class="tg" href="'+esc(tgHref)+'" target="_blank">📲 Написать</a>' : "";
+  const empty = names.length ? "" : '<div class="empty">Каталог пока пуст.</div>';
+  const close = "<"+"/script>";
+  return '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">'
+   +'<title>'+company+' — Каталог</title><style>'
+   +':root{--bg:#f3f4f6;--card:#fff;--line:#e4e6eb;--ink:#1d2129;--muted:#8a8d91;--gold:#c8881f;--gold2:#a96f12}'
+   +'*{box-sizing:border-box;margin:0;padding:0}html{-webkit-text-size-adjust:100%}'
+   +'body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.4;padding-bottom:40px;-webkit-font-smoothing:antialiased}'
+   +'header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:12px 14px;box-shadow:0 2px 10px rgba(0,0,0,.05)}'
+   +'.htop{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;max-width:1100px;margin:0 auto}'
+   +'.brand{font-size:20px;font-weight:800;color:var(--gold)}.brand small{display:block;font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px}'
+   +'.tg{background:#229ED9;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 16px;border-radius:10px;white-space:nowrap}'
+   +'.controls{max-width:1100px;margin:10px auto 0;display:flex;gap:8px;flex-wrap:wrap}'
+   +'.controls input,.controls select{flex:1;min-width:140px;padding:13px 14px;border:1px solid #d5d8dd;border-radius:11px;font-size:16px;background:#fff;color:var(--ink);-webkit-appearance:none}'
+   +'main{max-width:1100px;margin:0 auto;padding:16px 14px 0}'
+   +'.cathead{font-size:16px;font-weight:800;color:var(--gold2);margin:22px 0 10px;padding-bottom:7px;border-bottom:2px solid var(--gold);display:flex;gap:8px;align-items:baseline}'
+   +'.cathead span{font-size:12.5px;font-weight:600;color:var(--muted)}'
+   +'.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}'
+   +'.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 4px rgba(0,0,0,.05)}'
+   +'.imgwrap{aspect-ratio:1/1;background:#fff;display:grid;place-items:center;overflow:hidden;padding:8px;cursor:zoom-in}'
+   +'.imgwrap img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}'
+   +'.imgwrap .noimg{font-size:42px;opacity:.35}'
+   +'.cbody{padding:10px 11px 12px;display:flex;flex-direction:column;gap:7px;flex:1}'
+   +'.cname{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.3}.desc{font-size:11.5px;color:var(--muted)}'
+   +'.badge{align-self:flex-start;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;margin-top:auto}'
+   +'.badge.yes{background:#e3f3da;color:#3c8c1e}.badge.no{background:#fdeede;color:#b5701a}'
+   +'.foot{max-width:1100px;margin:26px auto 0;padding:18px 16px;text-align:center;color:var(--muted);font-size:12px}'
+   +'.lb{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;place-items:center;z-index:50;padding:12px}'
+   +'.lb.show{display:grid}.lb img{max-width:100%;max-height:100%;border-radius:10px}'
+   +'.empty{text-align:center;color:var(--muted);padding:40px}'
+   +'@media(max-width:520px){.brand{font-size:18px}main{padding:12px 10px 0}.grid{gap:10px}}'
+   +'</style></head><body>'
+   +'<header><div class="htop"><div class="brand">'+company+'<small>Каталог · '+date+'</small></div>'+contact+'</div>'
+   +'<div class="controls"><input id="q" placeholder="🔍 Поиск по названию…"><select id="cat"><option value="">Все категории</option>'+opt+'</select></div></header>'
+   +'<main>'+cards+empty+'<div class="empty" id="nores" style="display:none">Ничего не найдено.</div></main>'
+   +'<div class="foot">'+company+' · Наличие уточняйте при заказе.'+(tg?' · '+esc(tg):'')+'</div>'
+   +'<div class="lb" id="lb"><img id="lbi" alt=""></div>'
+   +'<script>'
+   +'var lb=document.getElementById("lb"),lbi=document.getElementById("lbi");'
+   +'document.querySelectorAll(".imgwrap img").forEach(function(im){im.onclick=function(){lbi.src=im.src;lb.classList.add("show");};});'
+   +'lb.onclick=function(){lb.classList.remove("show");lbi.src="";};'
+   +'function flt(){var q=(document.getElementById("q").value||"").trim().toLowerCase();var c=document.getElementById("cat").value;var any=false;'
+   +'document.querySelectorAll(".card").forEach(function(card){var ok=(!q||card.dataset.name.indexOf(q)>-1)&&(!c||card.dataset.cat===c);card.style.display=ok?"":"none";if(ok)any=true;});'
+   +'document.querySelectorAll(".cathead").forEach(function(h){var cat=h.dataset.cat;var vis=Array.prototype.some.call(document.querySelectorAll(\'.card[data-cat="\'+CSS.escape(cat)+\'"]\'),function(c){return c.style.display!=="none";});h.style.display=vis?"":"none";var g=h.nextElementSibling;if(g)g.style.display=vis?"":"none";});'
+   +'var nr=document.getElementById("nores");if(nr)nr.style.display=any?"none":"block";}'
+   +'var qi=document.getElementById("q");if(qi)qi.addEventListener("input",flt);var ci=document.getElementById("cat");if(ci)ci.addEventListener("change",flt);'
+   +close+'</body></html>';
+}
+function catalogLinkRow(){ return PUBLIC_URL ? [[{ text: "🌐 Открыть каталог (фото крупно)", url: PUBLIC_URL + "/catalog" }]] : []; }
+
 const server = http.createServer(async (req, res) => {
   cors(res);
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
   const url = new URL(req.url, "http://localhost");
   const isHealth = (url.pathname === "/" || url.pathname === "/health" || url.pathname === "/api/health");
-  if (CONFIG.apiKey && !isHealth) {
+  const isCatalogPage = (url.pathname === "/catalog" || url.pathname === "/katalog");
+  if (CONFIG.apiKey && !isHealth && !isCatalogPage) {
     const key = req.headers["x-api-key"] || url.searchParams.get("key");
     if (key !== CONFIG.apiKey) { res.writeHead(401); res.end(JSON.stringify({ error: "bad key" })); return; }
+  }
+  if (isCatalogPage && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(catalogHTML(store.catalog || { products: [] }));
+    return;
   }
   if (isHealth) {
     res.writeHead(200, {"Content-Type":"application/json"});
@@ -437,4 +546,13 @@ server.listen(CONFIG.port, () => {
     ]}).catch(function(){});
   }
   poll();
+
+  // Самопинг: не даём бесплатному Render «засыпать» (пинг себя раз в 10 мин)
+  const SELF_URL = (process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL || "").replace(/\/+$/, "");
+  if (SELF_URL) {
+    console.log("Keep-alive самопинг включён: " + SELF_URL + "/health");
+    setInterval(() => {
+      try { https.get(SELF_URL + "/health", r => r.resume()).on("error", () => {}); } catch (e) {}
+    }, 10 * 60 * 1000);
+  }
 });
