@@ -1,0 +1,391 @@
+// ========================================================================
+//  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
+// ========================================================================
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js";
+import { openEditor, buildText, deleteSale } from "./sales.js";
+import { placeholder as placeholderImg } from "./products.js";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient } from "../telegram.js";
+import { icon } from "../icons.js";
+
+const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
+const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);
+const payUSD = (p) => toUSD(p.amount, p.currency);
+// накладная считается оплаченной, если все её позиции оплачены
+const isPaid = (s) => (s.items || []).length > 0 && s.items.every(i => i.paid);
+
+// строка сумм по валютам (без конвертации): "6 060 000 сум + $40 + ¥10"
+function curStr(o) {
+  const a = [];
+  ["som", "usd", "yuan"].forEach(c => { if (Math.abs(o[c]) >= (c === "som" ? 1 : 0.01)) a.push(fmt(o[c], c)); });
+  return a.length ? a.join("  +  ") : "0";
+}
+// старый долг клиента по валютам
+function openingDebt(customer) {
+  const o = customer && customer.opening_debt || {};
+  return { som: Number(o.som) || 0, usd: Number(o.usd) || 0, yuan: Number(o.yuan) || 0 };
+}
+// долг по валютам клиента: ВСЕ накладные + старый долг − оплаты.
+// (оплата — единый источник истины; флаг «оплачено» на накладной не учитываем — статус по оплатам)
+function debtByCur(custSales, custPays, customer) {
+  const d = { som: 0, usd: 0, yuan: 0 };
+  custSales.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; if (d[c] !== undefined) d[c] += it.qty * it.unit_price; }));
+  const od = openingDebt(customer);
+  ["som", "usd", "yuan"].forEach(c => d[c] += od[c]);
+  (custPays || []).forEach(p => { if (d[p.currency] !== undefined) d[p.currency] -= Number(p.amount) || 0; });
+  return d;
+}
+const onlyPositive = (o) => ({ som: Math.max(0, o.som), usd: Math.max(0, o.usd), yuan: Math.max(0, o.yuan) });
+
+// статус каждой накладной по оплатам (оплаты гасят накладные старые-первыми, по валютам).
+// Флаг «оплачено» не учитываем → статус меняется автоматически при оплате. { saleId: 'paid'|'partial'|'debt' }
+function coverageMap(custSales, custPays) {
+  const pool = { som: 0, usd: 0, yuan: 0 };
+  (custPays || []).forEach(p => { if (pool[p.currency] !== undefined) pool[p.currency] += Number(p.amount) || 0; });
+  const asc = [...custSales].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const map = {};
+  for (const s of asc) {
+    const need = { som: 0, usd: 0, yuan: 0 };
+    (s.items || []).forEach(it => { const c = it.currency || s.currency; if (need[c] !== undefined) need[c] += it.qty * it.unit_price; });
+    let anyNeed = false, allMet = true, tookAny = false;
+    ["som", "usd", "yuan"].forEach(c => {
+      if (need[c] <= 0.0001) return; anyNeed = true;
+      const take = Math.min(pool[c], need[c]); pool[c] -= take;
+      if (take > 0.0001) tookAny = true;
+      if (take < need[c] - 0.01) allMet = false;
+    });
+    map[s.id] = !anyNeed ? "paid" : allMet ? "paid" : tookAny ? "partial" : "debt";
+  }
+  return map;
+}
+
+export default async function render(page, ctx) {
+  const id = (location.hash.match(/[?&]id=([^&]+)/) || [])[1];
+  if (id) return renderCard(page, ctx, decodeURIComponent(id));
+  return renderList(page, ctx);
+}
+
+// ----------------------- СПИСОК -----------------------
+async function renderList(page, ctx) {
+  const [list, sales, payments] = await Promise.all([ctx.db.customers.list(), ctx.db.sales.list(), ctx.db.payments.list()]);
+
+  page.append(el("div.topbar", {}, [
+    el("div", {}, [el("h1", { text: "Клиенты" }), el("div.sub", { text: `Всего: ${list.length}` })]),
+    el("button.btn.btn-primary", { onclick: () => openForm(ctx, null, list) }, [icon("plus", { size: 16 }), "Добавить клиента"]),
+  ]));
+
+  if (!list.length) { page.append(el("div.empty", {}, [el("div.em-ic", {}, [icon("user", { size: 40 })]), el("p", { text: "Клиентов пока нет" })])); return; }
+
+  const tbody = el("tbody");
+  list.forEach(c => {
+    const cs = sales.filter(s => s.customer_id === c.id);
+    const cp = payments.filter(p => p.customer_id === c.id);
+    const raw = debtByCur(cs, cp, c);
+    const owe = onlyPositive(raw), adv = onlyPositive({ som: -raw.som, usd: -raw.usd, yuan: -raw.yuan });
+    const debtTxt = curStr(owe), advTxt = curStr(adv);
+    const badge = debtTxt !== "0" ? el("span.badge.order", { text: debtTxt })
+      : advTxt !== "0" ? el("span.badge.ok", { text: "Аванс " + advTxt })
+        : el("span.badge.muted", { text: "0" });
+    tbody.append(el("tr", { style: { cursor: "pointer" }, onclick: () => ctx.navigate("customers?id=" + c.id) }, [
+      el("td", {}, [el("strong", { text: c.name })]),
+      el("td", { text: c.contact || "—" }),
+      el("td", { text: cs.length + " накл." }),
+      el("td", {}, [badge]),
+      el("td.right", {}, [el("div.row-actions", {}, [
+        el("button.btn.btn-outline.btn-sm", { text: "Открыть", onclick: (e) => { e.stopPropagation(); ctx.navigate("customers?id=" + c.id); } }),
+        el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: (e) => { e.stopPropagation(); confirmDialog("Удалить клиента?", async () => { await ctx.db.customers.remove(c.id); toast("Удалено", "ok"); ctx.refresh(); }); } }, [icon("trash", { size: 16 })]),
+      ])]),
+    ]));
+  });
+  page.append(el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
+    el("thead", {}, [el("tr", {}, ["Имя", "Контакт", "Накладные", "Долг", ""].map(h => el("th", { text: h })))]),
+    tbody,
+  ])]));
+}
+
+function debtBadge(usd) {
+  if (usd > 0.5) return el("span.badge.order", { text: "Долг " + fmt(usd, "usd") });
+  if (usd < -0.5) return el("span.badge.ok", { text: "Аванс " + fmt(-usd, "usd") });
+  return el("span.badge.muted", { text: "0" });
+}
+
+// ----------------------- КАРТОЧКА КЛИЕНТА -----------------------
+async function renderCard(page, ctx, id) {
+  const [customers, products, allSales, allPay] = await Promise.all([
+    ctx.db.customers.list(), ctx.db.products.list(), ctx.db.sales.list(), ctx.db.payments.list(),
+  ]);
+  const c = customers.find(x => x.id === id);
+  if (!c) { page.append(el("div.empty", {}, [el("p", { text: "Клиент не найден" })])); return; }
+
+  const sales = allSales.filter(s => s.customer_id === id).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const payments = allPay.filter(p => p.customer_id === id).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const finals = sales; // считаем все накладные клиента
+
+  const pmap = Object.fromEntries(products.map(p => [p.id, p]));
+  // по валютам, без конвертации. Долг = неоплаченное − оплаты (не ниже 0);
+  // Оплачено = Оборот − Долг → всегда Оплачено + Долг = Оборот.
+  const turn = { som: 0, usd: 0, yuan: 0 }, unpaid = { som: 0, usd: 0, yuan: 0 }, pay = { som: 0, usd: 0, yuan: 0 };
+  finals.forEach(s => (s.items || []).forEach(it => {
+    const cur = it.currency || s.currency, v = it.qty * it.unit_price;
+    if (turn[cur] === undefined) return;
+    turn[cur] += v;
+    if (!it.paid) unpaid[cur] += v;
+  }));
+  payments.forEach(p => { if (pay[p.currency] !== undefined) pay[p.currency] += p.amount; });
+  const od = openingDebt(c); // старый долг
+  const debt = { som: 0, usd: 0, yuan: 0 }, paidObj = { som: 0, usd: 0, yuan: 0 }, advance = { som: 0, usd: 0, yuan: 0 };
+  // Долг = Оборот + старый долг − оплаты. Если оплат больше — это АВАНС (мы должны клиенту).
+  // При новой покупке Оборот растёт → аванс автоматически уменьшается.
+  ["som", "usd", "yuan"].forEach(cc => {
+    const raw = turn[cc] + od[cc] - pay[cc];
+    debt[cc] = Math.max(0, raw);
+    advance[cc] = Math.max(0, -raw);
+    paidObj[cc] = pay[cc];
+  });
+  const lastPay = payments[0];
+
+  // --- шапка ---
+  page.append(el("div.topbar", {}, [
+    el("div", {}, [
+      el("button.btn.btn-outline.btn-sm", { onclick: () => ctx.navigate("customers"), style: { marginBottom: "10px" } }, [icon("arrow-left", { size: 15 }), "К списку"]),
+      el("h1", { text: c.name }),
+      el("div.sub", { text: [c.contact, c.tg_chat_id ? "chat: " + c.tg_chat_id : null, c.note].filter(Boolean).join(" · ") || "—" }),
+    ]),
+    el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
+      el("button.btn.btn-outline", { onclick: () => openForm(ctx, c, customers) }, [icon("edit", { size: 16 }), "Изменить"]),
+      el("button.btn.btn-ok", { onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 16 }), "Оплата"]),
+      el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products, c.id) }, [icon("plus", { size: 16 }), "Накладная"]),
+    ]),
+  ]));
+
+  // --- статистика (по валютам, без конвертации) ---
+  page.append(el("div.stat-grid", {}, [
+    statCard("Оборот", curStr(turn), "по валютам", "wallet", true),
+    statCard("Оплачено", curStr(paidObj), "по валютам", "check"),
+    statCardDebt(debt, advance),
+    statCard("Последняя оплата", lastPay ? new Date(lastPay.date).toLocaleDateString("ru-RU") : "—", lastPay ? fmt(lastPay.amount, lastPay.currency) : "нет оплат", "clock"),
+  ]));
+  if (curStr(onlyPositive(od)) !== "0") page.append(el("div.hint", { style: { marginTop: "2px" }, text: "Из общего долга старый долг (до системы): " + curStr(onlyPositive(od)) }));
+
+  // --- накладные (по датам, раскрываются по клику) ---
+  page.append(el("div.section-h", { text: "Накладные клиента" }));
+  page.append(el("div.hint", { text: "Нажмите на накладную, чтобы посмотреть, что заказано в этот день." }));
+  if (!sales.length) page.append(el("div.empty", { style: { padding: "30px" } }, [el("p", { text: "Накладных нет" })]));
+  else {
+    // бейдж = статус с учётом оплат (оплаты гасят старые «в долг» накладные первыми)
+    const cov = coverageMap(sales, payments);
+    const payBadgeFor = (s) => {
+      const st = cov[s.id];
+      if (st === "paid") return el("span.badge.ok", {}, [icon("check", { size: 13 }), "Оплачено"]);
+      if (st === "partial") return el("span.badge.transit", {}, [icon("clock", { size: 13 }), "Частично"]);
+      return el("span.badge.order", {}, [icon("dot", { size: 12 }), "В долг"]);
+    };
+    const tb = el("tbody");
+    sales.forEach(s => {
+      const payBadge = payBadgeFor(s);
+
+      // строка-детали (что заказано) — скрыта, появляется по клику
+      const detail = el("tr.detail", { style: { display: "none" } }, [
+        el("td", { colspan: 6 }, [buildItemsTable(s, pmap)]),
+      ]);
+      const mainRow = el("tr", { style: { cursor: "pointer" }, title: "Показать товары",
+        onclick: (e) => { if (e.target.closest("button")) return; detail.style.display = detail.style.display === "none" ? "" : "none"; } }, [
+        el("td", {}, [el("strong", { text: new Date(s.date).toLocaleDateString("ru-RU") }), " ", el("span.muted", { text: "▾", style: { fontSize: "11px" } })]),
+        el("td", {}, [el("span.badge.cur", { text: [...new Set((s.items || []).map(i => CUR[i.currency || s.currency]?.sign || ""))].join(" ") })]),
+        el("td", {}, [el("strong", { text: curStr(sumByCur(s.items)) })]),
+        el("td", {}, [payBadge]),
+        el("td", { text: (s.items || []).length + " поз." }),
+        el("td.right", {}, [el("div.row-actions", {}, [
+          el("button.btn.btn-outline.btn-sm.btn-icon", { title: isPaid(s) ? "Отметить «в долг»" : "Отметить «оплачено»", onclick: () => togglePaid(ctx, s) }, [icon(isPaid(s) ? "dot" : "check", { size: 16 })]),
+          el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать (цена/кол-во/товары)", onclick: () => openEditor(ctx, s, customers, products, c.id) }, [icon("edit", { size: 16 })]),
+          el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить клиенту", onclick: () => sendInvToClient(ctx, s, c, products) }, [icon("send", { size: 16 })]),
+          el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить в канал", onclick: () => sendInvToChannel(ctx, s, c, products) }, [icon("broadcast", { size: 16 })]),
+          el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить накладную? Товары вернутся на склад.", () => deleteSale(ctx, s, products)) }, [icon("trash", { size: 16 })]),
+        ])]),
+      ]);
+      tb.append(mainRow, detail);
+    });
+    page.append(el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
+      el("thead", {}, [el("tr", {}, ["Дата", "Валюта", "Сумма", "Оплата", "Позиции", ""].map(h => el("th", { text: h })))]),
+      tb,
+    ])]));
+  }
+
+  // --- заказанные товары (агрегировано по всем накладным клиента) ---
+  page.append(el("div.section-h", { text: "Заказанные товары" }));
+  const agg = {};
+  sales.forEach(s => (s.items || []).forEach(it => {
+    const a = agg[it.product_id] = agg[it.product_id] || { qty: 0, last: 0, cur: it.currency, date: null };
+    a.qty += it.qty;
+    if (!a.date || new Date(s.date) >= new Date(a.date)) { a.date = s.date; a.last = it.unit_price; a.cur = it.currency; }
+  }));
+  const aggRows = Object.entries(agg).sort((a, b) => b[1].qty - a[1].qty);
+  if (!aggRows.length) page.append(el("div.empty", { style: { padding: "30px" } }, [el("p", { text: "Клиент ещё ничего не заказывал" })]));
+  else {
+    const tb = el("tbody");
+    aggRows.forEach(([pid, a]) => {
+      const p = pmap[pid] || { name: "?", photo_url: "" };
+      tb.append(el("tr", {}, [
+        el("td", {}, [el("div", { style: { display: "flex", alignItems: "center", gap: "10px" } }, [
+          el("img.thumb", { src: p.photo_url || placeholderImg(p.name), style: { width: "38px", height: "38px" }, onerror: function () { this.src = placeholderImg(p.name); } }),
+          el("strong", { text: p.name }),
+        ])]),
+        el("td", {}, [el("strong", { text: a.qty })]),
+        el("td", { text: fmt(a.last, a.cur) }),
+        el("td", { text: a.date ? new Date(a.date).toLocaleDateString("ru-RU") : "—" }),
+      ]));
+    });
+    page.append(el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
+      el("thead", {}, [el("tr", {}, ["Товар", "Всего заказано", "Последняя цена", "Последний заказ"].map(h => el("th", { text: h })))]),
+      tb,
+    ])]));
+  }
+
+  // --- оплаты ---
+  page.append(el("div.section-h", { text: "История оплат" }));
+  if (!payments.length) page.append(el("div.empty", { style: { padding: "30px" } }, [el("p", { text: "Оплат пока нет" })]));
+  else {
+    const tb = el("tbody");
+    payments.forEach(p => {
+      tb.append(el("tr", {}, [
+        el("td", { text: new Date(p.date).toLocaleDateString("ru-RU") }),
+        el("td", {}, [el("strong", { text: fmt(p.amount, p.currency) })]),
+        el("td", {}, [el("span.badge.cur", { text: CUR[p.currency].label })]),
+        el("td", { text: p.note || "—" }),
+        el("td.right", {}, [el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить оплату?", async () => { await ctx.db.payments.remove(p.id); toast("Удалено", "ok"); ctx.refresh(); }) }, [icon("trash", { size: 16 })])]),
+      ]));
+    });
+    page.append(el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
+      el("thead", {}, [el("tr", {}, ["Дата", "Сумма", "Валюта", "Комментарий", ""].map(h => el("th", { text: h })))]),
+      tb,
+    ])]));
+  }
+}
+
+function statCard(label, value, sub, ic, grad) {
+  return el("div" + (grad ? ".stat-card.grad" : ".stat-card"), {}, [
+    el("div.st-ic", {}, [icon(ic, { size: 22 })]), el("div.st-label", { text: label }),
+    el("div.st-value", { text: value }), el("div.st-sub", { text: sub }),
+  ]);
+}
+function statCardDebt(debt, advance) {
+  const owe = onlyPositive(debt);
+  const adv = onlyPositive(advance || { som: 0, usd: 0, yuan: 0 });
+  const txt = curStr(owe), advTxt = curStr(adv);
+  const has = txt !== "0";
+  const hasAdv = !has && advTxt !== "0"; // аванс показываем, только если нет долга
+  const value = has ? txt : hasAdv ? advTxt : "0";
+  const color = has ? "#fbbf24" : "#34d399";
+  return el("div.stat-card", { style: has ? { borderColor: "rgba(245,158,11,.5)" } : hasAdv ? { borderColor: "rgba(16,185,129,.5)" } : {} }, [
+    el("div.st-ic", {}, [icon(has ? "alert" : hasAdv ? "undo" : "check", { size: 22 })]),
+    el("div.st-label", { text: hasAdv ? "Аванс (наш долг)" : "Долг" }),
+    el("div.st-value", { text: value, style: { color, fontSize: value.length > 14 ? "20px" : "30px" } }),
+    el("div.st-sub", { text: has ? "клиент должен" : hasAdv ? "мы должны клиенту" : "нет долга" }),
+  ]);
+}
+
+// таблица позиций накладной (что заказано в этот день)
+function buildItemsTable(s, pmap) {
+  const tb = el("tbody");
+  (s.items || []).forEach((it, n) => {
+    const p = pmap[it.product_id] || { name: "?", photo_url: "" };
+    tb.append(el("tr", {}, [
+      el("td", { text: (n + 1) }),
+      el("td", {}, [el("div", { style: { display: "flex", alignItems: "center", gap: "8px" } }, [
+        el("img.thumb", { src: p.photo_url || placeholderImg(p.name), style: { width: "36px", height: "36px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholderImg(p.name); } }),
+        el("span", { text: p.name }),
+      ])]),
+      el("td", { text: it.qty }),
+      el("td", { text: fmt(it.unit_price, it.currency || s.currency) }),
+      el("td", {}, [el("strong", { text: fmt(it.qty * it.unit_price, it.currency || s.currency) })]),
+      el("td", {}, [it.paid ? el("span.badge.ok", {}, [icon("check", { size: 12 })]) : el("span.badge.order", {}, [icon("dot", { size: 11 })])]),
+    ]));
+  });
+  return el("div", { style: { padding: "6px 0 10px 0" } }, [
+    el("div.muted", { text: "Заказано " + new Date(s.date).toLocaleDateString("ru-RU") + (Number(s.boxes) > 0 ? "  ·  коробок: " + s.boxes : "") + ":", style: { fontSize: "12px", marginBottom: "6px" } }),
+    el("table.tbl", { style: { background: "transparent" } }, [
+      el("thead", {}, [el("tr", {}, ["#", "Товар", "Кол-во", "Цена", "Сумма", "Опл."].map(h => el("th", { text: h })))]),
+      tb,
+    ]),
+  ]);
+}
+
+// переключить статус оплаты накладной
+async function togglePaid(ctx, s) {
+  const newPaid = !isPaid(s);
+  const items = (s.items || []).map(i => ({ ...i, paid: newPaid }));
+  await ctx.db.sales.upsert({ id: s.id, items });
+  toast(newPaid ? "Отмечено: оплачено" : "Отмечено: в долг", "ok");
+  ctx.refresh();
+}
+
+// ----------------------- ОТПРАВКА НАКЛАДНОЙ -----------------------
+async function sendInvToClient(ctx, s, c, products) {
+  if (!c.tg_chat_id) { toast("Укажите chat_id клиента (кнопка «Изменить»)", "err"); return; }
+  // отправляем через КЛИЕНТСКОГО бота (админский бот не может писать клиенту)
+  try { await sendInvoicePDFToClient(s.id, c.tg_chat_id, "Ваша накладная"); toast("Отправлено клиенту", "ok"); }
+  catch (e) { toast("Не отправлено: " + e.message, "err"); }
+}
+async function sendInvToChannel(ctx, s, c, products) {
+  try { await sendInvoicePDF(s.id); await ctx.db.sales.upsert({ id: s.id, telegram_sent: true }); toast("Отправлено в канал (PDF)", "ok"); ctx.refresh(); }
+  catch (e) { toast(e.message, "err"); }
+}
+
+// ----------------------- ФОРМА ОПЛАТЫ -----------------------
+function openPayment(ctx, c) {
+  const fAmount = input({ type: "number", step: "0.01", placeholder: "Сумма" });
+  const fCur = select(Object.values(CUR).map(x => ({ value: x.code, label: x.label })), "yuan");
+  const fNote = input({ placeholder: "Комментарий (необязательно)" });
+  modal({
+    title: "Новая оплата — " + c.name,
+    body: el("div", {}, [
+      el("div.row2", {}, [field("Сумма", fAmount), field("Валюта", fCur)]),
+      field("Комментарий", fNote),
+    ]),
+    actions: [
+      { label: "Отмена", kind: "btn-outline", onClick: x => x() },
+      { label: "Сохранить", kind: "btn-primary", onClick: async (close) => {
+        if (!(+fAmount.value > 0)) { toast("Введите сумму", "err"); return; }
+        const amount = +fAmount.value, currency = fCur.value;
+        await ctx.db.payments.upsert({ customer_id: c.id, amount, currency, date: new Date().toISOString(), note: fNote.value.trim() });
+        close(); toast("Оплата добавлена, долг обновлён", "ok"); ctx.refresh();
+      } },
+    ],
+  });
+}
+
+// ----------------------- ФОРМА КЛИЕНТА -----------------------
+function openForm(ctx, c, allCustomers = []) {
+  const isNew = !c; c = c || { name: "", contact: "", note: "", tg_chat_id: "" };
+  const fName = inputList(allCustomers.map(x => x.name), { value: c.name, placeholder: "Имя / магазин" });
+  const fContact = inputList(allCustomers.map(x => x.contact), { value: c.contact || "", placeholder: "Телефон / @username" });
+  const fChat = input({ value: c.tg_chat_id || "", placeholder: "chat_id (для отправки накладных)" });
+  const fNote = input({ value: c.note || "", placeholder: "Заметка" });
+  const od0 = openingDebt(c);
+  const fOdSom = input({ type: "number", value: od0.som || "", placeholder: "сум" });
+  const fOdUsd = input({ type: "number", step: "0.01", value: od0.usd || "", placeholder: "$" });
+  const fOdYuan = input({ type: "number", step: "0.01", value: od0.yuan || "", placeholder: "¥" });
+  modal({
+    title: isNew ? "Новый клиент" : "Клиент",
+    body: el("div", {}, [
+      field("Имя", fName), field("Контакт", fContact),
+      field("Telegram chat_id", fChat),
+      el("div.hint", { text: "chat_id нужен, чтобы отправлять накладные клиенту. Клиент должен сначала написать боту /start." }),
+      field("Заметка", fNote),
+      el("div.section-h", { text: "Старый долг (до системы)" }),
+      el("div.row3", {}, [field("Сум", fOdSom), field("Доллар $", fOdUsd), field("Юань ¥", fOdYuan)]),
+      el("div.hint", { text: "Долг, который был у клиента до начала учёта. Входит в общий долг, гасится оплатами." }),
+    ]),
+    actions: [
+      { label: "Отмена", kind: "btn-outline", onClick: x => x() },
+      { label: "Сохранить", kind: "btn-primary", onClick: async (close) => {
+        if (!fName.value.trim()) { toast("Введите имя", "err"); return; }
+        const base = { ...(isNew ? {} : { id: c.id }), name: fName.value.trim(), contact: fContact.value.trim(), tg_chat_id: fChat.value.trim(), note: fNote.value.trim() };
+        const opening_debt = { som: +fOdSom.value || 0, usd: +fOdUsd.value || 0, yuan: +fOdYuan.value || 0 };
+        try { const r = await ctx.db.customers.upsert({ ...base, opening_debt }); if (isNew && r) await ctx.db.customers.upsert({ id: r.id, opening_debt }); }
+        catch (e) { await ctx.db.customers.upsert(base); toast("Старый долг не сохранён (нужен SQL): " + e.message, "err"); }
+        close(); toast("Сохранено", "ok"); ctx.refresh();
+      } },
+    ],
+  });
+}

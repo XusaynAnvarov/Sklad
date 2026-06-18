@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "functions": {
+    "api/bot.js": { "includeFiles": "api/fonts/**", "maxDuration": 30 },
+    "api/telegram.js": { "includeFiles": "api/fonts/**", "maxDuration": 30 }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    }
+  ]
+}
