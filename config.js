@@ -7,8 +7,8 @@
 
 window.APP_CONFIG = {
   // --- Supabase (оставьте пустыми для локального режима) ---
-  SUPABASE_URL: "",
-  SUPABASE_ANON_KEY: "",
+  SUPABASE_URL: "https://ttgcrcloioznojreogwn.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_kEnVZ8JpDAwLPPdF4FzSTw_P09cBhLn",
 
   // --- Доступ к админке ---
   // ВНИМАНИЕ: всё в этом файле попадает в браузер и НЕ является секретом.
