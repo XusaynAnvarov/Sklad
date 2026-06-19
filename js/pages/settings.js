@@ -159,13 +159,13 @@ export default async function render(page, ctx) {
 
   const backupCard = el("div.card", { style: { marginBottom: "18px" } }, [
     el("div.section-h", { text: "Резервная копия данных", style: { marginTop: 0 } }),
-    el("p.muted", { text: "Сохраните копию всех данных (товары, клиенты, продажи, приходы, оплаты, настройки) в файл и храните в надёжном месте (флешка / облако)." }),
+    el("p.muted", { text: "Сохраните копию всех данных (товары, клиенты, продажи, приходы, оплаты, настройки) в файл и храните в надёжном месте (флешка / облако).", style: { lineHeight: "1.55", marginBottom: "16px" } }),
     el("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap" } }, [
       el("button.btn.btn-primary", { text: "📥 Скачать копию", onclick: exportData }),
       el("button.btn.btn-outline", { text: "📤 Восстановить из файла", onclick: () => restoreInput.click() }),
     ]),
     restoreInput,
-    el("div.hint", { text: "Восстановление перезаписывает записи с тем же id данными из файла (удалённые — возвращает). Делайте свежую копию перед восстановлением." }),
+    el("div.hint", { text: "Восстановление перезаписывает записи с тем же id данными из файла (удалённые — возвращает). Делайте свежую копию перед восстановлением.", style: { marginTop: "14px", marginBottom: 0, lineHeight: "1.5" } }),
   ]);
 
   // ---------- Режим / демо ----------

@@ -243,18 +243,43 @@ select.inp{appearance:none;cursor:pointer;}
   opacity:0;transform:translateY(-8px) scale(.98);pointer-events:none;
   transition:opacity .16s ease, transform .16s ease;}
 .combo-panel.show{opacity:1;transform:none;pointer-events:auto;}
-.combo-item{padding:11px 13px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--text);
-  transition:background .12s, transform .12s, color .12s;}
+.combo-item{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:11px 13px 11px 16px;border-radius:8px;cursor:pointer;font-size:14px;color:var(--text);
+  transition:background .14s ease, transform .14s ease, color .14s, padding-left .14s ease;}
+/* анимированная левая полоска-индикатор: видно, на каком пункте находишься */
+.combo-item::before{content:"";position:absolute;left:5px;top:50%;width:3px;height:0;border-radius:3px;
+  background:var(--accent);transform:translateY(-50%);transition:height .16s ease;}
 .combo-item:hover,.combo-item.hi{
-  background:linear-gradient(90deg,rgba(79,124,240,.35),rgba(107,151,245,.16));transform:translateX(3px);}
+  background:rgba(79,124,240,.12);transform:translateX(2px);padding-left:18px;}
+.combo-item:hover::before,.combo-item.hi::before{height:62%;}
+/* галочка у текущего выбранного значения (в кастомном select) */
+.cselect-panel .combo-item.hi::after{content:"✓";color:var(--accent);font-weight:800;font-size:13px;}
 html[data-theme="light"] .combo-panel{background:rgba(255,255,255,.98);border-color:rgba(79,124,240,.3);}
-html[data-theme="light"] .combo-item:hover,html[data-theme="light"] .combo-item.hi{background:linear-gradient(90deg,rgba(79,124,240,.18),rgba(107,151,245,.10));}
+html[data-theme="light"] .combo-item:hover,html[data-theme="light"] .combo-item.hi{background:rgba(79,124,240,.10);}
 
 /* стилизованный select */
 .cselect{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;}
 .cselect .cs-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .cselect .cs-caret{color:var(--muted);font-size:12px;flex-shrink:0;transition:transform .2s;}
 .cselect:hover{border-color:rgba(79,124,240,.4);}
+.cselect.show .cs-caret,.cselect:focus-within .cs-caret{transform:rotate(180deg);}
+
+/* «вспышка» при выборе значения (combobox / select) — подтверждение выбора */
+@keyframes pickedFlash{
+  0%{box-shadow:0 0 0 0 rgba(79,124,240,.55);border-color:var(--accent);}
+  60%{box-shadow:0 0 0 5px rgba(79,124,240,0);border-color:var(--accent);}
+  100%{box-shadow:0 0 0 0 rgba(79,124,240,0);}
+}
+.inp.picked-flash,.cselect.picked-flash{animation:pickedFlash .5s ease;}
+
+/* нажатие кнопки — заметная, но аккуратная отдача */
+.btn{position:relative;}
+.btn:active{transform:scale(.97);}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(79,124,240,.35);}
+.navitem:active{transform:scale(.985);}
+.pill-tabs button{transition:background .2s, color .2s, transform .12s;}
+.pill-tabs button:active{transform:scale(.95);}
+.combo-item:active{transform:scale(.98);}
 
 /* строка товара в накладной — анимация появления */
 @keyframes itemIn{from{opacity:0;transform:translateY(10px) scale(.98);}to{opacity:1;transform:none;}}

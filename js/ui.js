@@ -121,7 +121,15 @@ export function inputList(options, props = {}) {
   };
   const show = () => { ensure(); position(); render(); if (items.length) panel.classList.add("show"); };
   const hide = () => { if (panel) panel.classList.remove("show"); hi = -1; };
-  const choose = (o) => { inp.value = o.value; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.dispatchEvent(new Event("change", { bubbles: true })); hide(); };
+  const choose = (o) => {
+    inp.value = o.value;
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    inp.dispatchEvent(new Event("change", { bubbles: true }));
+    hide();
+    // визуальная отдача: краткая «вспышка», что выбор принят
+    inp.classList.remove("picked-flash"); void inp.offsetWidth; inp.classList.add("picked-flash");
+    setTimeout(() => inp.classList.remove("picked-flash"), 500);
+  };
 
   inp.addEventListener("focus", show);
   inp.addEventListener("input", () => { hi = -1; show(); });
@@ -153,7 +161,13 @@ export function select(options, value, props = {}) {
     if (!panel) { panel = el("div.combo-panel.cselect-panel"); document.body.appendChild(panel); }
     panel.innerHTML = "";
     options.forEach(o => panel.append(el("div.combo-item" + (o.value === val ? ".hi" : ""), {
-      onmousedown: (e) => { e.preventDefault(); val = o.value; setLabel(); close(); wrap.dispatchEvent(new Event("change", { bubbles: true })); },
+      onmousedown: (e) => {
+        e.preventDefault(); val = o.value; setLabel(); close();
+        wrap.dispatchEvent(new Event("change", { bubbles: true }));
+        // визуальная отдача: краткая «вспышка» выбранного поля
+        wrap.classList.remove("picked-flash"); void wrap.offsetWidth; wrap.classList.add("picked-flash");
+        setTimeout(() => wrap.classList.remove("picked-flash"), 500);
+      },
     }, [o.label])));
     const r = wrap.getBoundingClientRect();
     panel.style.left = r.left + "px"; panel.style.top = (r.bottom + 6) + "px"; panel.style.minWidth = r.width + "px";
