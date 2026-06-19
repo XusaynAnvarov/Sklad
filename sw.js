@@ -2,7 +2,7 @@
 //  Service Worker — оффлайн-оболочка + быстрый старт (stale-while-revalidate).
 //  Данные (Supabase/api) НЕ кэшируем — всегда из сети.
 // ========================================================================
-const CACHE = "sklad-v2";
+const CACHE = "sklad-v3";
 const SHELL = ["./", "./index.html", "./catalog.html", "./css/theme.css", "./config.js", "./icon.svg", "./manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
