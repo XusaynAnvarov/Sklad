@@ -302,7 +302,8 @@ html[data-theme="light"] .combo-item:hover,html[data-theme="light"] .combo-item.
 html[data-theme="light"] .lang-switch.floating{background:rgba(255,255,255,.8);}
 
 /* ===================================================================
-   СВЕТЛАЯ ТЕМА — Crextio (кремовый фон, жёлтый акцент, чёрные пилюли)
+   СВЕТЛАЯ ТЕМА — строгий профессиональный стиль
+   (нейтральный серый фон #f5f6f8, сдержанный синий акцент, графит)
    =================================================================== */
 html[data-theme="light"]{
   --bg:#f5f6f8; --panel:#ffffff; --card:#ffffff;
