@@ -27,7 +27,7 @@ function keyOk() {
   if (k && k === cfg.SECRET_KEY) {
     localStorage.setItem(KEY_STORE, "1");
     // убираем ключ из адреса, оставляя чистый роут
-    if (/key=/.test(location.hash)) location.hash = "#/dashboard";
+    if (/key=/.test(location.hash)) location.hash = "#/products";
     return true;
   }
   if (localStorage.getItem(KEY_STORE) === "1") return true;
