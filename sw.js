@@ -2,8 +2,11 @@
 //  Service Worker — оффлайн-оболочка + быстрый старт (stale-while-revalidate).
 //  Данные (Supabase/api) НЕ кэшируем — всегда из сети.
 // ========================================================================
-const CACHE = "sklad-v3";
+const CACHE = "sklad-v4";
 const SHELL = ["./", "./index.html", "./catalog.html", "./css/theme.css", "./config.js", "./icon.svg", "./manifest.webmanifest"];
+// код (html/css/js) грузим «сеть в приоритете», чтобы изменения были видны сразу;
+// картинки/иконки/шрифты — из кэша (быстро + офлайн).
+const isCode = (p) => p.endsWith(".html") || p.endsWith(".css") || p.endsWith(".js") || p.endsWith("/");
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL).catch(() => {})));
@@ -19,6 +22,18 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   // только своя статика; чужие домены (Supabase, Telegram) и /api/ — мимо (сеть)
   if (url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
+
+  if (isCode(url.pathname)) {
+    // network-first: всегда свежий код, при отсутствии сети — из кэша
+    e.respondWith(
+      fetch(req).then(res => {
+        if (res && res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp)); }
+        return res;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
+  // остальное (картинки/иконки/шрифты) — stale-while-revalidate
   e.respondWith(
     caches.match(req).then(cached => {
       const net = fetch(req).then(res => {
