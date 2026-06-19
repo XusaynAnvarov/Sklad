@@ -9,6 +9,7 @@ import { setRates } from "./fx.js";
 import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js";
 import { applyI18n, makeLangSwitcher } from "./i18n.js";
 
+import dashboard from "./pages/dashboard.js";
 import products from "./pages/products.js";
 import sales from "./pages/sales.js";
 import purchases from "./pages/purchases.js";
@@ -19,6 +20,7 @@ import catalogPage from "./pages/catalog_admin.js";
 import settings from "./pages/settings.js";
 
 const NAV = [
+  { id: "dashboard", label: "Дашборд", ic: "dashboard", render: dashboard },
   { id: "products",  label: "Товары",  ic: "box", render: products },
   { id: "sales",     label: "Продажи", ic: "receipt", render: sales },
   { id: "purchases", label: "Приход",  ic: "truck", render: purchases },
@@ -93,7 +95,7 @@ function buildShell() {
 }
 
 async function route() {
-  const id = (location.hash.replace(/^#\/?/, "") || "products").split("?")[0];
+  const id = (location.hash.replace(/^#\/?/, "") || "dashboard").split("?")[0];
   const item = NAV.find(n => n.id === id) || NAV[0];
   $$(".navitem").forEach(n => n.classList.toggle("active", n.getAttribute("data-id") === item.id));
   const view = $("#view");
