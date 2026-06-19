@@ -92,14 +92,14 @@ html[data-theme="light"] .bg-stars{opacity:.45;}
 /* ---------- Карточки ---------- */
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;
   backdrop-filter:blur(10px);transition:transform .3s, border-color .3s, box-shadow .3s;}
-.card:hover{border-color:rgba(47,91,208,.3);}
+.card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 22px rgba(16,24,40,.10);}
 
 /* статистика дашборда */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;}
 .stat-card{position:relative;overflow:hidden;padding:22px;border-radius:var(--radius);
   background:var(--card);border:1px solid var(--border);backdrop-filter:blur(10px);
   transition:transform .3s,border-color .3s,box-shadow .3s;}
-.stat-card:hover{transform:translateY(-1px);border-color:rgba(47,91,208,.35);box-shadow:0 4px 14px rgba(16,24,40,.07);}
+.stat-card:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 12px 26px rgba(16,24,40,.14);}
 .stat-card .st-label{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:8px;}
 .stat-card .st-value{font-size:30px;font-weight:800;margin-top:10px;line-height:1.1;}
 .stat-card .st-sub{color:var(--muted);font-size:12px;margin-top:6px;}
@@ -278,7 +278,10 @@ html[data-theme="light"] .combo-item:hover,html[data-theme="light"] .combo-item.
 .btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(79,124,240,.35);}
 .navitem:active{transform:scale(.985);}
 .pill-tabs button{transition:background .2s, color .2s, transform .12s;}
+.pill-tabs button:hover:not(.active){color:var(--text);background:rgba(79,124,240,.12);}
 .pill-tabs button:active{transform:scale(.95);}
+@keyframes tabPop{0%{transform:scale(.92);}60%{transform:scale(1.04);}100%{transform:scale(1);}}
+.pill-tabs button.active{animation:tabPop .22s ease;}
 .combo-item:active{transform:scale(.98);}
 
 /* строка товара в накладной — анимация появления */
