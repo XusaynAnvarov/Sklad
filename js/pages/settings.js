@@ -3,6 +3,7 @@
 // ========================================================================
 import { el, toast, field, input, confirmDialog } from "../ui.js";
 import { fetchLiveRates, setRates, getRates } from "../fx.js";
+import { rawClient } from "../db.js";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -69,6 +70,104 @@ export default async function render(page, ctx) {
     ]);
   }
 
+  // ---------- Резервная копия данных ----------
+  const TABLES = ["products", "customers", "sales", "purchases", "payments"];
+
+  // Полная выгрузка таблицы. В облаке supabase-js по умолчанию отдаёт максимум
+  // 1000 строк — поэтому читаем постранично через .range(), чтобы копия была полной.
+  async function dumpTable(t) {
+    if (ctx.db.mode !== "supabase") return ctx.db[t].list();
+    const sb = rawClient();
+    const PAGE = 1000;
+    let from = 0, out = [];
+    for (;;) {
+      const { data, error } = await sb.from(t).select("*").range(from, from + PAGE - 1);
+      if (error) throw new Error(t + ": " + error.message);
+      out = out.concat(data || []);
+      if (!data || data.length < PAGE) break;
+      from += PAGE;
+    }
+    return out;
+  }
+
+  async function exportData() {
+    toast("Готовлю копию…", "info");
+    try {
+      const [products, customers, sales, purchases, payments, settings] = await Promise.all([
+        dumpTable("products"), dumpTable("customers"), dumpTable("sales"),
+        dumpTable("purchases"), dumpTable("payments"), ctx.db.getSettings(),
+      ]);
+      const payload = {
+        app: "sklad", exported_at: new Date().toISOString(), mode: ctx.db.mode,
+        data: { products, customers, sales, purchases, payments, settings },
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+      a.href = url; a.download = `sklad-backup-${stamp}.json`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast("Копия скачана", "ok");
+    } catch (e) { toast("Ошибка: " + e.message, "err"); }
+  }
+
+  async function restoreFrom(payload) {
+    const d = (payload && payload.data) || payload || {};
+    if (!Array.isArray(d.products) && !Array.isArray(d.customers))
+      throw new Error("Файл не похож на копию склада");
+    const settingsRow = Array.isArray(d.settings) ? d.settings[0] : d.settings;
+
+    if (ctx.db.mode === "supabase") {
+      const sb = rawClient();
+      for (const t of TABLES) {
+        const rows = d[t];
+        if (!Array.isArray(rows) || !rows.length) continue;
+        const { error } = await sb.from(t).upsert(rows, { onConflict: "id" });
+        if (error) throw new Error(t + ": " + error.message);
+      }
+      if (settingsRow) {
+        const { error } = await sb.from("settings").upsert(settingsRow, { onConflict: "id" });
+        if (error) throw new Error("settings: " + error.message);
+      }
+    } else {
+      for (const t of TABLES)
+        for (const row of (d[t] || [])) await ctx.db[t].upsert(row);
+      if (settingsRow) await ctx.db.saveSettings(settingsRow);
+    }
+  }
+
+  const restoreInput = el("input", {
+    type: "file", accept: "application/json,.json", style: { display: "none" },
+    onchange: async (e) => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      let payload;
+      try { payload = JSON.parse(await file.text()); }
+      catch { return toast("Не удалось прочитать файл", "err"); }
+      const d = (payload && payload.data) || payload || {};
+      const np = (d.products || []).length, nc = (d.customers || []).length, ns = (d.sales || []).length;
+      confirmDialog(
+        `Восстановить из файла? Совпадающие записи будут перезаписаны.\nТоваров: ${np}, клиентов: ${nc}, продаж: ${ns}.`,
+        async () => {
+          toast("Восстанавливаю…", "info");
+          try { await restoreFrom(payload); toast("Восстановлено", "ok"); ctx.refresh(); }
+          catch (err) { toast("Ошибка: " + err.message, "err"); }
+        });
+    },
+  });
+
+  const backupCard = el("div.card", { style: { marginBottom: "18px" } }, [
+    el("div.section-h", { text: "Резервная копия данных", style: { marginTop: 0 } }),
+    el("p.muted", { text: "Сохраните копию всех данных (товары, клиенты, продажи, приходы, оплаты, настройки) в файл и храните в надёжном месте (флешка / облако)." }),
+    el("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap" } }, [
+      el("button.btn.btn-primary", { text: "📥 Скачать копию", onclick: exportData }),
+      el("button.btn.btn-outline", { text: "📤 Восстановить из файла", onclick: () => restoreInput.click() }),
+    ]),
+    restoreInput,
+    el("div.hint", { text: "Восстановление перезаписывает записи с тем же id данными из файла (удалённые — возвращает). Делайте свежую копию перед восстановлением." }),
+  ]);
+
   // ---------- Режим / демо ----------
   const sysCard = el("div.card", {}, [
     el("div.section-h", { text: "Система", style: { marginTop: 0 } }),
@@ -76,5 +175,5 @@ export default async function render(page, ctx) {
     ctx.db.mode === "local" && el("button.btn.btn-danger", { text: "Сбросить демо-данные", onclick: () => confirmDialog("Сбросить все локальные данные к демо?", () => { ctx.db.resetLocal(); toast("Сброшено", "ok"); ctx.refresh(); }) }),
   ].filter(Boolean));
 
-  page.append(fxCard, tgCard, linksCard, sysCard);
+  page.append(fxCard, tgCard, linksCard, backupCard, sysCard);
 }
