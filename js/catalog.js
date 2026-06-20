@@ -3,7 +3,6 @@
 // ========================================================================
 import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js";
 import { applyI18n, makeLangSwitcher } from "./i18n.js";
-import { select } from "./ui.js";
 import { iconSvg } from "./icons.js";
 
 // увеличение фото по клику (повторный клик — закрыть)
@@ -43,10 +42,9 @@ async function loadItems() {
 }
 
 const grid = document.getElementById("grid");
-const search = document.getElementById("search");
-const catbox = document.getElementById("catbox");
-let catsel = null;
-let items = [], activeCat = "all";
+const catnav = document.getElementById("catnav");
+let items = [];
+const slug = (s) => "cat-" + encodeURIComponent((s || "no-cat").toLowerCase().replace(/\s+/g, "-")).replace(/%/g, "");
 
 // --- режим заказа (Telegram Mini App) ---
 const TG = window.Telegram && window.Telegram.WebApp;
@@ -60,45 +58,91 @@ function statusBadge(status) {
     : `<span class="badge order">${iconSvg("clock", { size: 13 })} Под заказ</span>`;
 }
 
-function draw() {
-  const q = (search.value || "").toLowerCase();
-  const list = items.filter(p =>
-    (activeCat === "all" || p.category === activeCat) &&
-    (p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q)));
-  grid.innerHTML = "";
-  if (!list.length) { grid.innerHTML = `<div class="empty"><div class="em-ic">🔍</div><p>Ничего не найдено</p></div>`; return; }
-  list.forEach((p, i) => {
-    const card = document.createElement("div");
-    card.className = "prod reveal";
-    card.style.animationDelay = (i * 0.04) + "s";
-    const qty = cart.get(String(p.id)) || 0;
-    const qrow = orderMode ? `<div class="qrow" data-id="${escapeHtml(String(p.id))}">${qrowInner(qty)}</div>` : "";
-    card.innerHTML = `
+function cardHtml(p, i) {
+  const qty = cart.get(String(p.id)) || 0;
+  const qrow = orderMode ? `<div class="qrow" data-id="${escapeHtml(String(p.id))}">${qrowInner(qty)}</div>` : "";
+  return `<div class="prod reveal" style="animation-delay:${(i % 12) * 0.03}s">
       <img class="ph" loading="lazy" src="${p.photo_url || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'" />
       <div class="body">
         <div class="nm">${escapeHtml(p.name)}</div>
         <div class="cat">${escapeHtml(p.category || "")}</div>
         <div style="margin-top:auto">${statusBadge(p.status)}</div>
         ${qrow}
-      </div>`;
-    grid.append(card);
+      </div></div>`;
+}
+
+// Группировка по категориям: по алфавиту, «Без категории» — в конец.
+function groupByCategory() {
+  const map = new Map();
+  items.forEach(p => {
+    const key = (p.category && String(p.category).trim()) || "Без категории";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(p);
   });
-  requestAnimationFrame(() => grid.querySelectorAll(".reveal").forEach((n, i) => setTimeout(() => n.classList.add("in"), i * 30)));
+  return [...map.entries()].sort((a, b) => {
+    if (a[0] === "Без категории") return 1;
+    if (b[0] === "Без категории") return -1;
+    return a[0].localeCompare(b[0], "ru");
+  });
+}
+
+// Лента чипсов категорий сверху — клик прокручивает к разделу.
+function buildCatNav(groups) {
+  if (!catnav) return;
+  catnav.innerHTML = "";
+  groups.forEach(([cat, list]) => {
+    const chip = document.createElement("a");
+    chip.className = "cat-chip";
+    chip.href = "#" + slug(cat);
+    chip.innerHTML = `${escapeHtml(cat)} <b>${list.length}</b>`;
+    chip.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.getElementById(slug(cat))?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    catnav.append(chip);
+  });
+}
+
+function draw() {
+  const groups = groupByCategory();
+  grid.innerHTML = "";
+  if (!items.length) { grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="em-ic">📦</div><p>Каталог пуст</p></div>`; return; }
+  buildCatNav(groups);
+  let gi = 0;
+  groups.forEach(([cat, list]) => {
+    const section = document.createElement("section");
+    section.className = "cat-section";
+    section.id = slug(cat);
+    section.innerHTML = `<h2 class="cat-section-h">${escapeHtml(cat)} <span>${list.length}</span></h2>
+      <div class="cat-grid">${list.map(p => cardHtml(p, gi++)).join("")}</div>`;
+    grid.append(section);
+  });
+  requestAnimationFrame(() => grid.querySelectorAll(".reveal").forEach((n, i) => setTimeout(() => n.classList.add("in"), Math.min(i, 30) * 25)));
   applyI18n(document.body);
 }
 
-function buildFilters() {
-  const cats = [...new Set(items.map(p => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ru"));
-  const opts = [{ value: "all", label: "Все категории" }, ...cats.map(c => ({ value: c, label: c }))];
-  if (!opts.some(o => o.value === activeCat)) activeCat = "all";
-  if (catsel) catsel.remove();
-  catsel = select(opts, activeCat);          // стилизованный (тематический) выпадающий список
-  catsel.style.minWidth = "100%";
-  catsel.addEventListener("change", () => { activeCat = catsel.value; draw(); });
-  catbox.append(catsel);
-}
-
 function escapeHtml(s) { return (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+// Кнопка «Скачать каталог (PDF)» — генерация на клиенте (модуль грузится по клику).
+function wirePdfButton() {
+  const btn = document.getElementById("pdfBtn");
+  if (!btn || orderMode) { if (btn) btn.style.display = "none"; return; }
+  const label = btn.innerHTML;
+  btn.addEventListener("click", async () => {
+    if (!items.length) return;
+    btn.disabled = true;
+    try {
+      const m = await import("./catalog-pdf.js");
+      await m.downloadCatalogPDF(groupByCategory(), (done, total) => {
+        btn.textContent = `Готовим PDF… ${done}/${total}`;
+      });
+    } catch (e) {
+      alert("Не удалось сделать PDF: " + e.message);
+    } finally {
+      btn.innerHTML = label; btn.disabled = false;
+    }
+  });
+}
 
 // ---------- корзина (режим заказа) ----------
 function qrowInner(qty) {
@@ -225,7 +269,7 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
   // язык + тема — аккуратной строкой сверху (не плавающие, чтобы не налезали на поиск)
   const topbar = document.createElement("div");
   topbar.className = "cat-topbar";
-  const ls = makeLangSwitcher(() => { buildFilters(); draw(); applyI18n(document.body); });
+  const ls = makeLangSwitcher(() => { draw(); applyI18n(document.body); });
   const tg = makeThemeToggle();
   topbar.append(ls, tg);
   document.body.insertBefore(topbar, document.body.firstChild);
@@ -249,10 +293,9 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
   applyI18n(document.body);
   try {
     items = await loadItems();
-    buildFilters();
     draw();
-    search.addEventListener("input", draw);
+    wirePdfButton();
   } catch (e) {
-    grid.innerHTML = `<div class="empty"><div class="em-ic">${iconSvg("alert", { size: 40 })}</div><p>Ошибка загрузки: ${escapeHtml(e.message)}</p></div>`;
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="em-ic">${iconSvg("alert", { size: 40 })}</div><p>Ошибка загрузки: ${escapeHtml(e.message)}</p></div>`;
   }
 })();

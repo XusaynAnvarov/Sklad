@@ -92,6 +92,8 @@ function clientMenu(chatId, c, L) {
 }
 const askContact = (chatId, L) => tg("sendMessage", { chat_id: chatId, text: L.welcome, reply_markup: { keyboard: [[{ text: L.share, request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
 const askLang = (chatId) => tg("sendMessage", { chat_id: chatId, text: CHOOSE_LANG, reply_markup: langKb });
+// Заставка-логотип при входе (анимация GENERAL MODERN). Не блокирует /start, если файл недоступен.
+const sendIntro = (chatId) => tg("sendAnimation", { chat_id: chatId, animation: PUBLIC_URL + "/brand/bot-intro.gif" }).catch(() => {});
 
 async function linkByPhone(phone, chatId, fromUser) {
   const ph = norm(phone);
@@ -213,7 +215,11 @@ export default async function handler(req, res) {
       const text = (u.message.text || "").trim().toLowerCase();
       const existing = await findByChat(chatId);
       if (text === "/lang") { await askLang(chatId); return res.status(200).send("ok"); }
-      if (text === "/start" || !existing) { await askLang(chatId); return res.status(200).send("ok"); }
+      if (text === "/start" || !existing) {
+        if (text === "/start") await sendIntro(chatId);   // показать логотип-анимацию при входе
+        await askLang(chatId);
+        return res.status(200).send("ok");
+      }
       const L = T[await getLang(chatId, existing)] || T.ru;
       await clientMenu(chatId, existing, L);
       return res.status(200).send("ok");

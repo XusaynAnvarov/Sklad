@@ -1,8 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#f5c542"/>
-  <g fill="none" stroke="#191713" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M384 320V192a28 28 0 0 0-14-24l-100-58a28 28 0 0 0-28 0l-100 58A28 28 0 0 0 128 192v128a28 28 0 0 0 14 24l100 58a28 28 0 0 0 28 0l100-58A28 28 0 0 0 384 320z"/>
-    <path d="M133 178l123 71 123-71"/>
-    <path d="M256 392V249"/>
-  </g>
+  <defs>
+    <linearGradient id="gmNavy" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22324f"/>
+      <stop offset="1" stop-color="#141f33"/>
+    </linearGradient>
+    <linearGradient id="gmGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7e9a6"/>
+      <stop offset=".45" stop-color="#e3c163"/>
+      <stop offset=".75" stop-color="#c79a33"/>
+      <stop offset="1" stop-color="#a87b1f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#gmNavy)"/>
+  <circle cx="256" cy="256" r="182" fill="none" stroke="url(#gmGold)" stroke-width="10"
+          stroke-linecap="round" stroke-dasharray="1062 1144" transform="rotate(-96 256 256)"/>
+  <text x="256" y="312" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', serif" font-size="172" font-weight="700"
+        letter-spacing="-6" fill="url(#gmGold)">GM</text>
 </svg>
