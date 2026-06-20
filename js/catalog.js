@@ -43,8 +43,17 @@ async function loadItems() {
 
 const grid = document.getElementById("grid");
 const catnav = document.getElementById("catnav");
-let items = [];
+const search = document.getElementById("search");
+let items = [], query = "";
 const slug = (s) => "cat-" + encodeURIComponent((s || "no-cat").toLowerCase().replace(/\s+/g, "-")).replace(/%/g, "");
+
+// Владелец (только он видит кнопку «Скачать PDF»): вошёл в админку на этом
+// устройстве (localStorage) ИЛИ открыл каталог с секретным ключом ?key=…
+function isOwner() {
+  try { if (localStorage.getItem("sklad_authed") === "1") return true; } catch {}
+  const k = new URLSearchParams(location.search).get("key") || (location.hash.match(/key=([^&]+)/) || [])[1];
+  return !!(k && cfg.SECRET_KEY && k === cfg.SECRET_KEY);
+}
 
 // --- режим заказа (Telegram Mini App) ---
 const TG = window.Telegram && window.Telegram.WebApp;
@@ -72,9 +81,10 @@ function cardHtml(p, i) {
 }
 
 // Группировка по категориям: по алфавиту, «Без категории» — в конец.
-function groupByCategory() {
+// list по умолчанию — все товары (для PDF); для сайта передаём отфильтрованный.
+function groupByCategory(list = items) {
   const map = new Map();
-  items.forEach(p => {
+  list.forEach(p => {
     const key = (p.category && String(p.category).trim()) || "Без категории";
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(p);
@@ -84,6 +94,15 @@ function groupByCategory() {
     if (b[0] === "Без категории") return -1;
     return a[0].localeCompare(b[0], "ru");
   });
+}
+
+// Фильтр по поисковому запросу (имя или категория).
+function filteredItems() {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter(p =>
+    (p.name || "").toLowerCase().includes(q) ||
+    (p.category || "").toLowerCase().includes(q));
 }
 
 // Лента чипсов категорий сверху — клик прокручивает к разделу.
@@ -104,17 +123,19 @@ function buildCatNav(groups) {
 }
 
 function draw() {
-  const groups = groupByCategory();
+  const list = filteredItems();
+  const groups = groupByCategory(list);
   grid.innerHTML = "";
-  if (!items.length) { grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="em-ic">📦</div><p>Каталог пуст</p></div>`; return; }
+  if (!items.length) { grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="em-ic">📦</div><p>Каталог пуст</p></div>`; if (catnav) catnav.innerHTML = ""; return; }
+  if (!list.length) { grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="em-ic">🔍</div><p>Ничего не найдено</p></div>`; if (catnav) catnav.innerHTML = ""; return; }
   buildCatNav(groups);
   let gi = 0;
-  groups.forEach(([cat, list]) => {
+  groups.forEach(([cat, items_]) => {
     const section = document.createElement("section");
     section.className = "cat-section";
     section.id = slug(cat);
-    section.innerHTML = `<h2 class="cat-section-h">${escapeHtml(cat)} <span>${list.length}</span></h2>
-      <div class="cat-grid">${list.map(p => cardHtml(p, gi++)).join("")}</div>`;
+    section.innerHTML = `<h2 class="cat-section-h">${escapeHtml(cat)} <span>${items_.length}</span></h2>
+      <div class="cat-grid">${items_.map(p => cardHtml(p, gi++)).join("")}</div>`;
     grid.append(section);
   });
   requestAnimationFrame(() => grid.querySelectorAll(".reveal").forEach((n, i) => setTimeout(() => n.classList.add("in"), Math.min(i, 30) * 25)));
@@ -123,17 +144,19 @@ function draw() {
 
 function escapeHtml(s) { return (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-// Кнопка «Скачать каталог (PDF)» — генерация на клиенте (модуль грузится по клику).
+// Кнопка «Скачать каталог (PDF)» — только для владельца, генерация на клиенте.
 function wirePdfButton() {
   const btn = document.getElementById("pdfBtn");
-  if (!btn || orderMode) { if (btn) btn.style.display = "none"; return; }
+  if (!btn) return;
+  if (orderMode || !isOwner()) { btn.style.display = "none"; return; }  // клиентам — нельзя
+  btn.style.display = "";  // владельцу — показать
   const label = btn.innerHTML;
   btn.addEventListener("click", async () => {
     if (!items.length) return;
     btn.disabled = true;
     try {
       const m = await import("./catalog-pdf.js");
-      await m.downloadCatalogPDF(groupByCategory(), (done, total) => {
+      await m.downloadCatalogPDF(groupByCategory(items), (done, total) => {   // PDF — всегда все товары
         btn.textContent = `Готовим PDF… ${done}/${total}`;
       });
     } catch (e) {
@@ -295,6 +318,7 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
     items = await loadItems();
     draw();
     wirePdfButton();
+    if (search) search.addEventListener("input", () => { query = search.value; draw(); });
   } catch (e) {
     grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="em-ic">${iconSvg("alert", { size: 40 })}</div><p>Ошибка загрузки: ${escapeHtml(e.message)}</p></div>`;
   }

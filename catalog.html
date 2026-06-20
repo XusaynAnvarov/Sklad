@@ -30,7 +30,8 @@
     /* липкая панель сверху: кнопка PDF + лента категорий */
     .cat-controls{position:sticky;top:0;z-index:40;margin:0;padding:10px 16px;display:flex;flex-direction:column;gap:10px;align-items:center;
       background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);}
-    .cat-actions{display:flex;justify-content:center;}
+    .cat-actions{display:flex;gap:10px;align-items:center;justify-content:center;width:100%;max-width:680px;}
+    .cat-search{flex:1;max-width:460px;}
     .cat-nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:1100px;}
     .cat-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;
       text-decoration:none;color:var(--text);background:color-mix(in srgb,var(--text) 6%,transparent);border:1px solid var(--border);
@@ -118,7 +119,8 @@
   </header>
   <div class="cat-controls">
     <div class="cat-actions">
-      <button id="pdfBtn" class="btn btn-primary">📄 Скачать каталог (PDF)</button>
+      <input id="search" class="inp cat-search" placeholder="Поиск по каталогу…" />
+      <button id="pdfBtn" class="btn btn-primary" style="display:none">📄 Скачать каталог (PDF)</button>
     </div>
     <nav id="catnav" class="cat-nav"></nav>
   </div>
