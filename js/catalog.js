@@ -64,7 +64,7 @@ const byId = (id) => items.find(p => String(p.id) === String(id));
 function statusBadge(status) {
   return status === "in_stock"
     ? `<span class="badge ok">${iconSvg("check", { size: 13 })} Есть в наличии</span>`
-    : `<span class="badge order">${iconSvg("clock", { size: 13 })} Под заказ</span>`;
+    : `<span class="badge order">${iconSvg("x", { size: 13 })} Нет в наличии</span>`;
 }
 
 function cardHtml(p, i) {
@@ -266,9 +266,10 @@ function renderOrderView() {
   cart.forEach((qty, id) => {
     positions++; units += qty;
     const p = byId(id) || { name: "?", photo_url: "" };
-    const row = document.createElement("div"); row.className = "ov-row"; row.setAttribute("data-id", id);
+    const oos = p.status && p.status !== "in_stock";
+    const row = document.createElement("div"); row.className = "ov-row" + (oos ? " oos" : ""); row.setAttribute("data-id", id);
     row.innerHTML = `<img class="ov-ph" src="${p.photo_url || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'"/>
-      <div class="ov-nm">${escapeHtml(p.name)}</div>
+      <div class="ov-nm">${escapeHtml(p.name)}${oos ? `<span class="ov-oos">${iconSvg("x", { size: 11 })} нет в наличии</span>` : ""}</div>
       <div class="qrow"><button class="qbtn minus" type="button">−</button><input class="qinp" type="number" inputmode="numeric" min="0" value="${qty}"><button class="qbtn plus" type="button">＋</button></div>
       <button class="qbtn del" type="button" title="Удалить">${iconSvg("trash", { size: 16 })}</button>`;
     list.append(row);
