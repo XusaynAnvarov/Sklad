@@ -1,7 +1,7 @@
 // ========================================================================
 //  ТОЧКА ВХОДА АДМИНКИ: авторизация → каркас → роутер
 // ========================================================================
-import { el, $, reveal } from "./ui.js";
+import { el, $, reveal, showLoader, hideLoader } from "./ui.js";
 import { icon } from "./icons.js";
 import { db, rawClient } from "./db.js";
 import { ensureAccess, alreadyAuthed, logout } from "./auth.js";
@@ -102,11 +102,14 @@ async function route() {
   view.innerHTML = "";
   const page = el("div.page-enter");
   view.append(page);
+  showLoader();
   try {
     await item.render(page, ctx);
   } catch (e) {
     console.error(e);
     page.append(el("div.empty", {}, [el("div.em-ic", {}, [icon("alert", { size: 40 })]), el("p", { text: "Ошибка: " + e.message })]));
+  } finally {
+    hideLoader();
   }
   reveal(view);
   applyI18n(document.body);

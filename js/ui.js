@@ -186,3 +186,35 @@ export function reveal(root = document) {
   }, { threshold: 0.08 });
   $$(".reveal", root).forEach(n => obs.observe(n));
 }
+
+// ---------- Глобальный лоадер с анимированным логотипом GENERAL MODERN ----------
+const LOADER_SVG = `<svg viewBox="0 0 512 512" width="84" height="84" aria-label="Загрузка">
+  <defs>
+    <linearGradient id="glnv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/></linearGradient>
+    <linearGradient id="glgd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".45" stop-color="#e3c163"/><stop offset=".75" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#glnv)"/>
+  <circle class="glr" cx="256" cy="256" r="182" fill="none" stroke="url(#glgd)" stroke-width="14" stroke-linecap="round" stroke-dasharray="300 1144"/>
+  <text x="256" y="312" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="172" font-weight="700" letter-spacing="-6" fill="url(#glgd)">GM</text>
+</svg>`;
+let _loaderEl = null, _loaderCount = 0, _loaderTimer = null;
+export function showLoader(text) {
+  _loaderCount++;
+  if (!_loaderEl) {
+    _loaderEl = el("div.gm-loader", { html: `<div class="gm-loader-box">${LOADER_SVG}<div class="gm-loader-txt"></div></div>` });
+    document.body.append(_loaderEl);
+    void _loaderEl.offsetWidth;   // форс-рефлоу, чтобы сработал transition (надёжнее rAF)
+  }
+  _loaderEl.querySelector(".gm-loader-txt").textContent = text || "Загрузка…";
+  _loaderEl.classList.add("show");
+}
+export function hideLoader() {
+  _loaderCount = Math.max(0, _loaderCount - 1);
+  if (_loaderCount === 0 && _loaderEl) _loaderEl.classList.remove("show");
+}
+// Обёртка: показать лоадер на время выполнения промиса/функции.
+export async function withLoader(fn, text) {
+  showLoader(text);
+  try { return await (typeof fn === "function" ? fn() : fn); }
+  finally { hideLoader(); }
+}

@@ -1,10 +1,11 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js";
 import { icon } from "../icons.js";
 import { fmt, convert } from "../fx.js";
 import { consumeFIFO, ensureBatches, sumQty, currentCost } from "../inventory.js";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
 
 // список партий товара (FIFO) для карточки
 function batchesView(p) {
@@ -38,10 +39,43 @@ export default async function render(page, ctx) {
   const cats = [...new Set(all.map(p => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ru"));
   const catFilter = select([{ value: "", label: "Все категории" }, ...cats.map(c => ({ value: c, label: c }))], "");
 
+  async function importProducts(file) {
+    showLoader("Импорт из Excel…");
+    try {
+      const rows = await parseRows(file, "products");
+      if (!rows.length) { toast("В файле нет строк", "err"); return; }
+      const byName = {}; all.forEach(p => byName[(p.name || "").trim().toLowerCase()] = p);
+      let created = 0, updated = 0;
+      for (const r of rows) {
+        const cost_yuan = r.currency === "yuan" ? r.cost : Math.round(convert(r.cost, r.currency, "yuan") * 100) / 100;
+        const cost_usd = r.currency === "usd" ? r.cost : Math.round(convert(r.cost, r.currency, "usd") * 100) / 100;
+        const ex = byName[r.name.toLowerCase()];
+        const batches = r.qty > 0 ? [{ qty: r.qty, cost_yuan, cost_usd, date: new Date().toISOString() }] : [];
+        const obj = {
+          ...(ex ? { id: ex.id } : {}),
+          name: r.name, category: r.category || ex?.category || "", photo_url: ex?.photo_url || "",
+          stock_qty: r.qty, cost_yuan, cost_usd,
+          price_yuan: ex?.price_yuan || 0, price_usd: ex?.price_usd || 0, price_som: ex?.price_som || 0,
+          status_override: ex?.status_override || null,
+        };
+        try { await ctx.db.products.upsert({ ...obj, batches }); }
+        catch { await ctx.db.products.upsert(obj); }
+        ex ? updated++ : created++;
+      }
+      toast(`Импорт: добавлено ${created}, обновлено ${updated}`, "ok");
+      ctx.refresh();
+    } catch (e) { toast("Ошибка импорта: " + (e.message || e), "err"); }
+    finally { hideLoader(); }
+  }
+
   page.append(
     el("div.topbar", {}, [
       el("div", {}, [el("h1", { text: "Товары" }), el("div.sub", { text: `Всего позиций: ${all.length}` })]),
-      el("button.btn.btn-primary", { onclick: () => openForm(ctx, null, cats) }, [icon("plus", { size: 16 }), "Добавить товар"]),
+      el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
+        el("button.btn.btn-outline.btn-sm", { text: "📄 Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("products") }),
+        el("button.btn.btn-outline.btn-sm", { text: "📥 Импорт Excel", title: "Загрузить список из Excel", onclick: () => pickFile(importProducts) }),
+        el("button.btn.btn-primary", { onclick: () => openForm(ctx, null, cats) }, [icon("plus", { size: 16 }), "Добавить товар"]),
+      ]),
     ]),
     el("div.toolbar", {}, [search, catFilter]),
     grid,

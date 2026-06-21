@@ -117,6 +117,36 @@ export default async function handler(req, res) {
       const j = await r.json(); if (!j.ok) throw new Error(j.description || "sendDocument error");
       return res.status(200).json({ ok: true });
     }
+    // --- запрос подтверждения заказа клиентом (список с ценами + кнопки) ---
+    if (action === "client_confirm_request") {
+      if (!CLIENT_TOKEN) return res.status(500).json({ error: "CLIENT_BOT_TOKEN не задан" });
+      if (!chat_id) return res.status(400).json({ error: "Не указан chat_id клиента" });
+      const sid = safeId(sale_id);
+      if (!sid) return res.status(400).json({ error: "Неверный sale_id" });
+      const sale = (await sget(`sales?id=eq.${encodeURIComponent(sid)}&select=*`))[0];
+      if (!sale) return res.status(404).json({ error: "Заказ не найден" });
+      const products = await sget("products?select=id,name");
+      const pmap = Object.fromEntries(products.map(p => [p.id, p.name]));
+      const sign = { yuan: "¥", usd: "$", som: "сум" };
+      const items = sale.items || [];
+      const lines = items.map((it, i) => {
+        const c = it.currency || sale.currency, s = sign[c] || c;
+        return `${i + 1}. ${pmap[it.product_id] || "?"} — ${it.qty} × ${it.unit_price} ${s} = ${it.qty * it.unit_price} ${s}`;
+      });
+      const byCur = {};
+      items.forEach(it => { const c = it.currency || sale.currency; byCur[c] = (byCur[c] || 0) + it.qty * it.unit_price; });
+      const totals = Object.entries(byCur).map(([c, v]) => `${v} ${sign[c] || c}`).join(" + ") || "—";
+      const txt = `🧾 Ваш заказ готов к подтверждению:\n\n${lines.join("\n")}\n\n💰 Итого: ${totals}\n\nПодтвердите заказ:`;
+      const r = await fetch(capi("sendMessage"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id, text: txt, reply_markup: { inline_keyboard: [[
+          { text: "✅ Подтвердить", callback_data: "ocf:" + sid },
+          { text: "❌ Отказаться", callback_data: "ocd:" + sid },
+        ]] } }),
+      });
+      const j = await r.json(); if (!j.ok) throw new Error(j.description || "sendMessage error");
+      return res.status(200).json({ ok: true });
+    }
     return res.status(400).json({ error: "Неизвестное действие" });
   } catch (e) {
     return res.status(500).json({ error: e.message });

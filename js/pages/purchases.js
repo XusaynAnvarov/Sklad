@@ -1,11 +1,24 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList } from "../ui.js";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js";
 import { fmt, CUR, convert } from "../fx.js";
 import { placeholder } from "./products.js";
 import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js";
 import { icon } from "../icons.js";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
+
+// Модалка «не найдено в каталоге» (общая для прихода и продажи).
+export function showNotFound(list) {
+  modal({
+    title: `Не найдено в каталоге (${list.length})`,
+    body: el("div", {}, [
+      el("div.hint", { text: "Эти позиции пропущены — таких товаров нет в каталоге. Добавьте их в «Товары» или проверьте названия." }),
+      el("div", { style: { maxHeight: "40vh", overflow: "auto" } }, list.map(n => el("div", { style: { padding: "6px 2px", borderBottom: "1px solid var(--border)", fontSize: "14px" }, text: "• " + n }))),
+    ]),
+    actions: [{ label: "Понятно", kind: "btn-primary", onClick: c => c() }],
+  });
+}
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 
@@ -96,17 +109,54 @@ function openEditor(ctx, purchase, products, suppliers = []) {
   const itemsBox = el("div");
   const totalBox = el("div", { style: { textAlign: "right", fontSize: "20px", fontWeight: "800", marginTop: "10px" } });
   const nameToId = {}; products.forEach(p => { nameToId[(p.name || "").toLowerCase()] = p.id; });
-  const addInput = inputList(products.map(p => p.name), { placeholder: "Введите или выберите товар…", style: { flex: "1" } });
-  const tryAdd = () => { const id = nameToId[(addInput.value || "").trim().toLowerCase()]; if (!id) { toast("Товар не найден — выберите из списка", "err"); return; } addItem(id); addInput.value = ""; };
-  addInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); tryAdd(); } });
 
-  fCurrency.addEventListener("change", () => { state.currency = fCurrency.value; drawItems(); });
+  // ----- панель добавления (как в продажах): товар + кол-во + себестоимость -----
+  const fProduct = inputList(products.map(p => p.name), { placeholder: "впишите или выберите", style: { flex: "1", minWidth: "180px" } });
+  const fQty = input({ type: "number", placeholder: "0", style: { width: "110px" } });
+  const fCost = input({ type: "number", step: "0.01", placeholder: "0", style: { width: "130px" } });
+  const preview = el("img.thumb", { style: { width: "72px", height: "72px", cursor: "zoom-in", display: "none" }, title: "Увеличить" });
+  const costHint = el("div", { style: { fontSize: "13px", margin: "6px 0", color: "var(--muted)" } });
+  const selId = () => nameToId[(fProduct.value || "").trim().toLowerCase()] || "";
 
-  function addItem(pid) {
-    if (!pid) return; const p = pmap[pid];
+  function refreshAdd() {
+    const p = pmap[selId()];
+    if (!p) { preview.style.display = "none"; costHint.textContent = ""; return; }
+    preview.src = p.photo_url || placeholder(p.name); preview.style.display = ""; preview.onclick = () => p.photo_url && lightbox(p.photo_url);
     const def = state.currency === "usd" ? p.cost_usd : state.currency === "yuan" ? p.cost_yuan : Math.round(convert(p.cost_yuan, "yuan", "som"));
-    state.items.push({ product_id: pid, qty: 1, unit_cost: +def || 0, currency: state.currency });
+    if (!fCost.value) fCost.value = def || "";
+    costHint.textContent = "Текущая себестоимость: " + fmt(p.cost_yuan, "yuan");
+  }
+  fProduct.addEventListener("input", refreshAdd);
+  fCurrency.addEventListener("change", () => { state.currency = fCurrency.value; refreshAdd(); drawItems(); });
+
+  function addToCart() {
+    const id = selId(); if (!id) { toast("Выберите товар из списка", "err"); return; }
+    const qv = +fQty.value || 0; if (qv <= 0) { toast("Укажите количество", "err"); return; }
+    state.items.push({ product_id: id, qty: qv, unit_cost: +fCost.value || 0, currency: state.currency });
     drawItems();
+    fProduct.value = ""; fQty.value = ""; fCost.value = ""; refreshAdd();
+  }
+  const addBtn = el("button.btn.btn-ok", { onclick: addToCart }, [icon("plus", { size: 16 }), "Добавить"]);
+  fQty.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addToCart(); } });
+  fCost.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addToCart(); } });
+
+  // импорт списка прихода из Excel (название + кол-во + себестоимость)
+  async function importFromExcel(file) {
+    showLoader("Импорт из Excel…");
+    try {
+      const rows = await parseRows(file, "purchase");
+      const notFound = []; let added = 0;
+      rows.forEach(r => {
+        const id = nameToId[(r.name || "").toLowerCase()];
+        if (!id) { notFound.push(r.name); return; }
+        state.items.push({ product_id: id, qty: r.qty || 1, unit_cost: r.cost || 0, currency: state.currency });
+        added++;
+      });
+      drawItems();
+      toast(`Добавлено позиций: ${added}`, added ? "ok" : "err");
+      if (notFound.length) showNotFound(notFound);
+    } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
+    finally { hideLoader(); }
   }
   function drawItems() {
     itemsBox.innerHTML = "";
@@ -139,8 +189,24 @@ function openEditor(ctx, purchase, products, suppliers = []) {
     el("div.row2", {}, [field("Поставщик", fSupplier), field("Валюта", fCurrency)]),
     field("Статус", fStatus),
     el("div.hint", { text: "При статусе «Уже пришёл» товары автоматически добавятся на склад." }),
-    el("div.section-h", { text: "Товары" }),
-    el("div", { style: { display: "flex", gap: "10px", marginBottom: "14px" } }, [addInput, el("button.btn.btn-ok.btn-sm", { onclick: tryAdd }, [icon("plus", { size: 15 }), "Добавить"])]),
+    el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", marginTop: "8px" } }, [
+      el("div.section-h", { text: "Добавьте товары", style: { margin: "0", flex: "1" } }),
+      el("button.btn.btn-outline.btn-sm", { text: "📄 Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("purchase") }),
+      el("button.btn.btn-outline.btn-sm", { text: "📥 Из Excel", title: "Импорт списка из Excel", onclick: () => pickFile(importFromExcel) }),
+    ]),
+    el("div", { style: { display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "10px" } }, [
+      preview,
+      el("div", { style: { flex: "1", minWidth: "260px" } }, [
+        el("div", { style: { display: "flex", gap: "10px", alignItems: "flex-end", flexWrap: "wrap" } }, [
+          el("div", { style: { flex: "1", minWidth: "180px" } }, [el("div.field-label", { text: "Товар (впишите или выберите)" }), fProduct]),
+          el("div", {}, [el("div.field-label", { text: "Кол-во" }), fQty]),
+          el("div", {}, [el("div.field-label", { text: "Себест. за ед." }), fCost]),
+          addBtn,
+        ]),
+        costHint,
+      ]),
+    ]),
+    el("div.section-h", { text: "Список прихода" }),
     itemsBox, totalBox,
   ]);
 
@@ -150,12 +216,16 @@ function openEditor(ctx, purchase, products, suppliers = []) {
       { label: "Отмена", kind: "btn-outline", onClick: c => c() },
       { label: "Сохранить", kind: "btn-primary", onClick: async (close) => {
         if (!state.items.length) { toast("Добавьте товары", "err"); return; }
-        const wasArrived = purchase?.status === "arrived";
-        const obj = { ...(purchase ? { id: purchase.id } : {}), supplier: fSupplier.value.trim(), currency: state.currency, status: fStatus.value, date: state.date, items: state.items };
-        const saved = await ctx.db.purchases.upsert(obj);
-        // если только что отметили «пришёл» — добавить на склад
-        if (fStatus.value === "arrived" && !wasArrived) await applyArrival(ctx, saved || obj, products);
-        toast("Сохранено", "ok"); close(); ctx.refresh();
+        showLoader("Сохранение…");
+        try {
+          const wasArrived = purchase?.status === "arrived";
+          const obj = { ...(purchase ? { id: purchase.id } : {}), supplier: fSupplier.value.trim(), currency: state.currency, status: fStatus.value, date: state.date, items: state.items };
+          const saved = await ctx.db.purchases.upsert(obj);
+          // если только что отметили «пришёл» — добавить на склад
+          if (fStatus.value === "arrived" && !wasArrived) await applyArrival(ctx, saved || obj, products);
+          toast("Сохранено", "ok"); close(); ctx.refresh();
+        } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
+        finally { hideLoader(); }
       } },
     ],
   });

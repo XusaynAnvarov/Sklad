@@ -12,10 +12,16 @@ export default async function render(page, ctx) {
   const [sales, customers, products] = await Promise.all([
     ctx.db.sales.list(), ctx.db.customers.list(), ctx.db.products.list(),
   ]);
-  const orders = sales.filter(s => s.status === "order").sort((a, b) => new Date(b.date) - new Date(a.date));
+  const orders = sales.filter(s => ["order", "pending_confirm", "confirmed"].includes(s.status)).sort((a, b) => new Date(b.date) - new Date(a.date));
   const cmap = Object.fromEntries(customers.map(c => [c.id, c.name]));
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
-  ctx.setNavBadge && ctx.setNavBadge("orders", orders.length);
+  // в меню считаем только требующие действий (новые + подтверждённые клиентом)
+  ctx.setNavBadge && ctx.setNavBadge("orders", orders.filter(o => o.status !== "pending_confirm").length);
+
+  const ordBadge = (st) =>
+    st === "confirmed" ? el("span.badge.ok", {}, [icon("check", { size: 13 }), "клиент подтвердил"])
+    : st === "pending_confirm" ? el("span.badge.transit", {}, [icon("clock", { size: 13 }), "ждём подтверждения"])
+    : el("span.badge.order", {}, [icon("alert", { size: 13 }), "новый заказ"]);
 
   page.append(el("div.topbar", {}, [
     el("div", {}, [el("h1", { text: "Заказы из бота" }), el("div.sub", { text: `Новых: ${orders.length}` })]),
@@ -23,7 +29,7 @@ export default async function render(page, ctx) {
 
   if (!orders.length) { page.append(el("div.empty", {}, [el("div.em-ic", {}, [icon("cart", { size: 40 })]), el("p", { text: "Новых заказов нет" })])); return; }
 
-  page.append(el("div.hint", { text: "Нажмите на заказ → проставьте цены, уберите чего нет на складе → «Подтвердить и отправить клиенту»." }));
+  page.append(el("div.hint", { text: "Откройте заказ → проставьте цены → «📤 На подтверждение клиенту». Когда клиент подтвердит (✅), оформите: «✅ Оформить (склад + PDF)»." }));
 
   const wrap = el("div", { style: { display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px" } });
   orders.forEach(s => {
@@ -44,7 +50,7 @@ export default async function render(page, ctx) {
           el("div.muted", { style: { fontSize: "13px", marginTop: "2px" }, text: new Date(s.date).toLocaleString("ru-RU") + " · " + items.length + " поз." }),
           (!linked && s.order_from && s.order_from.username) ? el("div.muted", { style: { fontSize: "12px" }, text: "@" + s.order_from.username }) : null,
         ]),
-        el("span.badge.order", {}, [icon("alert", { size: 13 }), "новый заказ"]),
+        ordBadge(s.status),
       ]),
       el("div", { style: { marginTop: "8px", fontSize: "13px", color: "var(--muted)" }, text: preview }),
       el("div", { style: { marginTop: "10px", display: "flex", gap: "8px" } }, [

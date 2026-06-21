@@ -3,10 +3,13 @@
 // ========================================================================
 import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js";
 import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js";
-import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient } from "../telegram.js";
+import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient, requestOrderConfirm } from "../telegram.js";
 import { placeholder } from "./products.js";
 import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js";
 import { icon } from "../icons.js";
+import { showLoader, hideLoader } from "../ui.js";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
+import { showNotFound } from "./purchases.js";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -132,6 +135,25 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
   const addBtn = el("button.btn.btn-ok", { onclick: addToCart }, [icon("plus", { size: 16 }), "В чек"]);
   fQty.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addToCart(); } });
 
+  // импорт списка продажи из Excel (название + кол-во + цена)
+  async function importFromExcel(file) {
+    showLoader("Импорт из Excel…");
+    try {
+      const rows = await parseRows(file, "sale");
+      const notFound = []; let added = 0;
+      rows.forEach(r => {
+        const id = nameToId[(r.name || "").toLowerCase()];
+        if (!id) { notFound.push(r.name); return; }
+        state.items.push({ product_id: id, qty: r.qty || 1, unit_price: r.price || 0, currency: state.currency, price_yuan_norm: round(convert(r.price || 0, state.currency, "yuan")), paid: state.paid });
+        added++;
+      });
+      drawCart();
+      toast(`Добавлено позиций: ${added}`, added ? "ok" : "err");
+      if (notFound.length) showNotFound(notFound);
+    } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
+    finally { hideLoader(); }
+  }
+
   // ----- чек -----
   const itemsBox = el("div");
   const totalBox = el("div", { style: { textAlign: "right", fontSize: "20px", fontWeight: "800", marginTop: "10px" } });
@@ -171,7 +193,11 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       el("div.row3", {}, [field("Клиент (поиск)", fCustomer), field("Оплата", fPaid), field("Валюта по умолч.", fCurrency)]),
       el("div.row2", {}, [field("Дата", fDate), field("Коробок отправлено", fBoxes)]),
     ]),
-    el("div.section-h", { text: "Добавьте товары в чек", style: { marginTop: "4px" } }),
+    el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", marginTop: "4px" } }, [
+      el("div.section-h", { text: "Добавьте товары в чек", style: { margin: "0", flex: "1" } }),
+      el("button.btn.btn-outline.btn-sm", { text: "📄 Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("sale") }),
+      el("button.btn.btn-outline.btn-sm", { text: "📥 Из Excel", title: "Импорт списка из Excel", onclick: () => pickFile(importFromExcel) }),
+    ]),
     el("div", { style: { display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap" } }, [
       preview,
       el("div", { style: { flex: "1", minWidth: "260px" } }, [
@@ -190,24 +216,47 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
   ]);
   drawCart();
 
+  const isBotOrder = sale && (sale.source === "bot" || ["order", "pending_confirm", "confirmed"].includes(sale.status));
+
   modal({
-    title: isNew ? "Новая продажа" : "Накладная",
+    title: isNew ? "Новая продажа" : (isBotOrder ? "Заказ из бота" : "Накладная"),
     wide: true, body,
-    actions: [
+    actions: isBotOrder ? [
+      { label: "Отмена", kind: "btn-outline", onClick: c => c() },
+      { label: "📤 На подтверждение клиенту", kind: "btn-outline", onClick: (close) => sendForConfirm(ctx, sale, state, close, customers) },
+      { label: "✅ Оформить (склад + PDF)", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, true) },
+    ] : [
       { label: "Отмена", kind: "btn-outline", onClick: c => c() },
       { label: "💾 Сохранить", kind: "btn-outline", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false) },
-      (sale && sale.status === "order")
-        ? { label: "Подтвердить и отправить клиенту", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, true) }
-        : { label: "Сохранить + Telegram", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, true) },
+      { label: "Сохранить + Telegram", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, true) },
     ],
   });
+}
+
+// Отправить заказ клиенту на подтверждение цены (статус pending_confirm, склад НЕ списываем).
+async function sendForConfirm(ctx, sale, state, close, customers) {
+  if (!state.items.length) { toast("Добавьте позиции с ценами", "err"); return; }
+  if (state.items.some(it => !(it.unit_price > 0))) { toast("У некоторых позиций нет цены", "err"); return; }
+  showLoader("Отправка клиенту…");
+  try {
+    const customer_id = state.customer_id || sale.customer_id || null;
+    await ctx.db.sales.upsert({ id: sale.id, customer_id, date: state.date || sale.date, currency: state.currency, status: "pending_confirm", items: state.items });
+    const cust = customers.find(c => c.id === customer_id);
+    const chatId = cust?.tg_chat_id || sale?.order_from?.chat_id;
+    if (!chatId) { toast("У клиента нет Telegram (chat_id) — отправьте подтверждение вручную", "err"); close(); ctx.refresh(); return; }
+    await requestOrderConfirm(sale.id, chatId);
+    toast("Отправлено клиенту на подтверждение ✅", "ok");
+    close(); ctx.refresh();
+  } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
+  finally { hideLoader(); }
 }
 
 async function save(ctx, sale, state, status, close, customers, products, doSend, toClient) {
   if (!state.customer_id) { toast("Выберите клиента", "err"); return; }
   if (!state.items.length) { toast("Добавьте товары", "err"); return; }
   state.items.forEach(it => { it.paid = !!state.paid; });
-  const wasOrder = sale && sale.status === "order"; // заказ из бота: склад ещё НЕ списывался
+  showLoader(doSend || toClient ? "Сохранение и отправка…" : "Сохранение…");
+  const wasOrder = sale && ["order", "pending_confirm", "confirmed"].includes(sale.status); // заказ из бота: склад ещё НЕ списывался
   const obj = {
     ...(sale ? { id: sale.id } : {}),
     customer_id: state.customer_id, date: state.date || new Date().toISOString(),
@@ -275,7 +324,7 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
     const msg = String(e.message || e);
     if (/row-level|JWT|expired|permission|not authenticated/i.test(msg)) toast("Сессия истекла. Обновите страницу (Ctrl+F5) и войдите заново.", "err");
     else toast("Ошибка сохранения: " + msg, "err");
-  }
+  } finally { hideLoader(); }
 }
 
 // удаление накладной с возвратом товаров на склад

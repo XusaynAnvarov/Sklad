@@ -45,3 +45,8 @@ export function sendInvoicePDFToClient(saleId, chatId, caption) {
 export function notifyClient(chatId, text) {
   return call({ action: "client_message", chat_id: chatId, text });
 }
+
+// Запрос подтверждения заказа клиентом: список с ценами + кнопки ✅/❌
+export function requestOrderConfirm(saleId, chatId) {
+  return call({ action: "client_confirm_request", sale_id: saleId, chat_id: chatId });
+}

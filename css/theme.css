@@ -330,6 +330,18 @@ html[data-theme="light"] .combo-item:hover,html[data-theme="light"] .combo-item.
 html[data-theme="light"] .lang-switch.floating{background:rgba(255,255,255,.8);}
 
 /* ===================================================================
+   ГЛОБАЛЬНЫЙ ЛОАДЕР — анимированный логотип GENERAL MODERN
+   =================================================================== */
+.gm-loader{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop-filter:blur(4px);
+  opacity:0;pointer-events:none;transition:opacity .2s ease;}
+.gm-loader.show{opacity:1;pointer-events:auto;}
+.gm-loader-box{display:flex;flex-direction:column;align-items:center;gap:12px;}
+.gm-loader-txt{font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.2px;}
+.gm-loader .glr{transform-box:fill-box;transform-origin:center;animation:glspin 1s linear infinite;}
+@keyframes glspin{to{transform:rotate(360deg);}}
+
+/* ===================================================================
    СВЕТЛАЯ ТЕМА — строгий профессиональный стиль
    (нейтральный серый фон #f5f6f8, сдержанный синий акцент, графит)
    =================================================================== */

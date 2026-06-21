@@ -240,6 +240,21 @@ export default async function handler(req, res) {
         return res.status(200).send("ok");
       }
 
+      // подтверждение / отказ по заказу (после того как владелец проставил цены)
+      if (data.startsWith("ocf:") || data.startsWith("ocd:")) {
+        const sid = data.slice(4);
+        const sale = (await sget(`sales?id=eq.${encodeURIComponent(sid)}&select=*`))[0];
+        if (!sale) { await tg("sendMessage", { chat_id: chatId, text: "Заказ не найден." }); return res.status(200).send("ok"); }
+        let owns = String(sale.order_from?.chat_id || "") === String(chatId);
+        if (!owns && sale.customer_id) { const cu = (await sget(`customers?id=eq.${sale.customer_id}&select=tg_chat_id`))[0]; owns = String(cu?.tg_chat_id || "") === String(chatId); }
+        if (!owns) { await tg("sendMessage", { chat_id: chatId, text: "Этот заказ не привязан к вам." }); return res.status(200).send("ok"); }
+        const confirm = data.startsWith("ocf:");
+        await spatch(`sales?id=eq.${encodeURIComponent(sid)}`, { status: confirm ? "confirmed" : "order" });
+        await tg("sendMessage", { chat_id: chatId, text: confirm ? "✅ Спасибо! Заказ подтверждён — мы готовим накладную." : "❌ Заказ отклонён. Мы свяжемся с вами." });
+        await notifyAdmin(confirm ? `✅ Клиент подтвердил заказ (${(sale.items || []).length} поз.)` : "❌ Клиент отказался от заказа");
+        return res.status(200).send("ok");
+      }
+
       if (isAdmin(chatId)) {
         if (data === "a_cat") await tg("sendMessage", { chat_id: chatId, text: `🌐 ${PUBLIC_URL}/catalog` });
         else if (data === "a_clients") await adminClients(chatId);

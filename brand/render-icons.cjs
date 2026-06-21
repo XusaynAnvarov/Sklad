@@ -16,7 +16,7 @@ for (const [name, size] of targets) {
   const r = new Resvg(svg, {
     fitTo: { mode: "width", value: size },
     font: { loadSystemFonts: true, defaultFontFamily: "Georgia" },
-    background: "rgba(0,0,0,0)",
+    background: "#16233b",   // тёмно-синий фон — без белых/прозрачных углов
   });
   const png = r.render().asPng();
   const out = path.join(ROOT, name);
