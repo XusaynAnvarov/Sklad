@@ -70,9 +70,10 @@ function statusBadge(status) {
 function cardHtml(p, i) {
   const id = escapeHtml(String(p.id));
   const qty = cart.get(String(p.id)) || 0;
-  // в режиме заказа — только кнопка «Добавить» + маленький бейдж кол-ва (не загромождаем карточку)
+  // в режиме заказа — поле «кол-во» (вписать вручную) + кнопка «В корзину» + бейдж
   const addRow = orderMode ? `<div class="add-row">
-        <button class="add-btn" data-id="${id}">＋ Добавить</button>
+        <input class="qty-inp" type="number" inputmode="numeric" min="1" placeholder="Кол-во" data-id="${id}" />
+        <button class="add-btn" data-id="${id}">＋ В корзину</button>
         <span class="in-cart" data-cart="${id}"${qty > 0 ? "" : ' style="display:none"'}>×${qty}</span>
       </div>` : "";
   return `<div class="prod reveal" style="animation-delay:${(i % 12) * 0.03}s">
@@ -300,18 +301,30 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
   const tg = makeThemeToggle();
   topbar.append(ls, tg);
   document.body.insertBefore(topbar, document.body.firstChild);
-  // клики по сетке: «Добавить» (+1 в заказ, без загромождения) или увеличение фото
+  // добавить товар с введённым вручную количеством
+  function addFromCard(add) {
+    const id = add.getAttribute("data-id");
+    const inp = add.closest(".add-row")?.querySelector(".qty-inp");
+    const typed = Math.max(1, Math.floor(Number(inp && inp.value) || 1));
+    setQty(id, (cart.get(String(id)) || 0) + typed);
+    if (inp) inp.value = "";
+    add.classList.add("added"); add.textContent = "✓ Добавлено";
+    clearTimeout(add._t); add._t = setTimeout(() => { add.classList.remove("added"); add.textContent = "＋ В корзину"; }, 900);
+  }
+  // клики по сетке: «В корзину» (с введённым кол-вом) или увеличение фото
   grid.addEventListener("click", (e) => {
     const add = e.target.closest(".add-btn");
-    if (add) {
-      const id = add.getAttribute("data-id");
-      setQty(id, (cart.get(String(id)) || 0) + 1);
-      add.classList.add("added"); add.textContent = "✓ Добавлено";
-      clearTimeout(add._t); add._t = setTimeout(() => { add.classList.remove("added"); add.textContent = "＋ Добавить"; }, 900);
-      return;
-    }
+    if (add) { addFromCard(add); return; }
     const img = e.target.closest(".prod .ph");
     if (img) openLightbox(img.src);
+  });
+  // Enter в поле количества → добавить
+  grid.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const inp = e.target.closest(".qty-inp"); if (!inp) return;
+    e.preventDefault();
+    const add = inp.closest(".add-row")?.querySelector(".add-btn");
+    if (add) addFromCard(add);
   });
   applyI18n(document.body);
   try {
