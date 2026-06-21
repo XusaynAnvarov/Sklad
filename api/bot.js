@@ -106,7 +106,12 @@ async function linkByPhone(phone, chatId, fromUser) {
 
 // ---------- админ-панель (русский) ----------
 function adminMenu(chatId) {
-  return tg("sendMessage", { chat_id: chatId, text: "🛠 Панель владельца:", reply_markup: { inline_keyboard: [[{ text: "🌐 Каталог", callback_data: "a_cat" }], [{ text: "👥 Клиенты", callback_data: "a_clients" }], [{ text: "💸 Долги", callback_data: "a_debts" }]] } });
+  return tg("sendMessage", { chat_id: chatId, text: "🛠 Панель владельца:", reply_markup: { inline_keyboard: [
+    [{ text: "🛒 Заказать (как клиент — для демо)", web_app: { url: PUBLIC_URL + "/catalog?order=1" } }],
+    [{ text: "🌐 Каталог", callback_data: "a_cat" }],
+    [{ text: "👥 Клиенты", callback_data: "a_clients" }],
+    [{ text: "💸 Долги", callback_data: "a_debts" }],
+  ] } });
 }
 async function adminClients(chatId) {
   const cs = await sget("customers?select=id,name&order=name.asc");
