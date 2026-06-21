@@ -9,7 +9,7 @@ import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAft
 import { icon } from "../icons.js";
 import { showLoader, hideLoader } from "../ui.js";
 import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
-import { exportInvoice, exportAllSales } from "../xlsx-export.js";
+import { exportInvoice } from "../xlsx-export.js";
 import { showNotFound } from "./purchases.js";
 
 const cfg = window.APP_CONFIG || {};
@@ -23,13 +23,7 @@ export default async function render(page, ctx) {
   page.append(
     el("div.topbar", {}, [
       el("div", {}, [el("h1", { text: "Продажи" }), el("div.sub", { text: `Накладных: ${sales.length}` })]),
-      el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
-        el("button.btn.btn-outline.btn-sm", {
-          text: "📥 Экспорт в Excel", title: "Скачать все накладные в Excel",
-          onclick: async () => { if (!sales.length) return; showLoader("Готовим Excel…"); try { await exportAllSales(sales, customers, products); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } },
-        }),
-        el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products) }, [icon("plus", { size: 16 }), "Новая накладная"]),
-      ]),
+      el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products) }, [icon("plus", { size: 16 }), "Новая накладная"]),
     ]),
   );
 

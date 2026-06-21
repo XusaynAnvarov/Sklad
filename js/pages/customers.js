@@ -1,9 +1,10 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js";
 import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js";
 import { openEditor, buildText, deleteSale } from "./sales.js";
+import { exportCustomerInvoice } from "../xlsx-export.js";
 import { placeholder as placeholderImg } from "./products.js";
 import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient } from "../telegram.js";
 import { icon } from "../icons.js";
@@ -196,6 +197,7 @@ async function renderCard(page, ctx, id) {
         el("td", {}, [payBadge]),
         el("td", { text: (s.items || []).length + " поз." }),
         el("td.right", {}, [el("div.row-actions", {}, [
+          el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Скачать накладную в Excel", text: "📊", onclick: async () => { showLoader("Готовим Excel…"); try { await exportCustomerInvoice(s, c, products, { debt, advance, lastPay }); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } } }),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: isPaid(s) ? "Отметить «в долг»" : "Отметить «оплачено»", onclick: () => togglePaid(ctx, s) }, [icon(isPaid(s) ? "dot" : "check", { size: 16 })]),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать (цена/кол-во/товары)", onclick: () => openEditor(ctx, s, customers, products, c.id) }, [icon("edit", { size: 16 })]),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить клиенту", onclick: () => sendInvToClient(ctx, s, c, products) }, [icon("send", { size: 16 })]),
