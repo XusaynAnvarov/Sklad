@@ -9,6 +9,7 @@ import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAft
 import { icon } from "../icons.js";
 import { showLoader, hideLoader } from "../ui.js";
 import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
+import { exportInvoice, exportAllSales } from "../xlsx-export.js";
 import { showNotFound } from "./purchases.js";
 
 const cfg = window.APP_CONFIG || {};
@@ -22,7 +23,13 @@ export default async function render(page, ctx) {
   page.append(
     el("div.topbar", {}, [
       el("div", {}, [el("h1", { text: "Продажи" }), el("div.sub", { text: `Накладных: ${sales.length}` })]),
-      el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products) }, [icon("plus", { size: 16 }), "Новая накладная"]),
+      el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
+        el("button.btn.btn-outline.btn-sm", {
+          text: "📥 Экспорт в Excel", title: "Скачать все накладные в Excel",
+          onclick: async () => { if (!sales.length) return; showLoader("Готовим Excel…"); try { await exportAllSales(sales, customers, products); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } },
+        }),
+        el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products) }, [icon("plus", { size: 16 }), "Новая накладная"]),
+      ]),
     ]),
   );
 
@@ -43,6 +50,7 @@ export default async function render(page, ctx) {
         : el("span.badge.order", {}, [icon("dot", { size: 12 }), "В долг"])]),
       el("td", {}, [s.telegram_sent ? el("span.badge.ok", {}, [icon("send", { size: 13 }), "Отправлена"]) : el("span.muted", { text: "—" })]),
       el("td.right", {}, [el("div.row-actions", {}, [
+        el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Скачать в Excel", text: "📊", onclick: async () => { showLoader("Готовим Excel…"); try { await exportInvoice(s, cmap[s.customer_id], products); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } } }),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать", onclick: () => openEditor(ctx, s, customers, products) }, [icon("edit", { size: 16 })]),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить в Telegram", onclick: () => resend(ctx, s, cmap, products) }, [icon("send", { size: 16 })]),
         el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить накладную? Товары вернутся на склад.", () => deleteSale(ctx, s, products)) }, [icon("trash", { size: 16 })]),
