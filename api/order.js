@@ -72,14 +72,15 @@ export default async function handler(req, res) {
   if (!want.size) return res.status(400).json({ error: "Нет валидных товаров" });
 
   try {
-    // подтверждаем, что товары существуют
+    // подтверждаем, что товары существуют И в наличии (нет в наличии — заказать нельзя)
     const ids = [...want.keys()];
-    const prods = await sget(`products?id=in.(${ids.join(",")})&select=id`);
-    const valid = new Set(prods.map(p => String(p.id)));
+    const prods = await sget(`products?id=in.(${ids.join(",")})&select=id,stock_qty,status_override`);
+    const inStock = (p) => p.status_override === "in_stock" || (p.status_override !== "on_order" && Number(p.stock_qty) > 0);
+    const valid = new Set(prods.filter(inStock).map(p => String(p.id)));
     const saleItems = [...want.entries()]
       .filter(([id]) => valid.has(id))
       .map(([id, qty]) => ({ product_id: id, qty, unit_price: 0, currency: "som", paid: false }));
-    if (!saleItems.length) return res.status(400).json({ error: "Товары не найдены" });
+    if (!saleItems.length) return res.status(400).json({ error: "Выбранных товаров нет в наличии" });
 
     const customer = (await sget(`customers?tg_chat_id=eq.${encodeURIComponent(user.id)}&select=id,name,tg_lang`))[0] || null;
     const tgName = [user.first_name, user.last_name].filter(Boolean).join(" ") || (user.username ? "@" + user.username : "Гость");

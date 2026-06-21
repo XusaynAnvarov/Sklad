@@ -70,12 +70,18 @@ function statusBadge(status) {
 function cardHtml(p, i) {
   const id = escapeHtml(String(p.id));
   const qty = cart.get(String(p.id)) || 0;
-  // в режиме заказа — поле «кол-во» (вписать вручную) + кнопка «В корзину» + бейдж
-  const addRow = orderMode ? `<div class="add-row">
+  // в режиме заказа: товар в наличии — поле «кол-во» + «В корзину»;
+  // нет в наличии — заказать НЕЛЬЗЯ (кнопка неактивна)
+  const inStock = p.status === "in_stock";
+  const addRow = orderMode
+    ? (inStock
+      ? `<div class="add-row">
         <input class="qty-inp" type="number" inputmode="numeric" min="1" placeholder="Кол-во" data-id="${id}" />
         <button class="add-btn" data-id="${id}">＋ В корзину</button>
         <span class="in-cart" data-cart="${id}"${qty > 0 ? "" : ' style="display:none"'}>×${qty}</span>
-      </div>` : "";
+      </div>`
+      : `<div class="add-row"><button class="add-btn off" type="button" disabled>Нет в наличии</button></div>`)
+    : "";
   return `<div class="prod reveal" style="animation-delay:${(i % 12) * 0.03}s">
       <img class="ph" loading="lazy" src="${p.photo_url || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'" />
       <div class="body">
@@ -304,7 +310,10 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
   document.body.insertBefore(topbar, document.body.firstChild);
   // добавить товар с введённым вручную количеством
   function addFromCard(add) {
+    if (add.disabled) return;
     const id = add.getAttribute("data-id");
+    const prod = byId(id);
+    if (prod && prod.status && prod.status !== "in_stock") return;   // нет в наличии — заказать нельзя
     const inp = add.closest(".add-row")?.querySelector(".qty-inp");
     const typed = Math.max(1, Math.floor(Number(inp && inp.value) || 1));
     setQty(id, (cart.get(String(id)) || 0) + typed);
