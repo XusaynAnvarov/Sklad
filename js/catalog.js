@@ -42,9 +42,9 @@ async function loadItems() {
 }
 
 const grid = document.getElementById("grid");
-const catnav = document.getElementById("catnav");
+const catSelect = document.getElementById("catSelect");
 const search = document.getElementById("search");
-let items = [], query = "";
+let items = [], query = "", selectedCat = "all";
 const slug = (s) => "cat-" + encodeURIComponent((s || "no-cat").toLowerCase().replace(/\s+/g, "-")).replace(/%/g, "");
 
 // Владелец (только он видит кнопку «Скачать PDF»): вошёл в админку на этом
@@ -68,15 +68,20 @@ function statusBadge(status) {
 }
 
 function cardHtml(p, i) {
+  const id = escapeHtml(String(p.id));
   const qty = cart.get(String(p.id)) || 0;
-  const qrow = orderMode ? `<div class="qrow" data-id="${escapeHtml(String(p.id))}">${qrowInner(qty)}</div>` : "";
+  // в режиме заказа — только кнопка «Добавить» + маленький бейдж кол-ва (не загромождаем карточку)
+  const addRow = orderMode ? `<div class="add-row">
+        <button class="add-btn" data-id="${id}">＋ Добавить</button>
+        <span class="in-cart" data-cart="${id}"${qty > 0 ? "" : ' style="display:none"'}>×${qty}</span>
+      </div>` : "";
   return `<div class="prod reveal" style="animation-delay:${(i % 12) * 0.03}s">
       <img class="ph" loading="lazy" src="${p.photo_url || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'" />
       <div class="body">
         <div class="nm">${escapeHtml(p.name)}</div>
         <div class="cat">${escapeHtml(p.category || "")}</div>
         <div style="margin-top:auto">${statusBadge(p.status)}</div>
-        ${qrow}
+        ${addRow}
       </div></div>`;
 }
 
@@ -96,39 +101,38 @@ function groupByCategory(list = items) {
   });
 }
 
-// Фильтр по поисковому запросу (имя или категория).
+const catKey = (p) => (p.category && String(p.category).trim()) || "Без категории";
+
+// Фильтр: выбранная категория (выпадающий список) + поисковый запрос.
 function filteredItems() {
   const q = query.trim().toLowerCase();
-  if (!q) return items;
   return items.filter(p =>
-    (p.name || "").toLowerCase().includes(q) ||
-    (p.category || "").toLowerCase().includes(q));
+    (selectedCat === "all" || catKey(p) === selectedCat) &&
+    (!q || (p.name || "").toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q)));
 }
 
-// Лента чипсов категорий сверху — клик прокручивает к разделу.
-function buildCatNav(groups) {
-  if (!catnav) return;
-  catnav.innerHTML = "";
-  groups.forEach(([cat, list]) => {
-    const chip = document.createElement("a");
-    chip.className = "cat-chip";
-    chip.href = "#" + slug(cat);
-    chip.innerHTML = `${escapeHtml(cat)} <b>${list.length}</b>`;
-    chip.addEventListener("click", (e) => {
-      e.preventDefault();
-      document.getElementById(slug(cat))?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    catnav.append(chip);
+// Выпадающий список категорий (строится один раз).
+function buildCatSelect() {
+  if (!catSelect || catSelect.dataset.built) return;
+  const counts = {};
+  items.forEach(p => { const k = catKey(p); counts[k] = (counts[k] || 0) + 1; });
+  const cats = Object.keys(counts).sort((a, b) => {
+    if (a === "Без категории") return 1; if (b === "Без категории") return -1;
+    return a.localeCompare(b, "ru");
   });
+  catSelect.innerHTML = `<option value="all">Все категории (${items.length})</option>` +
+    cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${counts[c]})</option>`).join("");
+  catSelect.dataset.built = "1";
+  catSelect.addEventListener("change", () => { selectedCat = catSelect.value; draw(); window.scrollTo({ top: 0, behavior: "smooth" }); });
 }
 
 function draw() {
+  buildCatSelect();
   const list = filteredItems();
   const groups = groupByCategory(list);
   grid.innerHTML = "";
-  if (!items.length) { grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="em-ic">📦</div><p>Каталог пуст</p></div>`; if (catnav) catnav.innerHTML = ""; return; }
-  if (!list.length) { grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="em-ic">🔍</div><p>Ничего не найдено</p></div>`; if (catnav) catnav.innerHTML = ""; return; }
-  buildCatNav(groups);
+  if (!items.length) { grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="em-ic">📦</div><p>Каталог пуст</p></div>`; return; }
+  if (!list.length) { grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="em-ic">🔍</div><p>Ничего не найдено</p></div>`; return; }
   let gi = 0;
   groups.forEach(([cat, items_]) => {
     const section = document.createElement("section");
@@ -173,15 +177,13 @@ function qrowInner(qty) {
     ? `<button class="qbtn minus">−</button><input class="qinp" type="number" inputmode="numeric" min="0" value="${qty}"><button class="qbtn plus">＋</button>`
     : `<button class="qbtn add plus">＋ В заказ</button>`;
 }
-function setQty(id, qty, skipCardRow) {
+function setQty(id, qty) {
   id = String(id);
   qty = Math.max(0, Math.min(100000, Math.floor(Number(qty) || 0)));
   if (qty <= 0) cart.delete(id); else cart.set(id, qty);
-  // обновить строку карточки (если правка пришла не из самой карточки)
-  if (!skipCardRow) {
-    const row = grid.querySelector(`.qrow[data-id="${CSS.escape(id)}"]`);
-    if (row) row.innerHTML = qrowInner(cart.get(id) || 0);
-  }
+  // обновить маленький бейдж кол-ва на карточке
+  const badge = grid.querySelector(`.in-cart[data-cart="${CSS.escape(id)}"]`);
+  if (badge) { const n = cart.get(id) || 0; badge.textContent = "×" + n; badge.style.display = n > 0 ? "" : "none"; }
   updateCartBar();
   if (document.getElementById("orderview")?.classList.contains("show")) renderOrderView();
 }
@@ -215,7 +217,7 @@ async function sendOrder() {
     if (TG.showAlert) TG.showAlert("✅ Заказ отправлен! Мы свяжемся с вами.", () => TG.close());
     else { alert("Заказ отправлен!"); TG.close(); }
   } catch (e) {
-    btn.disabled = false; btn.textContent = "Оформить заказ";
+    btn.disabled = false; btn.textContent = "✅ Подтвердить заказ";
     if (TG.showAlert) TG.showAlert("Не удалось отправить: " + e.message);
     else alert("Не удалось отправить: " + e.message);
   }
@@ -232,7 +234,7 @@ function ensureOverlay() {
     <div class="ov-foot"><div class="ov-sum"></div>
       <div class="ov-actions">
         <button class="btn btn-outline ov-back" type="button">← Добавить ещё</button>
-        <button class="btn btn-primary ov-send" type="button">${iconSvg("send", { size: 16 })} Отправить заказ</button>
+        <button class="btn btn-primary ov-send" type="button">${iconSvg("check", { size: 16 })} Подтвердить заказ</button>
       </div></div></div>`;
   document.body.append(ov);
   ov.querySelector(".ov-x").addEventListener("click", closeOrderView);
@@ -286,6 +288,8 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
   if (TG) { try { TG.ready(); TG.expand(); } catch {} }
   if (orderMode) {
     document.body.classList.add("order-mode");
+    const hint = document.getElementById("orderHint");
+    if (hint) hint.textContent = "🛒 Выберите товары и нажмите «Добавить». Когда закончите — нажмите «Подтвердить список» внизу, проверьте количество и отправьте заказ.";
     const bar = document.getElementById("cartbar");
     if (bar) bar.addEventListener("click", openOrderView);   // вся панель открывает экран заказа
   }
@@ -296,22 +300,18 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
   const tg = makeThemeToggle();
   topbar.append(ls, tg);
   document.body.insertBefore(topbar, document.body.firstChild);
-  // клики по сетке: кнопки заказа (+/−) или увеличение фото
+  // клики по сетке: «Добавить» (+1 в заказ, без загромождения) или увеличение фото
   grid.addEventListener("click", (e) => {
-    const qbtn = e.target.closest(".qrow .qbtn");
-    if (qbtn) {
-      const row = qbtn.closest(".qrow"); const id = row.getAttribute("data-id");
-      const cur = cart.get(String(id)) || 0;
-      setQty(id, qbtn.classList.contains("minus") ? cur - 1 : cur + 1);
+    const add = e.target.closest(".add-btn");
+    if (add) {
+      const id = add.getAttribute("data-id");
+      setQty(id, (cart.get(String(id)) || 0) + 1);
+      add.classList.add("added"); add.textContent = "✓ Добавлено";
+      clearTimeout(add._t); add._t = setTimeout(() => { add.classList.remove("added"); add.textContent = "＋ Добавить"; }, 900);
       return;
     }
     const img = e.target.closest(".prod .ph");
     if (img) openLightbox(img.src);
-  });
-  // ручной ввод количества на карточке
-  grid.addEventListener("change", (e) => {
-    const inp = e.target.closest(".qrow .qinp"); if (!inp) return;
-    const id = inp.closest(".qrow")?.getAttribute("data-id"); if (id) setQty(id, inp.value);
   });
   applyI18n(document.body);
   try {

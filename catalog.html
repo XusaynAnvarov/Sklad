@@ -46,6 +46,20 @@
     .cat-section-h span{font-size:12px;font-weight:700;color:var(--muted);background:color-mix(in srgb,var(--text) 6%,transparent);
       padding:2px 9px;border-radius:20px;}
     .cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+    .cat-select{min-width:170px;max-width:240px;cursor:pointer;}
+    /* подсказка-баннер «оформите заказ» (только в режиме заказа) */
+    .order-hint{display:none;max-width:1200px;margin:6px auto 0;padding:12px 16px;border-radius:12px;
+      background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);
+      color:var(--text);font-size:14px;line-height:1.4;}
+    .order-mode .order-hint{display:block;}
+    /* карточка в режиме заказа: только кнопка «Добавить» + маленький бейдж кол-ва */
+    .prod .add-row{margin-top:8px;display:flex;align-items:center;gap:8px;}
+    .prod .add-btn{flex:1;border:none;border-radius:10px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;
+      background:var(--grad);color:#fff;transition:transform .12s,filter .15s;}
+    .prod .add-btn:active{transform:scale(.96);}
+    .prod .add-btn.added{background:#059669;}
+    .prod .in-cart{font-size:12px;font-weight:800;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);
+      border-radius:20px;padding:3px 9px;white-space:nowrap;}
     .cat-footer{text-align:center;padding:24px;color:var(--muted);font-size:13px;border-top:1px solid var(--border);}
     /* в Telegram-заказе: убрать большой герой и плавающие кнопки — больше места товарам */
     .order-mode .cat-header,.order-mode .cat-footer{display:none;}
@@ -119,11 +133,12 @@
   </header>
   <div class="cat-controls">
     <div class="cat-actions">
-      <input id="search" class="inp cat-search" placeholder="Поиск по каталогу…" />
+      <input id="search" class="inp cat-search" placeholder="Поиск…" />
+      <select id="catSelect" class="inp cat-select"></select>
       <button id="pdfBtn" class="btn btn-primary" style="display:none">📄 Скачать каталог (PDF)</button>
     </div>
-    <nav id="catnav" class="cat-nav"></nav>
   </div>
+  <div id="orderHint" class="order-hint"></div>
   <main id="grid" class="cat-wrap">
     <div class="empty" style="grid-column:1/-1">
       <svg width="108" height="108" viewBox="0 0 512 512" style="margin-bottom:8px" aria-label="GENERAL MODERN">
@@ -157,7 +172,7 @@
 
   <div id="cartbar" class="cartbar">
     <div class="ci" id="cartinfo">Корзина пуста<small>выберите товары</small></div>
-    <button id="cartsend" class="btn btn-primary">Оформить заказ</button>
+    <button id="cartsend" class="btn btn-primary">Подтвердить список →</button>
   </div>
 
   <script src="config.js"></script>
