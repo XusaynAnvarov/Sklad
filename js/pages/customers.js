@@ -156,6 +156,7 @@ async function renderCard(page, ctx, id) {
       el("button.btn.btn-outline", { onclick: () => openForm(ctx, c, customers) }, [icon("edit", { size: 16 }), "Изменить"]),
       el("button.btn.btn-ok", { onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 16 }), "Оплата"]),
       el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products, c.id) }, [icon("plus", { size: 16 }), "Накладная"]),
+      el("button.btn.btn-danger", { onclick: () => confirmDialog("Удалить клиента «" + c.name + "»? Накладные сохранятся, но без привязки к нему.", async () => { await ctx.db.customers.remove(c.id); toast("Клиент удалён", "ok"); ctx.navigate("customers"); }) }, [icon("trash", { size: 16 }), "Удалить"]),
     ]),
   ]));
 

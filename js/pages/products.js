@@ -6,6 +6,7 @@ import { icon } from "../icons.js";
 import { fmt, convert } from "../fx.js";
 import { consumeFIFO, ensureBatches, sumQty, currentCost } from "../inventory.js";
 import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
+import { openEditor } from "./sales.js";
 
 // список партий товара (FIFO) для карточки
 function batchesView(p) {
@@ -234,23 +235,31 @@ export function openForm(ctx, p, cats = []) {
     ].filter(Boolean),
   });
 
-  if (!isNew) loadProductHistory(ctx, p.id, historyBox);
+  if (!isNew) loadProductHistory(ctx, p, historyBox);
 }
 
-// История продаж товара: кто (клиент), когда (дата) и по какой цене покупал.
-async function loadProductHistory(ctx, pid, box) {
+// История продаж товара: кто / когда / по какой цене + остаток; правка кол-ва/цены через накладную.
+async function loadProductHistory(ctx, p, box) {
   if (!box) return;
+  const pid = p.id;
   try {
-    const [sales, customers] = await Promise.all([ctx.db.sales.list(), ctx.db.customers.list()]);
+    const [sales, customers, products] = await Promise.all([ctx.db.sales.list(), ctx.db.customers.list(), ctx.db.products.list()]);
     const cmap = Object.fromEntries(customers.map(c => [c.id, c.name]));
+    const fresh = products.find(x => x.id === pid) || p;
     const rows = [];
     sales.forEach(s => (s.items || []).forEach(it => {
       if (String(it.product_id) === String(pid)) {
-        rows.push({ date: s.date, client: cmap[s.customer_id] || "—", qty: Number(it.qty) || 0, price: it.unit_price, cur: it.currency || s.currency, status: s.status });
+        rows.push({ sale: s, date: s.date, client: cmap[s.customer_id] || "—", qty: Number(it.qty) || 0, price: it.unit_price, cur: it.currency || s.currency });
       }
     }));
     rows.sort((a, b) => new Date(b.date) - new Date(a.date));
     box.innerHTML = "";
+    const left = Number(fresh.stock_qty) || 0;
+    box.append(el("div.card", { style: { padding: "10px 14px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px" } }, [
+      el("span", { text: "📦" }),
+      el("strong", { text: "Осталось в остатке: " + left + " шт." }),
+      el("span.muted", { style: { fontSize: "12px" }, text: "(изменить остаток — поле «Остаток» выше)" }),
+    ]));
     if (!rows.length) { box.append(el("div.muted", { text: "Этот товар ещё никто не покупал", style: { fontSize: "13px", padding: "8px 0" } })); return; }
     const tb = el("tbody");
     rows.forEach(r => tb.append(el("tr", {}, [
@@ -258,10 +267,11 @@ async function loadProductHistory(ctx, pid, box) {
       el("td", {}, [el("strong", { text: r.client })]),
       el("td", { text: r.qty + " шт." }),
       el("td", {}, [el("strong", { text: r.price > 0 ? fmt(r.price, r.cur) : "—" })]),
+      el("td.right", {}, [el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Изменить кол-во/цену или удалить (в накладной)", onclick: () => openEditor(ctx, r.sale, customers, products, r.sale.customer_id) }, [icon("edit", { size: 15 })])]),
     ])));
     box.append(el("div", { style: { overflowX: "auto", maxHeight: "280px", overflowY: "auto" } }, [
       el("table.tbl", {}, [
-        el("thead", {}, [el("tr", {}, ["Дата", "Клиент", "Кол-во", "Цена"].map(h => el("th", { text: h })))]),
+        el("thead", {}, [el("tr", {}, ["Дата", "Клиент", "Кол-во", "Цена", ""].map(h => el("th", { text: h })))]),
         tb,
       ]),
     ]));
