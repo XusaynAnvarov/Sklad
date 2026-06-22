@@ -1,6 +1,13 @@
 // Панель администратора на публичном сайте
 import { req } from "./api.js";
-import { sToast } from "./app.js";
+
+function apToast(msg, type = "") {
+  let wrap = document.querySelector(".s-toasts");
+  if (!wrap) { wrap = document.createElement("div"); wrap.className = "s-toasts"; document.body.append(wrap); }
+  const t = document.createElement("div"); t.className = "s-toast " + type; t.textContent = msg;
+  wrap.append(t);
+  setTimeout(() => { t.style.opacity = "0"; t.style.transition = "opacity .3s"; setTimeout(() => t.remove(), 300); }, 3000);
+}
 
 const STATUS_LABELS = {
   order: "Новый заказ", pending_confirm: "Ждёт подтверждения",
@@ -228,12 +235,12 @@ export async function renderAdminPanel(container) {
     row.style.opacity = "0.5";
     req("POST", "/api/admin-site/delete-client", { account_id: c.id })
       .then(() => {
-        sToast("Клиент удалён, номер заблокирован", "ok");
+        apToast("Клиент удалён, номер заблокирован", "ok");
         row.remove();
         clientsData = clientsData.filter(cl => cl.id !== c.id);
         document.getElementById("ap-stat-clients").querySelector(".ap-stat-num").textContent = clientsData.length;
       })
-      .catch(e => { sToast("Ошибка: " + e.message, "err"); row.style.opacity = "1"; });
+      .catch(e => { apToast("Ошибка: " + e.message, "err"); row.style.opacity = "1"; });
   }
 
   // ---- Вкладка «Заказы» ----
