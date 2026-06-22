@@ -170,6 +170,11 @@ function buildHeader(onRoute) {
   cartBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="cart-count zero">0</span>`;
   cartBtn.addEventListener("click", openCartDrawer);
 
+  // кнопка «Склад» — всегда в шапке (сам склад защищён паролем)
+  const skladBtn = document.createElement("a"); skladBtn.href = "/admin";
+  skladBtn.className = "btn-ghost"; skladBtn.style.cssText = "padding:8px 14px;font-size:13px;text-decoration:none";
+  skladBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg> Склад`;
+
   if (isLoggedIn()) {
     const cabinetBtn = document.createElement("button"); cabinetBtn.className = "btn-navy"; cabinetBtn.style.cssText = "padding:8px 16px;font-size:13px";
     cabinetBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Кабинет`;
@@ -177,12 +182,12 @@ function buildHeader(onRoute) {
     const logoutBtn = document.createElement("button"); logoutBtn.className = "btn-ghost"; logoutBtn.style.cssText = "padding:8px 14px;font-size:13px";
     logoutBtn.textContent = "Выйти";
     logoutBtn.addEventListener("click", () => { _logout(); location.hash = "#catalog"; location.reload(); });
-    right.append(cartBtn, cabinetBtn, logoutBtn);
+    right.append(cartBtn, skladBtn, cabinetBtn, logoutBtn);
   } else {
     const loginBtn = document.createElement("button"); loginBtn.className = "btn-primary"; loginBtn.style.cssText = "padding:9px 18px;font-size:13px";
     loginBtn.textContent = "Войти";
     loginBtn.addEventListener("click", openLogin);
-    right.append(cartBtn, loginBtn);
+    right.append(cartBtn, skladBtn, loginBtn);
   }
 
   inner.append(logo, nav, right);
