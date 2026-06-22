@@ -211,15 +211,58 @@ export default async function handler(req, res) {
       const fromName = [u.message.from?.first_name, u.message.from?.last_name].filter(Boolean).join(" ");
       // поделился контактом
       if (u.message.contact && u.message.contact.phone_number) {
-        const c = await linkByPhone(u.message.contact.phone_number, chatId, fromName);
-        const L = T[await getLang(chatId, c)] || T.ru;
-        if (c) { await setLang(chatId, await getLang(chatId, null), c); await tg("sendMessage", { chat_id: chatId, text: L.found(c.name), reply_markup: { remove_keyboard: true } }); await clientMenu(chatId, c, L); }
-        else await tg("sendMessage", { chat_id: chatId, text: L.notFound, reply_markup: { remove_keyboard: true } });
+        const phone = u.message.contact.phone_number;
+        let verifiedSite = false;
+        try {
+          const sess = await sget(`bot_sessions?chat_id=eq.${chatId}&select=state`);
+          const verifyToken = sess[0]?.state?.verify_token;
+          if (verifyToken) {
+            const ph = norm(phone);
+            const vrows = await sget(`site_verifications?token=eq.${encodeURIComponent(verifyToken)}&select=phone,verified,expires_at`);
+            const v = vrows[0];
+            if (v && !v.verified && new Date(v.expires_at) > new Date()) {
+              if (ph && ph === norm(v.phone)) {
+                await spatch(`site_verifications?token=eq.${encodeURIComponent(verifyToken)}`, { verified: true, chat_id: String(chatId) });
+                try { await supsert("bot_sessions", { chat_id: String(chatId), state: {}, updated_at: new Date().toISOString() }); } catch {}
+                await tg("sendMessage", { chat_id: chatId, text: "Номер подтверждён! Вернитесь на сайт и задайте пароль — регистрация будет завершена.", reply_markup: { remove_keyboard: true } });
+                verifiedSite = true;
+              } else {
+                await tg("sendMessage", { chat_id: chatId, text: "Номер не совпадает с тем, что вы указали при регистрации. Попробуйте снова.", reply_markup: { remove_keyboard: true } });
+                return res.status(200).send("ok");
+              }
+            }
+          }
+        } catch (e) { console.error("site verify contact error", e); }
+        if (!verifiedSite) {
+          const c = await linkByPhone(phone, chatId, fromName);
+          const L = T[await getLang(chatId, c)] || T.ru;
+          if (c) { await setLang(chatId, await getLang(chatId, null), c); await tg("sendMessage", { chat_id: chatId, text: L.found(c.name), reply_markup: { remove_keyboard: true } }); await clientMenu(chatId, c, L); }
+          else await tg("sendMessage", { chat_id: chatId, text: L.notFound, reply_markup: { remove_keyboard: true } });
+        }
         return res.status(200).send("ok");
       }
-      const text = (u.message.text || "").trim().toLowerCase();
+      const raw = (u.message.text || "").trim();
+      const text = raw.toLowerCase();
       const existing = await findByChat(chatId);
       if (text === "/lang") { await askLang(chatId); return res.status(200).send("ok"); }
+      // /start verify_TOKEN — верификация номера при регистрации на сайте
+      const verifyMatch = raw.match(/^\/start verify_([a-f0-9]{48})$/i);
+      if (verifyMatch) {
+        const token = verifyMatch[1].toLowerCase();
+        const vrows = await sget(`site_verifications?token=eq.${encodeURIComponent(token)}&select=phone,verified,expires_at`);
+        const v = vrows[0];
+        if (!v || new Date(v.expires_at) < new Date()) {
+          await tg("sendMessage", { chat_id: chatId, text: "Ссылка недействительна или истекла. Вернитесь на сайт и начните регистрацию заново." });
+          return res.status(200).send("ok");
+        }
+        if (v.verified) {
+          await tg("sendMessage", { chat_id: chatId, text: "Этот номер уже подтверждён. Вернитесь на сайт и задайте пароль." });
+          return res.status(200).send("ok");
+        }
+        try { await supsert("bot_sessions", { chat_id: String(chatId), state: { verify_token: token }, updated_at: new Date().toISOString() }); } catch {}
+        await tg("sendMessage", { chat_id: chatId, text: "Для подтверждения регистрации на generalmodern.uz нажмите кнопку ниже и поделитесь номером телефона.", reply_markup: { keyboard: [[{ text: "Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
+        return res.status(200).send("ok");
+      }
       if (text === "/start" || !existing) {
         if (text === "/start") await sendIntro(chatId);   // показать логотип-анимацию при входе
         await askLang(chatId);

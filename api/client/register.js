@@ -1,0 +1,83 @@
+// POST /api/client/register — завершить регистрацию после Telegram-верификации
+// Body: { verif_token, password }
+// Returns: { token } (JWT для входа)
+import { normPhone, hashPassword, signToken } from "../lib/clientauth.js";
+import { sget, supsert, spatch } from "../lib/supa.js";
+
+const MIN_PASS = 6;
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  let body = req.body;
+  if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
+
+  const { verif_token, password } = body || {};
+  if (!verif_token) return res.status(400).json({ error: "Токен верификации обязателен" });
+  if (!password || String(password).length < MIN_PASS) return res.status(400).json({ error: `Пароль должен быть не менее ${MIN_PASS} символов` });
+
+  try {
+    // проверяем верификацию
+    const rows = await sget(`site_verifications?token=eq.${encodeURIComponent(verif_token)}&select=*`);
+    const v = rows[0];
+    if (!v) return res.status(404).json({ error: "Токен не найден" });
+    if (!v.verified) return res.status(400).json({ error: "Telegram не подтверждён. Сначала подтвердите номер." });
+    if (new Date(v.expires_at) < new Date()) return res.status(410).json({ error: "Токен истёк. Начните регистрацию заново." });
+
+    const phone = normPhone(v.phone);
+
+    // повторная проверка блокировки
+    const blocked = await sget(`blocked_phones?phone=eq.${encodeURIComponent(phone)}&select=phone`);
+    if (blocked.length) return res.status(403).json({ error: "Этот номер заблокирован." });
+
+    // проверяем, нет ли уже аккаунта
+    const exists = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id`);
+    if (exists.length) return res.status(409).json({ error: "Аккаунт уже существует. Войдите." });
+
+    // ищем клиента по телефону в складе
+    let customer_id = null;
+    const all = await sget("customers?select=id,contact,tg_chat_id");
+    const match = all.find(c => c.contact && normPhone(c.contact) === phone && phone.length >= 7);
+    if (match) {
+      customer_id = match.id;
+      // привязываем tg_chat_id если не был
+      if (!match.tg_chat_id && v.chat_id) {
+        try { await spatch(`customers?id=eq.${match.id}`, { tg_chat_id: String(v.chat_id) }); } catch {}
+      }
+    } else {
+      // создаём нового клиента в складе
+      const SUPA = process.env.SUPABASE_URL;
+      const KEY = process.env.SUPABASE_SERVICE_KEY;
+      const H = { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json", Prefer: "return=representation" };
+      const r = await fetch(SUPA + "/rest/v1/customers", {
+        method: "POST", headers: H,
+        body: JSON.stringify({ name: phone, contact: phone, tg_chat_id: v.chat_id ? String(v.chat_id) : null }),
+      });
+      if (r.ok) {
+        const created = await r.json();
+        customer_id = (Array.isArray(created) ? created[0] : created)?.id || null;
+      }
+    }
+
+    const password_hash = await hashPassword(password);
+    await supsert("site_accounts", {
+      phone, password_hash, customer_id, tg_verified: true,
+      created_at: new Date().toISOString(), last_login: new Date().toISOString(),
+    });
+
+    // удаляем использованный токен верификации
+    try {
+      await fetch(process.env.SUPABASE_URL + "/rest/v1/site_verifications?token=eq." + encodeURIComponent(verif_token), {
+        method: "DELETE",
+        headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: "Bearer " + process.env.SUPABASE_SERVICE_KEY },
+      });
+    } catch {}
+
+    const accounts = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id`);
+    const acc = accounts[0];
+    const jwt = signToken({ sub: acc.id, customer_id: acc.customer_id, phone });
+    return res.status(200).json({ token: jwt, customer_id: acc.customer_id });
+  } catch (e) {
+    console.error("register error", e);
+    return res.status(500).json({ error: "Ошибка сервера" });
+  }
+}

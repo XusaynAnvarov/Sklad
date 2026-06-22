@@ -18,17 +18,19 @@ import orders from "./pages/orders.js";
 import reports from "./pages/reports.js";
 import catalogPage from "./pages/catalog_admin.js";
 import settings from "./pages/settings.js";
+import siteClients from "./pages/site_clients.js";
 
 const NAV = [
-  { id: "dashboard", label: "Дашборд", ic: "dashboard", render: dashboard },
-  { id: "products",  label: "Товары",  ic: "box", render: products },
-  { id: "sales",     label: "Продажи", ic: "receipt", render: sales },
-  { id: "purchases", label: "Приход",  ic: "truck", render: purchases },
-  { id: "customers", label: "Клиенты", ic: "user", render: customers },
-  { id: "orders",    label: "Заказы",  ic: "cart", render: orders },
-  { id: "reports",   label: "Отчёты", ic: "chart", render: reports },
-  { id: "catalog",   label: "Каталог", ic: "globe", render: catalogPage },
-  { id: "settings",  label: "Настройки", ic: "settings", render: settings },
+  { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
+  { id: "products",     label: "Товары",          ic: "box",       render: products },
+  { id: "sales",        label: "Продажи",         ic: "receipt",   render: sales },
+  { id: "purchases",    label: "Приход",          ic: "truck",     render: purchases },
+  { id: "customers",    label: "Клиенты",         ic: "user",      render: customers },
+  { id: "orders",       label: "Заказы",          ic: "cart",      render: orders },
+  { id: "reports",      label: "Отчёты",          ic: "chart",     render: reports },
+  { id: "catalog",      label: "Каталог",         ic: "globe",     render: catalogPage },
+  { id: "site_clients", label: "Клиенты сайта",   ic: "broadcast", render: siteClients },
+  { id: "settings",     label: "Настройки",       ic: "settings",  render: settings },
 ];
 
 const root = document.getElementById("root");

@@ -1,11 +1,17 @@
 {
   "name": "skladanvarov",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Складская система: админка, каталог, Telegram-бот, PDF накладные",
+  "description": "GENERAL MODERN — сайт-магазин, кабинет клиента, склад, Telegram-бот, PDF",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "pdf-lib": "^1.17.1"
   },
   "devDependencies": {

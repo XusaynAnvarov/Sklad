@@ -1,6 +1,9 @@
 .vercel
 node_modules/
 .claude/
+.env
+.env.local
+.env.production
 
 2 Dars/
 

@@ -1,0 +1,244 @@
+// SPA-роутер публичного сайта: шапка, корзина, роутинг
+import { isLoggedIn, clearToken as _clearToken } from "./api.js";
+import { renderCatalog } from "./catalog.js";
+import { renderCabinet } from "./cabinet.js";
+import { setAuthChangeCallback, openLogin, logout as _logout } from "./auth.js";
+
+// ---- Cart state ----
+let cart = JSON.parse(localStorage.getItem("gm_cart") || "[]");
+function saveCart() { localStorage.setItem("gm_cart", JSON.stringify(cart)); document.dispatchEvent(new CustomEvent("gm:cart-change")); updateCartBadge(); }
+export function cartState() { return cart; }
+export function cartAdd(product) {
+  const ex = cart.find(i => i.id === product.id);
+  if (ex) ex.qty++; else cart.push({ id: product.id, name: product.name, photo_url: product.photo_url || null, qty: 1 });
+  saveCart();
+}
+export function cartRemove(id) { cart = cart.filter(i => i.id !== id); saveCart(); }
+export function cartSetQty(id, qty) {
+  const ex = cart.find(i => i.id === id);
+  if (!ex) return;
+  if (qty <= 0) { cartRemove(id); return; }
+  ex.qty = qty; saveCart();
+}
+export function cartQty(id) { return (cart.find(i => i.id === id) || {}).qty || 0; }
+export function cartCount() { return cart.reduce((s, i) => s + i.qty, 0); }
+
+// ---- Toast ----
+let toastContainer;
+export function sToast(msg, type = "") {
+  if (!toastContainer) { toastContainer = document.createElement("div"); toastContainer.className = "s-toasts"; document.body.append(toastContainer); }
+  const t = document.createElement("div"); t.className = "s-toast " + type; t.textContent = msg;
+  toastContainer.append(t);
+  setTimeout(() => { t.style.opacity = "0"; t.style.transition = "opacity .3s"; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
+// ---- Modal ----
+const modals = {};
+export function openModal(id, content) {
+  let overlay = modals[id];
+  if (!overlay) {
+    overlay = document.createElement("div"); overlay.className = "s-overlay"; overlay.id = "mo-" + id;
+    const modal = document.createElement("div"); modal.className = "s-modal";
+    const head = document.createElement("div"); head.className = "s-modal-head";
+    const title = document.createElement("h2"); title.textContent = id === "auth-modal" ? "Войти / Зарегистрироваться" : "";
+    const closeBtn = document.createElement("button"); closeBtn.className = "s-modal-close";
+    closeBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    closeBtn.addEventListener("click", () => closeModal(id));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(id); });
+    head.append(title, closeBtn);
+    modal.append(head);
+    const body = document.createElement("div"); body.className = "s-modal-body"; modal.append(body);
+    overlay.append(modal);
+    document.body.append(overlay);
+    modals[id] = overlay;
+  }
+  // обновляем контент
+  const body = overlay.querySelector(".s-modal-body");
+  body.innerHTML = ""; if (content) body.append(content);
+  requestAnimationFrame(() => overlay.classList.add("open"));
+}
+export function closeModal(id) {
+  const overlay = modals[id] || document.getElementById("mo-" + id);
+  if (overlay) { overlay.classList.remove("open"); }
+}
+
+// ---- Cart Drawer ----
+let cartDrawer, cartOverlay;
+function buildCartDrawer() {
+  cartOverlay = document.createElement("div"); cartOverlay.className = "cart-overlay";
+  cartDrawer = document.createElement("div"); cartDrawer.className = "cart-drawer";
+  cartOverlay.append(cartDrawer);
+  document.body.append(cartOverlay);
+  cartOverlay.addEventListener("click", (e) => { if (e.target === cartOverlay) closeCartDrawer(); });
+}
+function openCartDrawer() { renderCartDrawerContent(); cartOverlay.classList.add("open"); }
+function closeCartDrawer() { cartOverlay.classList.remove("open"); }
+export function renderCartDrawer() { if (cartOverlay?.classList.contains("open")) renderCartDrawerContent(); }
+
+function renderCartDrawerContent() {
+  cartDrawer.innerHTML = "";
+  const head = document.createElement("div"); head.className = "cart-drawer-head";
+  const h2 = document.createElement("h2");
+  h2.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Корзина`;
+  const closeBtn = document.createElement("button"); closeBtn.className = "cart-close";
+  closeBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  closeBtn.addEventListener("click", closeCartDrawer);
+  head.append(h2, closeBtn);
+  cartDrawer.append(head);
+
+  const items = document.createElement("div"); items.className = "cart-items";
+  if (!cart.length) {
+    items.innerHTML = `<div class="cart-empty"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><p>Корзина пуста</p></div>`;
+  } else {
+    cart.forEach(it => {
+      const row = document.createElement("div"); row.className = "cart-item";
+      const imgEl = document.createElement("div"); imgEl.className = "cart-item-img";
+      imgEl.style.cssText = "width:56px;height:56px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0";
+      if (it.photo_url) { const img = document.createElement("img"); img.src = it.photo_url; img.style.cssText = "width:100%;height:100%;object-fit:cover"; imgEl.append(img); }
+      else imgEl.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
+      const info = document.createElement("div"); info.className = "cart-item-info";
+      const name = document.createElement("div"); name.className = "cart-item-name"; name.textContent = it.name;
+      const qtyRow = document.createElement("div"); qtyRow.className = "cart-item-qty";
+      const minus = document.createElement("button"); minus.className = "qty-btn"; minus.textContent = "−";
+      minus.addEventListener("click", () => { cartSetQty(it.id, it.qty - 1); renderCartDrawerContent(); document.dispatchEvent(new CustomEvent("gm:cart-change")); });
+      const qtyVal = document.createElement("span"); qtyVal.className = "qty-val"; qtyVal.textContent = it.qty;
+      const plus = document.createElement("button"); plus.className = "qty-btn"; plus.textContent = "+";
+      plus.addEventListener("click", () => { cartSetQty(it.id, it.qty + 1); renderCartDrawerContent(); document.dispatchEvent(new CustomEvent("gm:cart-change")); });
+      qtyRow.append(minus, qtyVal, plus);
+      info.append(name, qtyRow);
+      const del = document.createElement("button"); del.className = "cart-item-remove";
+      del.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+      del.addEventListener("click", () => { cartRemove(it.id); renderCartDrawerContent(); document.dispatchEvent(new CustomEvent("gm:cart-change")); });
+      row.append(imgEl, info, del);
+      items.append(row);
+    });
+  }
+  cartDrawer.append(items);
+
+  if (cart.length) {
+    const footer = document.createElement("div"); footer.className = "cart-footer";
+    const info = document.createElement("div"); info.style.cssText = "font-size:13px;color:var(--muted);text-align:center";
+    info.textContent = "Цены уточнит менеджер";
+    const orderBtn = document.createElement("button"); orderBtn.className = "btn-primary"; orderBtn.style.width = "100%";
+    orderBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Оформить заказ`;
+    orderBtn.addEventListener("click", async () => {
+      if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
+      orderBtn.disabled = true; orderBtn.innerHTML = '<span class="s-spinner"></span> Отправляем…';
+      try {
+        const { api: siteApi } = await import("./api.js");
+        await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
+        cart = []; saveCart();
+        closeCartDrawer();
+        sToast("Заказ отправлен! Менеджер свяжется с вами.", "ok");
+      } catch (e) {
+        sToast(e.message, "err");
+        orderBtn.disabled = false; orderBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Оформить заказ`;
+      }
+    });
+    footer.append(info, orderBtn);
+    cartDrawer.append(footer);
+  }
+}
+
+// ---- updateCartBadge ----
+function updateCartBadge() {
+  const count = cartCount();
+  document.querySelectorAll(".cart-count").forEach(el => {
+    el.textContent = count;
+    el.classList.toggle("zero", count === 0);
+  });
+}
+
+// ---- Header ----
+function buildHeader(onRoute) {
+  const header = document.createElement("header"); header.className = "site-header";
+  const inner = document.createElement("div"); inner.className = "site-header-inner";
+
+  const logo = document.createElement("a"); logo.className = "site-logo"; logo.href = "#catalog";
+  logo.innerHTML = `${logoSvg()}<span class="site-logo-text">GENERAL<span>MODERN</span></span>`;
+
+  const nav = document.createElement("nav"); nav.className = "site-nav";
+  const links = [{ hash: "#catalog", label: "Каталог" }];
+  if (isLoggedIn()) links.push({ hash: "#cabinet", label: "Кабинет" });
+  links.forEach(l => {
+    const a = document.createElement("a"); a.className = "site-nav-link"; a.href = l.hash; a.textContent = l.label;
+    nav.append(a);
+  });
+
+  const right = document.createElement("div"); right.className = "site-header-right";
+  const cartBtn = document.createElement("button"); cartBtn.className = "cart-btn";
+  cartBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="cart-count zero">0</span>`;
+  cartBtn.addEventListener("click", openCartDrawer);
+
+  if (isLoggedIn()) {
+    const cabinetBtn = document.createElement("button"); cabinetBtn.className = "btn-navy"; cabinetBtn.style.cssText = "padding:8px 16px;font-size:13px";
+    cabinetBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Кабинет`;
+    cabinetBtn.addEventListener("click", () => { location.hash = "#cabinet"; });
+    const logoutBtn = document.createElement("button"); logoutBtn.className = "btn-ghost"; logoutBtn.style.cssText = "padding:8px 14px;font-size:13px";
+    logoutBtn.textContent = "Выйти";
+    logoutBtn.addEventListener("click", () => { _logout(); location.hash = "#catalog"; location.reload(); });
+    right.append(cartBtn, cabinetBtn, logoutBtn);
+  } else {
+    const loginBtn = document.createElement("button"); loginBtn.className = "btn-primary"; loginBtn.style.cssText = "padding:9px 18px;font-size:13px";
+    loginBtn.textContent = "Войти";
+    loginBtn.addEventListener("click", openLogin);
+    right.append(cartBtn, loginBtn);
+  }
+
+  inner.append(logo, nav, right);
+  header.append(inner);
+  return header;
+}
+
+// ---- Router ----
+function getRoute() {
+  const h = location.hash.replace(/^#\/?/, "") || "catalog";
+  return h.split("?")[0];
+}
+
+async function route(main) {
+  const r = getRoute();
+  document.querySelectorAll(".site-nav-link").forEach(a => {
+    a.classList.toggle("active", a.getAttribute("href") === "#" + r);
+  });
+  main.innerHTML = `<div style="padding:40px;text-align:center"><span class="s-spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(0,0,0,.08);border-top-color:var(--navy);display:inline-block"></span></div>`;
+  const inner = document.createElement("div"); inner.className = "site-main";
+  try {
+    if (r === "catalog") await renderCatalog(inner);
+    else if (r === "cabinet") {
+      if (!isLoggedIn()) { openLogin(); await renderCatalog(inner); }
+      else await renderCabinet(inner);
+    } else await renderCatalog(inner);
+  } catch (e) {
+    inner.innerHTML = `<div class="s-empty"><p>Ошибка: ${e.message}</p></div>`;
+  }
+  main.innerHTML = ""; main.append(inner);
+}
+
+// ---- Boot ----
+export async function boot() {
+  // убираем лоадер
+  const loader = document.getElementById("gm-loader");
+  if (loader) setTimeout(() => loader.classList.add("hide"), 600);
+
+  buildCartDrawer();
+  updateCartBadge();
+
+  setAuthChangeCallback(() => { location.reload(); });
+
+  const app = document.getElementById("site-app");
+  if (!app) return;
+
+  function rebuild() {
+    app.innerHTML = "";
+    const main = document.createElement("div"); main.id = "site-main";
+    app.append(buildHeader(), main);
+    route(main);
+  }
+  rebuild();
+  window.addEventListener("hashchange", () => route(document.getElementById("site-main") || document.createElement("div")));
+}
+
+function logoSvg() {
+  return `<svg width="36" height="36" viewBox="0 0 512 512"><defs><linearGradient id="hnv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/></linearGradient><linearGradient id="hgd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".5" stop-color="#e3c163"/><stop offset="1" stop-color="#a87b1f"/></linearGradient></defs><rect width="512" height="512" rx="100" fill="url(#hnv)"/><circle cx="256" cy="256" r="182" fill="none" stroke="url(#hgd)" stroke-width="10"/><text x="256" y="312" text-anchor="middle" font-family="Georgia,serif" font-size="168" font-weight="700" fill="url(#hgd)">GM</text></svg>`;
+}
