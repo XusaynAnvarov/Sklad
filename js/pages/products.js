@@ -156,6 +156,9 @@ export function openForm(ctx, p, cats = []) {
     { value: "on_order", label: "Под заказ" },
   ], p.status_override || "");
 
+  // история продаж этого товара (кто / когда / по какой цене) — грузится после открытия
+  const historyBox = !isNew ? el("div", {}, [el("div.muted", { text: "Загрузка истории…", style: { fontSize: "13px", padding: "6px 0" } })]) : null;
+
   const body = el("div", {}, [
     field("Название", fName),
     field("Категория", fCat),
@@ -173,7 +176,9 @@ export function openForm(ctx, p, cats = []) {
       ? el("div.hint", { text: "Прошлая себестоимость: " + fmt(p.cost_prev.cost_yuan, "yuan") }) : null,
     batchesView(p),
     field("Статус в каталоге", fStatus),
-  ]);
+    !isNew && el("div.section-h", { text: "История продаж (кто, когда, по какой цене)" }),
+    !isNew && historyBox,
+  ].filter(Boolean));
 
   const m = modal({
     title: isNew ? "Новый товар" : "Редактировать товар",
@@ -228,4 +233,39 @@ export function openForm(ctx, p, cats = []) {
       } },
     ].filter(Boolean),
   });
+
+  if (!isNew) loadProductHistory(ctx, p.id, historyBox);
+}
+
+// История продаж товара: кто (клиент), когда (дата) и по какой цене покупал.
+async function loadProductHistory(ctx, pid, box) {
+  if (!box) return;
+  try {
+    const [sales, customers] = await Promise.all([ctx.db.sales.list(), ctx.db.customers.list()]);
+    const cmap = Object.fromEntries(customers.map(c => [c.id, c.name]));
+    const rows = [];
+    sales.forEach(s => (s.items || []).forEach(it => {
+      if (String(it.product_id) === String(pid)) {
+        rows.push({ date: s.date, client: cmap[s.customer_id] || "—", qty: Number(it.qty) || 0, price: it.unit_price, cur: it.currency || s.currency, status: s.status });
+      }
+    }));
+    rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+    box.innerHTML = "";
+    if (!rows.length) { box.append(el("div.muted", { text: "Этот товар ещё никто не покупал", style: { fontSize: "13px", padding: "8px 0" } })); return; }
+    const tb = el("tbody");
+    rows.forEach(r => tb.append(el("tr", {}, [
+      el("td", { text: new Date(r.date).toLocaleDateString("ru-RU") }),
+      el("td", {}, [el("strong", { text: r.client })]),
+      el("td", { text: r.qty + " шт." }),
+      el("td", {}, [el("strong", { text: r.price > 0 ? fmt(r.price, r.cur) : "—" })]),
+    ])));
+    box.append(el("div", { style: { overflowX: "auto", maxHeight: "280px", overflowY: "auto" } }, [
+      el("table.tbl", {}, [
+        el("thead", {}, [el("tr", {}, ["Дата", "Клиент", "Кол-во", "Цена"].map(h => el("th", { text: h })))]),
+        tb,
+      ]),
+    ]));
+  } catch (e) {
+    box.innerHTML = ""; box.append(el("div.muted", { text: "Не удалось загрузить историю: " + (e.message || e) }));
+  }
 }
