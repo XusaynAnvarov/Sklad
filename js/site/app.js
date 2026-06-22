@@ -1,8 +1,68 @@
-// SPA-роутер публичного сайта: шапка, корзина, роутинг
+// SPA-роутер публичного сайта: шапка, корзина, темы, языки
 import { isLoggedIn, clearToken as _clearToken } from "./api.js";
 import { renderCatalog } from "./catalog.js";
 import { renderCabinet } from "./cabinet.js";
 import { setAuthChangeCallback, openLogin, logout as _logout } from "./auth.js";
+
+// ---- Translations ----
+const TRANSLATIONS = {
+  ru: {
+    catalog: "Каталог", cabinet: "Кабинет", login: "Войти", logout: "Выйти",
+    warehouse: "Склад", cart: "Корзина", cartEmpty: "Корзина пуста",
+    checkout: "Оформить заказ", priceNote: "Цены уточнит менеджер",
+    orderSent: "Заказ отправлен! Менеджер свяжется с вами.",
+    sending: "Отправляем…", addToCart: "В корзину", inCart: "В корзине",
+    noStock: "Нет в наличии", loginToOrder: "Войти для заказа",
+    heroTitle: "Оборудование для вашего бизнеса",
+    heroSub: "Профессиональная техника General Modern. Широкий ассортимент по лучшим ценам.",
+    authModal: "Войти / Зарегистрироваться", errorMsg: "Ошибка",
+  },
+  uz: {
+    catalog: "Katalog", cabinet: "Kabinet", login: "Kirish", logout: "Chiqish",
+    warehouse: "Ombor", cart: "Savat", cartEmpty: "Savat bo'sh",
+    checkout: "Buyurtma berish", priceNote: "Narxni menejer aniqlashtiradi",
+    orderSent: "Buyurtma yuborildi! Menejer siz bilan bog'lanadi.",
+    sending: "Yuborilmoqda…", addToCart: "Savatga", inCart: "Savatda",
+    noStock: "Mavjud emas", loginToOrder: "Kirish va buyurtma berish",
+    heroTitle: "Biznesingiz uchun uskunalar",
+    heroSub: "General Modern'dan professional texnika. Keng assortiment, eng yaxshi narxlar.",
+    authModal: "Kirish / Ro'yxatdan o'tish", errorMsg: "Xato",
+  },
+  en: {
+    catalog: "Catalog", cabinet: "Cabinet", login: "Login", logout: "Logout",
+    warehouse: "Warehouse", cart: "Cart", cartEmpty: "Cart is empty",
+    checkout: "Place Order", priceNote: "Manager will confirm prices",
+    orderSent: "Order sent! A manager will contact you.",
+    sending: "Sending…", addToCart: "Add to Cart", inCart: "In Cart",
+    noStock: "Out of Stock", loginToOrder: "Login to Order",
+    heroTitle: "Equipment for Your Business",
+    heroSub: "Professional equipment from General Modern. Wide range at the best prices.",
+    authModal: "Sign In / Register", errorMsg: "Error",
+  },
+};
+export function getLang() { return localStorage.getItem("gm_lang") || "ru"; }
+export function setLang(l) { localStorage.setItem("gm_lang", l); }
+export function t(key) { return (TRANSLATIONS[getLang()] || TRANSLATIONS.ru)[key] || key; }
+
+// ---- Theme ----
+export function getTheme() { return localStorage.getItem("gm_site_theme") || "light"; }
+export function setTheme(theme) {
+  localStorage.setItem("gm_site_theme", theme);
+  document.documentElement.setAttribute("data-site-theme", theme);
+}
+export function toggleTheme() { setTheme(getTheme() === "dark" ? "light" : "dark"); }
+
+// ---- Admin check (decode JWT phone field) ----
+function getTokenPayload() {
+  const token = localStorage.getItem("gm_client_token");
+  if (!token) return null;
+  try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); }
+  catch { return null; }
+}
+function isAdmin() {
+  const p = getTokenPayload();
+  return p?.phone === "837138321";
+}
 
 // ---- Cart state ----
 let cart = JSON.parse(localStorage.getItem("gm_cart") || "[]");
@@ -27,9 +87,9 @@ export function cartCount() { return cart.reduce((s, i) => s + i.qty, 0); }
 let toastContainer;
 export function sToast(msg, type = "") {
   if (!toastContainer) { toastContainer = document.createElement("div"); toastContainer.className = "s-toasts"; document.body.append(toastContainer); }
-  const t = document.createElement("div"); t.className = "s-toast " + type; t.textContent = msg;
-  toastContainer.append(t);
-  setTimeout(() => { t.style.opacity = "0"; t.style.transition = "opacity .3s"; setTimeout(() => t.remove(), 300); }, 3000);
+  const t2 = document.createElement("div"); t2.className = "s-toast " + type; t2.textContent = msg;
+  toastContainer.append(t2);
+  setTimeout(() => { t2.style.opacity = "0"; t2.style.transition = "opacity .3s"; setTimeout(() => t2.remove(), 300); }, 3000);
 }
 
 // ---- Modal ----
@@ -40,7 +100,7 @@ export function openModal(id, content) {
     overlay = document.createElement("div"); overlay.className = "s-overlay"; overlay.id = "mo-" + id;
     const modal = document.createElement("div"); modal.className = "s-modal";
     const head = document.createElement("div"); head.className = "s-modal-head";
-    const title = document.createElement("h2"); title.textContent = id === "auth-modal" ? "Войти / Зарегистрироваться" : "";
+    const title = document.createElement("h2"); title.textContent = id === "auth-modal" ? t("authModal") : "";
     const closeBtn = document.createElement("button"); closeBtn.className = "s-modal-close";
     closeBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
     closeBtn.addEventListener("click", () => closeModal(id));
@@ -52,14 +112,13 @@ export function openModal(id, content) {
     document.body.append(overlay);
     modals[id] = overlay;
   }
-  // обновляем контент
   const body = overlay.querySelector(".s-modal-body");
   body.innerHTML = ""; if (content) body.append(content);
   requestAnimationFrame(() => overlay.classList.add("open"));
 }
 export function closeModal(id) {
   const overlay = modals[id] || document.getElementById("mo-" + id);
-  if (overlay) { overlay.classList.remove("open"); }
+  if (overlay) overlay.classList.remove("open");
 }
 
 // ---- Cart Drawer ----
@@ -79,7 +138,7 @@ function renderCartDrawerContent() {
   cartDrawer.innerHTML = "";
   const head = document.createElement("div"); head.className = "cart-drawer-head";
   const h2 = document.createElement("h2");
-  h2.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Корзина`;
+  h2.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> ${t("cart")}`;
   const closeBtn = document.createElement("button"); closeBtn.className = "cart-close";
   closeBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
   closeBtn.addEventListener("click", closeCartDrawer);
@@ -88,11 +147,11 @@ function renderCartDrawerContent() {
 
   const items = document.createElement("div"); items.className = "cart-items";
   if (!cart.length) {
-    items.innerHTML = `<div class="cart-empty"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><p>Корзина пуста</p></div>`;
+    items.innerHTML = `<div class="cart-empty"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><p>${t("cartEmpty")}</p></div>`;
   } else {
     cart.forEach(it => {
       const row = document.createElement("div"); row.className = "cart-item";
-      const imgEl = document.createElement("div"); imgEl.className = "cart-item-img";
+      const imgEl = document.createElement("div");
       imgEl.style.cssText = "width:56px;height:56px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0";
       if (it.photo_url) { const img = document.createElement("img"); img.src = it.photo_url; img.style.cssText = "width:100%;height:100%;object-fit:cover"; imgEl.append(img); }
       else imgEl.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
@@ -118,21 +177,21 @@ function renderCartDrawerContent() {
   if (cart.length) {
     const footer = document.createElement("div"); footer.className = "cart-footer";
     const info = document.createElement("div"); info.style.cssText = "font-size:13px;color:var(--muted);text-align:center";
-    info.textContent = "Цены уточнит менеджер";
+    info.textContent = t("priceNote");
     const orderBtn = document.createElement("button"); orderBtn.className = "btn-primary"; orderBtn.style.width = "100%";
-    orderBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Оформить заказ`;
+    orderBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> ${t("checkout")}`;
     orderBtn.addEventListener("click", async () => {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
-      orderBtn.disabled = true; orderBtn.innerHTML = '<span class="s-spinner"></span> Отправляем…';
+      orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
         const { api: siteApi } = await import("./api.js");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
-        sToast("Заказ отправлен! Менеджер свяжется с вами.", "ok");
+        sToast(t("orderSent"), "ok");
       } catch (e) {
         sToast(e.message, "err");
-        orderBtn.disabled = false; orderBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Оформить заказ`;
+        orderBtn.disabled = false; orderBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> ${t("checkout")}`;
       }
     });
     footer.append(info, orderBtn);
@@ -149,8 +208,66 @@ function updateCartBadge() {
   });
 }
 
+// ---- Language Switcher ----
+function buildLangSwitcher() {
+  const wrap = document.createElement("div"); wrap.className = "lang-switcher";
+  const cur = getLang().toUpperCase();
+  const btn = document.createElement("button"); btn.className = "lang-btn";
+  btn.innerHTML = `<span>${cur}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+  const dropdown = document.createElement("div"); dropdown.className = "lang-dropdown";
+  const langs = [
+    { code: "ru", label: "Русский" },
+    { code: "uz", label: "O'zbek" },
+    { code: "en", label: "English" },
+  ];
+  langs.forEach(({ code, label }) => {
+    const opt = document.createElement("div"); opt.className = "lang-option" + (getLang() === code ? " active" : "");
+    opt.innerHTML = `<span style="font-weight:700;font-size:11px;letter-spacing:.05em;min-width:24px">${code.toUpperCase()}</span> <span style="font-weight:500">${label}</span>`;
+    opt.addEventListener("click", () => {
+      if (getLang() === code) { dropdown.classList.remove("open"); btn.classList.remove("open"); return; }
+      setLang(code);
+      location.reload();
+    });
+    dropdown.append(opt);
+  });
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = dropdown.classList.toggle("open");
+    btn.classList.toggle("open", open);
+  });
+  document.addEventListener("click", () => { dropdown.classList.remove("open"); btn.classList.remove("open"); }, { capture: false });
+
+  wrap.append(btn, dropdown);
+  return wrap;
+}
+
+// ---- Theme Toggle Button ----
+function buildThemeToggle() {
+  const btn = document.createElement("button"); btn.className = "theme-toggle";
+  btn.title = "Сменить тему";
+  btn.innerHTML = `
+    <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>`;
+  btn.addEventListener("click", () => {
+    toggleTheme();
+    const isDark = getTheme() === "dark";
+    btn.title = isDark ? "Светлая тема" : "Тёмная тема";
+  });
+  return btn;
+}
+
 // ---- Header ----
-function buildHeader(onRoute) {
+function buildHeader() {
   const header = document.createElement("header"); header.className = "site-header";
   const inner = document.createElement("div"); inner.className = "site-header-inner";
 
@@ -158,36 +275,45 @@ function buildHeader(onRoute) {
   logo.innerHTML = `${logoSvg()}<span class="site-logo-text">GENERAL<span>MODERN</span></span>`;
 
   const nav = document.createElement("nav"); nav.className = "site-nav";
-  const links = [{ hash: "#catalog", label: "Каталог" }];
-  if (isLoggedIn()) links.push({ hash: "#cabinet", label: "Кабинет" });
+  const links = [{ hash: "#catalog", label: t("catalog") }];
+  if (isLoggedIn()) links.push({ hash: "#cabinet", label: t("cabinet") });
   links.forEach(l => {
     const a = document.createElement("a"); a.className = "site-nav-link"; a.href = l.hash; a.textContent = l.label;
     nav.append(a);
   });
 
   const right = document.createElement("div"); right.className = "site-header-right";
+
   const cartBtn = document.createElement("button"); cartBtn.className = "cart-btn";
   cartBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="cart-count zero">0</span>`;
   cartBtn.addEventListener("click", openCartDrawer);
 
-  // кнопка «Склад» — всегда в шапке (сам склад защищён паролем)
-  const skladBtn = document.createElement("a"); skladBtn.href = "/admin";
-  skladBtn.className = "btn-ghost"; skladBtn.style.cssText = "padding:8px 14px;font-size:13px;text-decoration:none";
-  skladBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg> Склад`;
+  right.append(cartBtn);
+
+  // Склад — только для администратора
+  if (isAdmin()) {
+    const skladBtn = document.createElement("a"); skladBtn.href = "/admin";
+    skladBtn.className = "btn-warehouse";
+    skladBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg> ${t("warehouse")}`;
+    right.append(skladBtn);
+  }
+
+  // Theme + Lang
+  right.append(buildThemeToggle(), buildLangSwitcher());
 
   if (isLoggedIn()) {
     const cabinetBtn = document.createElement("button"); cabinetBtn.className = "btn-navy"; cabinetBtn.style.cssText = "padding:8px 16px;font-size:13px";
-    cabinetBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Кабинет`;
+    cabinetBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${t("cabinet")}`;
     cabinetBtn.addEventListener("click", () => { location.hash = "#cabinet"; });
     const logoutBtn = document.createElement("button"); logoutBtn.className = "btn-ghost"; logoutBtn.style.cssText = "padding:8px 14px;font-size:13px";
-    logoutBtn.textContent = "Выйти";
+    logoutBtn.textContent = t("logout");
     logoutBtn.addEventListener("click", () => { _logout(); location.hash = "#catalog"; location.reload(); });
-    right.append(cartBtn, skladBtn, cabinetBtn, logoutBtn);
+    right.append(cabinetBtn, logoutBtn);
   } else {
     const loginBtn = document.createElement("button"); loginBtn.className = "btn-primary"; loginBtn.style.cssText = "padding:9px 18px;font-size:13px";
-    loginBtn.textContent = "Войти";
+    loginBtn.textContent = t("login");
     loginBtn.addEventListener("click", openLogin);
-    right.append(cartBtn, skladBtn, loginBtn);
+    right.append(loginBtn);
   }
 
   inner.append(logo, nav, right);
@@ -206,7 +332,7 @@ async function route(main) {
   document.querySelectorAll(".site-nav-link").forEach(a => {
     a.classList.toggle("active", a.getAttribute("href") === "#" + r);
   });
-  main.innerHTML = `<div style="padding:40px;text-align:center"><span class="s-spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(0,0,0,.08);border-top-color:var(--navy);display:inline-block"></span></div>`;
+  main.innerHTML = `<div style="padding:60px;text-align:center"><span class="s-spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(0,0,0,.08);border-top-color:var(--navy);display:inline-block"></span></div>`;
   const inner = document.createElement("div"); inner.className = "site-main";
   try {
     if (r === "catalog") await renderCatalog(inner);
@@ -215,14 +341,17 @@ async function route(main) {
       else await renderCabinet(inner);
     } else await renderCatalog(inner);
   } catch (e) {
-    inner.innerHTML = `<div class="s-empty"><p>Ошибка: ${e.message}</p></div>`;
+    inner.innerHTML = `<div class="s-empty"><p>${t("errorMsg")}: ${e.message}</p></div>`;
   }
   main.innerHTML = ""; main.append(inner);
 }
 
 // ---- Boot ----
 export async function boot() {
-  // убираем лоадер
+  // Применяем сохранённую тему сразу
+  const savedTheme = getTheme();
+  document.documentElement.setAttribute("data-site-theme", savedTheme);
+
   const loader = document.getElementById("gm-loader");
   if (loader) setTimeout(() => loader.classList.add("hide"), 600);
 
