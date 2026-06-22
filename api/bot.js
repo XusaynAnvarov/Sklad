@@ -13,7 +13,7 @@ import { invoiceCoverageStatus } from "./lib/debt.js";
 const TOKEN = process.env.CLIENT_BOT_TOKEN;
 const ADMIN_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT = process.env.ADMIN_CHAT_ID;
-const PUBLIC_URL = process.env.PUBLIC_URL || "https://skladanvarov.vercel.app";
+const PUBLIC_URL = process.env.PUBLIC_URL || "https://generalmodern.uz";
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const SIGN = { yuan: "¥", usd: "$", som: "сум" };
 
