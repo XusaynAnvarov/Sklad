@@ -83,3 +83,5 @@ export function normPhone(s) {
 export function genVerifToken() {
   return crypto.randomBytes(24).toString("hex");
 }
+
+export default (_, res) => res?.status(404).json({ error: 'Not an endpoint' });

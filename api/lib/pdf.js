@@ -130,3 +130,5 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
 
   return await doc.save(); // Uint8Array
 }
+
+export default (_, res) => res?.status(404).json({ error: 'Not an endpoint' });
