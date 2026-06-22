@@ -15,12 +15,12 @@ export default async function handler(req, res) {
     let raw = [];
     try {
       raw = await sget(
-        "products?select=id,name,category,photo_url,remainder,site_status,created_at&order=created_at.desc,name.asc"
+        "products?select=id,name,category,photo_url,stock_qty,site_status,created_at&order=created_at.desc,name.asc"
       );
     } catch {
       // fallback если site_status ещё не добавлена в Supabase
       raw = await sget(
-        "products?select=id,name,category,photo_url,remainder,created_at&order=created_at.desc,name.asc"
+        "products?select=id,name,category,photo_url,stock_qty,created_at&order=created_at.desc,name.asc"
       );
     }
 
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
         let status;
         if (p.site_status === "soon") {
           status = "soon";
-        } else if ((p.remainder || 0) > 0) {
+        } else if ((p.stock_qty || 0) > 0) {
           status = "in_stock";
         } else {
           status = "out_stock";
