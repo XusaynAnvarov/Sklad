@@ -1,12 +1,14 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
 import { api, isLoggedIn } from "./api.js";
-import { sToast, openModal, cartState, cartAdd, cartRemove, cartQty, renderCartDrawer } from "./app.js";
+import { sToast, cartState, cartAdd, cartQty, renderCartDrawer, t } from "./app.js";
 import { openLogin } from "./auth.js";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
 export async function renderCatalog(container) {
   container.innerHTML = "";
+
+  // Toolbar
   const toolbar = mkEl("div", "catalog-toolbar");
   const searchWrap = mkEl("div", "search-input-wrap");
   searchWrap.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
@@ -20,7 +22,7 @@ export async function renderCatalog(container) {
   const grid = mkEl("div", "product-grid");
   container.append(grid);
 
-  // скелетоны при загрузке
+  // Скелетоны при загрузке
   for (let i = 0; i < 8; i++) grid.append(buildSkeleton());
 
   let products = [];
@@ -31,7 +33,7 @@ export async function renderCatalog(container) {
   try {
     const res = await api.catalog();
     products = Array.isArray(res) ? res : (res.products || []);
-    const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
+    const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
     categories = ["Все", ...cats];
   } catch (e) {
     grid.innerHTML = "";
@@ -39,7 +41,7 @@ export async function renderCatalog(container) {
     return;
   }
 
-  // рендер фильтров
+  // Фильтры
   filterChips.innerHTML = "";
   categories.forEach(cat => {
     const chip = mkEl("button", "filter-chip");
@@ -77,15 +79,15 @@ export async function renderCatalog(container) {
   document.addEventListener("gm:cart-change", () => {
     grid.querySelectorAll(".btn-add-cart[data-product-id]").forEach(btn => {
       const id = btn.dataset.productId;
-      const qty = cartQty(id);
       const inStock = btn.dataset.inStock === "1";
       if (!inStock) return;
+      const qty = cartQty(id);
       if (qty > 0) {
         btn.className = "btn-add-cart in-cart";
-        btn.textContent = "В корзине (" + qty + ")";
+        btn.textContent = t("inCart") + " (" + qty + ")";
       } else {
         btn.className = "btn-add-cart available";
-        btn.textContent = "+ В корзину";
+        btn.textContent = "+ " + t("addToCart");
       }
     });
   });
@@ -93,11 +95,11 @@ export async function renderCatalog(container) {
 
 function buildCard(p) {
   const card = mkEl("div", "product-card");
-  const inStock = p.status === "available" || p.status === "in_stock";
+  const inStock = p.status === "in_stock";
+  const isSoon  = p.status === "soon";
 
-  // фото
+  // Фото
   const imgWrap = mkEl("div", "product-card-img");
-  imgWrap.style.position = "relative";
   if (p.photo_url) {
     const img = document.createElement("img");
     img.src = p.photo_url; img.alt = p.name;
@@ -107,13 +109,26 @@ function buildCard(p) {
   } else {
     imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`;
   }
-  const badge = mkEl("span", "product-badge " + (inStock ? "in-stock" : "out-stock"));
-  badge.textContent = inStock ? "В наличии" : "Нет в наличии";
+
+  // Бейдж статуса
+  let badgeCls, badgeText;
+  if (inStock)       { badgeCls = "in-stock";  badgeText = t("inStockBadge"); }
+  else if (isSoon)   { badgeCls = "soon";       badgeText = t("soonBadge"); }
+  else               { badgeCls = "out-stock";  badgeText = t("noStockBadge"); }
+  const badge = mkEl("span", "product-badge " + badgeCls);
+  badge.textContent = badgeText;
   imgWrap.append(badge);
+
+  // Бейдж «Новинка» — поверх угла
+  if (p.is_new) {
+    const newBadge = mkEl("span", "product-badge new-badge");
+    newBadge.textContent = t("newBadge");
+    imgWrap.append(newBadge);
+  }
 
   const body = mkEl("div", "product-card-body");
   const name = mkEl("div", "product-name"); name.textContent = p.name;
-  const cat = mkEl("div", "product-category"); cat.textContent = p.category || "";
+  const cat  = mkEl("div", "product-category"); cat.textContent = p.category || "";
   const footer = mkEl("div", "product-card-footer");
 
   const btn = document.createElement("button");
@@ -121,17 +136,19 @@ function buildCard(p) {
   btn.dataset.inStock = inStock ? "1" : "0";
 
   const qty = cartQty(p.id);
-  if (!inStock) {
-    btn.className = "btn-add-cart unavailable"; btn.textContent = "Нет в наличии"; btn.disabled = true;
+  if (!inStock && !isSoon) {
+    btn.className = "btn-add-cart unavailable"; btn.textContent = t("noStockBadge"); btn.disabled = true;
+  } else if (isSoon) {
+    btn.className = "btn-add-cart soon-btn"; btn.textContent = t("soonBadge"); btn.disabled = true;
   } else if (!isLoggedIn()) {
-    btn.className = "btn-add-cart need-login"; btn.textContent = "Войти, чтобы заказать";
+    btn.className = "btn-add-cart need-login"; btn.textContent = t("loginToOrder");
     btn.addEventListener("click", () => openLogin());
   } else if (qty > 0) {
-    btn.className = "btn-add-cart in-cart"; btn.textContent = "В корзине (" + qty + ")";
+    btn.className = "btn-add-cart in-cart"; btn.textContent = t("inCart") + " (" + qty + ")";
     btn.addEventListener("click", () => { cartAdd(p); dispatchCartChange(); });
   } else {
-    btn.className = "btn-add-cart available"; btn.textContent = "+ В корзину";
-    btn.addEventListener("click", () => { cartAdd(p); dispatchCartChange(); sToast(p.name + " добавлен в корзину", "ok"); });
+    btn.className = "btn-add-cart available"; btn.textContent = "+ " + t("addToCart");
+    btn.addEventListener("click", () => { cartAdd(p); dispatchCartChange(); sToast(p.name + " " + t("addedToCart"), "ok"); });
   }
 
   footer.append(btn);
@@ -153,8 +170,8 @@ function buildSkeleton() {
 function buildEmpty(text) {
   const w = mkEl("div", "s-empty");
   w.innerHTML = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 21l-4.35-4.35M11 19A8 8 0 1 0 11 3a8 8 0 0 0 0 16z"/></svg>`;
-  const p = document.createElement("p"); p.textContent = text;
-  w.append(p);
+  const p2 = document.createElement("p"); p2.textContent = text;
+  w.append(p2);
   return w;
 }
 

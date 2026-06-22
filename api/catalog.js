@@ -1,27 +1,48 @@
 // GET /api/catalog — публичный каталог (без цен, без авторизации)
+// Статусы: in_stock / out_stock / soon (site_status='soon') / hidden (скрыт)
+// Порядок: сначала новые (created_at desc), потом по категории
 import { sget } from "./lib/supa.js";
+
+const NEW_DAYS = 14; // товар считается «новинкой» N дней после добавления
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+  res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   try {
-    // пробуем catalog_view, если нет — берём products напрямую
-    let products = [];
-    try {
-      products = await sget("catalog_view?select=id,name,category,photo_url,status&order=category.asc,name.asc");
-    } catch {
-      const raw = await sget("products?select=id,name,category,photo_url,qty&order=category.asc,name.asc");
-      products = raw.map(p => ({
-        id: p.id,
-        name: p.name,
-        category: p.category || "",
-        photo_url: p.photo_url || null,
-        status: (p.qty || 0) > 0 ? "available" : "out_of_stock",
-      }));
-    }
+    const raw = await sget(
+      "products?select=id,name,category,photo_url,remainder,site_status,created_at&order=created_at.desc,name.asc"
+    );
+
+    const now = Date.now();
+    const products = raw
+      .filter(p => p.site_status !== "hidden")
+      .map(p => {
+        let status;
+        if (p.site_status === "soon") {
+          status = "soon";
+        } else if ((p.remainder || 0) > 0) {
+          status = "in_stock";
+        } else {
+          status = "out_stock";
+        }
+
+        const ageDays = p.created_at
+          ? (now - new Date(p.created_at).getTime()) / 86400000
+          : 999;
+
+        return {
+          id: p.id,
+          name: p.name,
+          category: p.category || "",
+          photo_url: p.photo_url || null,
+          status,
+          is_new: ageDays <= NEW_DAYS,
+        };
+      });
+
     return res.status(200).json(products);
   } catch (e) {
     console.error("catalog error", e);

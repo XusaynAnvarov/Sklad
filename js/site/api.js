@@ -6,7 +6,7 @@ export function saveToken(t) { localStorage.setItem("gm_client_token", t); }
 export function clearToken() { localStorage.removeItem("gm_client_token"); }
 export function isLoggedIn() { return !!getToken(); }
 
-async function req(method, path, body) {
+export async function req(method, path, body) {
   const token = getToken();
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = "Bearer " + token;

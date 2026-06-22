@@ -56,10 +56,14 @@ const routes = [
   [["POST"],  "/api/site-order",              "./api/site-order.js"],
   // каталог (переиспользуем если есть)
   [["GET"],   "/api/catalog",                 "./api/catalog.js"],
-  // адмнн
+  // склад-админ
   [["GET"],   "/api/admin/site-clients",      "./api/admin/site-clients.js"],
   [["POST","DELETE"], "/api/admin/site-client-delete", "./api/admin/site-client-delete.js"],
   [["POST","DELETE"], "/api/admin/unblock",   "./api/admin/unblock.js"],
+  // сайт-админ (JWT клиента с phone=837138321)
+  [["GET"],   "/api/admin-site/clients",      "./api/admin-site/clients.js"],
+  [["GET"],   "/api/admin-site/orders",       "./api/admin-site/orders.js"],
+  [["POST"],  "/api/admin-site/delete-client","./api/admin-site/delete-client.js"],
   // telegram
   [["POST"],  "/api/bot",                     "./api/bot.js"],
   [["POST","OPTIONS"], "/api/telegram",       "./api/telegram.js"],

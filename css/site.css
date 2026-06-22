@@ -369,11 +369,17 @@ html[data-site-theme="dark"] .btn-warehouse {
 
 .product-badge {
   position: absolute; top: 10px; left: 10px;
-  padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 600;
-  backdrop-filter: blur(4px);
+  padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  backdrop-filter: blur(6px); letter-spacing: .02em;
+  box-shadow: 0 1px 4px rgba(0,0,0,.15);
 }
-.product-badge.in-stock  { background: rgba(34,197,94,.18); color: #16a34a; }
-.product-badge.out-stock { background: rgba(239,68,68,.15); color: #dc2626; }
+.product-badge.in-stock  { background: rgba(22,163,74,.85); color: #fff; }
+.product-badge.out-stock { background: rgba(220,38,38,.82); color: #fff; }
+.product-badge.soon      { background: rgba(217,119,6,.88); color: #fff; }
+.product-badge.new-badge {
+  top: 10px; left: auto; right: 10px;
+  background: rgba(28,43,74,.88); color: #e3c163;
+}
 
 .product-card-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; }
 .product-name { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; line-height: 1.35; transition: color .3s; }
@@ -390,6 +396,7 @@ html[data-site-theme="dark"] .btn-warehouse {
 .btn-add-cart.available { background: var(--navy); color: #f1f5f9; }
 .btn-add-cart.available:hover { background: var(--navy-l); transform: translateY(-1px); box-shadow: 0 3px 12px rgba(28,43,74,.3); }
 .btn-add-cart.unavailable { background: var(--bg2); color: var(--muted); cursor: not-allowed; }
+.btn-add-cart.soon-btn { background: rgba(217,119,6,.1); color: #d97706; border: 1.5px solid rgba(217,119,6,.3); cursor: not-allowed; }
 .btn-add-cart.need-login { background: rgba(28,43,74,.08); color: var(--navy); border: 1.5px solid var(--navy); }
 .btn-add-cart.need-login:hover { background: rgba(28,43,74,.14); transform: translateY(-1px); }
 .btn-add-cart.in-cart { background: var(--gold); color: var(--navy-d); }
@@ -648,4 +655,94 @@ html[data-site-theme="dark"] .btn-warehouse {
 @media (max-width: 480px) {
   .product-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .cart-drawer { width: 100vw; }
+}
+
+/* ================================================================
+   ПАНЕЛЬ АДМИНИСТРАТОРА (admin-panel.js)
+   ================================================================ */
+
+/* Верхняя полоса */
+.ap-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+}
+.ap-title-wrap { display: flex; align-items: center; gap: 10px; }
+.ap-title { font-size: 22px; font-weight: 800; color: var(--navy); }
+
+/* Статистика */
+.ap-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  margin-bottom: 24px;
+}
+.ap-stat-card {
+  background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 18px 20px; text-align: center; border-top: 3px solid var(--navy);
+  transition: transform .2s, background .3s;
+}
+.ap-stat-card:hover { transform: translateY(-2px); }
+.ap-stat-card.ap-stat-warn { border-top-color: var(--warn); }
+.ap-stat-card.ap-stat-debt { border-top-color: var(--danger); }
+.ap-stat-num { font-size: 32px; font-weight: 800; color: var(--navy); line-height: 1; }
+.ap-stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+
+/* Контент вкладок */
+.ap-tab-content { margin-top: 16px; }
+
+/* Поиск */
+.ap-search-row { margin-bottom: 14px; }
+.ap-search-row .search-input { max-width: 380px; }
+
+/* Список клиентов */
+.ap-client-list { display: flex; flex-direction: column; gap: 2px; }
+
+.ap-client-row {
+  background: var(--white); border-radius: var(--radius-sm); box-shadow: var(--shadow);
+  padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; transition: box-shadow .18s, background .3s;
+}
+.ap-client-row:hover { box-shadow: var(--shadow-lg); }
+
+.ap-client-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.ap-client-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--navy); color: #f1f5f9;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; flex-shrink: 0;
+}
+.ap-client-info { min-width: 0; }
+.ap-client-name { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-client-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.ap-verified { color: #16a34a; }
+
+.ap-client-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; flex-wrap: wrap; }
+.ap-client-debt { font-size: 13px; color: var(--muted); font-weight: 500; }
+.ap-client-debt.has-debt { color: var(--danger); font-weight: 700; }
+.ap-client-dates { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.ap-client-actions { display: flex; gap: 6px; }
+
+.ap-del-btn {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: transparent; border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--muted);
+  transition: background .15s, color .15s, border-color .15s, transform .12s;
+}
+.ap-del-btn:hover { background: rgba(239,68,68,.1); color: var(--danger); border-color: rgba(239,68,68,.3); transform: scale(1.1); }
+
+/* Раскрытые заказы клиента */
+.ap-client-orders-expand {
+  background: var(--bg); border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  border: 1px solid var(--border); border-top: none;
+  overflow: hidden; transition: background .3s;
+}
+
+/* Адаптив */
+@media (max-width: 860px) {
+  .ap-stats { grid-template-columns: 1fr 1fr; }
+  .ap-client-right { display: none; }
+  .ap-client-row { padding: 12px 14px; }
+}
+@media (max-width: 480px) {
+  .ap-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ap-title { font-size: 18px; }
 }

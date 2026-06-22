@@ -1,40 +1,47 @@
-// SPA-роутер публичного сайта: шапка, корзина, темы, языки
+// SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
 import { isLoggedIn, clearToken as _clearToken } from "./api.js";
 import { renderCatalog } from "./catalog.js";
 import { renderCabinet } from "./cabinet.js";
+import { renderAdminPanel } from "./admin-panel.js";
 import { setAuthChangeCallback, openLogin, logout as _logout } from "./auth.js";
 
 // ---- Translations ----
 const TRANSLATIONS = {
   ru: {
     catalog: "Каталог", cabinet: "Кабинет", login: "Войти", logout: "Выйти",
-    warehouse: "Склад", cart: "Корзина", cartEmpty: "Корзина пуста",
+    warehouse: "Склад", adminPanel: "Панель", cart: "Корзина", cartEmpty: "Корзина пуста",
     checkout: "Оформить заказ", priceNote: "Цены уточнит менеджер",
     orderSent: "Заказ отправлен! Менеджер свяжется с вами.",
     sending: "Отправляем…", addToCart: "В корзину", inCart: "В корзине",
+    addedToCart: "добавлен в корзину",
     noStock: "Нет в наличии", loginToOrder: "Войти для заказа",
+    inStockBadge: "В наличии", noStockBadge: "Нет в наличии", soonBadge: "Скоро", newBadge: "Новинка",
     heroTitle: "Оборудование для вашего бизнеса",
     heroSub: "Профессиональная техника General Modern. Широкий ассортимент по лучшим ценам.",
     authModal: "Войти / Зарегистрироваться", errorMsg: "Ошибка",
   },
   uz: {
     catalog: "Katalog", cabinet: "Kabinet", login: "Kirish", logout: "Chiqish",
-    warehouse: "Ombor", cart: "Savat", cartEmpty: "Savat bo'sh",
+    warehouse: "Ombor", adminPanel: "Panel", cart: "Savat", cartEmpty: "Savat bo'sh",
     checkout: "Buyurtma berish", priceNote: "Narxni menejer aniqlashtiradi",
     orderSent: "Buyurtma yuborildi! Menejer siz bilan bog'lanadi.",
     sending: "Yuborilmoqda…", addToCart: "Savatga", inCart: "Savatda",
+    addedToCart: "savatga qo'shildi",
     noStock: "Mavjud emas", loginToOrder: "Kirish va buyurtma berish",
+    inStockBadge: "Mavjud", noStockBadge: "Mavjud emas", soonBadge: "Tez kunda", newBadge: "Yangi",
     heroTitle: "Biznesingiz uchun uskunalar",
     heroSub: "General Modern'dan professional texnika. Keng assortiment, eng yaxshi narxlar.",
     authModal: "Kirish / Ro'yxatdan o'tish", errorMsg: "Xato",
   },
   en: {
     catalog: "Catalog", cabinet: "Cabinet", login: "Login", logout: "Logout",
-    warehouse: "Warehouse", cart: "Cart", cartEmpty: "Cart is empty",
+    warehouse: "Warehouse", adminPanel: "Panel", cart: "Cart", cartEmpty: "Cart is empty",
     checkout: "Place Order", priceNote: "Manager will confirm prices",
     orderSent: "Order sent! A manager will contact you.",
     sending: "Sending…", addToCart: "Add to Cart", inCart: "In Cart",
+    addedToCart: "added to cart",
     noStock: "Out of Stock", loginToOrder: "Login to Order",
+    inStockBadge: "In Stock", noStockBadge: "Out of Stock", soonBadge: "Coming Soon", newBadge: "New",
     heroTitle: "Equipment for Your Business",
     heroSub: "Professional equipment from General Modern. Wide range at the best prices.",
     authModal: "Sign In / Register", errorMsg: "Error",
@@ -276,7 +283,8 @@ function buildHeader() {
 
   const nav = document.createElement("nav"); nav.className = "site-nav";
   const links = [{ hash: "#catalog", label: t("catalog") }];
-  if (isLoggedIn()) links.push({ hash: "#cabinet", label: t("cabinet") });
+  if (isAdmin()) links.push({ hash: "#admin-panel", label: t("adminPanel") });
+  else if (isLoggedIn()) links.push({ hash: "#cabinet", label: t("cabinet") });
   links.forEach(l => {
     const a = document.createElement("a"); a.className = "site-nav-link"; a.href = l.hash; a.textContent = l.label;
     nav.append(a);
@@ -302,13 +310,21 @@ function buildHeader() {
   right.append(buildThemeToggle(), buildLangSwitcher());
 
   if (isLoggedIn()) {
-    const cabinetBtn = document.createElement("button"); cabinetBtn.className = "btn-navy"; cabinetBtn.style.cssText = "padding:8px 16px;font-size:13px";
-    cabinetBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${t("cabinet")}`;
-    cabinetBtn.addEventListener("click", () => { location.hash = "#cabinet"; });
+    if (isAdmin()) {
+      const panelBtn = document.createElement("button"); panelBtn.className = "btn-navy"; panelBtn.style.cssText = "padding:8px 16px;font-size:13px";
+      panelBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> ${t("adminPanel")}`;
+      panelBtn.addEventListener("click", () => { location.hash = "#admin-panel"; });
+      right.append(panelBtn);
+    } else {
+      const cabinetBtn = document.createElement("button"); cabinetBtn.className = "btn-navy"; cabinetBtn.style.cssText = "padding:8px 16px;font-size:13px";
+      cabinetBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${t("cabinet")}`;
+      cabinetBtn.addEventListener("click", () => { location.hash = "#cabinet"; });
+      right.append(cabinetBtn);
+    }
     const logoutBtn = document.createElement("button"); logoutBtn.className = "btn-ghost"; logoutBtn.style.cssText = "padding:8px 14px;font-size:13px";
     logoutBtn.textContent = t("logout");
     logoutBtn.addEventListener("click", () => { _logout(); location.hash = "#catalog"; location.reload(); });
-    right.append(cabinetBtn, logoutBtn);
+    right.append(logoutBtn);
   } else {
     const loginBtn = document.createElement("button"); loginBtn.className = "btn-primary"; loginBtn.style.cssText = "padding:9px 18px;font-size:13px";
     loginBtn.textContent = t("login");
@@ -336,8 +352,12 @@ async function route(main) {
   const inner = document.createElement("div"); inner.className = "site-main";
   try {
     if (r === "catalog") await renderCatalog(inner);
-    else if (r === "cabinet") {
+    else if (r === "admin-panel") {
+      if (!isAdmin()) { await renderCatalog(inner); }
+      else await renderAdminPanel(inner);
+    } else if (r === "cabinet") {
       if (!isLoggedIn()) { openLogin(); await renderCatalog(inner); }
+      else if (isAdmin()) await renderAdminPanel(inner);
       else await renderCabinet(inner);
     } else await renderCatalog(inner);
   } catch (e) {
