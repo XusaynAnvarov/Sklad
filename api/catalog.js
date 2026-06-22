@@ -12,9 +12,17 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   try {
-    const raw = await sget(
-      "products?select=id,name,category,photo_url,remainder,site_status,created_at&order=created_at.desc,name.asc"
-    );
+    let raw = [];
+    try {
+      raw = await sget(
+        "products?select=id,name,category,photo_url,remainder,site_status,created_at&order=created_at.desc,name.asc"
+      );
+    } catch {
+      // fallback если site_status ещё не добавлена в Supabase
+      raw = await sget(
+        "products?select=id,name,category,photo_url,remainder,created_at&order=created_at.desc,name.asc"
+      );
+    }
 
     const now = Date.now();
     const products = raw
