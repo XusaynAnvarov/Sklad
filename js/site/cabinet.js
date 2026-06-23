@@ -209,18 +209,48 @@ async function renderInvoices(container) {
 }
 
 function exportExcel(inv, dateStr) {
-  const rows = [
-    ["Товар", "Кол-во", "Цена", "Валюта", "Сумма"],
-    ...(inv.items || []).map(it => [it.product_name, it.qty, it.unit_price, it.currency || inv.currency, it.qty * it.unit_price]),
-    [],
-    ["Итого", "", "", "", inv.total, inv.currency],
-  ];
-  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-  const bom = "﻿";
-  const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+  const headers = ["Товар", "Кол-во", "Цена", "Валюта", "Сумма"];
+  const dataRows = (inv.items || []).map(it => [
+    it.product_name,
+    it.qty,
+    it.unit_price,
+    it.currency || inv.currency,
+    it.qty * it.unit_price,
+  ]);
+
+  function xCell(val, bold) {
+    const isNum = typeof val === "number";
+    const style = bold ? ' ss:StyleID="B"' : "";
+    const safe = String(val ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `<Cell${style}><Data ss:Type="${isNum ? "Number" : "String"}">${safe}</Data></Cell>`;
+  }
+
+  const totalRow = `<Row>${xCell("ИТОГО", true)}${xCell("")}${xCell("")}${xCell("")}${xCell(inv.total, true)}</Row>`;
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Styles>
+  <Style ss:ID="H"><Interior ss:Color="#1C2B4A" ss:Pattern="Solid"/><Font ss:Bold="1" ss:Color="#E3C163"/></Style>
+  <Style ss:ID="B"><Font ss:Bold="1"/></Style>
+</Styles>
+<Worksheet ss:Name="Накладная">
+<Table>
+<Row>${headers.map(h => `<Cell ss:StyleID="H"><Data ss:Type="String">${h}</Data></Cell>`).join("")}</Row>
+${dataRows.map(r => `<Row>${r.map(v => xCell(v, false)).join("")}</Row>`).join("\n")}
+<Row></Row>
+${totalRow}
+</Table>
+</Worksheet>
+</Workbook>`;
+
+  const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = `nakladnaya-${dateStr.replace(/\./g, "-")}.csv`; a.click();
-  sToast("Excel (CSV) сохранён", "ok");
+  a.href = URL.createObjectURL(blob);
+  a.download = `nakladnaya-${dateStr.replace(/\./g, "-")}.xls`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  sToast("Excel файл сохранён", "ok");
 }
 
 // ---- Оплаты ----
