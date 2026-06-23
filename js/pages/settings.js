@@ -175,5 +175,38 @@ export default async function render(page, ctx) {
     ctx.db.mode === "local" && el("button.btn.btn-danger", { text: "Сбросить демо-данные", onclick: () => confirmDialog("Сбросить все локальные данные к демо?", () => { ctx.db.resetLocal(); toast("Сброшено", "ok"); ctx.refresh(); }) }),
   ].filter(Boolean));
 
-  page.append(fxCard, tgCard, linksCard, backupCard, sysCard);
+  // ---------- Смена пароля администратора ----------
+  const fCurPass  = input({ type: "password", placeholder: "Текущий пароль" });
+  const fNewLogin = input({ placeholder: "Новый логин (оставьте пустым — без изменений)" });
+  const fNewPass  = input({ type: "password", placeholder: "Новый пароль (мин. 6 символов)" });
+  const fNewPass2 = input({ type: "password", placeholder: "Повторите новый пароль" });
+
+  const passCard = el("div.card", { style: { marginBottom: "18px" } }, [
+    el("div.section-h", { text: "Смена логина / пароля склада", style: { marginTop: 0 } }),
+    el("p.muted", { text: "Логин и пароль для входа в панель администратора. Изменения сохраняются на сервере.", style: { marginBottom: "14px", lineHeight: "1.55" } }),
+    field("Текущий пароль", fCurPass),
+    field("Новый логин", fNewLogin),
+    field("Новый пароль", fNewPass),
+    field("Повторите пароль", fNewPass2),
+    el("button.btn.btn-primary", { text: "Сохранить", onclick: async () => {
+      if (!fCurPass.value) return toast("Введите текущий пароль", "err");
+      if (fNewPass.value !== fNewPass2.value) return toast("Пароли не совпадают", "err");
+      const token = localStorage.getItem("sklad_admin_token") || "";
+      try {
+        const res = await fetch("/api/admin-change-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ current_password: fCurPass.value, new_login: fNewLogin.value.trim(), new_password: fNewPass.value }),
+        });
+        const data = await res.json();
+        if (!res.ok) return toast(data.error || "Ошибка", "err");
+        toast("Пароль изменён. Войдите заново.", "ok");
+        fCurPass.value = fNewLogin.value = fNewPass.value = fNewPass2.value = "";
+        // выход через 2 секунды
+        setTimeout(() => { localStorage.removeItem("sklad_admin_token"); localStorage.removeItem("sklad_authed"); location.reload(); }, 2000);
+      } catch (e) { toast("Сетевая ошибка: " + e.message, "err"); }
+    } }),
+  ]);
+
+  page.append(fxCard, tgCard, linksCard, passCard, backupCard, sysCard);
 }

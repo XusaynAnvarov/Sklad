@@ -41,9 +41,9 @@ async function boot() {
   initCursorGlow();
   initStarfield();
   await db.ready;
-  // в облачном режиме проверяем реальную сессию: если её нет/протухла — просим войти заново
-  // (иначе записи будут падать с ошибкой RLS, хотя флаг «вошёл» сохранён)
-  if (db.mode === "supabase") {
+  // Кастомный admin JWT (вход через /api/admin-auth) — сессии Supabase нет и не нужна
+  const hasAdminToken = !!localStorage.getItem("sklad_admin_token");
+  if (db.mode === "supabase" && !hasAdminToken) {
     try { const { data } = await rawClient().auth.getSession(); if (!data || !data.session) { localStorage.removeItem("sklad_authed"); } } catch { localStorage.removeItem("sklad_authed"); }
   }
   // загрузка настроек и курсов
