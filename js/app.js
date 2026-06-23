@@ -4,7 +4,7 @@
 import { el, $, reveal, showLoader, hideLoader } from "./ui.js";
 import { icon } from "./icons.js";
 import { db, rawClient } from "./db.js";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20260623b";
 import { setRates } from "./fx.js";
 import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js";
 import { applyI18n, makeLangSwitcher } from "./i18n.js";
