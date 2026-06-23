@@ -19,16 +19,27 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: SUPABASE_SERVICE_KEY
           script: |
-            # Если в GitHub задан секрет SUPABASE_SERVICE_KEY — пропишем его в .env приложения.
-            if [ -n "$SUPABASE_SERVICE_KEY" ]; then
-              APP="$(dirname "$(find /root /var/www /home /opt -maxdepth 5 -name server.js 2>/dev/null | grep -v node_modules | head -1)")"
-              if [ -n "$APP" ] && [ -d "$APP" ]; then
-                touch "$APP/.env"
-                sed -i '/^SUPABASE_SERVICE_KEY=/d' "$APP/.env"
-                printf 'SUPABASE_SERVICE_KEY=%s\n' "$SUPABASE_SERVICE_KEY" >> "$APP/.env"
-                echo "[env] SUPABASE_SERVICE_KEY обновлён в $APP/.env"
+            echo "=== SUPABASE_SERVICE_KEY setup ==="
+            if [ -z "$SUPABASE_SERVICE_KEY" ]; then
+              echo "ВНИМАНИЕ: секрет SUPABASE_SERVICE_KEY пуст — добавьте его в GitHub Secrets и перезапустите."
+            else
+              echo "Секрет получен (длина ${#SUPABASE_SERVICE_KEY})"
+              ENVFILE="$(grep -rl '^SUPABASE_SERVICE_KEY=' /root /var/www /home /opt /srv /app 2>/dev/null | grep -v node_modules | head -1)"
+              if [ -z "$ENVFILE" ]; then
+                SRV="$(find / -name server.js 2>/dev/null | grep -v node_modules | head -1)"
+                [ -n "$SRV" ] && ENVFILE="$(dirname "$SRV")/.env"
+              fi
+              if [ -z "$ENVFILE" ]; then
+                echo "ОШИБКА: не нашёл .env / server.js на сервере"
               else
-                echo "[env] server.js не найден — пропуск записи .env"
+                touch "$ENVFILE"
+                sed -i '/^SUPABASE_SERVICE_KEY=/d' "$ENVFILE"
+                echo "SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY" >> "$ENVFILE"
+                echo "Записано в: $ENVFILE"
+                echo "--- ключи .env (значения скрыты) ---"
+                sed 's/=.*/=***/' "$ENVFILE"
+                echo "------------------------------------"
               fi
             fi
+            echo "=== run deploy.sh ==="
             sh /root/deploy.sh
