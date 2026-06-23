@@ -60,7 +60,8 @@ const routes = [
   [["POST"],  "/api/site-order",              "./api/site-order.js"],
   // каталог (переиспользуем если есть)
   [["GET"],   "/api/catalog",                 "./api/catalog.js"],
-  // склад-админ
+  // склад-админ: универсальный CRUD прокси (service_key, минуя RLS)
+  [["GET","POST","DELETE","OPTIONS"], "/api/admin/db", "./api/admin/db.js"],
   [["GET"],   "/api/admin/site-clients",      "./api/admin/site-clients.js"],
   [["POST","DELETE"], "/api/admin/site-client-delete", "./api/admin/site-client-delete.js"],
   [["POST","DELETE"], "/api/admin/unblock",   "./api/admin/unblock.js"],

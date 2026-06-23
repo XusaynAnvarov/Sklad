@@ -123,12 +123,37 @@ function localCollection(name) {
   };
 }
 
+// Прокси через сервер (service_key): используется когда залогинен как admin (кастомный JWT).
+// Обходит RLS без раскрытия service_key браузеру.
+function adminToken() { return localStorage.getItem("sklad_admin_token") || ""; }
+function adminHeaders() { return { "Content-Type": "application/json", Authorization: "Bearer " + adminToken() }; }
+
+async function adminGet(table, id) {
+  const q = id ? `?table=${table}&id=${encodeURIComponent(id)}` : `?table=${table}`;
+  const r = await fetch("/api/admin/db" + q, { headers: adminHeaders() });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+async function adminPost(table, op, data, id) {
+  const r = await fetch("/api/admin/db", { method: "POST", headers: adminHeaders(), body: JSON.stringify({ table, op, data, id }) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+
 function sbTable(name) {
   return {
-    async list() { const { data, error } = await sb.from(name).select("*").order("created_at", { ascending: false }); if (error) throw error; return data; },
-    async get(id) { const { data, error } = await sb.from(name).select("*").eq("id", id).single(); if (error) throw error; return data; },
+    async list() {
+      if (adminToken()) return adminGet(name);
+      const { data, error } = await sb.from(name).select("*").order("created_at", { ascending: false }); if (error) throw error; return data;
+    },
+    async get(id) {
+      if (adminToken()) return adminGet(name, id);
+      const { data, error } = await sb.from(name).select("*").eq("id", id).single(); if (error) throw error; return data;
+    },
     async upsert(obj) {
-      // если есть id — частичное ОБНОВЛЕНИЕ (не insert, иначе падает на NOT NULL колонках)
+      if (adminToken()) return adminPost(name, "upsert", obj);
       if (obj && obj.id) {
         const { data, error } = await sb.from(name).update(obj).eq("id", obj.id).select().single();
         if (error) throw error; return data;
@@ -136,7 +161,10 @@ function sbTable(name) {
       const { data, error } = await sb.from(name).insert(obj).select().single();
       if (error) throw error; return data;
     },
-    async remove(id) { const { error } = await sb.from(name).delete().eq("id", id); if (error) throw error; },
+    async remove(id) {
+      if (adminToken()) return adminPost(name, "delete", null, id);
+      const { error } = await sb.from(name).delete().eq("id", id); if (error) throw error;
+    },
   };
 }
 
@@ -162,11 +190,13 @@ export const db = {
 
   async getSettings() {
     if (DB_MODE === "local") return { ...store.settings };
+    if (adminToken()) return adminGet("settings");
     const { data } = await sb.from("settings").select("*").limit(1).single();
     return data;
   },
   async saveSettings(patch) {
     if (DB_MODE === "local") { store.settings = { ...store.settings, ...patch }; persist(); return store.settings; }
+    if (adminToken()) return adminPost("settings", "saveSettings", patch);
     const cur = await this.getSettings();
     const { data } = await sb.from("settings").update(patch).eq("id", cur.id).select().single();
     return data;
