@@ -193,9 +193,18 @@ export const db = {
 
   async getSettings() {
     if (DB_MODE === "local") return { ...store.settings };
-    if (adminToken()) return adminGet("settings");
-    const { data } = await sb.from("settings").select("*").limit(1).single();
-    return data;
+    let data = null;
+    try {
+      if (adminToken()) data = await adminGet("settings");
+      else { const r = await sb.from("settings").select("*").limit(1).maybeSingle(); data = r.data; }
+    } catch (e) { console.warn("getSettings:", e.message); }
+    // если строки настроек ещё нет — не падаем, отдаём значения по умолчанию
+    return data || {
+      rate_yuan_usd: cfg.DEFAULT_RATES?.yuan_usd ?? 0.14,
+      rate_som_usd: cfg.DEFAULT_RATES?.som_usd ?? 0.000079,
+      rates_mode: "manual", rates_updated_at: new Date().toISOString(),
+      telegram_channel: cfg.TELEGRAM_CHANNEL || "",
+    };
   },
   async saveSettings(patch) {
     if (DB_MODE === "local") { store.settings = { ...store.settings, ...patch }; persist(); return store.settings; }

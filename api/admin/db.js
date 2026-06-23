@@ -85,7 +85,11 @@ export default async function handler(req, res) {
       if (op === "save" || op === "saveSettings") {
         const rows  = await sbGet("settings?limit=1");
         const cur   = rows && rows[0];
-        if (!cur) return res.status(500).json({ error: "settings row not found" });
+        if (!cur) {
+          // строки настроек ещё нет — создаём (singleton)
+          const created = await sbPost("settings", data);
+          return res.json((Array.isArray(created) ? created[0] : created) || data);
+        }
         const patched = await sbPatch(`settings?id=eq.${cur.id}`, data);
         return res.json((patched && patched[0]) || { ...cur, ...data });
       }
