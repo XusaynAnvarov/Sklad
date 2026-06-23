@@ -23,5 +23,3 @@ export async function getUser(req) {
     return null;
   }
 }
-
-export default (_, res) => res?.status(404).json({ error: 'Not an endpoint' });

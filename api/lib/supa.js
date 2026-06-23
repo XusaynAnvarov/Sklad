@@ -19,5 +19,3 @@ export async function spatch(path, body) {
   if (!r.ok) throw new Error("supabase PATCH " + r.status + ": " + (await r.text()).slice(0, 200));
   return r.json();
 }
-
-export default (_, res) => res?.status(404).json({ error: 'Not an endpoint' });

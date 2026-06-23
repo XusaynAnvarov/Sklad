@@ -9,5 +9,3 @@ export function getSiteAdmin(req) {
   if (payload.phone !== ADMIN_PHONE) return null;
   return payload;
 }
-
-export default (_, res) => res?.status(404).json({ error: 'Not an endpoint' });

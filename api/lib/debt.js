@@ -23,5 +23,3 @@ export function invoiceCoverageStatus(saleId, custSales, payments) {
   }
   return "debt";
 }
-
-export default (_, res) => res?.status(404).json({ error: 'Not an endpoint' });
