@@ -76,7 +76,8 @@ function buildShell() {
   sidebar.append(el("div.mode-tag", {}, [icon(db.mode === "supabase" ? "cloud" : "database", { size: 13 }), " ", db.mode === "supabase" ? "Онлайн (Supabase)" : "Локальный режим"]));
   sidebar.append(makeLangSwitcher(() => applyI18n(document.body)));
   sidebar.append(makeThemeToggle());
-  sidebar.append(el("button.theme-toggle", { text: "Выход", onclick: logout, style: { marginTop: "6px" } }));
+  sidebar.append(el("a.theme-toggle", { href: "/", style: { marginTop: "6px", textDecoration: "none", display: "flex", alignItems: "center", gap: "6px" } }, [icon("globe", { size: 15 }), el("span", { text: "На сайт" })]));
+  sidebar.append(el("button.theme-toggle", { text: "Выход", onclick: logout, style: { marginTop: "4px" } }));
 
   const main = el("main.main", { id: "view" });
   const app = el("div.app", {}, [sidebar, main]);
