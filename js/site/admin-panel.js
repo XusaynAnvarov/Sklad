@@ -108,7 +108,9 @@ export async function renderAdminPanel(container) {
 
       renderTab(tabsEl.querySelector(".s-tab.active")?.dataset.tab || "clients");
     } catch (e) {
-      tabContent.innerHTML = `<div class="s-empty"><p>Ошибка загрузки: ${e.message}</p></div>`;
+      const errDiv = document.createElement("div"); errDiv.className = "s-empty";
+      const errP = document.createElement("p"); errP.textContent = "Ошибка загрузки: " + e.message;
+      errDiv.append(errP); tabContent.innerHTML = ""; tabContent.append(errDiv);
     }
   }
 

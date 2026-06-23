@@ -50,7 +50,8 @@ function screenLocked(root) {
 // Возвращает Promise, который резолвится после успешного входа.
 export function ensureAccess(root) {
   return new Promise((resolve) => {
-    if (!keyOk()) { screenLocked(root); return; }
+    // Сохраняем ключ если пришёл в URL (обратная совместимость с PWA-закладками)
+    keyOk();
     renderLogin(root, resolve);
   });
 }
