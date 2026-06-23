@@ -128,16 +128,24 @@ function localCollection(name) {
 function adminToken() { return localStorage.getItem("sklad_admin_token") || ""; }
 function adminHeaders() { return { "Content-Type": "application/json", Authorization: "Bearer " + adminToken() }; }
 
+function handleAuthError() {
+  localStorage.removeItem("sklad_admin_token");
+  localStorage.removeItem("sklad_authed");
+  location.reload();
+}
+
 async function adminGet(table, id) {
   const q = id ? `?table=${table}&id=${encodeURIComponent(id)}` : `?table=${table}`;
   const r = await fetch("/api/admin/db" + q, { headers: adminHeaders() });
   const j = await r.json();
+  if (r.status === 401) { handleAuthError(); throw new Error("Сессия истекла"); }
   if (!r.ok) throw new Error(j.error || r.status);
   return j;
 }
 async function adminPost(table, op, data, id) {
   const r = await fetch("/api/admin/db", { method: "POST", headers: adminHeaders(), body: JSON.stringify({ table, op, data, id }) });
   const j = await r.json();
+  if (r.status === 401) { handleAuthError(); throw new Error("Сессия истекла"); }
   if (!r.ok) throw new Error(j.error || r.status);
   return j;
 }
@@ -145,25 +153,20 @@ async function adminPost(table, op, data, id) {
 function sbTable(name) {
   return {
     async list() {
-      if (adminToken()) return adminGet(name);
-      const { data, error } = await sb.from(name).select("*").order("created_at", { ascending: false }); if (error) throw error; return data;
+      if (!adminToken()) throw new Error("Требуется авторизация");
+      return adminGet(name);
     },
     async get(id) {
-      if (adminToken()) return adminGet(name, id);
-      const { data, error } = await sb.from(name).select("*").eq("id", id).single(); if (error) throw error; return data;
+      if (!adminToken()) throw new Error("Требуется авторизация");
+      return adminGet(name, id);
     },
     async upsert(obj) {
-      if (adminToken()) return adminPost(name, "upsert", obj);
-      if (obj && obj.id) {
-        const { data, error } = await sb.from(name).update(obj).eq("id", obj.id).select().single();
-        if (error) throw error; return data;
-      }
-      const { data, error } = await sb.from(name).insert(obj).select().single();
-      if (error) throw error; return data;
+      if (!adminToken()) throw new Error("Требуется авторизация");
+      return adminPost(name, "upsert", obj);
     },
     async remove(id) {
-      if (adminToken()) return adminPost(name, "delete", null, id);
-      const { error } = await sb.from(name).delete().eq("id", id); if (error) throw error;
+      if (!adminToken()) throw new Error("Требуется авторизация");
+      return adminPost(name, "delete", null, id);
     },
   };
 }

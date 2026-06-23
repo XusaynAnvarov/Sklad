@@ -46,10 +46,9 @@ async function boot() {
   if (db.mode === "supabase" && !hasAdminToken) {
     try { const { data } = await rawClient().auth.getSession(); if (!data || !data.session) { localStorage.removeItem("sklad_authed"); } } catch { localStorage.removeItem("sklad_authed"); }
   }
-  // загрузка настроек и курсов
-  try { const s = await db.getSettings(); setRates(s); } catch (e) { console.warn(e); }
-
   if (!alreadyAuthed()) await ensureAccess(root);
+  // загрузка настроек и курсов (после логина — есть токен)
+  try { const s = await db.getSettings(); setRates(s); } catch (e) { console.warn(e); }
   buildShell();
   route();
   // счётчик новых заказов из бота

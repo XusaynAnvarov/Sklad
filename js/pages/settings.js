@@ -8,12 +8,12 @@ import { rawClient } from "../db.js";
 const cfg = window.APP_CONFIG || {};
 
 export default async function render(page, ctx) {
-  const s = await ctx.db.getSettings();
+  const s = (await ctx.db.getSettings()) || {};
   page.append(el("div.topbar", {}, [el("div", {}, [el("h1", { text: "Настройки" })])]));
 
   // ---------- Курсы валют ----------
-  const fYuan = input({ type: "number", step: "0.0001", value: s.rate_yuan_usd });
-  const fSom = input({ type: "number", step: "0.0000001", value: s.rate_som_usd });
+  const fYuan = input({ type: "number", step: "0.0001", value: s.rate_yuan_usd ?? 0.14 });
+  const fSom = input({ type: "number", step: "0.0000001", value: s.rate_som_usd ?? 0.000079 });
   const updated = el("div.hint", { text: "Обновлено: " + new Date(s.rates_updated_at || Date.now()).toLocaleString("ru-RU") });
 
   const fxCard = el("div.card", { style: { marginBottom: "18px" } }, [
