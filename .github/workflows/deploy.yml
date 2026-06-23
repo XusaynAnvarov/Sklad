@@ -11,8 +11,24 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: /root/deploy.sh
+          envs: SUPABASE_SERVICE_KEY
+          script: |
+            # Если в GitHub задан секрет SUPABASE_SERVICE_KEY — пропишем его в .env приложения.
+            if [ -n "$SUPABASE_SERVICE_KEY" ]; then
+              APP="$(dirname "$(find /root /var/www /home /opt -maxdepth 5 -name server.js 2>/dev/null | grep -v node_modules | head -1)")"
+              if [ -n "$APP" ] && [ -d "$APP" ]; then
+                touch "$APP/.env"
+                sed -i '/^SUPABASE_SERVICE_KEY=/d' "$APP/.env"
+                printf 'SUPABASE_SERVICE_KEY=%s\n' "$SUPABASE_SERVICE_KEY" >> "$APP/.env"
+                echo "[env] SUPABASE_SERVICE_KEY обновлён в $APP/.env"
+              else
+                echo "[env] server.js не найден — пропуск записи .env"
+              fi
+            fi
+            sh /root/deploy.sh
