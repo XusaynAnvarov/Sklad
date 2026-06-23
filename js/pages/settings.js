@@ -50,13 +50,12 @@ export default async function render(page, ctx) {
   ]);
 
   // ---------- Ссылки ----------
-  const catalogUrl = new URL(cfg.CATALOG_URL || "catalog.html", location.href).href;
-  // хэш-форма ключа не теряется при редиректах сервера (надёжнее, чем ?key=)
-  const adminUrl = location.origin + location.pathname.replace(/index\.html$/, "") + "#key=" + (cfg.SECRET_KEY || "");
+  const catalogUrl = new URL(cfg.CATALOG_URL || "/", location.href).href;
+  const adminUrl = location.origin + "/admin";
   const linksCard = el("div.card", { style: { marginBottom: "18px" } }, [
     el("div.section-h", { text: "Ссылки", style: { marginTop: 0 } }),
     linkRow("Публичный каталог (для клиентов)", catalogUrl),
-    linkRow("Секретная ссылка на админку", adminUrl),
+    linkRow("Вход в склад", adminUrl),
   ]);
   function linkRow(label, url) {
     const f = input({ value: url, readonly: true });
