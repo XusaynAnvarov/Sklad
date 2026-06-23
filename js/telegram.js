@@ -50,3 +50,8 @@ export function notifyClient(chatId, text) {
 export function requestOrderConfirm(saleId, chatId) {
   return call({ action: "client_confirm_request", sale_id: saleId, chat_id: chatId });
 }
+
+// Уведомление владельцу (ADMIN_CHAT_ID берётся из env на сервере)
+export function notifyOwner(text) {
+  return call({ action: "admin_message", text });
+}

@@ -30,8 +30,15 @@ export function statusBadge(p) {
     : el("span.badge.order", {}, [icon("clock", { size: 13 }), "Под заказ"]);
 }
 
+const WAREHOUSE_NEW_DAYS = 7;
+const freshness = p => Math.max(
+  p.created_at ? +new Date(p.created_at) : 0,
+  p.last_arrival_at ? +new Date(p.last_arrival_at) : 0
+);
+
 export default async function render(page, ctx) {
   const all = await ctx.db.products.list();
+  all.sort((a, b) => freshness(b) - freshness(a));
 
   const search = input({ placeholder: "Поиск товара…", style: { maxWidth: "320px" } });
   const grid = el("div.grid");
@@ -94,6 +101,7 @@ export default async function render(page, ctx) {
     grid.innerHTML = "";
     if (!list.length) { grid.append(el("div.empty", {}, [el("div.em-ic", {}, [icon("box", { size: 40 })]), el("p", { text: "Товаров нет" })])); return; }
     list.forEach(p => {
+      const isNew = freshness(p) > 0 && (Date.now() - freshness(p)) / 86400000 <= WAREHOUSE_NEW_DAYS;
       const card = el("div.prod.reveal", { onclick: () => openForm(ctx, p, cats) }, [
         el("img.ph", { src: p.photo_url || placeholder(p.name), alt: p.name, loading: "lazy", title: "Нажмите для увеличения",
           onclick: (e) => { if (p.photo_url) { e.stopPropagation(); lightbox(p.photo_url); } },
@@ -102,7 +110,10 @@ export default async function render(page, ctx) {
           el("div.nm", { text: p.name }),
           el("div.cat", { text: p.category || "—" }),
           el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" } }, [
-            statusBadge(p),
+            el("div", { style: { display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" } }, [
+              statusBadge(p),
+              ...(isNew ? [el("span.badge", { style: "background:var(--gold,#e3c163);color:#1c2b4a;font-size:10px;", text: "Новинка" })] : []),
+            ]),
             el("span.muted", { text: "ост: " + (Number(p.stock_qty) || 0) }),
           ]),
           el("div.pr", {}, ["себест: " + fmt(p.cost_yuan, "yuan"),

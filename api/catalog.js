@@ -3,7 +3,7 @@
 // Порядок: сначала новые (created_at desc), потом по категории
 import { sget } from "./lib/supa.js";
 
-const NEW_DAYS = 14; // товар считается «новинкой» N дней после добавления
+const NEW_DAYS = 7; // товар считается «новинкой» N дней после добавления или последнего прихода
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -15,14 +15,26 @@ export default async function handler(req, res) {
     let raw = [];
     try {
       raw = await sget(
-        "products?select=id,name,category,photo_url,stock_qty,site_status,created_at&order=created_at.desc,name.asc"
+        "products?select=id,name,category,photo_url,stock_qty,site_status,created_at,last_arrival_at&order=created_at.desc,name.asc"
       );
     } catch {
-      // fallback если site_status ещё не добавлена в Supabase
-      raw = await sget(
-        "products?select=id,name,category,photo_url,stock_qty,created_at&order=created_at.desc,name.asc"
-      );
+      try {
+        raw = await sget(
+          "products?select=id,name,category,photo_url,stock_qty,site_status,created_at&order=created_at.desc,name.asc"
+        );
+      } catch {
+        // fallback если site_status ещё не добавлена в Supabase
+        raw = await sget(
+          "products?select=id,name,category,photo_url,stock_qty,created_at&order=created_at.desc,name.asc"
+        );
+      }
     }
+
+    const freshness = p => Math.max(
+      p.created_at ? new Date(p.created_at).getTime() : 0,
+      p.last_arrival_at ? new Date(p.last_arrival_at).getTime() : 0
+    );
+    raw.sort((a, b) => freshness(b) - freshness(a));
 
     const now = Date.now();
     const products = raw
@@ -37,9 +49,8 @@ export default async function handler(req, res) {
           status = "out_stock";
         }
 
-        const ageDays = p.created_at
-          ? (now - new Date(p.created_at).getTime()) / 86400000
-          : 999;
+        const ref = freshness(p);
+        const ageDays = ref ? (now - ref) / 86400000 : 999;
 
         return {
           id: p.id,

@@ -7,6 +7,7 @@ import { placeholder } from "./products.js";
 import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js";
 import { icon } from "../icons.js";
 import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
+import { notifyOwner } from "../telegram.js";
 
 // Модалка «не найдено в каталоге» (общая для прихода и продажи).
 export function showNotFound(list) {
@@ -68,6 +69,9 @@ async function arrive(ctx, s, products) {
   confirmDialog("Оприходовать поступление? Товары добавятся на склад.", async () => {
     await applyArrival(ctx, s, products);
     await ctx.db.purchases.upsert({ id: s.id, status: "arrived" });
+    const pmap2 = Object.fromEntries(products.map(p => [p.id, p]));
+    const lines = (s.items || []).map(it => `• ${pmap2[it.product_id]?.name || "?"} × ${it.qty}`);
+    try { await notifyOwner(`Новый приход на склад\nПоставщик: ${s.supplier || "—"}\n\n${lines.join("\n")}`); } catch {}
     toast("Оприходовано, остатки обновлены", "ok"); ctx.refresh();
   });
 }
@@ -89,7 +93,7 @@ async function applyArrival(ctx, s, products) {
     const changed = (prev.cost_yuan || prev.cost_usd) && (Math.abs(prev.cost_yuan - cy) > 0.001 || Math.abs(prev.cost_usd - cu) > 0.001);
     const cost_prev = changed ? prev : (p.cost_prev || null);
     p.cost_yuan = cy; p.cost_usd = cu; if (cost_prev) p.cost_prev = cost_prev;
-    const base = { id: p.id, stock_qty: sumQty(batches), cost_yuan: cy, cost_usd: cu };
+    const base = { id: p.id, stock_qty: sumQty(batches), cost_yuan: cy, cost_usd: cu, last_arrival_at: new Date().toISOString() };
     const ext = { ...base, batches, ...(cost_prev ? { cost_prev } : {}) };
     try { await ctx.db.products.upsert(ext); }
     catch (e) { try { await ctx.db.products.upsert({ ...base, batches }); } catch (e2) { await ctx.db.products.upsert(base); } }
@@ -222,7 +226,12 @@ function openEditor(ctx, purchase, products, suppliers = []) {
           const obj = { ...(purchase ? { id: purchase.id } : {}), supplier: fSupplier.value.trim(), currency: state.currency, status: fStatus.value, date: state.date, items: state.items };
           const saved = await ctx.db.purchases.upsert(obj);
           // если только что отметили «пришёл» — добавить на склад
-          if (fStatus.value === "arrived" && !wasArrived) await applyArrival(ctx, saved || obj, products);
+          if (fStatus.value === "arrived" && !wasArrived) {
+            await applyArrival(ctx, saved || obj, products);
+            const pmap3 = Object.fromEntries(products.map(p => [p.id, p]));
+            const lines3 = (state.items || []).map(it => `• ${pmap3[it.product_id]?.name || "?"} × ${it.qty}`);
+            try { await notifyOwner(`Новый приход на склад\nПоставщик: ${fSupplier.value.trim() || "—"}\n\n${lines3.join("\n")}`); } catch {}
+          }
           toast("Сохранено", "ok"); close(); ctx.refresh();
         } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
         finally { hideLoader(); }

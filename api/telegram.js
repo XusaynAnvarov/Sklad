@@ -91,6 +91,12 @@ export default async function handler(req, res) {
       await tg("sendMessage", { chat_id, text, disable_web_page_preview: false });
       return res.status(200).json({ ok: true });
     }
+    if (action === "admin_message") {
+      const target = process.env.ADMIN_CHAT_ID;
+      if (!target) return res.status(500).json({ error: "ADMIN_CHAT_ID не задан" });
+      await tg("sendMessage", { chat_id: target, text });
+      return res.status(200).json({ ok: true });
+    }
     // --- отправка КЛИЕНТУ через клиентского бота (CLIENT_BOT_TOKEN) ---
     if (action === "client_message") {
       if (!CLIENT_TOKEN) return res.status(500).json({ error: "CLIENT_BOT_TOKEN не задан" });

@@ -49,3 +49,9 @@ create index if not exists idx_site_verif_phone      on site_verifications(phone
 create index if not exists idx_site_verif_verified   on site_verifications(verified);
 create index if not exists idx_sales_source          on sales(source);
 create index if not exists idx_sales_status          on sales(status);
+
+-- ====================================================================
+-- Миграция: «новинки» по дате прихода + статус витрины (фактическое объявление)
+-- ====================================================================
+ALTER TABLE products ADD COLUMN IF NOT EXISTS last_arrival_at timestamptz;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS site_status text;
