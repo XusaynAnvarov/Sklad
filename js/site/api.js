@@ -38,6 +38,9 @@ export const api = {
   payments: () => req("GET", "/client/payments"),
   invoicePdfUrl: (id) => BASE + `/client/invoice-pdf?id=${encodeURIComponent(id)}`,
 
+  // профиль
+  updateProfile: (data) => req("POST", "/client/update-profile", data),
+
   // заказ
   placeOrder: (items) => req("POST", "/site-order", { items }),
 

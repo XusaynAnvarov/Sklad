@@ -37,8 +37,13 @@ const freshness = p => Math.max(
 );
 
 export default async function render(page, ctx) {
-  const all = await ctx.db.products.list();
+  const [all, allPurchases] = await Promise.all([ctx.db.products.list(), ctx.db.purchases.list()]);
   all.sort((a, b) => freshness(b) - freshness(a));
+  const transitIds = new Set(
+    allPurchases
+      .filter(p => p.status === "in_transit")
+      .flatMap(p => (p.items || []).map(it => String(it.product_id)))
+  );
 
   const search = input({ placeholder: "Поиск товара…", style: { maxWidth: "320px" } });
   const grid = el("div.grid");
@@ -101,7 +106,8 @@ export default async function render(page, ctx) {
     grid.innerHTML = "";
     if (!list.length) { grid.append(el("div.empty", {}, [el("div.em-ic", {}, [icon("box", { size: 40 })]), el("p", { text: "Товаров нет" })])); return; }
     list.forEach(p => {
-      const isNew = freshness(p) > 0 && (Date.now() - freshness(p)) / 86400000 <= WAREHOUSE_NEW_DAYS;
+      const isNew  = freshness(p) > 0 && (Date.now() - freshness(p)) / 86400000 <= WAREHOUSE_NEW_DAYS;
+      const isSoon = transitIds.has(String(p.id)) && (Number(p.stock_qty) || 0) <= 0;
       const card = el("div.prod.reveal", { onclick: () => openForm(ctx, p, cats) }, [
         el("img.ph", { src: p.photo_url || placeholder(p.name), alt: p.name, loading: "lazy", title: "Нажмите для увеличения",
           onclick: (e) => { if (p.photo_url) { e.stopPropagation(); lightbox(p.photo_url); } },
@@ -111,7 +117,7 @@ export default async function render(page, ctx) {
           el("div.cat", { text: p.category || "—" }),
           el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" } }, [
             el("div", { style: { display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" } }, [
-              statusBadge(p),
+              isSoon ? el("span.badge.transit", {}, [icon("clock", { size: 13 }), "Скоро"]) : statusBadge(p),
               ...(isNew ? [el("span.badge", { style: "background:var(--gold,#e3c163);color:#1c2b4a;font-size:10px;", text: "Новинка" })] : []),
             ]),
             el("span.muted", { text: "ост: " + (Number(p.stock_qty) || 0) }),

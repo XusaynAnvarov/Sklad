@@ -94,8 +94,10 @@ async function initSupabase() {
 export function rawClient() { return sb; }
 
 // Заголовок авторизации для вызовов serverless-эндпоинтов (/api/*).
-// Берём JWT текущей сессии Supabase — сервер проверит, что вызывает залогиненный админ.
+// Приоритет: кастомный admin JWT (из /api/admin-auth) → Supabase сессия.
 export async function authHeaders() {
+  const adminToken = localStorage.getItem("sklad_admin_token");
+  if (adminToken) return { Authorization: "Bearer " + adminToken };
   if (DB_MODE !== "supabase" || !sb) return {};
   try {
     const { data } = await sb.auth.getSession();

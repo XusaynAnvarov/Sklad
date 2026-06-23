@@ -46,8 +46,11 @@ const routes = [
   [["GET"],   "/api/client/verify-status",     "./api/client/verify-status.js"],
   [["POST"],  "/api/client/register",          "./api/client/register.js"],
   [["POST"],  "/api/client/login",             "./api/client/login.js"],
+  // логин в склад (кастомный admin JWT)
+  [["POST","OPTIONS"], "/api/admin-auth",     "./api/admin-auth.js"],
   // кабинет
   [["GET"],   "/api/client/me",               "./api/client/me.js"],
+  [["POST"],  "/api/client/update-profile",   "./api/client/update-profile.js"],
   [["GET"],   "/api/client/orders",           "./api/client/orders.js"],
   [["GET"],   "/api/client/invoices",         "./api/client/invoices.js"],
   [["GET"],   "/api/client/payments",         "./api/client/payments.js"],

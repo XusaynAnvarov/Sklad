@@ -85,14 +85,55 @@ async function renderProfile(container) {
   const name = res.customer?.name || "—";
   const phone = res.customer?.contact || "—";
   const head = mkEl("div", "");
-  head.style.cssText = "display:flex;align-items:center;gap:14px;margin-bottom:20px";
+  head.style.cssText = "display:flex;align-items:center;gap:14px;margin-bottom:16px";
   const ava = mkEl("div", "");
   ava.style.cssText = "width:52px;height:52px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:20px;font-weight:700;flex-shrink:0";
   ava.textContent = (name[0] || "?").toUpperCase();
-  const info = mkEl("div", "");
+  const info = mkEl("div", ""); info.style.flex = "1";
   info.innerHTML = `<div style="font-size:17px;font-weight:700;color:var(--navy)">${escHtml(name)}</div><div style="font-size:13px;color:var(--muted);margin-top:2px">${escHtml(phone)}</div>`;
-  head.append(ava, info);
+  const editToggle = mkEl("button", "btn-ghost");
+  editToggle.style.cssText = "padding:6px 12px;font-size:12px;flex-shrink:0";
+  editToggle.textContent = "Изменить";
+  head.append(ava, info, editToggle);
   card.append(head);
+
+  // --- форма редактирования ---
+  const editForm = mkEl("div", "");
+  editForm.style.cssText = "display:none;padding:14px;background:var(--bg,#f8f5ef);border-radius:10px;margin-bottom:16px;border:1px solid var(--border)";
+  const fName  = document.createElement("input");
+  fName.type  = "text"; fName.className = "search-input"; fName.placeholder = "Имя";
+  fName.value = name === "—" ? "" : name;
+  fName.style.cssText = "margin-bottom:8px;display:block;width:100%;box-sizing:border-box";
+  const fPhone = document.createElement("input");
+  fPhone.type = "tel";  fPhone.className = "search-input"; fPhone.placeholder = "Телефон (+998...)";
+  fPhone.value = phone === "—" ? "" : phone;
+  fPhone.style.cssText = "margin-bottom:10px;display:block;width:100%;box-sizing:border-box";
+  const saveBtn = mkEl("button", "btn btn-primary");
+  saveBtn.style.cssText = "font-size:13px;padding:8px 18px";
+  saveBtn.textContent = "Сохранить";
+  const errMsg = mkEl("div", ""); errMsg.style.cssText = "color:#dc2626;font-size:13px;margin-top:6px;display:none";
+  editForm.append(fName, fPhone, saveBtn, errMsg);
+  card.append(editForm);
+
+  editToggle.addEventListener("click", () => {
+    const open = editForm.style.display !== "none";
+    editForm.style.display = open ? "none" : "block";
+    editToggle.textContent = open ? "Изменить" : "Отмена";
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    errMsg.style.display = "none";
+    saveBtn.disabled = true; saveBtn.textContent = "Сохраняю…";
+    try {
+      await api.updateProfile({ name: fName.value.trim(), phone: fPhone.value.trim() });
+      sToast("Данные обновлены");
+      await renderProfile(container); // обновить страницу
+    } catch (e) {
+      errMsg.textContent = e.message || "Ошибка сохранения";
+      errMsg.style.display = "block";
+      saveBtn.disabled = false; saveBtn.textContent = "Сохранить";
+    }
+  });
 
   const debtTitle = el("div", { text: "Текущий долг", style: "font-size:13px;font-weight:600;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em" });
   card.append(debtTitle);

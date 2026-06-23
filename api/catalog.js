@@ -36,12 +36,21 @@ export default async function handler(req, res) {
     );
     raw.sort((a, b) => freshness(b) - freshness(a));
 
+    // Товары в активных приходах «В дороге» → статус «Скоро» если нет остатка
+    let transitIds = new Set();
+    try {
+      const inTransit = await sget("purchases?status=eq.in_transit&select=items");
+      inTransit.forEach(p => (p.items || []).forEach(it => { if (it.product_id) transitIds.add(String(it.product_id)); }));
+    } catch {}
+
     const now = Date.now();
     const products = raw
       .filter(p => p.site_status !== "hidden")
       .map(p => {
         let status;
         if (p.site_status === "soon") {
+          status = "soon";
+        } else if (transitIds.has(String(p.id)) && (p.stock_qty || 0) <= 0) {
           status = "soon";
         } else if ((p.stock_qty || 0) > 0) {
           status = "in_stock";
