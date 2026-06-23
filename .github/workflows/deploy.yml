@@ -21,24 +21,23 @@ jobs:
           script: |
             echo "=== SUPABASE_SERVICE_KEY setup ==="
             if [ -z "$SUPABASE_SERVICE_KEY" ]; then
-              echo "ВНИМАНИЕ: секрет SUPABASE_SERVICE_KEY пуст — добавьте его в GitHub Secrets и перезапустите."
+              echo "ВНИМАНИЕ: секрет SUPABASE_SERVICE_KEY пуст — добавьте его в GitHub Secrets."
             else
               echo "Секрет получен (длина ${#SUPABASE_SERVICE_KEY})"
-              ENVFILE="$(grep -rl '^SUPABASE_SERVICE_KEY=' /root /var/www /home /opt /srv /app 2>/dev/null | grep -v node_modules | head -1)"
-              if [ -z "$ENVFILE" ]; then
-                SRV="$(find / -name server.js 2>/dev/null | grep -v node_modules | head -1)"
-                [ -n "$SRV" ] && ENVFILE="$(dirname "$SRV")/.env"
+              # реальный .env приложения (НЕ .env.example)
+              ENVFILE="/var/www/skladanvarov/.env"
+              if [ ! -f "$ENVFILE" ]; then
+                ENVFILE="$(grep -rl '^SUPABASE_SERVICE_KEY=' /var/www /root /home /opt 2>/dev/null | grep -v node_modules | grep -v '\.example' | head -1)"
               fi
               if [ -z "$ENVFILE" ]; then
-                echo "ОШИБКА: не нашёл .env / server.js на сервере"
+                echo "ОШИБКА: не нашёл реальный .env"
               else
                 touch "$ENVFILE"
                 sed -i '/^SUPABASE_SERVICE_KEY=/d' "$ENVFILE"
-                echo "SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY" >> "$ENVFILE"
+                printf 'SUPABASE_SERVICE_KEY=%s\n' "$SUPABASE_SERVICE_KEY" >> "$ENVFILE"
                 echo "Записано в: $ENVFILE"
-                echo "--- ключи .env (значения скрыты) ---"
-                sed 's/=.*/=***/' "$ENVFILE"
-                echo "------------------------------------"
+                # на всякий случай уберём ключ из .env.example, если туда попал раньше
+                [ -f /var/www/skladanvarov/.env.example ] && sed -i '/^SUPABASE_SERVICE_KEY=./d' /var/www/skladanvarov/.env.example || true
               fi
             fi
             echo "=== run deploy.sh ==="
