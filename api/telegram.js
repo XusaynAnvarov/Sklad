@@ -79,6 +79,26 @@ export default async function handler(req, res) {
       if (!j.ok) throw new Error(j.description || "sendDocument error");
       return res.status(200).json({ ok: true });
     }
+    // Накладная себе в Telegram (в бот владельца, ADMIN_CHAT_ID) — всегда доступно
+    if (action === "admin_invoice_pdf") {
+      const target = chat_id || process.env.ADMIN_CHAT_ID;
+      if (!target) return res.status(500).json({ error: "ADMIN_CHAT_ID не задан на сервере" });
+      const sid = safeId(sale_id);
+      if (!sid) return res.status(400).json({ error: "Неверный sale_id" });
+      const sale = (await sget(`sales?id=eq.${encodeURIComponent(sid)}&select=*`))[0];
+      if (!sale) return res.status(404).json({ error: "Накладная не найдена" });
+      const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
+      const products = await sget("products?select=id,name");
+      const bytes = await buildInvoicePDF({ sale, customer, products, status: await coverageFor(sale) });
+      const fd = new FormData();
+      fd.append("chat_id", String(target));
+      fd.append("caption", `🧾 Накладная — ${customer?.name || "—"} · ${new Date(sale.date).toLocaleDateString("ru-RU")}`);
+      fd.append("document", new Blob([bytes], { type: "application/pdf" }), `nakladnaya-${new Date(sale.date).toISOString().slice(0, 10)}.pdf`);
+      const r = await fetch(api("sendDocument"), { method: "POST", body: fd });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.description || "sendDocument error");
+      return res.status(200).json({ ok: true });
+    }
     if (action === "invoice") {
       const target = channel || process.env.TELEGRAM_CHANNEL_ID;
       if (!target) return res.status(400).json({ error: "Не указан канал (channel / TELEGRAM_CHANNEL_ID)" });

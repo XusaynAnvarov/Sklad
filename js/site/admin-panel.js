@@ -357,6 +357,28 @@ export async function renderAdminPanel(container) {
     nickRow.append(nickInput, nickSave, tgLabel);
     box.append(nickRow);
 
+    // Телефон (логин на сайт) — редактирование для удобного входа
+    const phoneRow = mkEl("div"); phoneRow.style.cssText = "display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap";
+    const phoneInput = document.createElement("input");
+    phoneInput.className = "search-input"; phoneInput.style.cssText = "max-width:200px;padding:6px 10px;font-size:13px";
+    phoneInput.placeholder = "Телефон для входа"; phoneInput.value = c.phone || "";
+    const phoneSave = mkEl("button", "btn-ghost"); phoneSave.style.cssText = "padding:6px 12px;font-size:12px"; phoneSave.textContent = "Сохранить телефон";
+    phoneSave.addEventListener("click", async () => {
+      const np = phoneInput.value.replace(/\D/g, "");
+      if (np.length < 7) { apToast("Телефон: минимум 7 цифр", "err"); return; }
+      phoneSave.disabled = true;
+      try {
+        await req("POST", "/admin-site/update-client", { account_id: c.id, phone: np });
+        c.phone = np;
+        apToast("Телефон обновлён — клиент входит по новому номеру", "ok");
+      } catch (e) { apToast("Ошибка: " + e.message, "err"); }
+      phoneSave.disabled = false;
+    });
+    const phoneHint = mkEl("span"); phoneHint.style.cssText = "font-size:12px;color:var(--muted)";
+    phoneHint.textContent = "это логин клиента на сайт";
+    phoneRow.append(phoneInput, phoneSave, phoneHint);
+    box.append(phoneRow);
+
     // Сброс пароля
     const pwRow = mkEl("div"); pwRow.style.cssText = "margin-bottom:16px";
     const pwBtn = mkEl("button", "btn-ghost"); pwBtn.style.cssText = "padding:6px 12px;font-size:12px";

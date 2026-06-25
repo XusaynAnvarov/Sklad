@@ -31,6 +31,11 @@ export function sendInvoicePDF(saleId) {
   return call({ action: "invoice_pdf", channel: cfg.TELEGRAM_CHANNEL || "", sale_id: saleId });
 }
 
+// Отправка накладной СЕБЕ в Telegram (в бот владельца, ADMIN_CHAT_ID на сервере)
+export function sendInvoicePDFToOwner(saleId) {
+  return call({ action: "admin_invoice_pdf", sale_id: saleId });
+}
+
 // Отправка каталога/сообщения конкретному клиенту (chat_id)
 export function sendToClient(chatId, text) {
   return call({ action: "message", chat_id: chatId, text });

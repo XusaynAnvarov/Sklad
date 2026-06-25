@@ -4,9 +4,9 @@
 import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js";
 import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js";
 import { openEditor, buildText, deleteSale } from "./sales.js";
-import { exportCustomerInvoice } from "../xlsx-export.js";
+import { exportCustomerInvoice, exportCustomerCard } from "../xlsx-export.js";
 import { placeholder as placeholderImg } from "./products.js";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient } from "../telegram.js";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendInvoicePDFToOwner } from "../telegram.js";
 import { icon } from "../icons.js";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
@@ -154,6 +154,7 @@ async function renderCard(page, ctx, id) {
     ]),
     el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
       el("button.btn.btn-outline", { onclick: () => openForm(ctx, c, customers) }, [icon("edit", { size: 16 }), "Изменить"]),
+      el("button.btn.btn-outline", { title: "Сохранить всю карточку клиента в Excel на ноутбук", onclick: async () => { showLoader("Готовим Excel…"); try { await exportCustomerCard(c, sales, payments, products, { turnover: turn, paid: paidObj, debt, advance, lastPay }); toast("Файл клиента сохранён", "ok"); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } } }, ["📥 В Excel"]),
       el("button.btn.btn-ok", { onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 16 }), "Оплата"]),
       el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products, c.id) }, [icon("plus", { size: 16 }), "Накладная"]),
       el("button.btn.btn-danger", { onclick: () => confirmDialog("Удалить клиента «" + c.name + "»? Накладные сохранятся, но без привязки к нему.", async () => { await ctx.db.customers.remove(c.id); toast("Клиент удалён", "ok"); ctx.navigate("customers"); }) }, [icon("trash", { size: 16 }), "Удалить"]),
@@ -201,6 +202,7 @@ async function renderCard(page, ctx, id) {
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Скачать накладную в Excel", text: "📊", onclick: async () => { showLoader("Готовим Excel…"); try { await exportCustomerInvoice(s, c, products, { debt, advance, lastPay }); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } } }),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: isPaid(s) ? "Отметить «в долг»" : "Отметить «оплачено»", onclick: () => togglePaid(ctx, s) }, [icon(isPaid(s) ? "dot" : "check", { size: 16 })]),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать (цена/кол-во/товары)", onclick: () => openEditor(ctx, s, customers, products, c.id) }, [icon("edit", { size: 16 })]),
+          el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить мне в Telegram (бот)", text: "🤖", onclick: () => sendInvToOwner(s) }),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить клиенту", onclick: () => sendInvToClient(ctx, s, c, products) }, [icon("send", { size: 16 })]),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить в канал", onclick: () => sendInvToChannel(ctx, s, c, products) }, [icon("broadcast", { size: 16 })]),
           el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить накладную? Товары вернутся на склад.", () => deleteSale(ctx, s, products)) }, [icon("trash", { size: 16 })]),
@@ -332,6 +334,13 @@ async function sendInvToClient(ctx, s, c, products) {
 async function sendInvToChannel(ctx, s, c, products) {
   try { await sendInvoicePDF(s.id); await ctx.db.sales.upsert({ id: s.id, telegram_sent: true }); toast("Отправлено в канал (PDF)", "ok"); ctx.refresh(); }
   catch (e) { toast(e.message, "err"); }
+}
+// Отправить накладную себе в Telegram-бот (всегда работает: идёт на ADMIN_CHAT_ID)
+async function sendInvToOwner(s) {
+  showLoader("Отправляем в Telegram…");
+  try { await sendInvoicePDFToOwner(s.id); toast("Накладная отправлена вам в Telegram", "ok"); }
+  catch (e) { toast("Не отправлено: " + (e.message || e), "err"); }
+  finally { hideLoader(); }
 }
 
 // ----------------------- ФОРМА ОПЛАТЫ -----------------------
