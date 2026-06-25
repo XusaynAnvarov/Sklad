@@ -72,6 +72,15 @@ export async function renderAdminPanel(container) {
     <div class="ap-stat-card ap-stat-debt" id="ap-stat-debtors"><div class="ap-stat-num">—</div><div class="ap-stat-label">Клиентов с долгом</div></div>`;
   container.append(stats);
 
+  // ссылки на числа статистики (container может быть ещё не в документе — getElementById вернул бы null)
+  const statNums = {
+    clients:  stats.querySelector("#ap-stat-clients .ap-stat-num"),
+    orders:   stats.querySelector("#ap-stat-orders .ap-stat-num"),
+    new:      stats.querySelector("#ap-stat-new .ap-stat-num"),
+    debtors:  stats.querySelector("#ap-stat-debtors .ap-stat-num"),
+  };
+  const setStat = (k, v) => { if (statNums[k]) statNums[k].textContent = v; };
+
   // Табы
   const tabsEl = mkEl("div", "s-tabs");
   tabsEl.style.marginBottom = "0";
@@ -106,13 +115,13 @@ export async function renderAdminPanel(container) {
       clientsData = cRes.clients || [];
       ordersData = oRes.orders || [];
 
-      // Обновляем статистику
+      // Обновляем статистику (через сохранённые ссылки — без getElementById)
       const newOrders = ordersData.filter(o => o.status === "order").length;
       const debtors = clientsData.filter(c => hasDebt(c.debt)).length;
-      document.getElementById("ap-stat-clients").querySelector(".ap-stat-num").textContent = clientsData.length;
-      document.getElementById("ap-stat-orders").querySelector(".ap-stat-num").textContent = ordersData.length;
-      document.getElementById("ap-stat-new").querySelector(".ap-stat-num").textContent = newOrders;
-      document.getElementById("ap-stat-debtors").querySelector(".ap-stat-num").textContent = debtors;
+      setStat("clients", clientsData.length);
+      setStat("orders", ordersData.length);
+      setStat("new", newOrders);
+      setStat("debtors", debtors);
 
       renderTab(tabsEl.querySelector(".s-tab.active")?.dataset.tab || "clients");
     } catch (e) {
@@ -224,8 +233,9 @@ export async function renderAdminPanel(container) {
         delBtn.title = "Удалить клиента и заблокировать номер";
         delBtn.addEventListener("click", () => confirmDelete(c, row));
 
-        right2.append(debtEl, dates, mkEl("div", "ap-client-actions"));
-        right2.querySelector(".ap-client-actions").append(ordersBtn, delBtn);
+        const actions = mkEl("div", "ap-client-actions");
+        actions.append(openBtn, ordersBtn, delBtn);
+        right2.append(debtEl, dates, actions);
         row.append(left, right2);
         list.append(row);
       });
@@ -276,7 +286,7 @@ export async function renderAdminPanel(container) {
         apToast("Клиент удалён, номер заблокирован", "ok");
         row.remove();
         clientsData = clientsData.filter(cl => cl.id !== c.id);
-        document.getElementById("ap-stat-clients").querySelector(".ap-stat-num").textContent = clientsData.length;
+        setStat("clients", clientsData.length);
       })
       .catch(e => { apToast("Ошибка: " + e.message, "err"); row.style.opacity = "1"; });
   }

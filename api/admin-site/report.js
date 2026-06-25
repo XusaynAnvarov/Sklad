@@ -22,12 +22,13 @@ export default async function handler(req, res) {
     catch { accounts = await sget("site_accounts?select=id,customer_id,created_at"); }
 
     const [customers, products, settingsRows] = await Promise.all([
-      sget("customers?select=id,name,opening_debt"),
+      sget("customers?select=id,name,opening_debt,created_at"),
       sget("products?select=id,name"),
       sget("settings?select=*&limit=1"),
     ]);
     const cname = Object.fromEntries(customers.map(c => [c.id, c.name]));
     const oddMap = Object.fromEntries(customers.map(c => [c.id, c.opening_debt || {}]));
+    const ccreated = Object.fromEntries(customers.map(c => [c.id, c.created_at || null]));
     const pname = Object.fromEntries(products.map(p => [p.id, p.name]));
     const settings = settingsRows[0] || {};
     const rate = { usd: 1, yuan: Number(settings.rate_yuan_usd) || 0.14, som: Number(settings.rate_som_usd) || 0.000079 };
@@ -44,7 +45,11 @@ export default async function handler(req, res) {
       let g = a.origin;
       if (!g) {
         const od = oddMap[a.customer_id] || {};
-        g = CURS.some(k => (Number(od[k]) || 0) > 0) ? "warehouse" : "site";
+        const hadOpening = CURS.some(k => (Number(od[k]) || 0) > 0);
+        const cc = ccreated[a.customer_id];
+        const acct = a.created_at ? new Date(a.created_at).getTime() : null;
+        const custBefore = cc && acct && new Date(cc).getTime() < acct - 3600 * 1000;
+        g = (hadOpening || custBefore) ? "warehouse" : "site";
       }
       (groupCustIds[g] || groupCustIds.site).add(a.customer_id);
     });

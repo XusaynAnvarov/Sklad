@@ -20,12 +20,12 @@ export default async function handler(req, res) {
 
     if (custIds.length) {
       const [custs, allSales, allPayments, finalSalesWithItems] = await Promise.all([
-        sget(`customers?id=in.(${custIds.join(",")})&select=id,name,contact,opening_debt`),
+        sget(`customers?id=in.(${custIds.join(",")})&select=id,name,contact,opening_debt,created_at`),
         sget(`sales?customer_id=in.(${custIds.join(",")})&status=in.(order,pending_confirm,confirmed,final)&select=id,customer_id,status,date,created_at`),
         sget(`payments?customer_id=in.(${custIds.join(",")})&select=customer_id,amount,currency,date`),
         sget(`sales?customer_id=in.(${custIds.join(",")})&status=eq.final&select=customer_id,items,currency`),
       ]);
-      custs.forEach(c => (custMap[c.id] = { name: c.name, contact: c.contact, opening_debt: c.opening_debt }));
+      custs.forEach(c => (custMap[c.id] = { name: c.name, contact: c.contact, opening_debt: c.opening_debt, created_at: c.created_at }));
 
       custIds.forEach(cid => {
         // долг: финальные продажи + старый долг − оплаты
@@ -56,11 +56,17 @@ export default async function handler(req, res) {
     const clients = accounts.map(a => {
       let origin = a.origin || null;
       if (!origin && a.customer_id) {
-        const od = custMap[a.customer_id]?.opening_debt || {};
+        const cust = custMap[a.customer_id] || {};
+        const od = cust.opening_debt || {};
         const hadOpening = ["som", "usd", "yuan"].some(k => (Number(od[k]) || 0) > 0);
         const firstSale = firstSaleMap[a.customer_id];
-        const before = firstSale && a.created_at && new Date(firstSale) < new Date(new Date(a.created_at).getTime() - 60000);
-        origin = (hadOpening || before) ? "warehouse" : "site";
+        const acct = a.created_at ? new Date(a.created_at).getTime() : null;
+        // клиент склада, если: был старый долг, ИЛИ карточка клиента создана до регистрации на сайте,
+        // ИЛИ есть продажа раньше регистрации (всё с запасом в 1 час)
+        const margin = 3600 * 1000;
+        const custBefore = cust.created_at && acct && new Date(cust.created_at).getTime() < acct - margin;
+        const saleBefore = firstSale && acct && new Date(firstSale).getTime() < acct - margin;
+        origin = (hadOpening || custBefore || saleBefore) ? "warehouse" : "site";
       }
       origin = origin || "site";
       return {
