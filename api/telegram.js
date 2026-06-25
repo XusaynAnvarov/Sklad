@@ -7,7 +7,7 @@
 //    TELEGRAM_CHANNEL_ID  — @username или -100… id канала (по умолчанию)
 // ========================================================================
 import { sget } from "./lib/supa.js";
-import { buildInvoicePDF } from "./lib/pdf.js";
+import { buildInvoicePDF, buildReconciliationPDF } from "./lib/pdf.js";
 import { getUser } from "./lib/auth.js";
 import { invoiceCoverageStatus } from "./lib/debt.js";
 
@@ -40,7 +40,19 @@ export default async function handler(req, res) {
 
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
-  const { action, text, photo, channel, chat_id, sale_id } = body || {};
+  const { action, text, photo, channel, chat_id, sale_id, customer_id } = body || {};
+
+  // собрать данные акта сверки по клиенту (только оформленные накладные + оплаты)
+  async function buildActFor(custId) {
+    const customer = (await sget(`customers?id=eq.${encodeURIComponent(custId)}&select=*`))[0];
+    if (!customer) return null;
+    const [sales, payments] = await Promise.all([
+      sget(`sales?customer_id=eq.${custId}&status=eq.final&select=id,date,currency,items&order=date.asc`),
+      sget(`payments?customer_id=eq.${custId}&select=amount,currency,date&order=date.asc`),
+    ]);
+    const bytes = await buildReconciliationPDF({ customer, sales, payments });
+    return { customer, sales, bytes };
+  }
 
   const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN; // отправка КЛИЕНТУ идёт через клиентского бота
   const api = (method) => `https://api.telegram.org/bot${TOKEN}/${method}`;
@@ -81,6 +93,53 @@ export default async function handler(req, res) {
           ? " — проверьте: для приватного канала укажите id вида -100…, добавьте бота администратором канала."
           : "";
         throw new Error((j.description || "sendDocument error") + hint);
+      }
+      return res.status(200).json({ ok: true });
+    }
+    // Акт сверки в КАНАЛ (admin-бот)
+    if (action === "act_pdf") {
+      const target = channel || process.env.TELEGRAM_CHANNEL_ID;
+      if (!target) return res.status(400).json({ error: "Не указан канал" });
+      if (!customer_id) return res.status(400).json({ error: "Не указан клиент" });
+      const act = await buildActFor(customer_id);
+      if (!act) return res.status(404).json({ error: "Клиент не найден" });
+      const fd = new FormData();
+      fd.append("chat_id", String(target));
+      fd.append("caption", `📋 Акт сверки — ${act.customer?.name || "—"}`);
+      fd.append("document", new Blob([act.bytes], { type: "application/pdf" }), `akt-sverki.pdf`);
+      const r = await fetch(api("sendDocument"), { method: "POST", body: fd });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.description || "sendDocument error");
+      return res.status(200).json({ ok: true });
+    }
+    // Акт сверки КЛИЕНТУ (клиент-бот) + кнопки накладных (нажал → PDF этой накладной)
+    if (action === "client_act_pdf") {
+      if (!CLIENT_TOKEN) return res.status(500).json({ error: "CLIENT_BOT_TOKEN не задан" });
+      if (!customer_id) return res.status(400).json({ error: "Не указан клиент" });
+      const cust = (await sget(`customers?id=eq.${encodeURIComponent(customer_id)}&select=id,name,tg_chat_id`))[0];
+      if (!cust) return res.status(404).json({ error: "Клиент не найден" });
+      if (!cust.tg_chat_id) return res.status(400).json({ error: "У клиента нет привязанного Telegram" });
+      const act = await buildActFor(customer_id);
+      if (!act) return res.status(404).json({ error: "Клиент не найден" });
+      // 1) сам акт-PDF
+      const fd = new FormData();
+      fd.append("chat_id", String(cust.tg_chat_id));
+      fd.append("caption", "📋 Ваш акт сверки взаиморасчётов");
+      fd.append("document", new Blob([act.bytes], { type: "application/pdf" }), `akt-sverki.pdf`);
+      const r = await fetch(capi("sendDocument"), { method: "POST", body: fd });
+      const j = await r.json(); if (!j.ok) throw new Error(j.description || "sendDocument error");
+      // 2) кнопки накладных — нажатие обрабатывает хендлер inv: в боте → PDF накладной
+      const sign = { yuan: "¥", usd: "$", som: "сум" };
+      const rows = (act.sales || []).slice(-20).reverse().map(s => {
+        const byCur = {}; (s.items || []).forEach(it => { const c = it.currency || s.currency; byCur[c] = (byCur[c] || 0) + (it.qty || 0) * (it.unit_price || 0); });
+        const tot = Object.entries(byCur).map(([c, v]) => `${Math.round(v).toLocaleString("ru-RU")} ${sign[c] || c}`).join(" + ") || "—";
+        return [{ text: `🧾 ${new Date(s.date).toLocaleDateString("ru-RU")} · ${tot}`, callback_data: "inv:" + s.id }];
+      });
+      if (rows.length) {
+        await fetch(capi("sendMessage"), {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: cust.tg_chat_id, text: "Нажмите на накладную, чтобы получить её PDF:", reply_markup: { inline_keyboard: rows } }),
+        });
       }
       return res.status(200).json({ ok: true });
     }

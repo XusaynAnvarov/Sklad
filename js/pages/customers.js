@@ -6,7 +6,8 @@ import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js";
 import { openEditor, buildText, deleteSale } from "./sales.js";
 import { exportCustomerInvoice } from "../xlsx-export.js";
 import { placeholder as placeholderImg } from "./products.js";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient } from "../telegram.js";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel } from "../telegram.js";
+import { authHeaders } from "../db.js";
 import { icon } from "../icons.js";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
@@ -154,6 +155,7 @@ async function renderCard(page, ctx, id) {
     ]),
     el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
       el("button.btn.btn-outline", { onclick: () => openForm(ctx, c, customers) }, [icon("edit", { size: 16 }), "Изменить"]),
+      el("button.btn.btn-outline", { title: "Акт сверки: оплаты и отгрузки по датам, с PDF", onclick: () => openActSverki(ctx, c, sales, payments) }, ["📋 Акт сверки"]),
       el("button.btn.btn-ok", { onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 16 }), "Оплата"]),
       el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products, c.id) }, [icon("plus", { size: 16 }), "Накладная"]),
       el("button.btn.btn-danger", { onclick: () => confirmDialog("Удалить клиента «" + c.name + "»? Накладные сохранятся, но без привязки к нему.", async () => { await ctx.db.customers.remove(c.id); toast("Клиент удалён", "ok"); ctx.navigate("customers"); }) }, [icon("trash", { size: 16 }), "Удалить"]),
@@ -341,6 +343,79 @@ async function sendInvToChannel(ctx, s, c, products) {
   }
   catch (e) { toast(e.message || "Не отправлено. Укажите канал в Настройках и сделайте бота админом канала.", "err"); }
   finally { hideLoader(); }
+}
+
+// ----------------------- АКТ СВЕРКИ -----------------------
+function openActSverki(ctx, c, sales, payments) {
+  const finals = (sales || []).filter(s => s.status === "final");
+  const opening = c.opening_debt || {};
+  const body = el("div", { style: { maxHeight: "60vh", overflowY: "auto" } });
+  let any = false;
+  ["som", "usd", "yuan"].forEach(cur => {
+    const events = [];
+    finals.forEach(s => {
+      let sum = 0; (s.items || []).forEach(it => { const cc = it.currency || s.currency; if (cc === cur) sum += (it.qty || 0) * (it.unit_price || 0); });
+      if (sum > 0.0001) events.push({ date: s.date, type: "ship", amount: sum });
+    });
+    (payments || []).forEach(p => { if ((p.currency || "som") === cur && (Number(p.amount) || 0) > 0.0001) events.push({ date: p.date, type: "pay", amount: Number(p.amount) }); });
+    const open = Number(opening[cur]) || 0;
+    if (!events.length && Math.abs(open) < (cur === "som" ? 1 : 0.01)) return;
+    any = true;
+    events.sort((a, b) => new Date(a.date) - new Date(b.date));
+    body.append(el("div.section-h", { text: cur === "som" ? "Сумы" : cur === "usd" ? "Доллары $" : "Юани ¥" }));
+    body.append(el("div.hint", { text: "Начальный долг: " + fmt(open, cur) }));
+    const tb = el("tbody");
+    let bal = open;
+    events.forEach(ev => {
+      let ship = "", paid2 = "";
+      if (ev.type === "ship") { bal += ev.amount; ship = fmt(ev.amount, cur); } else { bal -= ev.amount; paid2 = fmt(ev.amount, cur); }
+      tb.append(el("tr", {}, [
+        el("td", { text: new Date(ev.date).toLocaleDateString("ru-RU") }),
+        el("td", { text: ev.type === "ship" ? "Накладная" : "Оплата" }),
+        el("td.right", { text: ship }),
+        el("td.right", { text: paid2 }),
+        el("td.right", {}, [el("strong", { text: fmt(bal, cur) })]),
+      ]));
+    });
+    body.append(el("table.tbl", {}, [
+      el("thead", {}, [el("tr", {}, ["Дата", "Операция", "Отгружено", "Оплачено", "Остаток"].map(h => el("th", { text: h })))]),
+      tb,
+    ]));
+    body.append(el("div", { style: { fontWeight: "700", margin: "6px 0 16px", textAlign: "right" }, text: "Конечный долг: " + fmt(bal, cur) }));
+  });
+  if (!any) body.append(el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Движений по счёту нет" })]));
+
+  modal({
+    title: "Акт сверки — " + c.name,
+    body,
+    actions: [
+      { label: "Закрыть", kind: "btn-outline", onClick: x => x() },
+      { label: "📄 Скачать PDF", kind: "btn-outline", onClick: async () => {
+        showLoader("Готовим PDF…");
+        try {
+          const r = await fetch("/api/admin/act-pdf?customer_id=" + encodeURIComponent(c.id), { headers: await authHeaders() });
+          if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.status); }
+          const blob = await r.blob();
+          const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+          a.download = `akt-sverki-${String(c.name || "client").replace(/[^\wа-яёА-ЯЁ]/gi, "_")}.pdf`; a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+        } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); }
+      } },
+      { label: "📤 Клиенту", kind: "btn-ok", onClick: async (close) => {
+        if (!c.tg_chat_id) { toast("У клиента нет Telegram (chat_id) — укажите в «Изменить».", "err"); return; }
+        showLoader("Отправляем клиенту…");
+        try { await sendActToClient(c.id); toast("Акт отправлен клиенту", "ok"); close(); }
+        catch (e) { toast("Не отправлено: " + (e.message || e), "err"); } finally { hideLoader(); }
+      } },
+      { label: "📢 В канал", kind: "btn-primary", onClick: async (close) => {
+        showLoader("Отправляем в канал…");
+        try {
+          let ch = ""; try { const st = await ctx.db.getSettings(); ch = (st && st.telegram_channel) || ""; } catch {}
+          await sendActToChannel(c.id, ch); toast("Акт отправлен в канал", "ok"); close();
+        } catch (e) { toast("Не отправлено: " + (e.message || e), "err"); } finally { hideLoader(); }
+      } },
+    ],
+  });
 }
 
 // ----------------------- ФОРМА ОПЛАТЫ -----------------------

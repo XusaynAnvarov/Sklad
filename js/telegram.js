@@ -31,6 +31,15 @@ export function sendInvoicePDF(saleId, channel) {
   return call({ action: "invoice_pdf", channel: channel || cfg.TELEGRAM_CHANNEL || "", sale_id: saleId });
 }
 
+// Акт сверки клиенту в его бот (PDF + кнопки накладных)
+export function sendActToClient(customerId) {
+  return call({ action: "client_act_pdf", customer_id: customerId });
+}
+// Акт сверки в канал
+export function sendActToChannel(customerId, channel) {
+  return call({ action: "act_pdf", customer_id: customerId, channel: channel || cfg.TELEGRAM_CHANNEL || "" });
+}
+
 // Отправка каталога/сообщения конкретному клиенту (chat_id)
 export function sendToClient(chatId, text) {
   return call({ action: "message", chat_id: chatId, text });

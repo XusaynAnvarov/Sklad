@@ -130,3 +130,97 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
 
   return await doc.save(); // Uint8Array
 }
+
+// ---- Акт сверки взаиморасчётов (по каждой валюте, хронология, остаток) ----
+export async function buildReconciliationPDF({ customer, sales, payments, company = "GENERAL MODERN" }) {
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
+  const reg = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Regular.ttf")));
+  const bold = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Bold.ttf")));
+  const W = 595, H = 842, M = 44, tableR = W - M;
+  const cDate = M, cOper = M + 70, xShip = 372, xPaid = 462, xBal = tableR;
+  const rowH = 20, headH = 22, BOTTOM = 64;
+  const CURS = ["som", "usd", "yuan"];
+  const CURNAME = { som: "Расчёты в сумах", usd: "Расчёты в долларах ($)", yuan: "Расчёты в юанях (¥)" };
+
+  let pg, y;
+  const tw = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
+  const T = (s, x, yy, size, f = reg, c = DARK) => pg.drawText(String(s == null ? "" : s), { x, y: yy, size, font: f, color: c });
+  const TR = (s, xr, yy, size, f = reg, c = DARK) => pg.drawText(String(s == null ? "" : s), { x: xr - tw(s, size, f), y: yy, size, font: f, color: c });
+
+  function header() {
+    const bannerH = 88, bannerR = 16;
+    pg.drawSvgPath(`M 0 0 H ${W} V ${bannerH - bannerR} Q ${W} ${bannerH} ${W - bannerR} ${bannerH} H ${bannerR} Q 0 ${bannerH} 0 ${bannerH - bannerR} V 0 Z`, { x: 0, y: H, color: DARK });
+    roundRect(pg, 16, H - bannerH + 15, 6, 58, 3, { color: ACCENT });
+    T(company, M, H - 46, 22, bold, rgb(1, 1, 1));
+    T("Акт сверки взаиморасчётов", M, H - 68, 12, reg, rgb(0.75, 0.75, 0.85));
+    TR("от " + new Date().toLocaleDateString("ru-RU"), tableR, H - 46, 12, reg, rgb(0.75, 0.75, 0.85));
+    y = H - 112;
+  }
+  function newPage() { pg = doc.addPage([W, H]); header(); }
+  function colHead() {
+    pg.drawRectangle({ x: M, y: y - headH, width: tableR - M, height: headH, color: rgb(0.93, 0.93, 0.97) });
+    const hb = y - 15;
+    T("Дата", cDate + 6, hb, 9, bold, GREY);
+    T("Операция", cOper + 6, hb, 9, bold, GREY);
+    TR("Отгружено", xShip - 4, hb, 9, bold, GREY);
+    TR("Оплачено", xPaid - 4, hb, 9, bold, GREY);
+    TR("Остаток", xBal - 4, hb, 9, bold, GREY);
+    y -= headH;
+  }
+
+  newPage();
+  T("Клиент:", M, y, 11, reg, GREY); T(customer?.name || "—", M + 56, y, 13, bold);
+  if (customer?.contact) { y -= 16; T("Контакт: " + customer.contact, M, y, 11, reg, GREY); }
+  y -= 16; T("Период: за всё время", M, y, 11, reg, GREY);
+  y -= 26;
+
+  const opening = customer?.opening_debt || {};
+  let drew = false;
+
+  for (const cur of CURS) {
+    const events = [];
+    (sales || []).forEach(s => {
+      let sum = 0;
+      (s.items || []).forEach(it => { const c = it.currency || s.currency; if (c === cur) sum += (Number(it.qty) || 0) * (Number(it.unit_price) || 0); });
+      if (sum > 0.0001) events.push({ date: s.date, type: "ship", amount: sum });
+    });
+    (payments || []).forEach(p => { if ((p.currency || "som") === cur && (Number(p.amount) || 0) > 0.0001) events.push({ date: p.date, type: "pay", amount: Number(p.amount) }); });
+    const open = Number(opening[cur]) || 0;
+    if (!events.length && Math.abs(open) < (cur === "som" ? 1 : 0.01)) continue;
+    events.sort((a, b) => new Date(a.date) - new Date(b.date));
+    drew = true;
+
+    if (y - (headH + rowH * 3 + 60) < BOTTOM) newPage();
+    T(CURNAME[cur], M, y - 2, 13, bold, ACCENT); y -= 20;
+    T("Начальный долг (до системы): " + money(open, cur), M, y - 2, 10, reg, GREY); y -= 16;
+    colHead();
+
+    let bal = open, ship = 0, paid = 0, i = 0;
+    for (const ev of events) {
+      if (y - rowH < BOTTOM) { newPage(); colHead(); }
+      const base = y - 14;
+      if (i % 2 === 1) pg.drawRectangle({ x: M, y: y - rowH, width: tableR - M, height: rowH, color: rgb(0.975, 0.975, 0.99) });
+      T(new Date(ev.date).toLocaleDateString("ru-RU"), cDate + 6, base, 9, reg);
+      if (ev.type === "ship") { bal += ev.amount; ship += ev.amount; T("Накладная", cOper + 6, base, 9, reg); TR(money(ev.amount, cur), xShip - 4, base, 9, reg, rgb(0.7, 0.2, 0.1)); }
+      else { bal -= ev.amount; paid += ev.amount; T("Оплата", cOper + 6, base, 9, reg); TR(money(ev.amount, cur), xPaid - 4, base, 9, reg, rgb(0.06, 0.5, 0.3)); }
+      TR(money(bal, cur), xBal - 4, base, 9, bold);
+      y -= rowH;
+      pg.drawLine({ start: { x: M, y }, end: { x: tableR, y }, thickness: 0.6, color: LINE });
+      i++;
+    }
+    if (y - 50 < BOTTOM) newPage();
+    y -= 12;
+    T("Отгружено всего: " + money(ship, cur) + "      Оплачено всего: " + money(paid, cur), M, y, 10, reg, DARK);
+    y -= 20;
+    const closeTxt = "Конечный долг: " + money(bal, cur);
+    pg.drawRectangle({ x: M, y: y - 7, width: tw(closeTxt, 12, bold) + 24, height: 26, color: DARK });
+    T(closeTxt, M + 12, y + 1, 12, bold, bal > 0.0001 ? rgb(1, 0.6, 0.4) : rgb(0.4, 0.9, 0.6));
+    y -= 40;
+  }
+
+  if (!drew) T("Движений по счёту нет.", M, y, 12, reg, GREY);
+  pg.drawText("Сформировано: " + new Date().toLocaleString("ru-RU") + " · " + company, { x: M, y: 32, size: 9, font: reg, color: GREY });
+
+  return await doc.save();
+}
