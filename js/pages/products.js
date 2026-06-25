@@ -242,9 +242,11 @@ export function openForm(ctx, p, cats = []) {
           name: fName.value.trim(), category: fCat.value.trim(), photo_url: fPhotoUrl.value.trim(),
           stock_qty: batches.length ? sumQty(batches) : desired,
           cost_usd: cc.cost_usd, cost_yuan: cc.cost_yuan,
-          price_yuan: p.price_yuan || 0, price_usd: p.price_usd || 0, price_som: p.price_som || 0,
           status_override: fStatus.value || null,
         };
+        // продажные цены (price_*) форма не редактирует — НЕ перезаписываем их (иначе обнуляются).
+        // Для нового товара зададим явные нули, у существующего PATCH сохранит прежние.
+        if (isNew) { obj.price_yuan = 0; obj.price_usd = 0; obj.price_som = 0; }
         try { await ctx.db.products.upsert({ ...obj, batches, ...(cost_prev ? { cost_prev } : {}) }); }
         catch (e) { try { await ctx.db.products.upsert({ ...obj, batches }); } catch (e2) { await ctx.db.products.upsert(obj); } } // если колонок ещё нет
         close(); toast("Сохранено", "ok"); ctx.refresh();
