@@ -206,10 +206,10 @@ export async function renderAdminPanel(container) {
         const dates = mkEl("div", "ap-client-dates");
         dates.textContent = "Рег: " + fmtDate(c.created_at) + (c.last_login ? " · Вход: " + fmtDate(c.last_login) : "");
 
-        // Кнопка «Открыть» (карточка / кабинет)
-        const openBtn = mkEl("button", "btn-ghost");
+        // Кнопка «Кабинет клиента» (просмотр того, что видит клиент)
+        const openBtn = mkEl("button", "btn-primary");
         openBtn.style.cssText = "padding:6px 12px;font-size:12px;font-weight:600";
-        openBtn.textContent = "Открыть";
+        openBtn.textContent = "👁 Кабинет клиента";
         openBtn.addEventListener("click", () => openClientDetail(c, row));
 
         // Кнопка «Заказы»
@@ -324,6 +324,12 @@ export async function renderAdminPanel(container) {
 
     const nick = d.account?.tg_nick || (d.account?.tg_username ? "@" + d.account.tg_username : "");
     box.innerHTML = "";
+
+    // Баннер: это «кабинет клиента» — то, что видит сам клиент
+    const banner = mkEl("div");
+    banner.style.cssText = "display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--navy);background:rgba(28,43,74,.06);border-radius:8px;padding:8px 12px;margin-bottom:12px";
+    banner.textContent = "👁 Кабинет клиента — то, что видит сам клиент (долг, заказы, оплаты, накладные)";
+    box.append(banner);
 
     // Шапка карточки: имя + долг + ник-редактор + сброс пароля
     const head = mkEl("div", "ap-detail-head");
