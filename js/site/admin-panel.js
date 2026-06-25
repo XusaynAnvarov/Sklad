@@ -57,11 +57,44 @@ export async function renderAdminPanel(container) {
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       <h1 class="ap-title">Панель администратора</h1>
     </div>
-    <a href="/admin" class="btn-warehouse">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-      Открыть склад
-    </a>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-ghost" id="ap-change-pass" style="padding:8px 14px;font-size:13px;font-weight:600">🔒 Сменить мой пароль</button>
+      <a href="/admin" class="btn-warehouse">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+        Открыть склад
+      </a>
+    </div>`;
   container.append(topBar);
+  topBar.querySelector("#ap-change-pass").addEventListener("click", () => openAdminPassword());
+
+  // Смена пароля администратора (у админа нет доступа к кабинету — меняем здесь)
+  function openAdminPassword() {
+    const ov = mkEl("div");
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px";
+    const card = mkEl("div");
+    card.style.cssText = "background:var(--bg,#fff);border-radius:14px;padding:22px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)";
+    card.innerHTML = `<h3 style="margin:0 0 14px;font-size:17px">🔒 Сменить мой пароль</h3>`;
+    const mk = (ph) => { const i = document.createElement("input"); i.type = "password"; i.placeholder = ph; i.className = "search-input"; i.style.cssText = "display:block;width:100%;box-sizing:border-box;margin-bottom:10px;padding:9px 12px"; return i; };
+    const cur = mk("Текущий пароль"), np = mk("Новый пароль (мин. 6)"), np2 = mk("Повторите новый пароль");
+    const err = mkEl("div"); err.style.cssText = "color:var(--err,#dc2626);font-size:13px;margin-bottom:8px;display:none";
+    const rowB = mkEl("div"); rowB.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:6px";
+    const cancel = mkEl("button", "btn-ghost"); cancel.textContent = "Отмена"; cancel.style.cssText = "padding:8px 14px;font-size:13px";
+    const save = mkEl("button", "btn-primary"); save.textContent = "Сохранить"; save.style.cssText = "padding:8px 16px;font-size:13px;font-weight:600";
+    cancel.addEventListener("click", () => ov.remove());
+    ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+    save.addEventListener("click", async () => {
+      err.style.display = "none";
+      if (!cur.value || !np.value) { err.textContent = "Заполните все поля"; err.style.display = ""; return; }
+      if (np.value.length < 6) { err.textContent = "Новый пароль не менее 6 символов"; err.style.display = ""; return; }
+      if (np.value !== np2.value) { err.textContent = "Пароли не совпадают"; err.style.display = ""; return; }
+      save.disabled = true; save.textContent = "Сохраняю…";
+      try { await req("POST", "/client/change-password", { current: cur.value, new: np.value }); apToast("Пароль изменён", "ok"); ov.remove(); }
+      catch (e) { err.textContent = e.message; err.style.display = ""; save.disabled = false; save.textContent = "Сохранить"; }
+    });
+    rowB.append(cancel, save);
+    card.append(cur, np, np2, err, rowB);
+    ov.append(card); document.body.append(ov);
+  }
 
   // Статистика (заполнится после загрузки)
   const stats = mkEl("div", "ap-stats");
