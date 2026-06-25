@@ -3,18 +3,13 @@
 // ========================================================================
 import { el, toast, confirmDialog } from "../ui.js";
 import { icon } from "../icons.js";
+import { authHeaders } from "../db.js";
 
 const BASE = "/api/admin";
-const getAuth = () => {
-  const { rawClient } = window.__skladCtx__ || {};
-  return rawClient ? rawClient().auth.getSession().then(r => r.data?.session?.access_token || "") : Promise.resolve("");
-};
 
+// Авторизация складом идёт по кастомному admin-токену (sklad_admin_token), а НЕ через Supabase Auth.
 async function apiFetch(method, path, body) {
-  const { rawClient } = window.__skladCtx__ || {};
-  let token = "";
-  if (rawClient) { try { const s = await rawClient().auth.getSession(); token = s.data?.session?.access_token || ""; } catch {} }
-  const opts = { method, headers: { "Content-Type": "application/json", Authorization: "Bearer " + token } };
+  const opts = { method, headers: { "Content-Type": "application/json", ...(await authHeaders()) } };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(path, opts);
   if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.statusText); }

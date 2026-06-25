@@ -332,16 +332,42 @@ export async function renderAdminPanel(container) {
     }
 
     const card = mkEl("div", "cabinet-card");
+    const hint = mkEl("div"); hint.style.cssText = "font-size:13px;color:var(--muted);margin-bottom:10px";
+    hint.textContent = "Подтвердите заказ здесь, а цены проставьте в Складе → Заказы.";
+    card.append(hint);
     const tbl = mkEl("table", "s-table");
-    tbl.innerHTML = `<thead><tr><th>Дата</th><th>Клиент</th><th>Товаров</th><th>Статус</th></tr></thead>`;
+    tbl.innerHTML = `<thead><tr><th>Дата</th><th>Клиент</th><th>Товаров</th><th>Статус</th><th></th></tr></thead>`;
     const tbody = document.createElement("tbody");
     ordersData.forEach(o => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${fmtDate(o.date)}</td>
-        <td>${esc(o.customer_name)}</td>
-        <td>${esc(o.items_count)} шт.</td>
-        <td><span class="order-badge ${STATUS_CLASS[o.status] || "order"}">${esc(STATUS_LABELS[o.status] || o.status)}</span></td>`;
+      const statusTd = document.createElement("td");
+      const badge = mkEl("span", "order-badge " + (STATUS_CLASS[o.status] || "order"));
+      badge.textContent = STATUS_LABELS[o.status] || o.status;
+      statusTd.append(badge);
+
+      const actTd = document.createElement("td"); actTd.className = "right";
+      if (o.status !== "final" && o.status !== "confirmed") {
+        const okBtn = mkEl("button", "btn-primary");
+        okBtn.style.cssText = "padding:6px 12px;font-size:12px;font-weight:600";
+        okBtn.textContent = "✅ Подтвердить";
+        okBtn.addEventListener("click", async () => {
+          okBtn.disabled = true;
+          try {
+            await req("POST", "/admin-site/order-status", { sale_id: o.id, status: "confirmed" });
+            o.status = "confirmed";
+            badge.className = "order-badge " + (STATUS_CLASS.confirmed || "confirmed");
+            badge.textContent = STATUS_LABELS.confirmed || "Подтверждён";
+            okBtn.remove();
+            apToast("Заказ подтверждён", "ok");
+          } catch (e) { apToast("Ошибка: " + e.message, "err"); okBtn.disabled = false; }
+        });
+        actTd.append(okBtn);
+      }
+
+      const c1 = document.createElement("td"); c1.textContent = fmtDate(o.date);
+      const c2 = document.createElement("td"); c2.textContent = o.customer_name || "—";
+      const c3 = document.createElement("td"); c3.textContent = (o.items_count || 0) + " шт.";
+      tr.append(c1, c2, c3, statusTd, actTd);
       tbody.append(tr);
     });
     tbl.append(tbody);
