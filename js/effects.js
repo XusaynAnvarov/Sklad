@@ -101,8 +101,12 @@ export function initTheme() {
   applyTheme(saved);
 }
 export function applyTheme(mode) {
-  document.documentElement.setAttribute("data-theme", mode);
+  const root = document.documentElement;
+  // глушим CSS-переходы на момент смены темы, чтобы не лагало
+  root.classList.add("no-theme-anim");
+  root.setAttribute("data-theme", mode);
   localStorage.setItem(THEME_KEY, mode);
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("no-theme-anim")));
 }
 export function currentTheme() {
   return document.documentElement.getAttribute("data-theme") || "dark";

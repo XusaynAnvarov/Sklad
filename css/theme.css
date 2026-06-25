@@ -1,6 +1,8 @@
 /* ===================================================================
    ТЁМНАЯ PREMIUM ТЕМА С АНИМАЦИЯМИ  (админка + каталог)
    =================================================================== */
+/* мгновенная смена темы без лагов */
+html.no-theme-anim, html.no-theme-anim *, html.no-theme-anim *::before, html.no-theme-anim *::after { transition: none !important; }
 :root{
   --accent:#4f7cf0; --accent2:#6b97f5; --accent3:#3b6fe0;
   --ok:#34d399; --warn:#fbbf24; --danger:#f87171;

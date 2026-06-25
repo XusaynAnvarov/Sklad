@@ -5,6 +5,8 @@
 
 /* ---------- Reset / base ---------- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* мгновенная смена темы без лагов: на момент переключения глушим все переходы */
+html.no-theme-anim, html.no-theme-anim *, html.no-theme-anim *::before, html.no-theme-anim *::after { transition: none !important; }
 html { font-size: 16px; scroll-behavior: smooth; transition: background .3s, color .3s; }
 body {
   font-family: 'Inter', sans-serif;

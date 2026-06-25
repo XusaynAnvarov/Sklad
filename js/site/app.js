@@ -55,7 +55,11 @@ export function t(key) { return (TRANSLATIONS[getLang()] || TRANSLATIONS.ru)[key
 export function getTheme() { return localStorage.getItem("gm_site_theme") || "light"; }
 export function setTheme(theme) {
   localStorage.setItem("gm_site_theme", theme);
-  document.documentElement.setAttribute("data-site-theme", theme);
+  const root = document.documentElement;
+  // отключаем CSS-переходы на момент смены темы — иначе сотни элементов анимируются разом и лагает
+  root.classList.add("no-theme-anim");
+  root.setAttribute("data-site-theme", theme);
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("no-theme-anim")));
 }
 export function toggleTheme() { setTheme(getTheme() === "dark" ? "light" : "dark"); }
 
