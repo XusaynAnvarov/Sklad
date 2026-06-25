@@ -2,7 +2,7 @@
 //  Service Worker — оффлайн-оболочка + быстрый старт (stale-while-revalidate).
 //  Данные (Supabase/api) НЕ кэшируем — всегда из сети.
 // ========================================================================
-const CACHE = "sklad-v10";
+const CACHE = "sklad-v11";
 const SHELL = ["./", "./index.html", "./admin.html", "./catalog.html", "./css/theme.css", "./css/site.css", "./config.js", "./icon.svg", "./manifest.webmanifest"];
 // код (html/css/js) грузим «сеть в приоритете», чтобы изменения были видны сразу;
 // картинки/иконки/шрифты — из кэша (быстро + офлайн).
@@ -24,9 +24,10 @@ self.addEventListener("fetch", (e) => {
   if (url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
 
   if (isCode(url.pathname)) {
-    // network-first: всегда свежий код, при отсутствии сети — из кэша
+    // network-first + cache:"reload" — обходим HTTP-кэш браузера (nginx отдаёт JS с
+    // Cache-Control: immutable, из-за чего правки не подхватывались). При отсутствии сети — из кэша.
     e.respondWith(
-      fetch(req).then(res => {
+      fetch(req, { cache: "reload" }).then(res => {
         if (res && res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp)); }
         return res;
       }).catch(() => caches.match(req))

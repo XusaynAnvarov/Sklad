@@ -416,6 +416,13 @@ function startSessionWatch() {
   check();
 }
 
+// PWA/кэш: регистрируем service worker с сетевым приоритетом для кода.
+// Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
+const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
+if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {}));
+}
+
 function logoSvg() {
   return `<svg width="36" height="36" viewBox="0 0 512 512"><defs><linearGradient id="hnv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/></linearGradient><linearGradient id="hgd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".5" stop-color="#e3c163"/><stop offset="1" stop-color="#a87b1f"/></linearGradient></defs><rect width="512" height="512" rx="100" fill="url(#hnv)"/><circle cx="256" cy="256" r="182" fill="none" stroke="url(#hgd)" stroke-width="10"/><text x="256" y="312" text-anchor="middle" font-family="Georgia,serif" font-size="168" font-weight="700" fill="url(#hgd)">GM</text></svg>`;
 }
