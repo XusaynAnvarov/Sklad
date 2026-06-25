@@ -65,7 +65,11 @@ export default async function handler(req, res) {
         const rows = await sbGet("settings?limit=1");
         return res.json((rows && rows[0]) || null);
       }
-      const rows = await sbGet(`${table}?order=created_at.desc`);
+      // пагинация для полной выгрузки (бэкап): ?limit=&offset=
+      const lim = req.query?.limit, off = req.query?.offset;
+      let q = `${table}?order=created_at.desc`;
+      if (lim !== undefined) q += `&limit=${encodeURIComponent(lim)}&offset=${encodeURIComponent(off || 0)}`;
+      const rows = await sbGet(q);
       return res.json(rows || []);
     }
 

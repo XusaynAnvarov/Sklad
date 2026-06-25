@@ -4,7 +4,7 @@
 import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js";
 import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js";
 import { openEditor, buildText, deleteSale } from "./sales.js";
-import { exportCustomerInvoice, exportCustomerCard } from "../xlsx-export.js";
+import { exportCustomerInvoice } from "../xlsx-export.js";
 import { placeholder as placeholderImg } from "./products.js";
 import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendInvoicePDFToOwner } from "../telegram.js";
 import { icon } from "../icons.js";
@@ -154,7 +154,6 @@ async function renderCard(page, ctx, id) {
     ]),
     el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
       el("button.btn.btn-outline", { onclick: () => openForm(ctx, c, customers) }, [icon("edit", { size: 16 }), "Изменить"]),
-      el("button.btn.btn-outline", { title: "Сохранить всю карточку клиента в Excel на ноутбук", onclick: async () => { showLoader("Готовим Excel…"); try { await exportCustomerCard(c, sales, payments, products, { turnover: turn, paid: paidObj, debt, advance, lastPay }); toast("Файл клиента сохранён", "ok"); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } } }, ["📥 В Excel"]),
       el("button.btn.btn-ok", { onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 16 }), "Оплата"]),
       el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products, c.id) }, [icon("plus", { size: 16 }), "Накладная"]),
       el("button.btn.btn-danger", { onclick: () => confirmDialog("Удалить клиента «" + c.name + "»? Накладные сохранятся, но без привязки к нему.", async () => { await ctx.db.customers.remove(c.id); toast("Клиент удалён", "ok"); ctx.navigate("customers"); }) }, [icon("trash", { size: 16 }), "Удалить"]),

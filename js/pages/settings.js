@@ -3,7 +3,7 @@
 // ========================================================================
 import { el, toast, field, input, confirmDialog } from "../ui.js";
 import { fetchLiveRates, setRates, getRates } from "../fx.js";
-import { rawClient } from "../db.js";
+import { authHeaders } from "../db.js";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -72,18 +72,21 @@ export default async function render(page, ctx) {
   // ---------- Резервная копия данных ----------
   const TABLES = ["products", "customers", "sales", "purchases", "payments"];
 
-  // Полная выгрузка таблицы. В облаке supabase-js по умолчанию отдаёт максимум
-  // 1000 строк — поэтому читаем постранично через .range(), чтобы копия была полной.
+  // Полная выгрузка таблицы. Читаем через серверный прокси (service_key, минуя RLS) —
+  // прямой anon-клиент даёт "permission denied for table products" (только column-grants).
+  // Постранично (limit/offset), т.к. PostgREST по умолчанию отдаёт максимум 1000 строк.
   async function dumpTable(t) {
     if (ctx.db.mode !== "supabase") return ctx.db[t].list();
-    const sb = rawClient();
+    const headers = await authHeaders();
     const PAGE = 1000;
     let from = 0, out = [];
     for (;;) {
-      const { data, error } = await sb.from(t).select("*").range(from, from + PAGE - 1);
-      if (error) throw new Error(t + ": " + error.message);
-      out = out.concat(data || []);
-      if (!data || data.length < PAGE) break;
+      const r = await fetch(`/api/admin/db?table=${encodeURIComponent(t)}&limit=${PAGE}&offset=${from}`, { headers });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(t + ": " + ((data && data.error) || r.status));
+      const arr = Array.isArray(data) ? data : [];
+      out = out.concat(arr);
+      if (arr.length < PAGE) break;
       from += PAGE;
     }
     return out;
@@ -116,23 +119,11 @@ export default async function render(page, ctx) {
       throw new Error("Файл не похож на копию склада");
     const settingsRow = Array.isArray(d.settings) ? d.settings[0] : d.settings;
 
-    if (ctx.db.mode === "supabase") {
-      const sb = rawClient();
-      for (const t of TABLES) {
-        const rows = d[t];
-        if (!Array.isArray(rows) || !rows.length) continue;
-        const { error } = await sb.from(t).upsert(rows, { onConflict: "id" });
-        if (error) throw new Error(t + ": " + error.message);
-      }
-      if (settingsRow) {
-        const { error } = await sb.from("settings").upsert(settingsRow, { onConflict: "id" });
-        if (error) throw new Error("settings: " + error.message);
-      }
-    } else {
-      for (const t of TABLES)
-        for (const row of (d[t] || [])) await ctx.db[t].upsert(row);
-      if (settingsRow) await ctx.db.saveSettings(settingsRow);
-    }
+    // и для облака, и для локали пишем через единый интерфейс (в облаке — прокси с service_key).
+    // Прямой anon-клиент дал бы "permission denied" на запись в products и др.
+    for (const t of TABLES)
+      for (const row of (d[t] || [])) await ctx.db[t].upsert(row);
+    if (settingsRow) await ctx.db.saveSettings(settingsRow);
   }
 
   const restoreInput = el("input", {
