@@ -34,7 +34,9 @@ export default async function handler(req, res) {
     for (const it of items) {
       const p = prodMap[it.product_id];
       if (!p) return res.status(400).json({ error: `Товар не найден: ${it.product_id}` });
-      if ((p.stock_qty || 0) <= 0) return res.status(400).json({ error: `Товар «${p.name}» отсутствует на складе` });
+      const avail = Number(p.stock_qty) || 0;
+      if (avail <= 0) return res.status(400).json({ error: `Товар «${p.name}» отсутствует на складе` });
+      if ((Number(it.qty) || 0) > avail) return res.status(400).json({ error: `«${p.name}»: на складе только ${avail} шт.` });
     }
 
     if (!client.customer_id) return res.status(400).json({ error: "Клиент не привязан к складу" });

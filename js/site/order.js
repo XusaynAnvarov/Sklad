@@ -134,18 +134,25 @@ export async function renderOrder(container) {
     const footer = mkEl("div", "product-card-footer");
 
     if (canOrder) {
-      const wrap = mkEl("div"); wrap.style.cssText = "display:flex;align-items:center;gap:8px;width:100%";
+      const stock = Math.max(0, Number(p.stock) || 0);
+      const wrap = mkEl("div"); wrap.style.cssText = "display:flex;flex-direction:column;gap:4px;width:100%";
+      const rowq = mkEl("div"); rowq.style.cssText = "display:flex;align-items:center;gap:8px";
       const lbl = mkEl("span"); lbl.style.cssText = "font-size:13px;color:var(--muted)"; lbl.textContent = "Кол-во:";
       const qty = document.createElement("input");
-      qty.type = "number"; qty.min = "0"; qty.inputMode = "numeric"; qty.placeholder = "0";
+      qty.type = "number"; qty.min = "0"; if (stock > 0) qty.max = String(stock);
+      qty.inputMode = "numeric"; qty.placeholder = "0";
       qty.className = "search-input"; qty.style.cssText = "flex:1;text-align:center;padding:9px;font-weight:600";
       const cur = order.get(p.id) || 0; if (cur > 0) qty.value = cur;
       qty.addEventListener("input", () => {
-        const v = Math.max(0, parseInt(qty.value, 10) || 0);
+        let v = Math.max(0, parseInt(qty.value, 10) || 0);
+        if (stock > 0 && v > stock) { v = stock; qty.value = String(stock); sToast(`«${p.name}» — на складе только ${stock} шт.`, "err"); }
         if (v > 0) order.set(p.id, v); else order.delete(p.id);
         updateCounts();
       });
-      wrap.append(lbl, qty);
+      rowq.append(lbl, qty);
+      const avail = mkEl("div"); avail.style.cssText = "font-size:12px;color:var(--muted)";
+      if (stock > 0) avail.textContent = `Доступно: ${stock} шт.`;
+      wrap.append(rowq, avail);
       footer.append(wrap);
     } else {
       const dis = mkEl("button", "btn-add-cart " + (p.status === "soon" ? "soon-btn" : "unavailable"));
