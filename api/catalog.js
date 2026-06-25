@@ -67,6 +67,8 @@ export default async function handler(req, res) {
           category: p.category || "",
           photo_url: p.photo_url || null,
           status,
+          // доступный остаток (для ограничения заказа); 0 если не в наличии
+          stock: status === "in_stock" ? Math.max(0, Number(p.stock_qty) || 0) : 0,
           is_new: ageDays <= NEW_DAYS,
         };
       });
