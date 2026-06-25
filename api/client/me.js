@@ -1,5 +1,5 @@
 // GET /api/client/me — профиль клиента + долг по валютам
-import { getClient } from "../lib/clientauth.js";
+import { getValidClient } from "../lib/clientauth.js";
 import { sget } from "../lib/supa.js";
 
 function debtAndTurnover(sales, payments, customer) {
@@ -23,7 +23,7 @@ function debtAndTurnover(sales, payments, customer) {
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
-  const client = getClient(req);
+  const client = await getValidClient(req);
   if (!client) return res.status(401).json({ error: "Не авторизован" });
 
   try {

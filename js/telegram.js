@@ -26,14 +26,9 @@ export function sendInvoice(text, photoUrl) {
   return call({ action: "invoice", channel: cfg.TELEGRAM_CHANNEL || "", text, photo: photoUrl || null });
 }
 
-// Отправка накладной в канал в виде PDF-файла
-export function sendInvoicePDF(saleId) {
-  return call({ action: "invoice_pdf", channel: cfg.TELEGRAM_CHANNEL || "", sale_id: saleId });
-}
-
-// Отправка накладной СЕБЕ в Telegram (в бот владельца, ADMIN_CHAT_ID на сервере)
-export function sendInvoicePDFToOwner(saleId) {
-  return call({ action: "admin_invoice_pdf", sale_id: saleId });
+// Отправка накладной в канал в виде PDF-файла (канал можно передать явно из настроек)
+export function sendInvoicePDF(saleId, channel) {
+  return call({ action: "invoice_pdf", channel: channel || cfg.TELEGRAM_CHANNEL || "", sale_id: saleId });
 }
 
 // Отправка каталога/сообщения конкретному клиенту (chat_id)

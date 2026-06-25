@@ -221,6 +221,12 @@ export default async function handler(req, res) {
             const vrows = await sget(`site_verifications?token=eq.${encodeURIComponent(verifyToken)}&select=phone,verified,expires_at`);
             const v = vrows[0];
             if (v && !v.verified && new Date(v.expires_at) > new Date()) {
+              // антифрод: контакт должен быть СВОИМ (user_id == from.id) и не бот-аккаунт
+              const sharedOwn = String(u.message.contact.user_id || "") === String(u.message.from?.id || "");
+              if (u.message.from?.is_bot || !sharedOwn) {
+                await tg("sendMessage", { chat_id: chatId, text: "Поделитесь СВОИМ контактом кнопкой ниже — пересланный чужой номер не подходит для регистрации.", reply_markup: { keyboard: [[{ text: "Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
+                return res.status(200).send("ok");
+              }
               if (ph && ph === norm(v.phone)) {
                 await spatch(`site_verifications?token=eq.${encodeURIComponent(verifyToken)}`, { verified: true, chat_id: String(chatId), tg_username: u.message.from?.username || null });
                 try { await supsert("bot_sessions", { chat_id: String(chatId), state: {}, updated_at: new Date().toISOString() }); } catch {}

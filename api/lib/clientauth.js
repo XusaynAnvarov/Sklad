@@ -3,6 +3,7 @@
 //  Все функции без внешних зависимостей (только Node.js crypto).
 // ====================================================================
 import crypto from "crypto";
+import { sget } from "./supa.js";
 
 const JWT_EXPIRES_SEC = 30 * 24 * 3600; // 30 дней
 
@@ -82,4 +83,37 @@ export function normPhone(s) {
 // ---------- Токены верификации ----------
 export function genVerifToken() {
   return crypto.randomBytes(24).toString("hex");
+}
+
+// ---------- Коды входа (2FA через Telegram) ----------
+export function genCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+}
+export function hashCode(code) {
+  return crypto.createHash("sha256").update(String(code)).digest("hex");
+}
+export function verifyCode(code, stored) {
+  if (!stored) return false;
+  const h = hashCode(code);
+  try { return h.length === stored.length && crypto.timingSafeEqual(Buffer.from(h), Buffer.from(stored)); }
+  catch { return false; }
+}
+
+// ---------- Сессии (одна активная сессия на аккаунт) ----------
+export function genSessionId() {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+// Клиент с проверкой активной сессии: если session_id аккаунта не совпадает с sid в токене → не валиден.
+// Старые токены без sid и аккаунты без session_id не блокируем (плавная миграция, фолбэк при отсутствии колонки).
+export async function getValidClient(req) {
+  const payload = getClient(req);
+  if (!payload || !payload.sub) return null;
+  try {
+    const rows = await sget(`site_accounts?id=eq.${encodeURIComponent(payload.sub)}&select=id,session_id`);
+    const acc = rows[0];
+    if (!acc) return null;
+    if (acc.session_id && payload.sid && acc.session_id !== payload.sid) return null;
+    return payload;
+  } catch { return payload; }
 }

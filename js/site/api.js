@@ -29,7 +29,9 @@ export const api = {
   verifyStart: (phone) => req("POST", "/client/verify-start", { phone }),
   verifyStatus: (token) => req("GET", `/client/verify-status?token=${encodeURIComponent(token)}`),
   register: (verif_token, password) => req("POST", "/client/register", { verif_token, password }),
-  login: (phone, password) => req("POST", "/client/login", { phone, password }),
+  // вход: шаг 1 — код в Telegram, шаг 2 — код + пароль
+  loginStart: (phone) => req("POST", "/client/login-start", { phone }),
+  login: (phone, code, password) => req("POST", "/client/login", { phone, code, password }),
 
   // кабинет
   me: () => req("GET", "/client/me"),

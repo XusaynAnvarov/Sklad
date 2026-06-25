@@ -45,6 +45,7 @@ const routes = [
   [["POST"],  "/api/client/verify-start",      "./api/client/verify-start.js"],
   [["GET"],   "/api/client/verify-status",     "./api/client/verify-status.js"],
   [["POST"],  "/api/client/register",          "./api/client/register.js"],
+  [["POST"],  "/api/client/login-start",       "./api/client/login-start.js"],
   [["POST"],  "/api/client/login",             "./api/client/login.js"],
   // логин в склад (кастомный admin JWT)
   [["POST","OPTIONS"], "/api/admin-auth",           "./api/admin-auth.js"],
@@ -58,6 +59,8 @@ const routes = [
   [["GET"],   "/api/client/invoice-pdf",      "./api/client/invoice-pdf.js"],
   // заказ
   [["POST"],  "/api/site-order",              "./api/site-order.js"],
+  // рассылка клиентам о новинках (при оприходовании прихода)
+  [["POST"],  "/api/notify-new-products",     "./api/notify-new-products.js"],
   // каталог (переиспользуем если есть)
   [["GET"],   "/api/catalog",                 "./api/catalog.js"],
   // склад-админ: универсальный CRUD прокси (service_key, минуя RLS)

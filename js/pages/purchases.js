@@ -8,6 +8,21 @@ import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../i
 import { icon } from "../icons.js";
 import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
 import { notifyOwner } from "../telegram.js";
+import { authHeaders } from "../db.js";
+
+// разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
+async function notifyClientsNewProducts(productIds) {
+  try {
+    const r = await fetch("/api/notify-new-products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ product_ids: productIds }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) toast(`Клиенты оповещены о новинках (${j.sent || 0})`, "ok");
+    else toast("Оповещение не отправлено: " + (j.error || r.status), "err");
+  } catch (e) { toast("Оповещение не отправлено: " + (e.message || e), "err"); }
+}
 
 // Модалка «не найдено в каталоге» (общая для прихода и продажи).
 export function showNotFound(list) {
@@ -72,7 +87,11 @@ async function arrive(ctx, s, products) {
     const pmap2 = Object.fromEntries(products.map(p => [p.id, p]));
     const lines = (s.items || []).map(it => `• ${pmap2[it.product_id]?.name || "?"} × ${it.qty}`);
     try { await notifyOwner(`Новый приход на склад\nПоставщик: ${s.supplier || "—"}\n\n${lines.join("\n")}`); } catch {}
-    toast("Оприходовано, остатки обновлены", "ok"); ctx.refresh();
+    toast("Оприходовано, остатки обновлены", "ok");
+    // авто-оповещение клиентов о новинках
+    const productIds = [...new Set((s.items || []).map(it => it.product_id).filter(Boolean))];
+    if (productIds.length) await notifyClientsNewProducts(productIds);
+    ctx.refresh();
   });
 }
 

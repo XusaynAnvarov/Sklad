@@ -1,6 +1,6 @@
 // POST /api/site-order — заказ с сайта (source:"site")
 // JWT клиента обязателен; unit_price:0 (владелец выставит цены в складе)
-import { getClient } from "./lib/clientauth.js";
+import { getValidClient } from "./lib/clientauth.js";
 import { sget } from "./lib/supa.js";
 
 async function notifyAdmin(text) {
@@ -17,7 +17,7 @@ async function notifyAdmin(text) {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  const client = getClient(req);
+  const client = await getValidClient(req);
   if (!client) return res.status(401).json({ error: "Не авторизован" });
 
   let body = req.body;

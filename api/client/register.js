@@ -1,7 +1,7 @@
 // POST /api/client/register — завершить регистрацию после Telegram-верификации
 // Body: { verif_token, password }
 // Returns: { token } (JWT для входа)
-import { normPhone, hashPassword, signToken } from "../lib/clientauth.js";
+import { normPhone, hashPassword, signToken, genSessionId } from "../lib/clientauth.js";
 import { sget, supsert, spatch } from "../lib/supa.js";
 
 const MIN_PASS = 6;
@@ -79,7 +79,10 @@ export default async function handler(req, res) {
 
     const accounts = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id`);
     const acc = accounts[0];
-    const jwt = signToken({ sub: acc.id, customer_id: acc.customer_id, phone });
+    // активная сессия для нового аккаунта (single-session)
+    const sid = genSessionId();
+    try { await spatch(`site_accounts?id=eq.${acc.id}`, { session_id: sid, chat_id: v.chat_id ? String(v.chat_id) : null }); } catch {}
+    const jwt = signToken({ sub: acc.id, customer_id: acc.customer_id, phone, sid });
     return res.status(200).json({ token: jwt, customer_id: acc.customer_id });
   } catch (e) {
     console.error("register error", e);

@@ -1,5 +1,5 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken } from "./api.js";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js";
 import { renderCatalog } from "./catalog.js";
 import { renderCabinet } from "./cabinet.js";
 import { renderAdminPanel } from "./admin-panel.js";
@@ -391,6 +391,29 @@ export async function boot() {
   }
   rebuild();
   window.addEventListener("hashchange", () => route(document.getElementById("site-main") || document.createElement("div")));
+
+  startSessionWatch();
+}
+
+// Одна сессия: если вошли с другого устройства — текущее при ближайшей проверке выкидывает на вход.
+function startSessionWatch() {
+  let checking = false;
+  async function check() {
+    if (checking || !isLoggedIn()) return;
+    checking = true;
+    try { await api.me(); }
+    catch (e) {
+      // 401 от /me = токен недействителен (истёк или вход с другого устройства)
+      if (/автор/i.test(e.message || "")) {
+        _clearToken();
+        sToast("Сессия завершена — выполнен вход с другого устройства", "err");
+        setTimeout(() => location.reload(), 1200);
+      }
+    } finally { checking = false; }
+  }
+  window.addEventListener("focus", check);
+  setInterval(check, 45000);
+  check();
 }
 
 function logoSvg() {

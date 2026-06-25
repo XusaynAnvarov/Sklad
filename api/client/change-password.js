@@ -1,13 +1,13 @@
 // POST /api/client/change-password — клиент меняет свой пароль (или админ — свой)
 // Body: { current, new }  (требуется JWT клиента)
-import { getClient, verifyPassword, hashPassword } from "../lib/clientauth.js";
+import { getValidClient, verifyPassword, hashPassword } from "../lib/clientauth.js";
 import { sget, spatch } from "../lib/supa.js";
 
 const MIN_PASS = 6;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  const me = getClient(req);
+  const me = await getValidClient(req);
   if (!me || !me.sub) return res.status(401).json({ error: "Не авторизовано" });
 
   let body = req.body;

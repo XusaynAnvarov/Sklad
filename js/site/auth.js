@@ -28,21 +28,59 @@ function buildAuthModal() {
     else if (mode === "verify") wrap.append(buildVerify());
   }
 
+  // 2 шага: 1) телефон → код в Telegram; 2) код + пароль → вход
+  let loginStep = "phone"; // phone | code
+  let loginPhone = "";
+
   function buildLogin() {
     const f = el("div.s-form");
     let err = el("div.s-error", { style: "display:none" });
-    const phone = input("tel", "Номер телефона", "+998 90 123 45 67");
-    const pass = input("password", "Пароль");
-    const btn = button("Войти", "btn-primary", { style: "width:100%;margin-top:4px" });
     const reg = el("div", { style: "text-align:center;margin-top:10px" });
     reg.innerHTML = `<span style="color:var(--muted);font-size:13px">Нет аккаунта? </span><a href="#" style="font-size:13px;color:var(--navy);font-weight:600">Зарегистрироваться</a>`;
-    reg.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); mode = "register"; render(); });
+    reg.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); loginStep = "phone"; mode = "register"; render(); });
+
+    if (loginStep === "phone") {
+      const phone = input("tel", "Номер телефона", "+998 90 123 45 67");
+      if (loginPhone) phone.value = loginPhone;
+      const btn = button("Получить код", "btn-primary", { style: "width:100%;margin-top:4px" });
+      const hint = el("div.s-hint", {}, [
+        document.createTextNode("Код придёт в Telegram-бот "),
+        mkEl("strong", {}, ["@generalmodernbot"]),
+        document.createTextNode(". Откройте его заранее (/start)."),
+      ]);
+      btn.addEventListener("click", async () => {
+        err.style.display = "none";
+        const ph = phone.value.trim();
+        if (!ph) { err.textContent = "Введите номер телефона"; err.style.display = ""; return; }
+        btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';
+        try {
+          await api.loginStart(ph);
+          loginPhone = ph; loginStep = "code";
+          render();
+          sToast("Код отправлен в Telegram", "ok");
+        } catch (e) {
+          err.textContent = e.message; err.style.display = "";
+          btn.disabled = false; btn.textContent = "Получить код";
+        }
+      });
+      f.append(err, field("Телефон", phone), hint, btn, reg);
+      return f;
+    }
+
+    // шаг «код + пароль»
+    const code = input("tel", "Код из Telegram", "______");
+    const pass = input("password", "Пароль");
+    const btn = button("Войти", "btn-primary", { style: "width:100%;margin-top:4px" });
+    const back = el("div", { style: "text-align:center;margin-top:10px" });
+    back.innerHTML = `<a href="#" style="font-size:13px;color:var(--navy);font-weight:600">← Изменить номер / получить код заново</a>`;
+    back.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); loginStep = "phone"; render(); });
     btn.addEventListener("click", async () => {
       err.style.display = "none";
       btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';
       try {
-        const res = await api.login(phone.value.trim(), pass.value);
+        const res = await api.login(loginPhone, code.value.trim(), pass.value);
         saveToken(res.token);
+        loginStep = "phone";
         closeModal("auth-modal");
         sToast("Вход выполнен", "ok");
         notifyChange();
@@ -51,7 +89,7 @@ function buildAuthModal() {
         btn.disabled = false; btn.textContent = "Войти";
       }
     });
-    f.append(err, field("Телефон", phone), field("Пароль", pass), btn, reg);
+    f.append(err, el("div.s-hint", { text: "Код отправлен в Telegram на номер +998 " + loginPhone }), field("Код из Telegram", code), field("Пароль", pass), btn, back);
     return f;
   }
 
