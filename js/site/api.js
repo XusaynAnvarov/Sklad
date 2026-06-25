@@ -6,6 +6,16 @@ export function saveToken(t) { localStorage.setItem("gm_client_token", t); }
 export function clearToken() { localStorage.removeItem("gm_client_token"); }
 export function isLoggedIn() { return !!getToken(); }
 
+// постоянный идентификатор устройства — код из Telegram спрашиваем только с нового устройства
+export function getDeviceId() {
+  let d = localStorage.getItem("gm_device_id");
+  if (!d) {
+    d = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+    localStorage.setItem("gm_device_id", d);
+  }
+  return d;
+}
+
 export async function req(method, path, body) {
   const token = getToken();
   const headers = { "Content-Type": "application/json" };
@@ -29,9 +39,9 @@ export const api = {
   verifyStart: (phone) => req("POST", "/client/verify-start", { phone }),
   verifyStatus: (token) => req("GET", `/client/verify-status?token=${encodeURIComponent(token)}`),
   register: (verif_token, password) => req("POST", "/client/register", { verif_token, password }),
-  // вход: шаг 1 — код в Telegram, шаг 2 — код + пароль
-  loginStart: (phone) => req("POST", "/client/login-start", { phone }),
-  login: (phone, code, password) => req("POST", "/client/login", { phone, code, password }),
+  // вход: шаг 1 — код в Telegram (только с нового устройства), шаг 2 — код + пароль
+  loginStart: (phone) => req("POST", "/client/login-start", { phone, device_id: getDeviceId() }),
+  login: (phone, code, password) => req("POST", "/client/login", { phone, code, password, device_id: getDeviceId() }),
 
   // кабинет
   me: () => req("GET", "/client/me"),

@@ -1,6 +1,6 @@
 // POST /api/client/login-start — шаг 1 входа: отправить одноразовый код в Telegram-бот клиента
 // Body: { phone }  → Returns { ok:true }
-import { normPhone, genCode, hashCode } from "../lib/clientauth.js";
+import { normPhone, genCode, hashCode, hashDevice } from "../lib/clientauth.js";
 import { sget, spatch } from "../lib/supa.js";
 import { ADMIN_PHONE } from "../lib/siteadmin.js";
 
@@ -13,6 +13,7 @@ export default async function handler(req, res) {
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
 
   const phone = normPhone(body?.phone);
+  const deviceId = String(body?.device_id || "");
   if (phone.length < 7) return res.status(400).json({ error: "Некорректный номер телефона" });
 
   // администратору код из Telegram не нужен — вход по паролю
@@ -22,9 +23,16 @@ export default async function handler(req, res) {
     const blocked = await sget(`blocked_phones?phone=eq.${encodeURIComponent(phone)}&select=phone`);
     if (blocked.length) return res.status(403).json({ error: "Этот номер заблокирован. Обратитесь к продавцу." });
 
-    const rows = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id,chat_id`);
+    let rows;
+    try { rows = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id,chat_id,known_devices`); }
+    catch { rows = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id,chat_id`); }
     const acc = rows[0];
     if (!acc) return res.status(404).json({ error: "Аккаунт не найден. Сначала зарегистрируйтесь." });
+
+    // известное (доверенное) устройство → код не нужен, вход по паролю
+    const known = Array.isArray(acc.known_devices) ? acc.known_devices : [];
+    if (deviceId && known.includes(hashDevice(deviceId)))
+      return res.status(200).json({ ok: true, code_required: false });
 
     // chat_id: из аккаунта, иначе из привязанного клиента склада
     let chatId = acc.chat_id || null;

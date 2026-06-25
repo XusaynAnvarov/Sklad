@@ -99,21 +99,23 @@ export function verifyCode(code, stored) {
   catch { return false; }
 }
 
-// ---------- Сессии (одна активная сессия на аккаунт) ----------
+// ---------- Сессии и доверенные устройства ----------
 export function genSessionId() {
   return crypto.randomBytes(16).toString("hex");
 }
+// Отпечаток устройства (хэшируем device_id из localStorage клиента).
+export function hashDevice(deviceId) {
+  return crypto.createHash("sha256").update(String(deviceId || "")).digest("hex");
+}
 
-// Клиент с проверкой активной сессии: если session_id аккаунта не совпадает с sid в токене → не валиден.
-// Старые токены без sid и аккаунты без session_id не блокируем (плавная миграция, фолбэк при отсутствии колонки).
+// Валидность клиента: проверяем только что аккаунт существует (удалённый — разлогинить).
+// НЕ выкидываем при входе с другого устройства — на своём устройстве пользователь остаётся в системе.
 export async function getValidClient(req) {
   const payload = getClient(req);
   if (!payload || !payload.sub) return null;
   try {
-    const rows = await sget(`site_accounts?id=eq.${encodeURIComponent(payload.sub)}&select=id,session_id`);
-    const acc = rows[0];
-    if (!acc) return null;
-    if (acc.session_id && payload.sid && acc.session_id !== payload.sid) return null;
+    const rows = await sget(`site_accounts?id=eq.${encodeURIComponent(payload.sub)}&select=id`);
+    if (!rows[0]) return null;
     return payload;
   } catch { return payload; }
 }

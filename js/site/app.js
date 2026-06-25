@@ -403,10 +403,10 @@ function startSessionWatch() {
     checking = true;
     try { await api.me(); }
     catch (e) {
-      // 401 от /me = токен недействителен (истёк или вход с другого устройства)
+      // 401 от /me = токен недействителен (истёк или аккаунт удалён)
       if (/автор/i.test(e.message || "")) {
         _clearToken();
-        sToast("Сессия завершена — выполнен вход с другого устройства", "err");
+        sToast("Сессия истекла — войдите снова", "err");
         setTimeout(() => location.reload(), 1200);
       }
     } finally { checking = false; }
