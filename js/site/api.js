@@ -40,6 +40,7 @@ export const api = {
 
   // профиль
   updateProfile: (data) => req("POST", "/client/update-profile", data),
+  changePassword: (current, newPass) => req("POST", "/client/change-password", { current, new: newPass }),
 
   // заказ
   placeOrder: (items) => req("POST", "/site-order", { items }),

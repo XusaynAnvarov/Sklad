@@ -222,7 +222,7 @@ export default async function handler(req, res) {
             const v = vrows[0];
             if (v && !v.verified && new Date(v.expires_at) > new Date()) {
               if (ph && ph === norm(v.phone)) {
-                await spatch(`site_verifications?token=eq.${encodeURIComponent(verifyToken)}`, { verified: true, chat_id: String(chatId) });
+                await spatch(`site_verifications?token=eq.${encodeURIComponent(verifyToken)}`, { verified: true, chat_id: String(chatId), tg_username: u.message.from?.username || null });
                 try { await supsert("bot_sessions", { chat_id: String(chatId), state: {}, updated_at: new Date().toISOString() }); } catch {}
                 await tg("sendMessage", { chat_id: chatId, text: "Номер подтверждён! Вернитесь на сайт и задайте пароль — регистрация будет завершена.", reply_markup: { remove_keyboard: true } });
                 verifiedSite = true;

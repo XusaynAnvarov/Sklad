@@ -35,10 +35,12 @@ export default async function handler(req, res) {
 
     // ищем клиента по телефону в складе
     let customer_id = null;
+    let origin = "site"; // по умолчанию — пришёл напрямую с сайта
     const all = await sget("customers?select=id,contact,tg_chat_id");
     const match = all.find(c => c.contact && normPhone(c.contact) === phone && phone.length >= 7);
     if (match) {
       customer_id = match.id;
+      origin = "warehouse"; // уже был клиентом склада
       // привязываем tg_chat_id если не был
       if (!match.tg_chat_id && v.chat_id) {
         try { await spatch(`customers?id=eq.${match.id}`, { tg_chat_id: String(v.chat_id) }); } catch {}
@@ -59,10 +61,13 @@ export default async function handler(req, res) {
     }
 
     const password_hash = await hashPassword(password);
-    await supsert("site_accounts", {
+    const baseAcc = {
       phone, password_hash, customer_id, tg_verified: true,
       created_at: new Date().toISOString(), last_login: new Date().toISOString(),
-    });
+    };
+    // origin/tg_username — если колонок ещё нет, пишем без них (фолбэк)
+    try { await supsert("site_accounts", { ...baseAcc, origin, tg_username: v.tg_username || null }); }
+    catch { await supsert("site_accounts", baseAcc); }
 
     // удаляем использованный токен верификации
     try {

@@ -41,6 +41,7 @@ export async function renderCabinet(container) {
     { id: "orders", label: "Мои заказы", icon: svgCart() },
     { id: "invoices", label: "Накладные", icon: svgReceipt() },
     { id: "payments", label: "Оплаты", icon: svgWallet() },
+    { id: "security", label: "Сменить пароль", icon: svgLock() },
   ];
   let active = "profile";
 
@@ -67,6 +68,7 @@ export async function renderCabinet(container) {
       else if (active === "orders") await renderOrders(content);
       else if (active === "invoices") await renderInvoices(content);
       else if (active === "payments") await renderPayments(content);
+      else if (active === "security") await renderSecurity(content);
     } catch (e) {
       content.innerHTML = `<div class="s-empty"><p>Ошибка загрузки: ${e.message}</p></div>`;
     }
@@ -315,6 +317,48 @@ async function renderPayments(container) {
   container.append(card);
 }
 
+// ---- Смена пароля ----
+async function renderSecurity(container) {
+  container.innerHTML = "";
+  const card = mkEl("div", "cabinet-card");
+  card.style.maxWidth = "440px";
+  const title = el("div", { text: "Сменить пароль", style: "font-size:16px;font-weight:700;color:var(--navy);margin-bottom:16px" });
+  card.append(title);
+
+  function field(ph) {
+    const i = document.createElement("input");
+    i.type = "password"; i.className = "search-input"; i.placeholder = ph;
+    i.style.cssText = "margin-bottom:10px;display:block;width:100%;box-sizing:border-box";
+    return i;
+  }
+  const fCur = field("Текущий пароль");
+  const fNew = field("Новый пароль (минимум 6 символов)");
+  const fNew2 = field("Повторите новый пароль");
+  const err = el("div", { style: "color:#dc2626;font-size:13px;margin:4px 0 8px;display:none" });
+  const btn = mkEl("button", "btn btn-primary");
+  btn.style.cssText = "font-size:14px;padding:9px 20px"; btn.textContent = "Сменить пароль";
+  card.append(fCur, fNew, fNew2, err, btn);
+
+  btn.addEventListener("click", async () => {
+    err.style.display = "none";
+    const cur = fCur.value, np = fNew.value, np2 = fNew2.value;
+    if (!cur || !np) { err.textContent = "Заполните все поля"; err.style.display = "block"; return; }
+    if (np.length < 6) { err.textContent = "Новый пароль не менее 6 символов"; err.style.display = "block"; return; }
+    if (np !== np2) { err.textContent = "Пароли не совпадают"; err.style.display = "block"; return; }
+    btn.disabled = true; btn.textContent = "Сохраняю…";
+    try {
+      await api.changePassword(cur, np);
+      sToast("Пароль изменён", "ok");
+      fCur.value = fNew.value = fNew2.value = "";
+    } catch (e) {
+      err.textContent = e.message || "Ошибка"; err.style.display = "block";
+    }
+    btn.disabled = false; btn.textContent = "Сменить пароль";
+  });
+
+  container.append(card);
+}
+
 function emptyState(text) {
   const w = mkEl("div", "s-empty cabinet-card");
   w.innerHTML = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg><p>${escHtml(text)}</p>`;
@@ -328,3 +372,4 @@ function svgCart()    { const s=mkEl("svg",""); s.setAttribute("width","16"); s.
 function svgReceipt() { const s=mkEl("svg",""); s.setAttribute("width","16"); s.setAttribute("height","16"); s.setAttribute("viewBox","0 0 24 24"); s.setAttribute("fill","none"); s.setAttribute("stroke","currentColor"); s.setAttribute("stroke-width","2"); s.innerHTML=`<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>`; return s; }
 function svgWallet()  { const s=mkEl("svg",""); s.setAttribute("width","16"); s.setAttribute("height","16"); s.setAttribute("viewBox","0 0 24 24"); s.setAttribute("fill","none"); s.setAttribute("stroke","currentColor"); s.setAttribute("stroke-width","2"); s.innerHTML=`<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>`; return s; }
 function svgDownload(){ const s=mkEl("svg",""); s.setAttribute("width","14"); s.setAttribute("height","14"); s.setAttribute("viewBox","0 0 24 24"); s.setAttribute("fill","none"); s.setAttribute("stroke","currentColor"); s.setAttribute("stroke-width","2"); s.innerHTML=`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>`; return s; }
+function svgLock()    { const s=mkEl("svg",""); s.setAttribute("width","16"); s.setAttribute("height","16"); s.setAttribute("viewBox","0 0 24 24"); s.setAttribute("fill","none"); s.setAttribute("stroke","currentColor"); s.setAttribute("stroke-width","2"); s.innerHTML=`<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`; return s; }

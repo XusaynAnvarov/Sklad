@@ -40,6 +40,13 @@ function mkEl(tag, cls = "") {
   return e;
 }
 
+// Экранирование пользовательских данных перед вставкой в innerHTML (защита от XSS)
+function esc(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 export async function renderAdminPanel(container) {
   container.innerHTML = "";
 
@@ -71,6 +78,7 @@ export async function renderAdminPanel(container) {
   const tabs = [
     { id: "clients", label: "Клиенты" },
     { id: "orders",  label: "Заказы" },
+    { id: "reports", label: "Отчёты" },
   ];
   tabs.forEach(tab => {
     const btn = mkEl("button", "s-tab" + (tab.id === "clients" ? " active" : ""));
@@ -92,8 +100,8 @@ export async function renderAdminPanel(container) {
   async function loadAll() {
     try {
       const [cRes, oRes] = await Promise.all([
-        req("GET", "/api/admin-site/clients"),
-        req("GET", "/api/admin-site/orders"),
+        req("GET", "/admin-site/clients"),
+        req("GET", "/admin-site/orders"),
       ]);
       clientsData = cRes.clients || [];
       ordersData = oRes.orders || [];
@@ -117,6 +125,7 @@ export async function renderAdminPanel(container) {
   function renderTab(tabId) {
     tabContent.innerHTML = "";
     if (tabId === "clients") renderClients();
+    else if (tabId === "reports") renderReports();
     else renderOrders();
   }
 
@@ -152,15 +161,36 @@ export async function renderAdminPanel(container) {
         ava.textContent = (c.name || c.phone || "?")[0].toUpperCase();
 
         const info = mkEl("div", "ap-client-info");
-        const nameEl = mkEl("div", "ap-client-name"); nameEl.textContent = c.name || c.phone;
+        const nameEl = mkEl("div", "ap-client-name");
+        nameEl.textContent = c.name || c.phone;
+        // происхождение
+        const origin = mkEl("span", "ap-origin-badge " + (c.origin === "warehouse" ? "wh" : "site"));
+        origin.style.cssText = "margin-left:8px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;" +
+          (c.origin === "warehouse"
+            ? "background:#fef3c7;color:#92400e"
+            : "background:#dbeafe;color:#1e40af");
+        origin.textContent = c.origin === "warehouse" ? "🏪 был в складе" : "🌐 с сайта";
+        nameEl.append(origin);
+
         const metaEl = mkEl("div", "ap-client-meta");
         metaEl.textContent = `+998 ${c.phone} · Заказов: ${c.orders_count}`;
+        // ник: ярлык владельца или @username
+        const nick = c.tg_nick || (c.tg_username ? "@" + c.tg_username : null);
+        if (nick) {
+          const ns = mkEl("span", "ap-nick"); ns.style.cssText = "color:var(--navy);font-weight:600";
+          ns.textContent = " · " + nick;
+          metaEl.append(ns);
+        }
         if (c.tg_verified) {
           const tg = mkEl("span", "ap-verified"); tg.textContent = " · Telegram ✓";
           metaEl.append(tg);
         }
         info.append(nameEl, metaEl);
         left.append(ava, info);
+        // клик по имени/аватару → карточка клиента
+        left.style.cursor = "pointer";
+        left.title = "Открыть карточку клиента";
+        left.addEventListener("click", () => openClientDetail(c, row));
 
         const right2 = mkEl("div", "ap-client-right");
 
@@ -175,6 +205,12 @@ export async function renderAdminPanel(container) {
 
         const dates = mkEl("div", "ap-client-dates");
         dates.textContent = "Рег: " + fmtDate(c.created_at) + (c.last_login ? " · Вход: " + fmtDate(c.last_login) : "");
+
+        // Кнопка «Открыть» (карточка / кабинет)
+        const openBtn = mkEl("button", "btn-ghost");
+        openBtn.style.cssText = "padding:6px 12px;font-size:12px;font-weight:600";
+        openBtn.textContent = "Открыть";
+        openBtn.addEventListener("click", () => openClientDetail(c, row));
 
         // Кнопка «Заказы»
         const ordersBtn = mkEl("button", "btn-ghost");
@@ -222,8 +258,8 @@ export async function renderAdminPanel(container) {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${fmtDate(o.date)}</td>
-        <td>${o.items_count || o.items.length} шт.</td>
-        <td><span class="order-badge ${STATUS_CLASS[o.status] || "order"}">${STATUS_LABELS[o.status] || o.status}</span></td>`;
+        <td>${esc(o.items_count || o.items.length)} шт.</td>
+        <td><span class="order-badge ${STATUS_CLASS[o.status] || "order"}">${esc(STATUS_LABELS[o.status] || o.status)}</span></td>`;
       tbody.append(tr);
     });
     tbl.append(tbody);
@@ -235,7 +271,7 @@ export async function renderAdminPanel(container) {
     const msg = `Удалить «${c.name || c.phone}» и заблокировать номер +998 ${c.phone}?`;
     if (!confirm(msg)) return;
     row.style.opacity = "0.5";
-    req("POST", "/api/admin-site/delete-client", { account_id: c.id })
+    req("POST", "/admin-site/delete-client", { account_id: c.id })
       .then(() => {
         apToast("Клиент удалён, номер заблокирован", "ok");
         row.remove();
@@ -260,14 +296,205 @@ export async function renderAdminPanel(container) {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${fmtDate(o.date)}</td>
-        <td>${o.customer_name}</td>
-        <td>${o.items_count} шт.</td>
-        <td><span class="order-badge ${STATUS_CLASS[o.status] || "order"}">${STATUS_LABELS[o.status] || o.status}</span></td>`;
+        <td>${esc(o.customer_name)}</td>
+        <td>${esc(o.items_count)} шт.</td>
+        <td><span class="order-badge ${STATUS_CLASS[o.status] || "order"}">${esc(STATUS_LABELS[o.status] || o.status)}</span></td>`;
       tbody.append(tr);
     });
     tbl.append(tbody);
     card.append(tbl);
     tabContent.append(card);
+  }
+
+  // ---- Карточка клиента (кабинет): долг, топ-товары, оплаты, накладные ----
+  async function openClientDetail(c, row) {
+    const existing = row.nextElementSibling;
+    if (existing?.classList.contains("ap-client-detail-expand")) { existing.remove(); return; }
+    // закрыть прочие раскрытия рядом
+    if (existing?.classList.contains("ap-client-orders-expand")) existing.remove();
+
+    const box = mkEl("div", "ap-client-detail-expand");
+    box.style.cssText = "padding:16px 20px;background:var(--bg-soft,#f7f8fa);border-radius:12px;margin:4px 0 10px";
+    box.innerHTML = `<div class="s-empty" style="padding:16px"><span class="s-spinner" style="border-color:rgba(0,0,0,.1);border-top-color:var(--navy);display:inline-block;width:20px;height:20px;border-width:2px"></span></div>`;
+    row.after(box);
+
+    let d;
+    try { d = await req("GET", `/admin-site/client-detail?account_id=${encodeURIComponent(c.id)}`); }
+    catch (e) { box.innerHTML = `<div style="color:var(--err,#c00);padding:8px">Ошибка: ${esc(e.message)}</div>`; return; }
+
+    const nick = d.account?.tg_nick || (d.account?.tg_username ? "@" + d.account.tg_username : "");
+    box.innerHTML = "";
+
+    // Шапка карточки: имя + долг + ник-редактор + сброс пароля
+    const head = mkEl("div", "ap-detail-head");
+    head.style.cssText = "display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px";
+    const title = mkEl("div");
+    title.innerHTML = `<div style="font-weight:700;font-size:16px">${esc(c.name || c.phone)}</div>
+      <div style="font-size:13px;color:var(--muted)">+998 ${esc(c.phone)} · ${c.origin === "warehouse" ? "🏪 был в складе" : "🌐 с сайта"}</div>`;
+    const debtBig = mkEl("div");
+    debtBig.style.cssText = "font-weight:700;" + (hasDebt(d.debt) ? "color:var(--err,#c0392b)" : "color:var(--ok,#27ae60)");
+    debtBig.textContent = hasDebt(d.debt) ? "Долг: " + fmtDebt(d.debt) : "Нет долга";
+    head.append(title, debtBig);
+    box.append(head);
+
+    // Ярлык (ник владельца) — редактирование
+    const nickRow = mkEl("div"); nickRow.style.cssText = "display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap";
+    const nickInput = document.createElement("input");
+    nickInput.className = "search-input"; nickInput.style.cssText = "max-width:240px;padding:6px 10px;font-size:13px";
+    nickInput.placeholder = "Ярлык (виден только вам)"; nickInput.value = d.account?.tg_nick || "";
+    const nickSave = mkEl("button", "btn-ghost"); nickSave.style.cssText = "padding:6px 12px;font-size:12px"; nickSave.textContent = "Сохранить ярлык";
+    nickSave.addEventListener("click", async () => {
+      nickSave.disabled = true;
+      try {
+        await req("POST", "/admin-site/update-client", { account_id: c.id, tg_nick: nickInput.value.trim() });
+        c.tg_nick = nickInput.value.trim();
+        apToast("Ярлык сохранён", "ok");
+      } catch (e) { apToast("Ошибка: " + e.message, "err"); }
+      nickSave.disabled = false;
+    });
+    const tgLabel = mkEl("span"); tgLabel.style.cssText = "font-size:12px;color:var(--muted)";
+    tgLabel.textContent = d.account?.tg_username ? "Telegram: @" + d.account.tg_username : "Telegram: —";
+    nickRow.append(nickInput, nickSave, tgLabel);
+    box.append(nickRow);
+
+    // Сброс пароля
+    const pwRow = mkEl("div"); pwRow.style.cssText = "margin-bottom:16px";
+    const pwBtn = mkEl("button", "btn-ghost"); pwBtn.style.cssText = "padding:6px 12px;font-size:12px";
+    pwBtn.textContent = "🔑 Сбросить пароль клиенту";
+    pwBtn.addEventListener("click", async () => {
+      const np = prompt(`Новый пароль для «${c.name || c.phone}» (минимум 6 символов):`);
+      if (np == null) return;
+      if (np.length < 6) { apToast("Пароль не менее 6 символов", "err"); return; }
+      try { await req("POST", "/admin-site/reset-client-password", { account_id: c.id, new: np }); apToast("Пароль сброшен", "ok"); }
+      catch (e) { apToast("Ошибка: " + e.message, "err"); }
+    });
+    pwRow.append(pwBtn);
+    box.append(pwRow);
+
+    // Топ-товары
+    const cols = mkEl("div"); cols.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px";
+
+    const topCard = mkEl("div", "cabinet-card");
+    topCard.innerHTML = `<h3 style="margin:0 0 8px;font-size:14px">Топ заказанных товаров</h3>`;
+    if (d.top_products?.length) {
+      const t = mkEl("table", "s-table"); t.style.margin = "0";
+      t.innerHTML = `<thead><tr><th>Товар</th><th style="text-align:right">Кол-во</th><th style="text-align:right">Цена</th></tr></thead>`;
+      const tb = document.createElement("tbody");
+      d.top_products.slice(0, 10).forEach(p => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${esc(p.name)}</td><td style="text-align:right">${esc(p.qty)}</td><td style="text-align:right">${esc(Math.round(p.last_price || 0).toLocaleString("ru"))} ${esc(curSym(p.currency))}</td>`;
+        tb.append(tr);
+      });
+      t.append(tb); topCard.append(t);
+    } else { topCard.append(emptyNote("Заказов нет")); }
+
+    // Последние оплаты
+    const payCard = mkEl("div", "cabinet-card");
+    payCard.innerHTML = `<h3 style="margin:0 0 8px;font-size:14px">Последние оплаты</h3>`;
+    if (d.payments?.length) {
+      const t = mkEl("table", "s-table"); t.style.margin = "0";
+      t.innerHTML = `<thead><tr><th>Дата</th><th style="text-align:right">Сумма</th></tr></thead>`;
+      const tb = document.createElement("tbody");
+      d.payments.slice(0, 10).forEach(p => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${fmtDate(p.date)}</td><td style="text-align:right">${esc(Math.round(p.amount || 0).toLocaleString("ru"))} ${esc(curSym(p.currency))}</td>`;
+        tb.append(tr);
+      });
+      t.append(tb); payCard.append(t);
+    } else { payCard.append(emptyNote("Оплат нет")); }
+
+    cols.append(topCard, payCard);
+    box.append(cols);
+
+    // Накладные
+    const invCard = mkEl("div", "cabinet-card"); invCard.style.marginTop = "16px";
+    invCard.innerHTML = `<h3 style="margin:0 0 8px;font-size:14px">Накладные (${d.invoices?.length || 0})</h3>`;
+    if (d.invoices?.length) {
+      const t = mkEl("table", "s-table"); t.style.margin = "0";
+      t.innerHTML = `<thead><tr><th>Дата</th><th>Статус</th><th style="text-align:right">Позиций</th><th style="text-align:right">Сумма</th></tr></thead>`;
+      const tb = document.createElement("tbody");
+      d.invoices.slice(0, 30).forEach(iv => {
+        const totals = Object.entries(iv.totals || {}).map(([cur, v]) => Math.round(v).toLocaleString("ru") + " " + curSym(cur)).join(", ");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${fmtDate(iv.date)}</td>
+          <td><span class="order-badge ${STATUS_CLASS[iv.status] || "order"}">${esc(STATUS_LABELS[iv.status] || iv.status)}</span></td>
+          <td style="text-align:right">${esc(iv.items_count)}</td>
+          <td style="text-align:right">${esc(totals || "—")}</td>`;
+        tb.append(tr);
+      });
+      t.append(tb); invCard.append(t);
+    } else { invCard.append(emptyNote("Накладных нет")); }
+    box.append(invCard);
+  }
+
+  function emptyNote(text) {
+    const e = mkEl("div"); e.style.cssText = "padding:10px;color:var(--muted);font-size:13px"; e.textContent = text; return e;
+  }
+  function curSym(c) { return c === "usd" ? "$" : c === "yuan" ? "¥" : "сум"; }
+
+  // ---- Вкладка «Отчёты» ----
+  let reportPeriod = "month";
+  async function renderReports() {
+    const wrap = mkEl("div");
+    const ctrl = mkEl("div"); ctrl.style.cssText = "display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap";
+    [["month", "Месяц"], ["year", "Год"], ["all", "Всё время"]].forEach(([id, label]) => {
+      const b = mkEl("button", "s-tab" + (id === reportPeriod ? " active" : ""));
+      b.textContent = label;
+      b.addEventListener("click", () => { reportPeriod = id; renderReports(); });
+      ctrl.append(b);
+    });
+    wrap.append(ctrl);
+
+    const body = mkEl("div");
+    body.innerHTML = `<div style="padding:30px;text-align:center"><span class="s-spinner" style="width:24px;height:24px;border-width:2px;border-color:rgba(0,0,0,.08);border-top-color:var(--navy);display:inline-block"></span></div>`;
+    wrap.append(body);
+    tabContent.innerHTML = ""; tabContent.append(wrap);
+
+    let rep;
+    try { rep = await req("GET", `/admin-site/report?period=${reportPeriod}`); }
+    catch (e) { body.innerHTML = `<div class="s-empty"><p>Ошибка: ${esc(e.message)}</p></div>`; return; }
+
+    body.innerHTML = "";
+    const grid = mkEl("div"); grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px";
+    grid.append(reportGroupCard("🌐 Клиенты с сайта", rep.site), reportGroupCard("🏪 Были в складе", rep.warehouse));
+    body.append(grid);
+  }
+
+  function reportGroupCard(title, g) {
+    const card = mkEl("div", "cabinet-card");
+    g = g || {};
+    const fmtUSD = (v) => "$" + Math.round(v || 0).toLocaleString("ru");
+    const fmtCur = (o) => ["som", "usd", "yuan"].filter(k => (o?.[k] || 0) > 0.5)
+      .map(k => Math.round(o[k]).toLocaleString("ru") + " " + curSym(k)).join(" · ") || "—";
+
+    const head = mkEl("div");
+    head.innerHTML = `<h3 style="margin:0 0 4px;font-size:15px">${esc(title)}</h3>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Клиентов: ${esc(g.clients_count || 0)}</div>`;
+    card.append(head);
+
+    const metrics = mkEl("div"); metrics.style.cssText = "display:grid;gap:8px;margin-bottom:14px";
+    metrics.innerHTML = `
+      <div class="ap-metric"><span>Оборот</span><b>${esc(fmtCur(g.turnover))} <span style="color:var(--muted)">(${esc(fmtUSD(g.turnover_usd))})</span></b></div>
+      <div class="ap-metric"><span>Оплаты получено</span><b>${esc(fmtCur(g.payments))} <span style="color:var(--muted)">(${esc(fmtUSD(g.payments_usd))})</span></b></div>
+      <div class="ap-metric"><span>Чистая прибыль</span><b style="color:var(--ok,#27ae60)">${esc(fmtUSD(g.profit_usd))}</b></div>`;
+    metrics.querySelectorAll(".ap-metric").forEach(m => m.style.cssText = "display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border,#eee)");
+    card.append(metrics);
+
+    const h = mkEl("div"); h.style.cssText = "font-size:13px;font-weight:600;margin:6px 0 6px"; h.textContent = "Топ-товары и лучший клиент";
+    card.append(h);
+    if (g.top_products?.length) {
+      const t = mkEl("table", "s-table"); t.style.margin = "0";
+      t.innerHTML = `<thead><tr><th>Товар</th><th style="text-align:right">Спрос</th><th>Топ-клиент</th></tr></thead>`;
+      const tb = document.createElement("tbody");
+      g.top_products.forEach(p => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${esc(p.product)}</td><td style="text-align:right">${esc(p.qty)}</td>
+          <td>${p.top_client ? esc(p.top_client.name) + " <span style='color:var(--muted)'>(" + esc(p.top_client.qty) + ")</span>" : "—"}</td>`;
+        tb.append(tr);
+      });
+      t.append(tb); card.append(t);
+    } else { card.append(emptyNote("Нет данных за период")); }
+    return card;
   }
 
   tabContent.innerHTML = `<div style="padding:40px;text-align:center"><span class="s-spinner" style="width:28px;height:28px;border-width:2.5px;border-color:rgba(0,0,0,.08);border-top-color:var(--navy);display:inline-block"></span></div>`;
