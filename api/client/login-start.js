@@ -2,6 +2,7 @@
 // Body: { phone }  → Returns { ok:true }
 import { normPhone, genCode, hashCode } from "../lib/clientauth.js";
 import { sget, spatch } from "../lib/supa.js";
+import { ADMIN_PHONE } from "../lib/siteadmin.js";
 
 const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN;
 const BOT = process.env.CLIENT_BOT_USERNAME || "generalmodernbot";
@@ -13,6 +14,9 @@ export default async function handler(req, res) {
 
   const phone = normPhone(body?.phone);
   if (phone.length < 7) return res.status(400).json({ error: "Некорректный номер телефона" });
+
+  // администратору код из Telegram не нужен — вход по паролю
+  if (phone === ADMIN_PHONE) return res.status(200).json({ ok: true, code_required: false });
 
   try {
     const blocked = await sget(`blocked_phones?phone=eq.${encodeURIComponent(phone)}&select=phone`);
@@ -46,7 +50,7 @@ export default async function handler(req, res) {
     const j = await r.json();
     if (!j.ok) return res.status(502).json({ error: `Не удалось отправить код. Откройте бота @${BOT}, нажмите /start и повторите.` });
 
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, code_required: true });
   } catch (e) {
     console.error("login-start error", e);
     return res.status(500).json({ error: "Ошибка сервера" });

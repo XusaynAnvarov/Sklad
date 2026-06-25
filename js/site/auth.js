@@ -28,9 +28,11 @@ function buildAuthModal() {
     else if (mode === "verify") wrap.append(buildVerify());
   }
 
-  // 2 шага: 1) телефон → код в Telegram; 2) код + пароль → вход
-  let loginStep = "phone"; // phone | code
+  // 2 шага: 1) телефон → код в Telegram; 2) код + пароль → вход.
+  // Администратору код не нужен (login-start вернёт code_required:false) → шаг «pass» (только пароль).
+  let loginStep = "phone"; // phone | code | pass
   let loginPhone = "";
+  let loginNeedsCode = true;
 
   function buildLogin() {
     const f = el("div.s-form");
@@ -54,10 +56,12 @@ function buildAuthModal() {
         if (!ph) { err.textContent = "Введите номер телефона"; err.style.display = ""; return; }
         btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';
         try {
-          await api.loginStart(ph);
-          loginPhone = ph; loginStep = "code";
+          const r = await api.loginStart(ph);
+          loginPhone = ph;
+          loginNeedsCode = !(r && r.code_required === false);
+          loginStep = loginNeedsCode ? "code" : "pass";
           render();
-          sToast("Код отправлен в Telegram", "ok");
+          if (loginNeedsCode) sToast("Код отправлен в Telegram", "ok");
         } catch (e) {
           err.textContent = e.message; err.style.display = "";
           btn.disabled = false; btn.textContent = "Получить код";
@@ -67,18 +71,19 @@ function buildAuthModal() {
       return f;
     }
 
-    // шаг «код + пароль»
+    // шаг «код + пароль» (для админа — только пароль)
+    const needCode = loginStep === "code";
     const code = input("tel", "Код из Telegram", "______");
     const pass = input("password", "Пароль");
     const btn = button("Войти", "btn-primary", { style: "width:100%;margin-top:4px" });
     const back = el("div", { style: "text-align:center;margin-top:10px" });
-    back.innerHTML = `<a href="#" style="font-size:13px;color:var(--navy);font-weight:600">← Изменить номер / получить код заново</a>`;
+    back.innerHTML = `<a href="#" style="font-size:13px;color:var(--navy);font-weight:600">← Изменить номер</a>`;
     back.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); loginStep = "phone"; render(); });
     btn.addEventListener("click", async () => {
       err.style.display = "none";
       btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';
       try {
-        const res = await api.login(loginPhone, code.value.trim(), pass.value);
+        const res = await api.login(loginPhone, needCode ? code.value.trim() : "", pass.value);
         saveToken(res.token);
         loginStep = "phone";
         closeModal("auth-modal");
@@ -89,7 +94,10 @@ function buildAuthModal() {
         btn.disabled = false; btn.textContent = "Войти";
       }
     });
-    f.append(err, el("div.s-hint", { text: "Код отправлен в Telegram на номер +998 " + loginPhone }), field("Код из Telegram", code), field("Пароль", pass), btn, back);
+    const rows = [err];
+    if (needCode) rows.push(el("div.s-hint", { text: "Код отправлен в Telegram на номер +998 " + loginPhone }), field("Код из Telegram", code));
+    rows.push(field("Пароль", pass), btn, back);
+    f.append(...rows);
     return f;
   }
 

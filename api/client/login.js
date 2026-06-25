@@ -3,6 +3,7 @@
 // Каждый успешный вход выдаёт новый session_id → прежнее устройство «выкидывает».
 import { normPhone, verifyPassword, verifyCode, signToken, genSessionId } from "../lib/clientauth.js";
 import { sget, spatch } from "../lib/supa.js";
+import { ADMIN_PHONE } from "../lib/siteadmin.js";
 
 const MAX_ATTEMPTS = 5;
 
@@ -24,11 +25,11 @@ export default async function handler(req, res) {
     const acc = rows[0];
     if (!acc) return res.status(401).json({ error: "Неверный номер или пароль" });
 
-    // ----- проверка кода из Telegram -----
+    // ----- проверка кода из Telegram (администратору код не нужен — только пароль) -----
     // login_code === undefined → колонки 2FA ещё не созданы (db/site-auth.sql не запущен) → вход только по паролю (миграция);
     // login_code === null → код не запрашивали → нужен шаг login-start;
     // login_code строка → сверяем код.
-    if (acc.login_code !== undefined) {
+    if (phone !== ADMIN_PHONE && acc.login_code !== undefined) {
       if (acc.login_code === null) return res.status(401).json({ error: "Сначала получите код в Telegram" });
       if (!acc.login_code_exp || new Date(acc.login_code_exp) < new Date())
         return res.status(401).json({ error: "Код устарел — запросите новый" });
