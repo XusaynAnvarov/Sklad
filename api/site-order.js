@@ -31,12 +31,11 @@ export default async function handler(req, res) {
     const prods = await sget(`products?id=in.(${prodIds.join(",")})&select=id,name,stock_qty`);
     const prodMap = Object.fromEntries(prods.map(p => [p.id, p]));
 
+    // клиент может заказать любое количество (даже больше остатка); владелец увидит остаток при выставлении цен
     for (const it of items) {
       const p = prodMap[it.product_id];
       if (!p) return res.status(400).json({ error: `Товар не найден: ${it.product_id}` });
-      const avail = Number(p.stock_qty) || 0;
-      if (avail <= 0) return res.status(400).json({ error: `Товар «${p.name}» отсутствует на складе` });
-      if ((Number(it.qty) || 0) > avail) return res.status(400).json({ error: `«${p.name}»: на складе только ${avail} шт.` });
+      if ((Number(p.stock_qty) || 0) <= 0) return res.status(400).json({ error: `Товар «${p.name}» отсутствует на складе` });
     }
 
     if (!client.customer_id) return res.status(400).json({ error: "Клиент не привязан к складу" });
