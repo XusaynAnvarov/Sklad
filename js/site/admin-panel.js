@@ -1,5 +1,5 @@
 // Панель администратора на публичном сайте
-import { req } from "./api.js";
+import { req, saveToken } from "./api.js";
 
 function apToast(msg, type = "") {
   let wrap = document.querySelector(".s-toasts");
@@ -439,7 +439,20 @@ export async function renderAdminPanel(container) {
       try { await req("POST", "/admin-site/reset-client-password", { account_id: c.id, new: np }); apToast("Пароль сброшен", "ok"); }
       catch (e) { apToast("Ошибка: " + e.message, "err"); }
     });
-    pwRow.append(pwBtn);
+    // Войти как этот клиент (тест клиентского опыта) — без пароля/кода
+    const impBtn = mkEl("button", "btn-primary"); impBtn.style.cssText = "padding:6px 12px;font-size:12px;font-weight:600;margin-left:8px";
+    impBtn.textContent = "🔓 Войти как этот клиент (тест)";
+    impBtn.addEventListener("click", async () => {
+      try {
+        const r = await req("POST", "/admin-site/impersonate", { account_id: c.id });
+        const owner = localStorage.getItem("gm_client_token");
+        if (owner) localStorage.setItem("gm_owner_token", owner); // чтобы вернуться владельцем
+        saveToken(r.token);
+        apToast("Вход как клиент…", "ok");
+        location.hash = "#cabinet"; location.reload();
+      } catch (e) { apToast("Ошибка: " + e.message, "err"); }
+    });
+    pwRow.append(pwBtn, impBtn);
     box.append(pwRow);
 
     // Топ-товары

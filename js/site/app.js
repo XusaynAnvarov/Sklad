@@ -66,9 +66,10 @@ function getTokenPayload() {
   try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); }
   catch { return null; }
 }
+const ADMIN_PHONES = ["974090119", "837138321"];
 function isAdmin() {
   const p = getTokenPayload();
-  return p?.phone === "837138321";
+  return ADMIN_PHONES.includes(p?.phone);
 }
 
 // ---- Cart state ----
@@ -393,6 +394,27 @@ export async function boot() {
   window.addEventListener("hashchange", () => route(document.getElementById("site-main") || document.createElement("div")));
 
   startSessionWatch();
+  showOwnerReturnBar();
+}
+
+// Плашка «вернуться владельцем», если владелец вошёл как клиент (тест)
+function showOwnerReturnBar() {
+  const ownerToken = localStorage.getItem("gm_owner_token");
+  if (!ownerToken) return;
+  const bar = document.createElement("div");
+  bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9998;background:#1c2b4a;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:14px;font-size:14px;box-shadow:0 -4px 16px rgba(0,0,0,.2)";
+  const txt = document.createElement("span"); txt.textContent = "👁 Вы вошли как клиент (тест-режим)";
+  const btn = document.createElement("button");
+  btn.textContent = "← Вернуться владельцем";
+  btn.style.cssText = "background:#e3c163;color:#1c2b4a;border:none;border-radius:8px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:13px";
+  btn.addEventListener("click", () => {
+    localStorage.setItem("gm_client_token", ownerToken);
+    localStorage.removeItem("gm_owner_token");
+    location.hash = "#admin-panel";
+    location.reload();
+  });
+  bar.append(txt, btn);
+  document.body.append(bar);
 }
 
 // Одна сессия: если вошли с другого устройства — текущее при ближайшей проверке выкидывает на вход.

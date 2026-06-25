@@ -76,6 +76,7 @@ const routes = [
   [["POST"],  "/api/admin-site/update-client","./api/admin-site/update-client.js"],
   [["GET"],   "/api/admin-site/report",       "./api/admin-site/report.js"],
   [["POST"],  "/api/admin-site/reset-client-password","./api/admin-site/reset-client-password.js"],
+  [["POST"],  "/api/admin-site/impersonate",  "./api/admin-site/impersonate.js"],
   [["POST"],  "/api/client/change-password",  "./api/client/change-password.js"],
   // telegram
   [["POST"],  "/api/bot",                     "./api/bot.js"],
