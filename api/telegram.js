@@ -69,14 +69,19 @@ export default async function handler(req, res) {
       const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
       const products = await sget("products?select=id,name");
       const bytes = await buildInvoicePDF({ sale, customer, products, status: await coverageFor(sale) });
-      const total = (sale.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
-      const fd = new FormData();
-      fd.append("chat_id", String(target));
-      fd.append("caption", `🧾 Накладная — ${customer?.name || "—"} · ${new Date(sale.date).toLocaleDateString("ru-RU")}`);
-      fd.append("document", new Blob([bytes], { type: "application/pdf" }), `nakladnaya-${new Date(sale.date).toISOString().slice(0, 10)}.pdf`);
-      const r = await fetch(api("sendDocument"), { method: "POST", body: fd });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.description || "sendDocument error");
+      const cap = `🧾 Накладная — ${customer?.name || "—"} · ${new Date(sale.date).toLocaleDateString("ru-RU")}`;
+      const fname = `nakladnaya-${new Date(sale.date).toISOString().slice(0, 10)}.pdf`;
+      const makeFd = () => { const fd = new FormData(); fd.append("chat_id", String(target)); fd.append("caption", cap); fd.append("document", new Blob([bytes], { type: "application/pdf" }), fname); return fd; };
+      // пробуем бота-владельца, затем клиентского бота — какой добавлен админом канала, тот и отправит
+      let r = await fetch(api("sendDocument"), { method: "POST", body: makeFd() });
+      let j = await r.json();
+      if (!j.ok && CLIENT_TOKEN) { r = await fetch(capi("sendDocument"), { method: "POST", body: makeFd() }); j = await r.json(); }
+      if (!j.ok) {
+        const hint = /not found|chat not found/i.test(j.description || "")
+          ? " — проверьте: для приватного канала укажите id вида -100…, добавьте бота администратором канала."
+          : "";
+        throw new Error((j.description || "sendDocument error") + hint);
+      }
       return res.status(200).json({ ok: true });
     }
     if (action === "invoice") {
