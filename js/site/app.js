@@ -421,6 +421,11 @@ function startSessionWatch() {
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {}));
+  // когда активируется новый SW — страница сама перезагружается со свежим кодом
+  let _swRefreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (_swRefreshing) return; _swRefreshing = true; location.reload();
+  });
 }
 
 function logoSvg() {
