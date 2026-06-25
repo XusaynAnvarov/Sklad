@@ -3,13 +3,14 @@ import { isLoggedIn, clearToken as _clearToken, api } from "./api.js";
 import { renderCatalog } from "./catalog.js";
 import { renderCabinet } from "./cabinet.js";
 import { renderAdminPanel } from "./admin-panel.js";
+import { renderOrder } from "./order.js";
 import { setAuthChangeCallback, openLogin, logout as _logout } from "./auth.js";
 
 // ---- Translations ----
 const TRANSLATIONS = {
   ru: {
     catalog: "Каталог", cabinet: "Кабинет", login: "Войти", logout: "Выйти",
-    warehouse: "Склад", adminPanel: "Панель", cart: "Корзина", cartEmpty: "Корзина пуста",
+    warehouse: "Склад", adminPanel: "Панель", cart: "Корзина", cartEmpty: "Корзина пуста", order: "Заказать",
     checkout: "Оформить заказ", priceNote: "Цены уточнит менеджер",
     orderSent: "Заказ отправлен! Менеджер свяжется с вами.",
     sending: "Отправляем…", addToCart: "В корзину", inCart: "В корзине",
@@ -22,7 +23,7 @@ const TRANSLATIONS = {
   },
   uz: {
     catalog: "Katalog", cabinet: "Kabinet", login: "Kirish", logout: "Chiqish",
-    warehouse: "Ombor", adminPanel: "Panel", cart: "Savat", cartEmpty: "Savat bo'sh",
+    warehouse: "Ombor", adminPanel: "Panel", cart: "Savat", cartEmpty: "Savat bo'sh", order: "Buyurtma berish",
     checkout: "Buyurtma berish", priceNote: "Narxni menejer aniqlashtiradi",
     orderSent: "Buyurtma yuborildi! Menejer siz bilan bog'lanadi.",
     sending: "Yuborilmoqda…", addToCart: "Savatga", inCart: "Savatda",
@@ -35,7 +36,7 @@ const TRANSLATIONS = {
   },
   en: {
     catalog: "Catalog", cabinet: "Cabinet", login: "Login", logout: "Logout",
-    warehouse: "Warehouse", adminPanel: "Panel", cart: "Cart", cartEmpty: "Cart is empty",
+    warehouse: "Warehouse", adminPanel: "Panel", cart: "Cart", cartEmpty: "Cart is empty", order: "Order",
     checkout: "Place Order", priceNote: "Manager will confirm prices",
     orderSent: "Order sent! A manager will contact you.",
     sending: "Sending…", addToCart: "Add to Cart", inCart: "In Cart",
@@ -297,11 +298,12 @@ function buildHeader() {
 
   const right = document.createElement("div"); right.className = "site-header-right";
 
-  const cartBtn = document.createElement("button"); cartBtn.className = "cart-btn";
-  cartBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="cart-count zero">0</span>`;
-  cartBtn.addEventListener("click", openCartDrawer);
+  // Кнопка «Заказать» (вместо корзины) — ведёт на страницу-форму заказа
+  const orderBtn = document.createElement("button"); orderBtn.className = "btn-primary"; orderBtn.style.cssText = "padding:8px 16px;font-size:13px;font-weight:600";
+  orderBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> ${t("order") || "Заказать"}`;
+  orderBtn.addEventListener("click", () => { location.hash = "#order"; });
 
-  right.append(cartBtn);
+  right.append(orderBtn);
 
   // Кнопка "Склад" — только для администратора (доступ по JWT phone)
   if (isAdmin()) {
@@ -357,6 +359,7 @@ async function route(main) {
   const inner = document.createElement("div"); inner.className = "site-main";
   try {
     if (r === "catalog") await renderCatalog(inner);
+    else if (r === "order") await renderOrder(inner);
     else if (r === "admin-panel") {
       if (!isAdmin()) { await renderCatalog(inner); }
       else await renderAdminPanel(inner);
@@ -379,9 +382,6 @@ export async function boot() {
 
   const loader = document.getElementById("gm-loader");
   if (loader) setTimeout(() => loader.classList.add("hide"), 600);
-
-  buildCartDrawer();
-  updateCartBadge();
 
   setAuthChangeCallback(() => { location.reload(); });
 
@@ -446,7 +446,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=12", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=13", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

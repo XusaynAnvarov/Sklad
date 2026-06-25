@@ -1,6 +1,6 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
 import { api, isLoggedIn } from "./api.js";
-import { sToast, cartState, cartAdd, cartQty, renderCartDrawer, t } from "./app.js";
+import { t } from "./app.js";
 import { openLogin } from "./auth.js";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
@@ -74,23 +74,6 @@ export async function renderCatalog(container) {
   }
 
   renderCards();
-
-  // обновить кнопки при изменении корзины
-  document.addEventListener("gm:cart-change", () => {
-    grid.querySelectorAll(".btn-add-cart[data-product-id]").forEach(btn => {
-      const id = btn.dataset.productId;
-      const inStock = btn.dataset.inStock === "1";
-      if (!inStock) return;
-      const qty = cartQty(id);
-      if (qty > 0) {
-        btn.className = "btn-add-cart in-cart";
-        btn.textContent = t("inCart") + " (" + qty + ")";
-      } else {
-        btn.className = "btn-add-cart available";
-        btn.textContent = "+ " + t("addToCart");
-      }
-    });
-  });
 }
 
 function buildCard(p) {
@@ -132,10 +115,6 @@ function buildCard(p) {
   const footer = mkEl("div", "product-card-footer");
 
   const btn = document.createElement("button");
-  btn.dataset.productId = p.id;
-  btn.dataset.inStock = inStock ? "1" : "0";
-
-  const qty = cartQty(p.id);
   if (!inStock && !isSoon) {
     btn.className = "btn-add-cart unavailable"; btn.textContent = t("noStockBadge"); btn.disabled = true;
   } else if (isSoon) {
@@ -143,22 +122,16 @@ function buildCard(p) {
   } else if (!isLoggedIn()) {
     btn.className = "btn-add-cart need-login"; btn.textContent = t("loginToOrder");
     btn.addEventListener("click", () => openLogin());
-  } else if (qty > 0) {
-    btn.className = "btn-add-cart in-cart"; btn.textContent = t("inCart") + " (" + qty + ")";
-    btn.addEventListener("click", () => { cartAdd(p); dispatchCartChange(); });
   } else {
-    btn.className = "btn-add-cart available"; btn.textContent = "+ " + t("addToCart");
-    btn.addEventListener("click", () => { cartAdd(p); dispatchCartChange(); sToast(p.name + " " + t("addedToCart"), "ok"); });
+    // каталог — для просмотра; заказ оформляется на странице «Заказать»
+    btn.className = "btn-add-cart available"; btn.textContent = t("order") || "Заказать";
+    btn.addEventListener("click", () => { location.hash = "#order"; });
   }
 
   footer.append(btn);
   body.append(name, cat, footer);
   card.append(imgWrap, body);
   return card;
-}
-
-function dispatchCartChange() {
-  document.dispatchEvent(new CustomEvent("gm:cart-change"));
 }
 
 function buildSkeleton() {

@@ -28,13 +28,13 @@ export default async function handler(req, res) {
   try {
     // проверяем наличие товаров
     const prodIds = [...new Set(items.map(i => i.product_id).filter(Boolean))];
-    const prods = await sget(`products?id=in.(${prodIds.join(",")})&select=id,name,qty`);
+    const prods = await sget(`products?id=in.(${prodIds.join(",")})&select=id,name,stock_qty`);
     const prodMap = Object.fromEntries(prods.map(p => [p.id, p]));
 
     for (const it of items) {
       const p = prodMap[it.product_id];
       if (!p) return res.status(400).json({ error: `Товар не найден: ${it.product_id}` });
-      if ((p.qty || 0) <= 0) return res.status(400).json({ error: `Товар «${p.name}» отсутствует на складе` });
+      if ((p.stock_qty || 0) <= 0) return res.status(400).json({ error: `Товар «${p.name}» отсутствует на складе` });
     }
 
     if (!client.customer_id) return res.status(400).json({ error: "Клиент не привязан к складу" });
