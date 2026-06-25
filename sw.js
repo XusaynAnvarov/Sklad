@@ -2,7 +2,7 @@
 //  Service Worker — оффлайн-оболочка + быстрый старт (stale-while-revalidate).
 //  Данные (Supabase/api) НЕ кэшируем — всегда из сети.
 // ========================================================================
-const CACHE = "sklad-v11";
+const CACHE = "sklad-v12";
 const SHELL = ["./", "./index.html", "./admin.html", "./catalog.html", "./css/theme.css", "./css/site.css", "./config.js", "./icon.svg", "./manifest.webmanifest"];
 // код (html/css/js) грузим «сеть в приоритете», чтобы изменения были видны сразу;
 // картинки/иконки/шрифты — из кэша (быстро + офлайн).
@@ -23,9 +23,21 @@ self.addEventListener("fetch", (e) => {
   // только своя статика; чужие домены (Supabase, Telegram) и /api/ — мимо (сеть)
   if (url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
 
+  // JS/CSS: добавляем ?v=CACHE к запросу → Cloudflare/nginx отдают immutable-файл как НОВЫЙ
+  // URL при смене версии (иначе старый код «застревает» в кэше Cloudflare). Кэшируем под исходным URL.
+  if (url.pathname.endsWith(".js") || url.pathname.endsWith(".css")) {
+    const vurl = new URL(req.url);
+    vurl.searchParams.set("v", CACHE);
+    e.respondWith(
+      fetch(vurl.toString(), { cache: "reload" }).then(res => {
+        if (res && res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp)); }
+        return res;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
   if (isCode(url.pathname)) {
-    // network-first + cache:"reload" — обходим HTTP-кэш браузера (nginx отдаёт JS с
-    // Cache-Control: immutable, из-за чего правки не подхватывались). При отсутствии сети — из кэша.
+    // HTML / "/" — отдаётся динамически (не кэшируется Cloudflare), просто свежая сеть
     e.respondWith(
       fetch(req, { cache: "reload" }).then(res => {
         if (res && res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp)); }
