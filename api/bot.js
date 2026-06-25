@@ -198,6 +198,46 @@ export default async function handler(req, res) {
     // --- сообщения ---
     if (u.message) {
       const chatId = u.message.chat.id;
+
+      // --- Регистрация на сайте идёт РАНЬШЕ админ-меню (чтобы работала и для владельца бота) ---
+      const rawMsg0 = (u.message.text || "").trim();
+      const verifyStartMatch = rawMsg0.match(/^\/start verify_([a-f0-9]{48})$/i);
+      let pendingVerifyToken = null;
+      if (verifyStartMatch || (u.message.contact && u.message.contact.phone_number)) {
+        try { const s = await sget(`bot_sessions?chat_id=eq.${chatId}&select=state`); pendingVerifyToken = s[0]?.state?.verify_token || null; } catch {}
+      }
+      // 1) /start verify_TOKEN — начать верификацию (даже для админа/владельца)
+      if (verifyStartMatch) {
+        const token = verifyStartMatch[1].toLowerCase();
+        const vrows = await sget(`site_verifications?token=eq.${encodeURIComponent(token)}&select=phone,verified,expires_at`);
+        const v = vrows[0];
+        if (!v || new Date(v.expires_at) < new Date()) { await tg("sendMessage", { chat_id: chatId, text: "Ссылка недействительна или истекла. Вернитесь на сайт и начните регистрацию заново." }); return res.status(200).send("ok"); }
+        if (v.verified) { await tg("sendMessage", { chat_id: chatId, text: "Этот номер уже подтверждён. Вернитесь на сайт и задайте пароль." }); return res.status(200).send("ok"); }
+        try { await supsert("bot_sessions", { chat_id: String(chatId), state: { verify_token: token }, updated_at: new Date().toISOString() }); } catch {}
+        await tg("sendMessage", { chat_id: chatId, text: "Для подтверждения регистрации на generalmodern.uz нажмите кнопку ниже и поделитесь номером телефона.", reply_markup: { keyboard: [[{ text: "Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
+        return res.status(200).send("ok");
+      }
+      // 2) шаринг контакта при активной верификации (даже для админа/владельца)
+      if (u.message.contact && u.message.contact.phone_number && pendingVerifyToken) {
+        const vrows = await sget(`site_verifications?token=eq.${encodeURIComponent(pendingVerifyToken)}&select=phone,verified,expires_at`);
+        const v = vrows[0];
+        if (v && !v.verified && new Date(v.expires_at) > new Date()) {
+          const sharedOwn = String(u.message.contact.user_id || "") === String(u.message.from?.id || "");
+          if (u.message.from?.is_bot || !sharedOwn) {
+            await tg("sendMessage", { chat_id: chatId, text: "Поделитесь СВОИМ контактом кнопкой ниже — пересланный чужой номер не подходит для регистрации.", reply_markup: { keyboard: [[{ text: "Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
+            return res.status(200).send("ok");
+          }
+          if (norm(u.message.contact.phone_number) === norm(v.phone)) {
+            await spatch(`site_verifications?token=eq.${encodeURIComponent(pendingVerifyToken)}`, { verified: true, chat_id: String(chatId), tg_username: u.message.from?.username || null });
+            try { await supsert("bot_sessions", { chat_id: String(chatId), state: {}, updated_at: new Date().toISOString() }); } catch {}
+            await tg("sendMessage", { chat_id: chatId, text: "Номер подтверждён! Вернитесь на сайт и задайте пароль — регистрация будет завершена.", reply_markup: { remove_keyboard: true } });
+          } else {
+            await tg("sendMessage", { chat_id: chatId, text: "Номер не совпадает с тем, что вы указали при регистрации. Попробуйте снова.", reply_markup: { remove_keyboard: true } });
+          }
+          return res.status(200).send("ok");
+        }
+      }
+
       if (isAdmin(chatId)) {
         const raw = (u.message.text || "").trim();
         const t = raw.toLowerCase();
