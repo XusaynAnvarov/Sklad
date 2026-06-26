@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     let raw = [];
     try {
       raw = await sget(
-        "products?select=id,name,category,photo_url,stock_qty,site_status,created_at,last_arrival_at&order=created_at.desc,name.asc"
+        "products?select=id,name,category,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at&order=created_at.desc,name.asc"
       );
     } catch {
       try {
@@ -66,6 +66,8 @@ export default async function handler(req, res) {
           name: p.name,
           category: p.category || "",
           photo_url: p.photo_url || null,
+          // все фото товара (для галереи у клиента); если колонки photos нет — из photo_url
+          photos: (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []),
           status,
           // доступный остаток (для ограничения заказа); 0 если не в наличии
           stock: status === "in_stock" ? Math.max(0, Number(p.stock_qty) || 0) : 0,

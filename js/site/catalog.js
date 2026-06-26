@@ -81,14 +81,22 @@ function buildCard(p) {
   const inStock = p.status === "in_stock";
   const isSoon  = p.status === "soon";
 
-  // Фото
+  // Фото (одно или несколько — галерея по клику)
+  const photos = (p.photos && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []);
   const imgWrap = mkEl("div", "product-card-img");
-  if (p.photo_url) {
+  if (photos.length) {
     const img = document.createElement("img");
-    img.src = p.photo_url; img.alt = p.name;
-    img.loading = "lazy";
+    img.src = photos[0]; img.alt = p.name;
+    img.loading = "lazy"; img.style.cursor = "zoom-in";
     img.onerror = () => { imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`; };
+    img.addEventListener("click", (e) => { e.stopPropagation(); openGallery(photos, 0, p.name); });
     imgWrap.append(img);
+    if (photos.length > 1) {
+      const pb = mkEl("span");
+      pb.style.cssText = "position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:2";
+      pb.textContent = "📷 " + photos.length;
+      imgWrap.append(pb);
+    }
   } else {
     imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`;
   }
@@ -152,4 +160,33 @@ function mkEl(tag, cls = "") {
   const e = document.createElement(tag);
   if (cls) cls.split(" ").forEach(c => c && e.classList.add(c));
   return e;
+}
+
+// Полноэкранная галерея фото товара (стрелки + свайп), видна всем клиентам
+function openGallery(photos, start, name) {
+  if (!photos || !photos.length) return;
+  let idx = start || 0;
+  const ov = mkEl("div");
+  ov.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out";
+  const img = document.createElement("img");
+  img.style.cssText = "max-width:92vw;max-height:80vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6);object-fit:contain";
+  img.addEventListener("click", (e) => e.stopPropagation());
+  const counter = mkEl("div"); counter.style.cssText = "position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-size:14px";
+  function show() { img.src = photos[idx]; counter.textContent = (name ? name + " · " : "") + (idx + 1) + " / " + photos.length; }
+  function go(d, e) { if (e) e.stopPropagation(); idx = (idx + d + photos.length) % photos.length; show(); }
+  ov.addEventListener("click", () => ov.remove());
+  ov.append(img, counter);
+  if (photos.length > 1) {
+    const prev = mkEl("button"); prev.textContent = "‹";
+    const next = mkEl("button"); next.textContent = "›";
+    [prev, next].forEach(b => b.style.cssText = "position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.16);color:#fff;border:none;font-size:42px;width:54px;height:74px;border-radius:12px;cursor:pointer;line-height:1");
+    prev.style.left = "12px"; next.style.right = "12px";
+    prev.addEventListener("click", (e) => go(-1, e)); next.addEventListener("click", (e) => go(1, e));
+    ov.append(prev, next);
+    let sx = 0;
+    ov.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; }, { passive: true });
+    ov.addEventListener("touchend", (e) => { const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
+  }
+  document.body.append(ov);
+  show();
 }

@@ -16,6 +16,34 @@ function openLightbox(src) {
   requestAnimationFrame(() => box.classList.add("show"));
 }
 
+// галерея нескольких фото (стрелки + свайп)
+function openGallery(photos, start, name) {
+  if (!photos || !photos.length) return;
+  if (photos.length === 1) return openLightbox(photos[0]);
+  let idx = start || 0;
+  const box = document.createElement("div");
+  box.className = "lightbox";
+  const img = document.createElement("img");
+  img.addEventListener("click", (e) => e.stopPropagation());
+  const counter = document.createElement("div");
+  counter.style.cssText = "position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-size:14px";
+  const prev = document.createElement("button"); prev.textContent = "‹";
+  const next = document.createElement("button"); next.textContent = "›";
+  [prev, next].forEach(b => b.style.cssText = "position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.16);color:#fff;border:none;font-size:42px;width:54px;height:74px;border-radius:12px;cursor:pointer;line-height:1;z-index:2");
+  prev.style.left = "12px"; next.style.right = "12px";
+  function show() { img.src = photos[idx]; counter.textContent = (name ? name + " · " : "") + (idx + 1) + " / " + photos.length; }
+  function go(d, e) { if (e) e.stopPropagation(); idx = (idx + d + photos.length) % photos.length; show(); }
+  prev.addEventListener("click", (e) => go(-1, e)); next.addEventListener("click", (e) => go(1, e));
+  box.addEventListener("click", () => { box.classList.remove("show"); setTimeout(() => box.remove(), 250); });
+  let sx = 0;
+  box.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; }, { passive: true });
+  box.addEventListener("touchend", (e) => { const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
+  box.append(img, counter, prev, next);
+  document.body.append(box);
+  show();
+  requestAnimationFrame(() => box.classList.add("show"));
+}
+
 const cfg = window.APP_CONFIG || {};
 const useSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
 
@@ -25,18 +53,20 @@ function placeholder(name = "?") {
 }
 
 async function loadItems() {
+  const norm = (d) => ({ id: d.id, name: d.name, category: d.category, photo_url: d.photo_url, photos: (Array.isArray(d.photos) && d.photos.length) ? d.photos : (d.photo_url ? [d.photo_url] : []), status: d.status });
   if (useSupabase) {
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-    const sb = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
-    const { data, error } = await sb.from("catalog_view").select("*");
-    if (error) throw error;
-    return data.map(d => ({ id: d.id, name: d.name, category: d.category, photo_url: d.photo_url, status: d.status }));
+    // публичный API (отдаёт все фото товара)
+    try {
+      const r = await fetch("/api/catalog");
+      if (r.ok) { const data = await r.json(); if (Array.isArray(data)) return data.map(norm); }
+    } catch {}
   }
   // локальный режим: берём из того же хранилища, что и админка, БЕЗ цен
   const raw = localStorage.getItem("sklad_db_v1");
   const store = raw ? JSON.parse(raw) : { products: [] };
   return (store.products || []).map(p => ({
     id: p.id, name: p.name, category: p.category, photo_url: p.photo_url,
+    photos: (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []),
     status: p.status_override || (Number(p.stock_qty) > 0 ? "in_stock" : "on_order"),
   }));
 }
@@ -82,8 +112,13 @@ function cardHtml(p, i) {
       </div>`
       : `<div class="add-row"><button class="add-btn off" type="button" disabled>Нет в наличии</button></div>`)
     : "";
-  return `<div class="prod reveal" style="animation-delay:${(i % 12) * 0.03}s">
-      <img class="ph" loading="lazy" src="${p.photo_url || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'" />
+  const np = (p.photos && p.photos.length) ? p.photos.length : (p.photo_url ? 1 : 0);
+  const mainPhoto = (p.photos && p.photos.length) ? p.photos[0] : p.photo_url;
+  return `<div class="prod reveal" data-id="${id}" style="animation-delay:${(i % 12) * 0.03}s">
+      <div style="position:relative">
+        <img class="ph" loading="lazy" src="${mainPhoto || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'" />
+        ${np > 1 ? `<span style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px">📷 ${np}</span>` : ""}
+      </div>
       <div class="body">
         <div class="nm">${escapeHtml(p.name)}</div>
         <div class="cat">${escapeHtml(p.category || "")}</div>
@@ -285,7 +320,7 @@ function renderOrderView() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=19", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=20", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();
@@ -330,7 +365,12 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
     const add = e.target.closest(".add-btn");
     if (add) { addFromCard(add); return; }
     const img = e.target.closest(".prod .ph");
-    if (img) openLightbox(img.src);
+    if (img) {
+      const id = img.closest(".prod")?.getAttribute("data-id");
+      const prod = byId(id);
+      const photos = (prod && prod.photos && prod.photos.length) ? prod.photos : (prod && prod.photo_url ? [prod.photo_url] : [img.src]);
+      openGallery(photos, 0, prod ? prod.name : "");
+    }
   });
   // Enter в поле количества → добавить
   grid.addEventListener("keydown", (e) => {

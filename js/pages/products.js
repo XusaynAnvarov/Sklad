@@ -148,19 +148,31 @@ export function openForm(ctx, p, cats = []) {
 
   const fName = input({ value: p.name, placeholder: "Название" });
   const fCat = inputList(cats, { value: p.category || "", placeholder: "Категория (выбор или ввод)" });
-  const fPhotoUrl = input({ value: p.photo_url || "", placeholder: "Ссылка на фото (URL)" });
-  const fFile = el("input", { type: "file", accept: "image/*", class: "inp" });
-  const preview = el("img.thumb", { src: p.photo_url || placeholder(p.name), style: { width: "80px", height: "80px", cursor: "zoom-in" }, title: "Увеличить",
-    onclick: () => { const s = fPhotoUrl.value || p.photo_url; if (s) lightbox(s); },
-    onerror: function () { this.src = placeholder(fName.value); } });
-
-  fPhotoUrl.addEventListener("input", () => preview.src = fPhotoUrl.value || placeholder(fName.value));
+  // несколько фото; первое — главное (показывается в списке и каталоге)
+  let photos = (Array.isArray(p.photos) && p.photos.length) ? [...p.photos] : (p.photo_url ? [p.photo_url] : []);
+  const thumbsBox = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "8px", minHeight: "20px" } });
+  function renderThumbs() {
+    thumbsBox.innerHTML = "";
+    if (!photos.length) { thumbsBox.append(el("div.muted", { text: "Фото нет — добавьте ниже", style: { fontSize: "13px" } })); return; }
+    photos.forEach((url, idx) => {
+      const wrap = el("div", { style: { position: "relative", width: "74px", height: "74px" } });
+      const img = el("img.thumb", { src: url, style: { width: "74px", height: "74px", objectFit: "cover", borderRadius: "8px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => lightbox(url), onerror: function () { this.src = placeholder(fName.value); } });
+      const rm = el("button.btn.btn-danger.btn-sm", { title: "Удалить фото", style: { position: "absolute", top: "-7px", right: "-7px", padding: "0", width: "22px", height: "22px", minWidth: "22px", borderRadius: "50%", lineHeight: "1" }, onclick: (e) => { e.preventDefault(); photos.splice(idx, 1); renderThumbs(); } }, ["×"]);
+      wrap.append(img, rm);
+      if (idx === 0) wrap.append(el("span", { text: "главное", style: { position: "absolute", bottom: "2px", left: "2px", background: "rgba(0,0,0,.6)", color: "#fff", fontSize: "8px", padding: "1px 4px", borderRadius: "4px" } }));
+      thumbsBox.append(wrap);
+    });
+  }
+  renderThumbs();
+  const fFile = el("input", { type: "file", accept: "image/*", multiple: true, class: "inp" });
   fFile.addEventListener("change", async () => {
-    if (!fFile.files[0]) return;
+    const files = Array.from(fFile.files || []); if (!files.length) return;
     toast("Загрузка фото…", "info");
-    try { const url = await ctx.db.uploadPhoto(fFile.files[0]); fPhotoUrl.value = url; preview.src = url; toast("Фото загружено", "ok"); }
-    catch (e) { toast("Ошибка фото: " + e.message, "err"); }
+    for (const f of files) { try { const url = await ctx.db.uploadPhoto(f); photos.push(url); renderThumbs(); } catch (e) { toast("Ошибка фото: " + e.message, "err"); } }
+    toast("Готово", "ok"); fFile.value = "";
   });
+  const fPhotoUrl = input({ placeholder: "Ссылка на фото (URL)" });
+  const addUrlBtn = el("button.btn.btn-outline.btn-sm", { text: "+ Ссылка", onclick: (e) => { e.preventDefault(); const u = fPhotoUrl.value.trim(); if (u) { photos.push(u); fPhotoUrl.value = ""; renderThumbs(); } } });
 
   const fStock = input({ type: "number", value: p.stock_qty, placeholder: "0" });
   // себестоимость одной суммой + валюта прихода
@@ -180,13 +192,14 @@ export function openForm(ctx, p, cats = []) {
   const body = el("div", {}, [
     field("Название", fName),
     field("Категория", fCat),
-    el("div", { style: { display: "flex", gap: "14px", alignItems: "flex-end" } }, [
-      el("div", { style: { flex: "1" } }, [
-        field("Фото — ссылка", fPhotoUrl),
-        field("…или загрузить файл", fFile),
-      ]),
-      preview,
+    el("div.section-h", { text: "Фотографии (можно несколько)" }),
+    thumbsBox,
+    field("Загрузить файлы (можно выбрать сразу несколько)", fFile),
+    el("div", { style: { display: "flex", gap: "8px", alignItems: "flex-end" } }, [
+      el("div", { style: { flex: "1" } }, [field("…или добавить по ссылке", fPhotoUrl)]),
+      addUrlBtn,
     ]),
+    el("div.hint", { text: "Первое фото — главное (в списке и каталоге). Клиенты видят все фото." }),
     el("div.section-h", { text: "Остаток и себестоимость" }),
     el("div.row3", {}, [field("Остаток (кол-во)", fStock), field("Себестоимость", fCost), field("Валюта прихода", fCostCur)]),
     el("div.hint", { text: "Цены продажи вводятся при продаже. Вторая валюта себестоимости считается по курсу автоматически." }),
@@ -239,7 +252,8 @@ export function openForm(ctx, p, cats = []) {
         const cost_prev = changed ? oldC : (p.cost_prev || null);
         const obj = {
           ...(isNew ? {} : { id: p.id }),
-          name: fName.value.trim(), category: fCat.value.trim(), photo_url: fPhotoUrl.value.trim(),
+          name: fName.value.trim(), category: fCat.value.trim(),
+          photo_url: photos[0] || "", photos,
           stock_qty: batches.length ? sumQty(batches) : desired,
           cost_usd: cc.cost_usd, cost_yuan: cc.cost_yuan,
           status_override: fStatus.value || null,
@@ -247,8 +261,12 @@ export function openForm(ctx, p, cats = []) {
         // продажные цены (price_*) форма не редактирует — НЕ перезаписываем их (иначе обнуляются).
         // Для нового товара зададим явные нули, у существующего PATCH сохранит прежние.
         if (isNew) { obj.price_yuan = 0; obj.price_usd = 0; obj.price_som = 0; }
+        const noPhotos = (o) => { const { photos: _ph, ...rest } = o; return rest; }; // фолбэк, если колонки photos ещё нет
         try { await ctx.db.products.upsert({ ...obj, batches, ...(cost_prev ? { cost_prev } : {}) }); }
-        catch (e) { try { await ctx.db.products.upsert({ ...obj, batches }); } catch (e2) { await ctx.db.products.upsert(obj); } } // если колонок ещё нет
+        catch (e) {
+          try { await ctx.db.products.upsert({ ...obj, batches }); }
+          catch (e2) { try { await ctx.db.products.upsert(noPhotos({ ...obj, batches })); } catch (e3) { await ctx.db.products.upsert(noPhotos(obj)); } }
+        }
         close(); toast("Сохранено", "ok"); ctx.refresh();
       } },
     ].filter(Boolean),
