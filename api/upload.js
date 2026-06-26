@@ -31,13 +31,30 @@ export default async function handler(req, res) {
   const buf = Buffer.from(m[2], "base64");
   if (buf.length > 6 * 1024 * 1024) return res.status(413).json({ error: "Файл больше 6 МБ" });
 
+  const SB = { apikey: SERVICE, Authorization: "Bearer " + SERVICE };
   try {
-    const r = await fetch(`${SUPA_URL}/storage/v1/object/product-photos/${path}`, {
+    let r = await fetch(`${SUPA_URL}/storage/v1/object/product-photos/${path}`, {
       method: "POST",
-      headers: { apikey: SERVICE, Authorization: "Bearer " + SERVICE, "Content-Type": m[1], "x-upsert": "true" },
+      headers: { ...SB, "Content-Type": m[1], "x-upsert": "true" },
       body: buf,
     });
-    if (!r.ok) return res.status(500).json({ error: "Storage: " + (await r.text()).slice(0, 200) });
+    // если бакета нет — создаём публичный и пробуем снова
+    if (!r.ok) {
+      const txt = await r.text();
+      if (/bucket not found/i.test(txt) || r.status === 404 || r.status === 400) {
+        await fetch(`${SUPA_URL}/storage/v1/bucket`, {
+          method: "POST",
+          headers: { ...SB, "Content-Type": "application/json" },
+          body: JSON.stringify({ id: "product-photos", name: "product-photos", public: true, file_size_limit: 8388608 }),
+        }).catch(() => {});
+        r = await fetch(`${SUPA_URL}/storage/v1/object/product-photos/${path}`, {
+          method: "POST",
+          headers: { ...SB, "Content-Type": m[1], "x-upsert": "true" },
+          body: buf,
+        });
+      }
+      if (!r.ok) return res.status(500).json({ error: "Storage: " + (await r.text()).slice(0, 200) });
+    }
     return res.status(200).json({ url: `${SUPA_URL}/storage/v1/object/public/product-photos/${path}` });
   } catch (e) {
     return res.status(500).json({ error: e.message });
