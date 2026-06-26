@@ -8,6 +8,14 @@ import { consumeFIFO, ensureBatches, sumQty, currentCost } from "../inventory.js
 import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
 import { openEditor } from "./sales.js";
 
+// себестоимость в той валюте, в которой её ввели (cost_cur). По умолчанию — юань.
+function costShow(cy, cu, ccur) {
+  cy = Number(cy) || 0; cu = Number(cu) || 0;
+  if (ccur === "usd") return fmt(cu, "usd");
+  if (ccur === "som") return fmt(convert(cu > 0 ? cu : convert(cy, "yuan", "usd"), "usd", "som"), "som");
+  return fmt(cy, "yuan");
+}
+
 // список партий товара (FIFO) для карточки
 function batchesView(p) {
   const bs = (Array.isArray(p.batches) ? p.batches : []).filter(b => Number(b.qty) > 0);
@@ -15,7 +23,7 @@ function batchesView(p) {
   return el("div", { style: { margin: "4px 0 12px" } }, [
     el("div.field-label", { text: "Партии на складе (сначала продаётся верхняя):" }),
     el("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" } },
-      bs.map(b => el("span.last-price", { text: `${b.qty} × ${fmt(b.cost_yuan, "yuan")} · ${(b.date || "").slice(0, 10)}` }))),
+      bs.map(b => el("span.last-price", { text: `${b.qty} × ${costShow(b.cost_yuan, b.cost_usd, p.cost_cur)} · ${(b.date || "").slice(0, 10)}` }))),
   ]);
 }
 
@@ -122,9 +130,9 @@ export default async function render(page, ctx) {
             ]),
             el("span.muted", { text: "ост: " + (Number(p.stock_qty) || 0) }),
           ]),
-          el("div.pr", {}, ["себест: " + fmt(p.cost_yuan, "yuan"),
+          el("div.pr", {}, ["себест: " + costShow(p.cost_yuan, p.cost_usd, p.cost_cur),
             (p.cost_prev && Number(p.cost_prev.cost_yuan) > 0 && Math.abs(Number(p.cost_prev.cost_yuan) - Number(p.cost_yuan)) > 0.001)
-              ? el("span.muted", { text: "  (было " + fmt(p.cost_prev.cost_yuan, "yuan") + ")", style: { fontSize: "11px" } }) : null]),
+              ? el("span.muted", { text: "  (было " + costShow(p.cost_prev.cost_yuan, p.cost_prev.cost_usd, p.cost_cur) + ")", style: { fontSize: "11px" } }) : null]),
         ]),
       ]);
       grid.append(card);
@@ -175,9 +183,11 @@ export function openForm(ctx, p, cats = []) {
   const addUrlBtn = el("button.btn.btn-outline.btn-sm", { text: "+ Ссылка", onclick: (e) => { e.preventDefault(); const u = fPhotoUrl.value.trim(); if (u) { photos.push(u); fPhotoUrl.value = ""; renderThumbs(); } } });
 
   const fStock = input({ type: "number", value: p.stock_qty, placeholder: "0" });
-  // себестоимость одной суммой + валюта прихода
-  const costCur0 = (Number(p.cost_usd) > 0 && !(Number(p.cost_yuan) > 0)) ? "usd" : "yuan";
-  const costVal0 = costCur0 === "usd" ? p.cost_usd : p.cost_yuan;
+  // себестоимость одной суммой + валюта прихода (показываем в той валюте, в которой ввели — cost_cur)
+  const costCur0 = p.cost_cur || ((Number(p.cost_usd) > 0 && !(Number(p.cost_yuan) > 0)) ? "usd" : "yuan");
+  const costVal0 = costCur0 === "usd" ? p.cost_usd
+    : costCur0 === "som" ? Math.round(convert((Number(p.cost_usd) > 0 ? Number(p.cost_usd) : convert(Number(p.cost_yuan) || 0, "yuan", "usd")), "usd", "som"))
+    : p.cost_yuan;
   const fCost = input({ type: "number", step: "0.01", value: costVal0 || "", placeholder: "0" });
   const fCostCur = select([{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }], costCur0);
   const fStatus = select([
@@ -256,12 +266,13 @@ export function openForm(ctx, p, cats = []) {
           photo_url: photos[0] || "", photos,
           stock_qty: batches.length ? sumQty(batches) : desired,
           cost_usd: cc.cost_usd, cost_yuan: cc.cost_yuan,
+          cost_cur: cur, // валюта, в которой ввели себестоимость — в ней и показываем
           status_override: fStatus.value || null,
         };
         // продажные цены (price_*) форма не редактирует — НЕ перезаписываем их (иначе обнуляются).
         // Для нового товара зададим явные нули, у существующего PATCH сохранит прежние.
         if (isNew) { obj.price_yuan = 0; obj.price_usd = 0; obj.price_som = 0; }
-        const noPhotos = (o) => { const { photos: _ph, ...rest } = o; return rest; }; // фолбэк, если колонки photos ещё нет
+        const noPhotos = (o) => { const { photos: _ph, cost_cur: _cc, ...rest } = o; return rest; }; // фолбэк, если колонок photos/cost_cur ещё нет
         try { await ctx.db.products.upsert({ ...obj, batches, ...(cost_prev ? { cost_prev } : {}) }); }
         catch (e) {
           try { await ctx.db.products.upsert({ ...obj, batches }); }
