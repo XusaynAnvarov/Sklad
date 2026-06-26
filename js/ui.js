@@ -90,13 +90,30 @@ export function field(label, input) {
 export function input(props = {}) { return el("input.inp", props); }
 
 // Просмотр фото в полном размере (зум по клику)
+// принимает один src ИЛИ массив фото (тогда — галерея со стрелками/свайпом)
 export function lightbox(src) {
-  if (!src) return;
-  const ov = el("div.modal-overlay.lb", { onclick: () => close() }, [
-    el("img", { src, style: { maxWidth: "92vw", maxHeight: "92vh", borderRadius: "12px", boxShadow: "0 20px 60px rgba(0,0,0,.6)" } }),
-  ]);
+  const photos = Array.isArray(src) ? src.filter(Boolean) : (src ? [src] : []);
+  if (!photos.length) return;
+  let idx = 0;
+  const img = el("img", { src: photos[0], style: { maxWidth: "92vw", maxHeight: "84vh", borderRadius: "12px", boxShadow: "0 20px 60px rgba(0,0,0,.6)", objectFit: "contain" } });
+  img.addEventListener("click", (e) => e.stopPropagation());
+  const ov = el("div.modal-overlay.lb", { onclick: () => close() }, [img]);
   ov.style.cursor = "zoom-out";
   function close() { ov.classList.remove("show"); setTimeout(() => ov.remove(), 200); }
+  if (photos.length > 1) {
+    const counter = el("div", { style: { position: "absolute", bottom: "16px", left: "0", right: "0", textAlign: "center", color: "#fff", fontSize: "14px" } });
+    const show = () => { img.src = photos[idx]; counter.textContent = (idx + 1) + " / " + photos.length; };
+    const go = (d, e) => { if (e) e.stopPropagation(); idx = (idx + d + photos.length) % photos.length; show(); };
+    const prev = el("button", { text: "‹", onclick: (e) => go(-1, e) });
+    const next = el("button", { text: "›", onclick: (e) => go(1, e) });
+    [prev, next].forEach(b => b.style.cssText = "position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.16);color:#fff;border:none;font-size:42px;width:54px;height:74px;border-radius:12px;cursor:pointer;line-height:1");
+    prev.style.left = "12px"; next.style.right = "12px";
+    ov.append(prev, next, counter);
+    let sx = 0;
+    ov.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; }, { passive: true });
+    ov.addEventListener("touchend", (e) => { const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
+    show();
+  }
   document.body.append(ov);
   requestAnimationFrame(() => ov.classList.add("show"));
 }

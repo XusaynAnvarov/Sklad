@@ -110,7 +110,7 @@ export default async function render(page, ctx) {
       const isSoon = transitIds.has(String(p.id)) && (Number(p.stock_qty) || 0) <= 0;
       const card = el("div.prod.reveal", { onclick: () => openForm(ctx, p, cats) }, [
         el("img.ph", { src: p.photo_url || placeholder(p.name), alt: p.name, loading: "lazy", title: "Нажмите для увеличения",
-          onclick: (e) => { if (p.photo_url) { e.stopPropagation(); lightbox(p.photo_url); } },
+          onclick: (e) => { const ph = (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []); if (ph.length) { e.stopPropagation(); lightbox(ph); } },
           onerror: function () { this.src = placeholder(p.name); } }),
         el("div.body", {}, [
           el("div.nm", { text: p.name }),
