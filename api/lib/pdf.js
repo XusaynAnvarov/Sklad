@@ -159,7 +159,8 @@ export async function buildReconciliationPDF({ customer, sales, payments, compan
   }
   function newPage() { pg = doc.addPage([W, H]); header(); }
   function colHead() {
-    pg.drawRectangle({ x: M, y: y - headH, width: tableR - M, height: headH, color: rgb(0.93, 0.93, 0.97) });
+    const hw = tableR - M, hr = 9;
+    pg.drawSvgPath(`M ${hr} 0 H ${hw - hr} Q ${hw} 0 ${hw} ${hr} V ${headH} H 0 V ${hr} Q 0 0 ${hr} 0 Z`, { x: M, y, color: rgb(0.93, 0.93, 0.97) });
     const hb = y - 15;
     T("Дата", cDate + 6, hb, 9, bold, GREY);
     T("Операция", cOper + 6, hb, 9, bold, GREY);
@@ -176,6 +177,7 @@ export async function buildReconciliationPDF({ customer, sales, payments, compan
   y -= 26;
 
   const opening = customer?.opening_debt || {};
+  const closing = {};
   let drew = false;
 
   for (const cur of CURS) {
@@ -209,17 +211,23 @@ export async function buildReconciliationPDF({ customer, sales, payments, compan
       pg.drawLine({ start: { x: M, y }, end: { x: tableR, y }, thickness: 0.6, color: LINE });
       i++;
     }
-    if (y - 50 < BOTTOM) newPage();
-    y -= 12;
-    T("Отгружено всего: " + money(ship, cur) + "      Оплачено всего: " + money(paid, cur), M, y, 10, reg, DARK);
-    y -= 20;
-    const closeTxt = "Конечный долг: " + money(bal, cur);
-    pg.drawRectangle({ x: M, y: y - 7, width: tw(closeTxt, 12, bold) + 24, height: 26, color: DARK });
-    T(closeTxt, M + 12, y + 1, 12, bold, bal > 0.0001 ? rgb(1, 0.6, 0.4) : rgb(0.4, 0.9, 0.6));
-    y -= 40;
+    closing[cur] = bal;
+    y -= 26;
   }
 
-  if (!drew) T("Движений по счёту нет.", M, y, 12, reg, GREY);
+  if (!drew) {
+    T("Движений по счёту нет.", M, y, 12, reg, GREY);
+  } else {
+    // общий долг по всем валютам — в конце
+    const parts = CURS.filter(c => Math.abs(closing[c] || 0) >= (c === "som" ? 1 : 0.01)).map(c => money(closing[c], c));
+    const debtStr = parts.length ? parts.join("     +     ") : money(0, "som");
+    if (y - 64 < BOTTOM) newPage();
+    const boxH = 50;
+    roundRect(pg, M, y - boxH, tableR - M, boxH, 16, { color: DARK });
+    T("Общий долг клиента", M + 20, y - 19, 11, reg, rgb(0.72, 0.74, 0.88));
+    T(debtStr, M + 20, y - 39, 17, bold, ACCENT);
+    y -= boxH + 12;
+  }
   pg.drawText("Сформировано: " + new Date().toLocaleString("ru-RU") + " · " + company, { x: M, y: 32, size: 9, font: reg, color: GREY });
 
   return await doc.save();

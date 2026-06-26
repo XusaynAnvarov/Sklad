@@ -351,6 +351,7 @@ function openActSverki(ctx, c, sales, payments) {
   const opening = c.opening_debt || {};
   const body = el("div", { style: { maxHeight: "60vh", overflowY: "auto" } });
   let any = false;
+  const closing = {};
   ["som", "usd", "yuan"].forEach(cur => {
     const events = [];
     finals.forEach(s => {
@@ -381,9 +382,20 @@ function openActSverki(ctx, c, sales, payments) {
       el("thead", {}, [el("tr", {}, ["Дата", "Операция", "Отгружено", "Оплачено", "Остаток"].map(h => el("th", { text: h })))]),
       tb,
     ]));
-    body.append(el("div", { style: { fontWeight: "700", margin: "6px 0 16px", textAlign: "right" }, text: "Конечный долг: " + fmt(bal, cur) }));
+    closing[cur] = bal;
+    body.append(el("div", { style: { marginBottom: "18px" } }));
   });
   if (!any) body.append(el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Движений по счёту нет" })]));
+  else {
+    const parts = ["som", "usd", "yuan"].filter(cu => Math.abs(closing[cu] || 0) >= (cu === "som" ? 1 : 0.01)).map(cu => fmt(closing[cu], cu));
+    const debtStr = parts.length ? parts.join("   +   ") : fmt(0, "som");
+    body.append(el("div", {
+      style: { background: "var(--navy,#16233b)", color: "#fff", borderRadius: "14px", padding: "14px 18px", marginTop: "4px" },
+    }, [
+      el("div", { text: "Общий долг клиента", style: { fontSize: "12px", opacity: ".75", marginBottom: "4px" } }),
+      el("div", { text: debtStr, style: { fontSize: "18px", fontWeight: "800", color: "var(--gold,#e3c163)" } }),
+    ]));
+  }
 
   modal({
     title: "Акт сверки — " + c.name,
