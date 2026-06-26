@@ -658,6 +658,25 @@ html[data-site-theme="dark"] .btn-warehouse {
   .product-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .cart-drawer { width: 100vw; }
 }
+/* ---------- Телефон: всё помещается и не ломается ---------- */
+@media (max-width: 600px) {
+  .site-header-inner { height: auto; min-height: 56px; padding: 8px 12px; flex-wrap: wrap; gap: 8px; }
+  .site-logo svg { width: 30px; height: 30px; }
+  .site-logo-text { font-size: 15px; }
+  .site-header-right { gap: 6px; flex-wrap: wrap; }
+  .site-header-right .btn-primary, .site-header-right .btn-navy, .site-header-right .btn-warehouse { padding: 7px 11px; font-size: 12px; }
+  /* таблицы: компактно + горизонтальная прокрутка вместо переноса */
+  .s-table { font-size: 12.5px; }
+  .s-table th, .s-table td { padding: 8px 8px; white-space: nowrap; }
+  .cabinet-card { padding: 14px; }
+  .s-modal { width: 94vw; max-width: 94vw; padding: 18px 14px 16px; }
+  .s-tabs { flex-wrap: wrap; }
+  .s-tab { flex: 1 1 auto; }
+  .ap-title { font-size: 18px; }
+  .ap-topbar { gap: 8px; }
+  /* галерея/лайтбокс — стрелки чуть меньше */
+  .lb img { max-width: 96vw !important; }
+}
 
 /* ================================================================
    ПАНЕЛЬ АДМИНИСТРАТОРА (admin-panel.js)

@@ -99,7 +99,8 @@ export function lightbox(src) {
   img.addEventListener("click", (e) => e.stopPropagation());
   const ov = el("div.modal-overlay.lb", { onclick: () => close() }, [img]);
   ov.style.cursor = "zoom-out";
-  function close() { ov.classList.remove("show"); setTimeout(() => ov.remove(), 200); }
+  let onKey = null;
+  function close() { if (onKey) document.removeEventListener("keydown", onKey); ov.classList.remove("show"); setTimeout(() => ov.remove(), 200); }
   if (photos.length > 1) {
     const counter = el("div", { style: { position: "absolute", bottom: "16px", left: "0", right: "0", textAlign: "center", color: "#fff", fontSize: "14px" } });
     const show = () => { img.src = photos[idx]; counter.textContent = (idx + 1) + " / " + photos.length; };
@@ -112,7 +113,13 @@ export function lightbox(src) {
     let sx = 0;
     ov.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; }, { passive: true });
     ov.addEventListener("touchend", (e) => { const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
+    // навигация клавишами (ноутбук): ← → и Esc
+    onKey = (e) => { if (e.key === "ArrowLeft") go(-1); else if (e.key === "ArrowRight") go(1); else if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
     show();
+  } else {
+    onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
   }
   document.body.append(ov);
   requestAnimationFrame(() => ov.classList.add("show"));

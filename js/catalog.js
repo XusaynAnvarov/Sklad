@@ -34,7 +34,10 @@ function openGallery(photos, start, name) {
   function show() { img.src = photos[idx]; counter.textContent = (name ? name + " · " : "") + (idx + 1) + " / " + photos.length; }
   function go(d, e) { if (e) e.stopPropagation(); idx = (idx + d + photos.length) % photos.length; show(); }
   prev.addEventListener("click", (e) => go(-1, e)); next.addEventListener("click", (e) => go(1, e));
-  box.addEventListener("click", () => { box.classList.remove("show"); setTimeout(() => box.remove(), 250); });
+  function close() { document.removeEventListener("keydown", onKey); box.classList.remove("show"); setTimeout(() => box.remove(), 250); }
+  const onKey = (e) => { if (e.key === "ArrowLeft") go(-1); else if (e.key === "ArrowRight") go(1); else if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
+  box.addEventListener("click", close);
   let sx = 0;
   box.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; }, { passive: true });
   box.addEventListener("touchend", (e) => { const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
@@ -320,7 +323,7 @@ function renderOrderView() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=21", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=22", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();

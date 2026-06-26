@@ -68,7 +68,9 @@ export async function renderCatalog(container) {
     filtered.forEach((p, i) => {
       const card = buildCard(p);
       card.classList.add("card-reveal");
-      setTimeout(() => card.classList.add("in"), i * 35);
+      // только первые карточки анимируем со сдвигом — иначе на телефоне с сотнями товаров лагает
+      if (i < 16) setTimeout(() => card.classList.add("in"), i * 30);
+      else card.classList.add("in");
       grid.append(card);
     });
   }
@@ -174,7 +176,10 @@ function openGallery(photos, start, name) {
   const counter = mkEl("div"); counter.style.cssText = "position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-size:14px";
   function show() { img.src = photos[idx]; counter.textContent = (name ? name + " · " : "") + (idx + 1) + " / " + photos.length; }
   function go(d, e) { if (e) e.stopPropagation(); idx = (idx + d + photos.length) % photos.length; show(); }
-  ov.addEventListener("click", () => ov.remove());
+  function close() { document.removeEventListener("keydown", onKey); ov.remove(); }
+  const onKey = (e) => { if (e.key === "Escape") close(); else if (photos.length > 1 && e.key === "ArrowLeft") go(-1); else if (photos.length > 1 && e.key === "ArrowRight") go(1); };
+  document.addEventListener("keydown", onKey);
+  ov.addEventListener("click", close);
   ov.append(img, counter);
   if (photos.length > 1) {
     const prev = mkEl("button"); prev.textContent = "‹";
