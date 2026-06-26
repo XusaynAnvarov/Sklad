@@ -15,8 +15,8 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: "4mb" }));
-app.use(express.urlencoded({ extended: true, limit: "4mb" }));
+app.use(express.json({ limit: "12mb" }));
+app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 
 // совместимость res.status(n).json/.send с форматом Vercel-хендлеров
 function wrapRes(res) {
@@ -63,6 +63,8 @@ const routes = [
   [["POST"],  "/api/notify-new-products",     "./api/notify-new-products.js"],
   // каталог (переиспользуем если есть)
   [["GET"],   "/api/catalog",                 "./api/catalog.js"],
+  // загрузка фото товара в Supabase Storage (бакет product-photos)
+  [["POST","OPTIONS"], "/api/upload",         "./api/upload.js"],
   // склад-админ: универсальный CRUD прокси (service_key, минуя RLS)
   [["GET","POST","DELETE","OPTIONS"], "/api/admin/db", "./api/admin/db.js"],
   [["GET"],   "/api/admin/site-clients",      "./api/admin/site-clients.js"],
