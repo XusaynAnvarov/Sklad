@@ -56,7 +56,7 @@ function placeholder(name = "?") {
 }
 
 async function loadItems() {
-  const norm = (d) => ({ id: d.id, name: d.name, category: d.category, photo_url: d.photo_url, photos: (Array.isArray(d.photos) && d.photos.length) ? d.photos : (d.photo_url ? [d.photo_url] : []), status: d.status });
+  const norm = (d) => ({ id: d.id, name: d.name, category: d.category, photo_url: d.photo_url, photos: (Array.isArray(d.photos) && d.photos.length) ? d.photos : (d.photo_url ? [d.photo_url] : []), status: d.status, is_new: !!d.is_new });
   if (useSupabase) {
     // публичный API (отдаёт все фото товара)
     try {
@@ -67,11 +67,15 @@ async function loadItems() {
   // локальный режим: берём из того же хранилища, что и админка, БЕЗ цен
   const raw = localStorage.getItem("sklad_db_v1");
   const store = raw ? JSON.parse(raw) : { products: [] };
-  return (store.products || []).map(p => ({
-    id: p.id, name: p.name, category: p.category, photo_url: p.photo_url,
-    photos: (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []),
-    status: p.status_override || (Number(p.stock_qty) > 0 ? "in_stock" : "on_order"),
-  }));
+  return (store.products || []).map(p => {
+    const ref = Math.max(p.created_at ? +new Date(p.created_at) : 0, p.last_arrival_at ? +new Date(p.last_arrival_at) : 0);
+    return {
+      id: p.id, name: p.name, category: p.category, photo_url: p.photo_url,
+      photos: (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []),
+      status: p.status_override || (Number(p.stock_qty) > 0 ? "in_stock" : "on_order"),
+      is_new: ref > 0 && (Date.now() - ref) / 86400000 <= 7,
+    };
+  });
 }
 
 const grid = document.getElementById("grid");
@@ -121,6 +125,7 @@ function cardHtml(p, i) {
       <div style="position:relative">
         <img class="ph" loading="lazy" src="${mainPhoto || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'" />
         ${np > 1 ? `<span style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px">📷 ${np}</span>` : ""}
+        ${p.is_new ? `<span style="position:absolute;right:8px;top:8px;background:var(--accent,#4f7cf0);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">Новый</span>` : ""}
       </div>
       <div class="body">
         <div class="nm">${escapeHtml(p.name)}</div>
@@ -139,11 +144,17 @@ function groupByCategory(list = items) {
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(p);
   });
-  return [...map.entries()].sort((a, b) => {
+  const groups = [...map.entries()].sort((a, b) => {
     if (a[0] === "Без категории") return 1;
     if (b[0] === "Без категории") return -1;
     return a[0].localeCompare(b[0], "ru");
   });
+  // новинки (последние 7 дней) — отдельной секцией сверху, когда не выбрана конкретная категория
+  if (selectedCat === "all") {
+    const news = list.filter(p => p.is_new);
+    if (news.length) groups.unshift(["🆕 Новинки", news]);
+  }
+  return groups;
 }
 
 const catKey = (p) => (p.category && String(p.category).trim()) || "Без категории";
@@ -323,7 +334,7 @@ function renderOrderView() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=23", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=24", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();

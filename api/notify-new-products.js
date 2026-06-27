@@ -31,8 +31,8 @@ export default async function handler(req, res) {
     const customers = await sget("customers?tg_chat_id=not.is.null&select=tg_chat_id");
     const chatIds = [...new Set(customers.map(c => c.tg_chat_id).filter(Boolean))];
 
-    // клиентам показываем только названия пришедших товаров (без количества/цен)
-    const text = `🆕 Новые товары:\n\n${list}`;
+    // клиентам — просто что пришли новые товары (без названий/поставщика/количества)
+    const text = "🆕 Поступили новые товары! Загляните в каталог 👇";
     const reply_markup = { inline_keyboard: [[{ text: "🛒 Открыть каталог", web_app: { url: `${PUBLIC_URL}/catalog?order=1` } }]] };
 
     let sent = 0, failed = 0;
