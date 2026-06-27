@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const text = "🆕 Поступили новые товары! Загляните в каталог 👇";
     const reply_markup = { inline_keyboard: [
       [{ text: "🛒 Заказать в приложении", web_app: { url: `${PUBLIC_URL}/catalog?order=1` } }],
-      [{ text: "🌐 Открыть наш сайт", url: `${PUBLIC_URL}/catalog` }],
+      [{ text: "🌐 Открыть наш сайт", url: PUBLIC_URL }],
     ] };
 
     let sent = 0, failed = 0;
