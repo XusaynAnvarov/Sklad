@@ -69,6 +69,7 @@ export default async function render(page, ctx) {
         : el("span.badge.transit", {}, [icon("truck", { size: 13 }), "В дороге"])]),
       el("td.right", {}, [el("div.row-actions", {}, [
         s.status !== "arrived" && el("button.btn.btn-ok.btn-sm", { text: "Оприходовать", title: "Отметить «пришёл» и добавить на склад", onclick: () => arrive(ctx, s, products) }),
+        s.status === "arrived" && el("button.btn.btn-outline.btn-sm", { title: "Если оприходовали дважды — списать товары этого прихода один раз", onclick: () => unarriveOnce(ctx, s, products) }, ["↩️ −1 оприх."]),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать", onclick: () => openEditor(ctx, s, products, suppliers) }, [icon("edit", { size: 16 })]),
         el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить приход?" + (s.status === "arrived" ? " Оприходованные товары спишутся со склада." : ""), async () => {
           if (s.status === "arrived") { for (const it of (s.items || [])) { const p = pmap[it.product_id]; if (!p) continue; const r = consumeFIFO(ensureBatches(p), it.qty); p.batches = r.batches; const cc = costAfter(r.batches, p); const base = { id: p.id, stock_qty: sumQty(r.batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd }; try { await ctx.db.products.upsert({ ...base, batches: r.batches }); } catch (e) { await ctx.db.products.upsert(base); } } }
@@ -81,6 +82,22 @@ export default async function render(page, ctx) {
     el("thead", {}, [el("tr", {}, ["Дата", "Поставщик", "Валюта", "Позиции", "Сумма", "Статус", ""].map(h => el("th", { text: h })))]),
     tbody,
   ])]));
+}
+
+// списать товары этого прихода со склада ОДИН раз — если приход случайно оприходован дважды
+async function unarriveOnce(ctx, s, products) {
+  const pmap = Object.fromEntries(products.map(p => [p.id, p]));
+  confirmDialog("Списать товары этого прихода со склада ОДИН раз? (используйте, если оприходовали дважды). Запись прихода останется.", async () => {
+    for (const it of (s.items || [])) {
+      const p = pmap[it.product_id]; if (!p) continue;
+      const r = consumeFIFO(ensureBatches(p), it.qty);
+      p.batches = r.batches;
+      const cc = costAfter(r.batches, p);
+      const base = { id: p.id, stock_qty: sumQty(r.batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
+      try { await ctx.db.products.upsert({ ...base, batches: r.batches }); } catch (e) { await ctx.db.products.upsert(base); }
+    }
+    toast("Списано один раз — остатки исправлены", "ok"); ctx.refresh();
+  });
 }
 
 async function arrive(ctx, s, products) {
@@ -253,6 +270,17 @@ function openEditor(ctx, purchase, products, suppliers = []) {
             const pmap3 = Object.fromEntries(products.map(p => [p.id, p]));
             const lines3 = (state.items || []).map(it => `• ${pmap3[it.product_id]?.name || "?"} × ${it.qty}`);
             try { await notifyOwner(`Новый приход на склад\nПоставщик: ${fSupplier.value.trim() || "—"}\n\n${lines3.join("\n")}`); } catch {}
+          } else if (wasArrived && fStatus.value !== "arrived") {
+            // сняли «пришёл» → списываем товары со склада (по прежним позициям), чтобы повторное оприходование не задвоило остаток
+            const pmap4 = Object.fromEntries(products.map(p => [p.id, p]));
+            for (const it of (purchase.items || [])) {
+              const p = pmap4[it.product_id]; if (!p) continue;
+              const r = consumeFIFO(ensureBatches(p), it.qty);
+              p.batches = r.batches;
+              const cc = costAfter(r.batches, p);
+              const base = { id: p.id, stock_qty: sumQty(r.batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
+              try { await ctx.db.products.upsert({ ...base, batches: r.batches }); } catch (e) { await ctx.db.products.upsert(base); }
+            }
           }
           toast("Сохранено", "ok"); close(); ctx.refresh();
         } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
