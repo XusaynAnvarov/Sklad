@@ -29,8 +29,12 @@ function productListModal(title, list, onPick) {
   m = modal({ title: `${title} (${list.length})`, wide: true, body: el("div", {}, [search, box]), actions: [{ label: "Закрыть", kind: "btn-outline", onClick: c => c() }] });
 }
 
+// «проверено» — отметка, что себестоимость товара просмотрена при текущей стоимости (localStorage)
+export function costAck() { try { return JSON.parse(localStorage.getItem("gm_cost_ack") || "{}"); } catch { return {}; } }
+function ackAllCost(list) { try { const a = costAck(); list.forEach(p => { a[p.id] = Number(p.cost_yuan) || 0; }); localStorage.setItem("gm_cost_ack", JSON.stringify(a)); } catch {} }
+
 // Всплывающий список товаров с битой себестоимостью (себест. > цены)
-function costWarnModal(list, onPick) {
+function costWarnModal(list, onPick, ctx) {
   const box = el("div");
   let m;
   list.forEach(p => box.append(el("div.card", { style: { padding: "10px 12px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", cursor: onPick ? "pointer" : "default" }, title: onPick ? "Открыть и изменить" : "", onclick: onPick ? () => { m && m.close(); onPick(p); } : null }, [
@@ -38,7 +42,14 @@ function costWarnModal(list, onPick) {
     el("span.badge.order", { text: "себест: " + fmt(p.cost_yuan, "yuan") }),
     el("span.badge.ok", { text: "цена: " + fmt(p.price_yuan, "yuan") }),
   ])));
-  m = modal({ title: `Проверьте себестоимость (${list.length})`, wide: true, body: el("div", {}, [el("div.hint", { text: "Нажмите на товар, чтобы открыть и поправить себестоимость." }), box]), actions: [{ label: "Закрыть", kind: "btn-outline", onClick: c => c() }] });
+  m = modal({
+    title: `Проверьте себестоимость (${list.length})`, wide: true,
+    body: el("div", {}, [el("div.hint", { text: "Нажмите на товар, чтобы открыть и поправить. Или «Я всё проверил» — скрыть предупреждение." }), box]),
+    actions: [
+      { label: "✓ Я всё проверил — скрыть", kind: "btn-primary", onClick: (c) => { ackAllCost(list); c(); ctx && ctx.refresh && ctx.refresh(); } },
+      { label: "Закрыть", kind: "btn-outline", onClick: c => c() },
+    ],
+  });
 }
 
 // Всплывающий список оплат: кто, сколько, когда
@@ -137,7 +148,8 @@ export default async function render(page, ctx) {
 
     // предупреждения по данным
     const noPrice = products.filter(p => (Number(p.cost_yuan) || 0) <= 0 && (Number(p.cost_usd) || 0) <= 0);
-    const badCost = products.filter(p => Number(p.price_yuan) > 0 && Number(p.cost_yuan) > Number(p.price_yuan));
+    const ack = costAck();
+    const badCost = products.filter(p => Number(p.price_yuan) > 0 && Number(p.cost_yuan) > Number(p.price_yuan) && Number(ack[p.id]) !== Number(p.cost_yuan));
 
     // --- оборот по валютам (нативно) + всего в $; прибыль = оборот × % ---
     const turnByCur = { som: 0, usd: 0, yuan: 0 };
@@ -173,7 +185,7 @@ export default async function render(page, ctx) {
     wrap.innerHTML = "";
 
     // предупреждения
-    if (badCost.length) wrap.append(warnCard("alert", `Проверьте себестоимость: ${badCost.length} товаров`, "Себестоимость выше цены продажи — искажает прибыль. Нажмите, чтобы посмотреть.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => costWarnModal(badCost, editProduct)));
+    if (badCost.length) wrap.append(warnCard("alert", `Проверьте себестоимость: ${badCost.length} товаров`, "Себестоимость выше цены продажи — искажает прибыль. Нажмите, чтобы посмотреть.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => costWarnModal(badCost, editProduct, ctx)));
     if (noPrice.length) wrap.append(warnCard("tag", `Товары без цены (себестоимости): ${noPrice.length}`, "Нажмите, чтобы открыть список и вписать себестоимость.", "rgba(245,197,66,.6)", "rgba(245,197,66,.10)", () => productListModal("Товары без себестоимости", noPrice, editProduct)));
 
     // оборот + прибыль (всего, $)

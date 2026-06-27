@@ -278,6 +278,8 @@ export function openForm(ctx, p, cats = []) {
           try { await ctx.db.products.upsert({ ...obj, batches }); }
           catch (e2) { try { await ctx.db.products.upsert(noPhotos({ ...obj, batches })); } catch (e3) { await ctx.db.products.upsert(noPhotos(obj)); } }
         }
+        // отметить себестоимость как проверенную при этой стоимости (предупреждение на дашборде уйдёт)
+        try { const a = JSON.parse(localStorage.getItem("gm_cost_ack") || "{}"); const pid = obj.id || p.id; if (pid) { a[pid] = Number(cc.cost_yuan) || 0; localStorage.setItem("gm_cost_ack", JSON.stringify(a)); } } catch {}
         close(); toast("Сохранено", "ok"); ctx.refresh();
       } },
     ].filter(Boolean),
