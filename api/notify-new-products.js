@@ -17,23 +17,19 @@ export default async function handler(req, res) {
 
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
-  const ids = Array.isArray(body?.product_ids) ? body.product_ids.map(safeId).filter(Boolean) : [];
-  if (!ids.length) return res.status(400).json({ error: "Не указаны товары" });
+  // product_ids необязательны — сообщение всё равно общее (можно вызвать для ручной рассылки)
 
   try {
-    // имена пришедших товаров
-    const prods = await sget(`products?id=in.(${ids.join(",")})&select=id,name`);
-    if (!prods.length) return res.status(404).json({ error: "Товары не найдены" });
-    const names = prods.map(p => p.name).filter(Boolean);
-    const list = names.slice(0, 20).map(n => `• ${n}`).join("\n") + (names.length > 20 ? `\n…и ещё ${names.length - 20}` : "");
-
     // получатели — все клиенты с привязанным Telegram
     const customers = await sget("customers?tg_chat_id=not.is.null&select=tg_chat_id");
     const chatIds = [...new Set(customers.map(c => c.tg_chat_id).filter(Boolean))];
 
-    // клиентам — просто что пришли новые товары (без названий/поставщика/количества)
+    // клиентам — просто что пришли новые товары (без названий/поставщика/количества) + ссылки
     const text = "🆕 Поступили новые товары! Загляните в каталог 👇";
-    const reply_markup = { inline_keyboard: [[{ text: "🛒 Открыть каталог", web_app: { url: `${PUBLIC_URL}/catalog?order=1` } }]] };
+    const reply_markup = { inline_keyboard: [
+      [{ text: "🛒 Заказать в приложении", web_app: { url: `${PUBLIC_URL}/catalog?order=1` } }],
+      [{ text: "🌐 Открыть наш сайт", url: `${PUBLIC_URL}/catalog` }],
+    ] };
 
     let sent = 0, failed = 0;
     for (let i = 0; i < chatIds.length; i++) {

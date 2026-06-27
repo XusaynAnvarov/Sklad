@@ -46,7 +46,10 @@ export default async function render(page, ctx) {
   page.append(
     el("div.topbar", {}, [
       el("div", {}, [el("h1", { text: "Приход товара" }), el("div.sub", { text: `Поступлений: ${purchases.length}` })]),
-      el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, products, suppliers) }, [icon("plus", { size: 16 }), "Новый приход"]),
+      el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
+        el("button.btn.btn-outline", { title: "Отправить всем клиентам в Telegram: «пришли новые товары» + ссылки", onclick: () => confirmDialog("Отправить всем клиентам в Telegram уведомление о новых товарах?", () => notifyClientsNewProducts([])) }, ["📢 Оповестить клиентов"]),
+        el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, products, suppliers) }, [icon("plus", { size: 16 }), "Новый приход"]),
+      ]),
     ]),
   );
 
