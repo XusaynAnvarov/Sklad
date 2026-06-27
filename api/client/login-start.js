@@ -6,6 +6,7 @@ import { isAdminPhone } from "../lib/siteadmin.js";
 
 const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN;
 const BOT = process.env.CLIENT_BOT_USERNAME || "generalmodernbot";
+const PUBLIC_URL = process.env.PUBLIC_URL || "https://generalmodern.uz";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -51,9 +52,10 @@ export default async function handler(req, res) {
     }
 
     const text = `🔐 Код для входа на generalmodern.uz:\n\n*${code}*\n\nДействует 5 минут. Никому не сообщайте этот код.`;
+    const reply_markup = { inline_keyboard: [[{ text: "🌐 Вернуться на сайт", url: PUBLIC_URL }]] };
     const r = await fetch(`https://api.telegram.org/bot${CLIENT_TOKEN}/sendMessage`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown", reply_markup }),
     });
     const j = await r.json();
     if (!j.ok) return res.status(502).json({ error: `Не удалось отправить код. Откройте бота @${BOT}, нажмите /start и повторите.` });
