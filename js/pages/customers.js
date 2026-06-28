@@ -147,11 +147,12 @@ async function renderCard(page, ctx, id) {
   const lastPay = payments[0];
 
   // --- шапка ---
+  const subText = [c.contact, c.tg_chat_id ? "chat: " + c.tg_chat_id : null, c.note].filter(Boolean).join(" · ");
   page.append(el("div.topbar", {}, [
     el("div", {}, [
       el("button.btn.btn-outline.btn-sm", { onclick: () => ctx.navigate("customers"), style: { marginBottom: "10px" } }, [icon("arrow-left", { size: 15 }), "К списку"]),
       el("h1", { text: c.name }),
-      el("div.sub", { text: [c.contact, c.tg_chat_id ? "chat: " + c.tg_chat_id : null, c.note].filter(Boolean).join(" · ") || "—" }),
+      ...(subText ? [el("div.sub", { text: subText })] : []),
     ]),
     el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
       el("button.btn.btn-outline", { onclick: () => openForm(ctx, c, customers) }, [icon("edit", { size: 16 }), "Изменить"]),

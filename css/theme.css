@@ -86,7 +86,7 @@ html[data-theme="light"] .bg-stars{opacity:.45;}
 .sidebar .mode-tag{margin-top:18px;font-size:11px;color:var(--muted);text-align:center;padding:8px;border-radius:10px;background:rgba(255,255,255,.03);}
 
 .main{padding:28px 34px 80px;max-width:1280px;}
-.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px;gap:16px;flex-wrap:wrap;}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:16px;flex-wrap:wrap;}
 .topbar h1{font-size:28px;font-weight:800;}
 .topbar .sub{color:var(--muted);font-size:14px;margin-top:2px;}
 .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px;}
