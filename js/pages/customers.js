@@ -148,9 +148,10 @@ async function renderCard(page, ctx, id) {
 
   // --- шапка ---
   const subText = [c.contact, c.tg_chat_id ? "chat: " + c.tg_chat_id : null, c.note].filter(Boolean).join(" · ");
+  // «К списку» — отдельной строкой сверху, чтобы шапка не была высокой (иначе под кнопками большой пустой отступ)
+  page.append(el("button.btn.btn-outline.btn-sm", { onclick: () => ctx.navigate("customers"), style: { marginBottom: "12px" } }, [icon("arrow-left", { size: 15 }), "К списку"]));
   page.append(el("div.topbar", {}, [
     el("div", {}, [
-      el("button.btn.btn-outline.btn-sm", { onclick: () => ctx.navigate("customers"), style: { marginBottom: "10px" } }, [icon("arrow-left", { size: 15 }), "К списку"]),
       el("h1", { text: c.name }),
       ...(subText ? [el("div.sub", { text: subText })] : []),
     ]),
