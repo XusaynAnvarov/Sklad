@@ -7,7 +7,7 @@
 //       TELEGRAM_BOT_TOKEN, ADMIN_CHAT_ID, PUBLIC_URL
 // ========================================================================
 import { sget, spatch, supsert } from "./lib/supa.js";
-import { buildInvoicePDF } from "./lib/pdf.js";
+import { buildInvoicePDF, buildReconciliationPDF } from "./lib/pdf.js";
 import { invoiceCoverageStatus } from "./lib/debt.js";
 
 const TOKEN = process.env.CLIENT_BOT_TOKEN;
@@ -82,6 +82,54 @@ async function sendPDFto(chatId, saleId, cap) {
   await fetch(api("sendDocument"), { method: "POST", body: fd });
 }
 
+// ---------- Акт сверки (PDF) для владельца ----------
+// собрать PDF акта по клиенту: только оформленные накладные (final) + оплаты
+async function buildActBytes(custId) {
+  const customer = (await sget(`customers?id=eq.${encodeURIComponent(custId)}&select=*`))[0];
+  if (!customer) return null;
+  const [sales, payments] = await Promise.all([
+    sget(`sales?customer_id=eq.${custId}&status=eq.final&select=id,date,currency,items&order=date.asc`),
+    sget(`payments?customer_id=eq.${custId}&select=amount,currency,date&order=date.asc`),
+  ]);
+  const bytes = await buildReconciliationPDF({ customer, sales, payments });
+  return { customer, bytes };
+}
+async function sendActTo(chatId, custId) {
+  await tg("sendChatAction", { chat_id: chatId, action: "upload_document" });
+  const a = await buildActBytes(custId);
+  if (!a) return false;
+  const fd = new FormData();
+  fd.append("chat_id", String(chatId));
+  fd.append("caption", `📋 Акт сверки — ${a.customer.name}\nна ${dt(Date.now())}`);
+  fd.append("document", new Blob([a.bytes], { type: "application/pdf" }), `akt-sverki-${new Date().toISOString().slice(0, 10)}.pdf`);
+  await fetch(api("sendDocument"), { method: "POST", body: fd });
+  return true;
+}
+// меню выбора: «Все клиенты» + список клиентов
+async function adminActs(chatId) {
+  const cs = await sget("customers?select=id,name&order=name.asc");
+  if (!cs.length) return tg("sendMessage", { chat_id: chatId, text: "Клиентов нет." });
+  const kb = [[{ text: "📚 Все клиенты — прислать все PDF", callback_data: "act_all" }], ...cs.map(c => [{ text: "📋 " + c.name, callback_data: "act:" + c.id }])];
+  return tg("sendMessage", { chat_id: chatId, text: "📋 Акт сверки — выберите клиента или «Все клиенты»:", reply_markup: { inline_keyboard: kb } });
+}
+// прислать акты по ВСЕМ клиентам с движением (по одному PDF на клиента)
+async function adminActAll(chatId) {
+  try {
+    const [cs, sales, pays] = await Promise.all([
+      sget("customers?select=id,name&order=name.asc"),
+      sget("sales?status=eq.final&select=customer_id"),
+      sget("payments?select=customer_id"),
+    ]);
+    const active = new Set([...sales.map(s => s.customer_id), ...pays.map(p => p.customer_id)].filter(Boolean));
+    const list = cs.filter(c => active.has(c.id));
+    if (!list.length) { await tg("sendMessage", { chat_id: chatId, text: "Нет клиентов с движением для акта." }); return; }
+    await tg("sendMessage", { chat_id: chatId, text: `📋 Готовлю акты сверки по ${list.length} клиентам… пришлю по одному PDF.` });
+    let ok = 0;
+    for (const c of list) { try { if (await sendActTo(chatId, c.id)) ok++; } catch (e) { console.error("act_all", c.id, e); } }
+    await tg("sendMessage", { chat_id: chatId, text: `✅ Готово. Отправлено актов: ${ok} из ${list.length}.` });
+  } catch (e) { console.error("adminActAll error", e); await tg("sendMessage", { chat_id: chatId, text: "Не удалось сформировать акты. Попробуйте позже." }); }
+}
+
 function clientMenu(chatId, c, L) {
   return tg("sendMessage", { chat_id: chatId, text: L.menu(c.name), reply_markup: { inline_keyboard: [
     [{ text: L.bOrder, web_app: { url: PUBLIC_URL + "/catalog?order=1" } }],
@@ -111,6 +159,7 @@ function adminMenu(chatId) {
     [{ text: "🌐 Каталог", callback_data: "a_cat" }],
     [{ text: "👥 Клиенты", callback_data: "a_clients" }],
     [{ text: "💸 Долги", callback_data: "a_debts" }],
+    [{ text: "📋 Акты сверки", callback_data: "a_acts" }],
   ] } });
 }
 async function adminClients(chatId) {
@@ -127,7 +176,8 @@ async function adminClientCard(chatId, custId) {
   const hasAdv = ["som", "usd", "yuan"].some(k => advance[k] > (k === "som" ? 1 : 0.01));
   let body = `👤 *${c.name}*\n${c.contact ? "📞 " + c.contact + "\n" : ""}\nОборот: ${curStr(turn)}\nДолг: *${curStr(debt)}*`;
   if (hasAdv) body += `\n🔴 Аванс (мы должны): *${curStr(advance)}*`; // наша задолженность клиенту
-  await tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown", text: body, reply_markup: { inline_keyboard: inv.length ? inv : [[{ text: "Нет накладных", callback_data: "noop" }]] } });
+  const kb = [[{ text: "📋 Акт сверки (PDF)", callback_data: "act:" + custId }], ...(inv.length ? inv : [[{ text: "Нет накладных", callback_data: "noop" }]])];
+  await tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown", text: body, reply_markup: { inline_keyboard: kb } });
 }
 async function adminDebts(chatId) {
   const [cs, sales, pays] = await Promise.all([sget("customers?select=id,name,opening_debt"), sget("sales?select=customer_id,currency,items,status"), sget("payments?select=customer_id,amount,currency")]);
@@ -243,6 +293,7 @@ export default async function handler(req, res) {
         const t = raw.toLowerCase();
         if (t === "/clients") await adminClients(chatId);
         else if (t === "/debts") await adminDebts(chatId);
+        else if (t === "/akt" || t === "/act" || t === "/sverka") await adminActs(chatId);
         else if (t === "/catalog") await tg("sendMessage", { chat_id: chatId, text: `🌐 ${PUBLIC_URL}/catalog` });
         else if (t === "/start" || t === "/menu") await adminMenu(chatId);
         else { const handled = await tryAdminPayment(chatId, raw); if (!handled) await adminMenu(chatId); }
@@ -353,6 +404,9 @@ export default async function handler(req, res) {
         if (data === "a_cat") await tg("sendMessage", { chat_id: chatId, text: `🌐 ${PUBLIC_URL}/catalog` });
         else if (data === "a_clients") await adminClients(chatId);
         else if (data === "a_debts") await adminDebts(chatId);
+        else if (data === "a_acts") await adminActs(chatId);
+        else if (data === "act_all") { adminActAll(chatId); } // длинная рассылка — без await, чтобы вебхук не таймаутил
+        else if (data.startsWith("act:")) await sendActTo(chatId, data.slice(4));
         else if (data.startsWith("cust:")) await adminClientCard(chatId, data.slice(5));
         else if (data.startsWith("ainv:")) await sendPDFto(chatId, data.slice(5));
         return res.status(200).send("ok");
