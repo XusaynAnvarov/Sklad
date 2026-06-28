@@ -97,7 +97,7 @@ html[data-theme="light"] .bg-stars{opacity:.45;}
 .card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 22px rgba(16,24,40,.10);}
 
 /* статистика дашборда */
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;align-items:stretch;}
 .stat-card{position:relative;overflow:hidden;padding:22px;border-radius:var(--radius);
   background:var(--card);border:1px solid var(--border);backdrop-filter:blur(10px);
   transition:transform .3s,border-color .3s,box-shadow .3s;}
