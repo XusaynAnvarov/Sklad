@@ -41,12 +41,12 @@ export default async function render(page, ctx) {
   ]);
 
   // ---------- Telegram ----------
-  const fChannel = input({ value: s.telegram_channel || cfg.TELEGRAM_CHANNEL || "", placeholder: "@my_channel или -100…" });
+  const fChannel = input({ value: s.telegram_channel || (() => { try { return localStorage.getItem("gm_tg_channel") || ""; } catch { return ""; } })() || cfg.TELEGRAM_CHANNEL || "", placeholder: "@my_channel или -100…" });
   const tgCard = el("div.card", { style: { marginBottom: "18px" } }, [
     el("div.section-h", { text: "Telegram", style: { marginTop: 0 } }),
     field("Канал для накладных", fChannel),
     el("div.hint", { text: "Токен бота хранится на сервере (переменные Vercel), не здесь. Бот должен быть админом канала." }),
-    el("button.btn.btn-primary", { text: "Сохранить канал", onclick: async () => { await ctx.db.saveSettings({ telegram_channel: fChannel.value.trim() }); toast("Сохранено", "ok"); } }),
+    el("button.btn.btn-primary", { text: "Сохранить канал", onclick: async () => { const v = fChannel.value.trim(); try { localStorage.setItem("gm_tg_channel", v); } catch {} try { await ctx.db.saveSettings({ telegram_channel: v }); toast("Сохранено", "ok"); } catch (e) { toast("Запомнили локально; в облако не сохранилось: " + (e.message || e), "err"); } } }),
   ]);
 
   // ---------- Ссылки ----------

@@ -334,9 +334,11 @@ async function sendInvToClient(ctx, s, c, products) {
 async function sendInvToChannel(ctx, s, c, products) {
   showLoader("Отправляем в канал…");
   try {
-    // канал берём из настроек (settings.telegram_channel); если пусто — сервер возьмёт TELEGRAM_CHANNEL_ID из env
+    // канал: из настроек, иначе из локальной резервной копии (на случай если облако не вернуло)
     let channel = "";
     try { const st = await ctx.db.getSettings(); channel = (st && st.telegram_channel) || ""; } catch {}
+    if (!channel) { try { channel = localStorage.getItem("gm_tg_channel") || ""; } catch {} }
+    if (!channel) { hideLoader(); toast("Канал не указан. Откройте Настройки → Telegram и впишите @канал/-100…", "err"); return; }
     await sendInvoicePDF(s.id, channel);
     await ctx.db.sales.upsert({ id: s.id, telegram_sent: true });
     toast("Отправлено в канал (PDF)", "ok"); ctx.refresh();
