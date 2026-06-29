@@ -30,7 +30,7 @@ export default async function handler(req, res) {
       sget("products?select=id,name"),
     ]);
     const customer = customers[0] || { name: "—" };
-    const status = invoiceCoverageStatus(sale.id, allSales, payments);
+    const status = invoiceCoverageStatus(sale.id, allSales, payments, customer.opening_debt);
     const bytes = await buildInvoicePDF({ sale, customer, products, status });
 
     const dateStr = new Date(sale.date).toISOString().slice(0, 10);

@@ -81,7 +81,7 @@ async function sendPDFto(chatId, saleId, cap) {
   let status;
   if (sale.customer_id) {
     const [cs, pays] = await Promise.all([sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items`), sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency`)]);
-    status = invoiceCoverageStatus(sale.id, cs, pays);
+    status = invoiceCoverageStatus(sale.id, cs, pays, customer.opening_debt);
   }
   const bytes = await buildInvoicePDF({ sale, customer, products, status });
   const fd = new FormData();
@@ -193,7 +193,7 @@ async function adminClientCard(chatId, custId) {
   if (!c) return;
   const [sales, pays] = await Promise.all([clientSales(custId), sget(`payments?customer_id=eq.${custId}&select=*`)]);
   const { debt, turn, advance } = debtAndTurnover(sales, pays, c);
-  const inv = sales.slice(0, 20).map(s => { const t = (s.items || []).reduce((a, i) => a + i.qty * i.unit_price, 0); const st = invoiceCoverageStatus(s.id, sales, pays); return [{ text: `${dt(s.date)} · ${money(t, s.currency)} ${stIcon(st)}`, callback_data: "ainv:" + s.id }]; });
+  const inv = sales.slice(0, 20).map(s => { const t = (s.items || []).reduce((a, i) => a + i.qty * i.unit_price, 0); const st = invoiceCoverageStatus(s.id, sales, pays, c.opening_debt); return [{ text: `${dt(s.date)} · ${money(t, s.currency)} ${stIcon(st)}`, callback_data: "ainv:" + s.id }]; });
   const hasAdv = ["som", "usd", "yuan"].some(k => advance[k] > (k === "som" ? 1 : 0.01));
   let body = `👤 *${c.name}*\n${c.contact ? "📞 " + c.contact + "\n" : ""}\nОборот: ${curStr(turn)}\nДолг: *${curStr(debt)}*`;
   if (hasAdv) body += `\n🔴 Аванс (мы должны): *${curStr(advance)}*`; // наша задолженность клиенту
@@ -446,7 +446,7 @@ export default async function handler(req, res) {
       } else if (data === "inv") {
         const [sales, ipays] = await Promise.all([clientSales(c.id), sget(`payments?customer_id=eq.${c.id}&select=amount,currency`)]);
         if (!sales.length) { await tg("sendMessage", { chat_id: chatId, text: L.noInv }); return res.status(200).send("ok"); }
-        const rows = sales.slice(0, 20).map(s => { const t = (s.items || []).reduce((a, i) => a + i.qty * i.unit_price, 0); const st = invoiceCoverageStatus(s.id, sales, ipays); return [{ text: `${dt(s.date)} · ${money(t, s.currency)} ${stIcon(st)}`, callback_data: "inv:" + s.id }]; });
+        const rows = sales.slice(0, 20).map(s => { const t = (s.items || []).reduce((a, i) => a + i.qty * i.unit_price, 0); const st = invoiceCoverageStatus(s.id, sales, ipays, c.opening_debt); return [{ text: `${dt(s.date)} · ${money(t, s.currency)} ${stIcon(st)}`, callback_data: "inv:" + s.id }]; });
         await tg("sendMessage", { chat_id: chatId, text: L.invList, reply_markup: { inline_keyboard: rows } });
       } else if (data.startsWith("inv:")) {
         await sendPDFto(chatId, data.slice(4), L.invCap(dt((await sget(`sales?id=eq.${data.slice(4)}&select=date`))[0]?.date || Date.now())));

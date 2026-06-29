@@ -16,11 +16,12 @@ const safeId = (v) => (/^[\w-]+$/.test(String(v || "")) ? String(v) : null);
 // реальный статус накладной по оплатам клиента
 async function coverageFor(sale) {
   if (!sale || !sale.customer_id) return undefined;
-  const [cs, pays] = await Promise.all([
+  const [cs, pays, cust] = await Promise.all([
     sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items`),
     sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency`),
+    sget(`customers?id=eq.${sale.customer_id}&select=opening_debt`),
   ]);
-  return invoiceCoverageStatus(sale.id, cs, pays);
+  return invoiceCoverageStatus(sale.id, cs, pays, cust[0]?.opening_debt);
 }
 
 export default async function handler(req, res) {

@@ -10,10 +10,12 @@ export default async function handler(req, res) {
   if (!client.customer_id) return res.status(200).json({ invoices: [] });
 
   try {
-    const [sales, payments] = await Promise.all([
+    const [sales, payments, cust] = await Promise.all([
       sget(`sales?customer_id=eq.${client.customer_id}&status=eq.final&select=id,date,currency,items&order=date.desc`),
       sget(`payments?customer_id=eq.${client.customer_id}&select=amount,currency`),
+      sget(`customers?id=eq.${client.customer_id}&select=opening_debt`),
     ]);
+    const openDebt = cust[0]?.opening_debt;
 
     // Имена товаров
     const prodIds = [...new Set(sales.flatMap(s => (s.items || []).map(i => i.product_id).filter(Boolean)))];
@@ -24,7 +26,7 @@ export default async function handler(req, res) {
     }
 
     const invoices = sales.map(s => {
-      const status = invoiceCoverageStatus(s.id, sales, payments);
+      const status = invoiceCoverageStatus(s.id, sales, payments, openDebt);
       const total = (s.items || []).reduce((acc, it) => acc + it.qty * it.unit_price, 0);
       return {
         id: s.id,

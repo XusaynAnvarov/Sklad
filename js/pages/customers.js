@@ -41,9 +41,12 @@ const onlyPositive = (o) => ({ som: Math.max(0, o.som), usd: Math.max(0, o.usd),
 
 // статус каждой накладной по оплатам (оплаты гасят накладные старые-первыми, по валютам).
 // Флаг «оплачено» не учитываем → статус меняется автоматически при оплате. { saleId: 'paid'|'partial'|'debt' }
-function coverageMap(custSales, custPays) {
+function coverageMap(custSales, custPays, openDebt) {
   const pool = { som: 0, usd: 0, yuan: 0 };
   (custPays || []).forEach(p => { if (pool[p.currency] !== undefined) pool[p.currency] += Number(p.amount) || 0; });
+  // старый долг (до системы) гасится оплатами ПЕРВЫМ — он самый старый
+  const od = openDebt || {};
+  ["som", "usd", "yuan"].forEach(c => { pool[c] -= Math.max(0, Number(od[c]) || 0); if (pool[c] < 0) pool[c] = 0; });
   const asc = [...custSales].sort((a, b) => new Date(a.date) - new Date(b.date));
   const map = {};
   for (const s of asc) {
@@ -180,7 +183,7 @@ async function renderCard(page, ctx, id) {
   if (!sales.length) page.append(el("div.empty", { style: { padding: "30px" } }, [el("p", { text: "Накладных нет" })]));
   else {
     // бейдж = статус с учётом оплат (оплаты гасят старые «в долг» накладные первыми)
-    const cov = coverageMap(sales, payments);
+    const cov = coverageMap(sales, payments, od);
     const payBadgeFor = (s) => {
       const st = cov[s.id];
       if (st === "paid") return el("span.badge.ok", {}, [icon("check", { size: 13 }), "Оплачено"]);
