@@ -186,6 +186,15 @@ export default async function render(page, ctx) {
     // --- заканчивается на складе (остаток ≤ порога) — пора заказать ---
     const LOW_STOCK = 5;
     const lowStock = products.filter(p => { const q = Number(p.stock_qty) || 0; return q > 0 && q <= LOW_STOCK && statusOf(p) === "in_stock"; }).sort((a, b) => (Number(a.stock_qty) || 0) - (Number(b.stock_qty) || 0));
+    // --- ЧТО ЗАКАЗАТЬ по продажам: продавалось за 30 дней И остаток мал/закончился ---
+    const since30 = Date.now() - 30 * 864e5;
+    const sold30 = {};
+    sales.forEach(s => { if (new Date(s.date).getTime() < since30) return; (s.items || []).forEach(it => { sold30[it.product_id] = (sold30[it.product_id] || 0) + (Number(it.qty) || 0); }); });
+    const reorder = products.map(p => ({ p, stock: Number(p.stock_qty) || 0, sold: sold30[p.id] || 0 }))
+      .filter(x => x.stock <= LOW_STOCK && x.sold > 0)
+      .sort((a, b) => b.sold - a.sold);
+    // --- заказы, ещё НЕ списанные со склада (не оформлены) ---
+    const pendingOrders = sales.filter(s => ["order", "pending_confirm", "confirmed"].includes(s.status));
     // --- в дороге: приходы со статусом ≠ «пришёл» ---
     let transitUSD = 0;
     purchases.filter(s => s.status !== "arrived").forEach(s => (s.items || []).forEach(it => { transitUSD += toUSD(it.qty * it.unit_cost, it.currency || s.currency); }));
@@ -197,6 +206,21 @@ export default async function render(page, ctx) {
     if (badCost.length) wrap.append(warnCard("alert", `Проверьте себестоимость: ${badCost.length} товаров`, "Себестоимость выше цены продажи — искажает прибыль. Нажмите, чтобы посмотреть.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => costWarnModal(badCost, editProduct, ctx)));
     if (noPrice.length) wrap.append(warnCard("tag", `Товары без цены (себестоимости): ${noPrice.length}`, "Нажмите, чтобы открыть список и вписать себестоимость.", "rgba(245,197,66,.6)", "rgba(245,197,66,.10)", () => productListModal("Товары без себестоимости", noPrice, editProduct)));
     if (lowStock.length) wrap.append(warnCard("box", `Заканчивается на складе: ${lowStock.length} товаров`, `Остаток ≤ ${LOW_STOCK} — пора заказать у поставщика. Нажмите, чтобы посмотреть список.`, "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => productListModal(`Заканчивается на складе (остаток ≤ ${LOW_STOCK})`, lowStock, editProduct)));
+    if (pendingOrders.length) wrap.append(warnCard("cart", `Заказы не оформлены: ${pendingOrders.length}`, "Эти заказы ещё НЕ списаны со склада. Оформите их в «Заказы» — тогда остаток уменьшится.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => { location.hash = "#orders"; }));
+
+    // что заказать (по продажам): заканчивается И продаётся
+    if (reorder.length) {
+      wrap.append(el("div.section-h", { text: "Что заказать — продаётся, но заканчивается" }));
+      const rtb = el("tbody");
+      reorder.slice(0, 40).forEach(x => rtb.append(el("tr", { style: { cursor: "pointer" }, title: "Открыть товар", onclick: () => editProduct(x.p) }, [
+        el("td", {}, [el("strong", { text: x.p.name })]),
+        el("td", {}, [el("span.badge.order", { text: "ост: " + x.stock })]),
+        el("td", {}, [el("strong", { text: x.sold }), el("span.muted", { text: " шт за 30 дн", style: { fontSize: "12px" } })]),
+      ])));
+      wrap.append(el("div", { style: { overflowX: "auto", marginBottom: "14px" } }, [el("table.tbl", {}, [
+        el("thead", {}, [el("tr", {}, ["Товар", "Остаток", "Продажи"].map(h => el("th", { text: h })))]), rtb,
+      ])]));
+    }
 
     // оборот + прибыль (всего, $)
     wrap.append(el("div.section-h", { text: "Оборот и прибыль " + perLabel }));
