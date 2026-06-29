@@ -67,26 +67,54 @@ export default async function render(page, ctx) {
     ])]);
   }
 
+  const miniCard = (label, val, color, override) => el("div.stat-card", {}, [el("div.st-label", { text: label }), el("div.st-value", { text: override != null ? override : ("$" + Math.round(val).toLocaleString("ru-RU")), style: color ? { color } : {} })]);
+
   function draw() {
     wrap.innerHTML = "";
     const fSales = sales.filter(s => matchPeriod(s.date, period));
     const fPays = payments.filter(p => matchPeriod(p.date, period));
+    const cogsUSDof = (it) => it.cogs_usd != null ? Number(it.cogs_usd) : (Number(pmap[it.product_id]?.cost_usd) || 0) * (Number(it.qty) || 0);
+
+    // ---------- ИТОГИ: выручка / себестоимость / прибыль / маржа ($) ----------
+    let revUSD = 0, cogsUSD = 0;
+    fSales.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; const r = toUSD(it.qty * it.unit_price, c); const g = cogsUSDof(it); if (isFinite(r)) revUSD += r; if (isFinite(g)) cogsUSD += g; }));
+    const profUSD = revUSD - cogsUSD, margin = revUSD > 0 ? (profUSD / revUSD * 100) : 0;
+    wrap.append(el("div.section-h", { text: "Итоги — " + periodLabel() + " (в $ по курсу)" }));
+    wrap.append(el("div.stat-grid", {}, [
+      miniCard("Выручка", revUSD),
+      miniCard("Себестоимость", cogsUSD),
+      miniCard("Прибыль", profUSD, profUSD >= 0 ? "#34d399" : "#f87171"),
+      miniCard("Маржа", margin, profUSD >= 0 ? "#34d399" : "#f87171", margin.toFixed(1) + "%"),
+    ]));
 
     // ---------- ТОП ТОВАРОВ ----------
     const prodAgg = {};
     fSales.forEach(s => (s.items || []).forEach(it => {
-      const a = prodAgg[it.product_id] = prodAgg[it.product_id] || { qty: 0, rev: { som: 0, usd: 0, yuan: 0 } };
+      const a = prodAgg[it.product_id] = prodAgg[it.product_id] || { qty: 0, rev: { som: 0, usd: 0, yuan: 0 }, profit: 0 };
       a.qty += Number(it.qty) || 0;
       const c = it.currency || s.currency; if (a.rev[c] !== undefined) a.rev[c] += it.qty * it.unit_price;
+      const r = toUSD(it.qty * it.unit_price, c), g = cogsUSDof(it); if (isFinite(r) && isFinite(g)) a.profit += r - g;
     }));
     const topProd = Object.entries(prodAgg).sort((x, y) => y[1].qty - x[1].qty).slice(0, 20);
-    wrap.append(el("div.section-h", { text: "Топ товаров — " + periodLabel() + " (" + topProd.length + ")" }));
+    wrap.append(el("div.section-h", { text: "Топ товаров по продажам — " + periodLabel() + " (" + topProd.length + ")" }));
     wrap.append(topProd.length ? table(["#", "Товар", "Продано", "Выручка"], topProd.map(([id, a], i) => el("tr", {}, [
       el("td", { text: i + 1 }),
       el("td", {}, [el("strong", { text: pmap[id]?.name || "?" })]),
       el("td", {}, [el("strong", { text: a.qty })]),
       el("td", { text: curStr(a.rev) }),
     ]))) : el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Нет продаж за период" })]));
+
+    // ---------- ТОП ПО ПРИБЫЛИ ----------
+    const topProfit = Object.entries(prodAgg).filter(([, a]) => a.profit !== 0).sort((x, y) => y[1].profit - x[1].profit).slice(0, 20);
+    if (topProfit.length) {
+      wrap.append(el("div.section-h", { text: "Топ товаров по прибыли ($)" }));
+      wrap.append(table(["#", "Товар", "Продано", "Прибыль ($)"], topProfit.map(([id, a], i) => el("tr", {}, [
+        el("td", { text: i + 1 }),
+        el("td", {}, [el("strong", { text: pmap[id]?.name || "?" })]),
+        el("td", { text: a.qty }),
+        el("td", {}, [el("strong", { text: "$" + Math.round(a.profit).toLocaleString("ru-RU"), style: { color: a.profit >= 0 ? "#34d399" : "#f87171" } })]),
+      ]))));
+    }
 
     // ---------- ТОП КЛИЕНТОВ (повторные покупки) ----------
     const cliAgg = {};
