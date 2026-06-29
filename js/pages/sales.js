@@ -66,6 +66,12 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
     ? { customer_id: sale.customer_id, currency: sale.currency, date: sale.date, status: sale.status, boxes: sale.boxes || 0, paid: (sale.items || []).length > 0 && sale.items.every(i => i.paid), items: JSON.parse(JSON.stringify(sale.items || [])) }
     : { customer_id: preselectId || customers[0]?.id || "", currency: "som", date: new Date().toISOString(), status: "draft", boxes: 0, paid: false, items: [] };
 
+  // если правим УЖЕ оформленную накладную — её позиции уже списаны со склада;
+  // при проверке остатка возвращаем их, иначе ложно показывает «на складе 0» красным
+  const alreadyDeducted = sale && !["order", "pending_confirm", "confirmed", "draft"].includes(sale.status);
+  const consumedByProduct = {};
+  if (alreadyDeducted) (sale.items || []).forEach(it => { consumedByProduct[it.product_id] = (consumedByProduct[it.product_id] || 0) + (Number(it.qty) || 0); });
+
   // карта последних цен этого клиента по товарам (для подсказки на строках заказа)
   let lastPriceMap = new Map();
   async function loadLastPrices() { try { lastPriceMap = await ctx.db.lastPricesForCustomer(state.customer_id); drawCart(); } catch {} }
@@ -184,10 +190,12 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       const lt = el("strong", { text: fmt(it.qty * it.unit_price, it.currency) });
       // остаток на складе рядом с товаром (видно, если клиент заказал больше, чем есть)
       const stockEl = el("div", { style: { fontSize: "12px", marginTop: "2px" } });
+      // если накладная уже оформлена, её позиции уже списаны → доступно = остаток + уже списанное этой накладной
+      const avail = stock + (consumedByProduct[it.product_id] || 0);
       const paintStock = () => {
         stockEl.innerHTML = "";
-        if ((+it.qty || 0) > stock) stockEl.append(el("span", { text: `⚠ на складе ${stock}, заказано ${+it.qty || 0}`, style: { color: "var(--danger,#f87171)", fontWeight: "700" } }));
-        else stockEl.append(el("span", { text: `на складе: ${stock}`, style: { color: "var(--muted)" } }));
+        if ((+it.qty || 0) > avail) stockEl.append(el("span", { text: `⚠ на складе ${avail}, заказано ${+it.qty || 0}`, style: { color: "var(--danger,#f87171)", fontWeight: "700" } }));
+        else stockEl.append(el("span", { text: `на складе: ${avail}`, style: { color: "var(--muted)" } }));
       };
       paintStock();
       // подсказка владельцу при выставлении цены: себестоимость в ¥ + прошлая цена этому клиенту
