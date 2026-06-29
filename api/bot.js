@@ -242,13 +242,26 @@ async function tryAdminPayment(chatId, raw) {
   const amount = parseFloat(m[1].replace(/[\s,]/g, "")); if (!(amount > 0)) return false;
   const name = s.slice(0, m.index).trim(); if (name.length < 2) return false;
   const all = await sget("customers?select=id,name,opening_debt");
-  const c = all.find(x => (x.name || "").toLowerCase().includes(name.toLowerCase()));
-  if (!c) { await tg("sendMessage", { chat_id: chatId, text: `❌ Клиент «${name}» не найден.` }); return true; }
+  const nLow = name.toLowerCase().trim();
+  // 1) ТОЧНОЕ совпадение имени (чтобы «Илхом Ака» не уходил в «Илхом Ака (Андижон)»)
+  let matches = all.filter(x => (x.name || "").trim().toLowerCase() === nLow);
+  // 2) иначе — частичное (имя содержится)
+  if (!matches.length) matches = all.filter(x => (x.name || "").toLowerCase().includes(nLow));
+  if (!matches.length) { await tg("sendMessage", { chat_id: chatId, text: `❌ Клиент «${name}» не найден.` }); return true; }
+  if (matches.length === 1) { await recordPayment(chatId, matches[0], amount, currency); return true; }
+  // 3) несколько подходящих → спрашиваем, кому записать (оплату запоминаем во временном состоянии)
+  try { await supsert("bot_sessions", { chat_id: String(chatId), state: { pending_payment: { amount, currency } }, updated_at: new Date().toISOString() }); } catch {}
+  const kb = matches.slice(0, 16).map(c => [{ text: c.name, callback_data: "paysel:" + c.id }]);
+  await tg("sendMessage", { chat_id: chatId, text: `🔎 Под «${name}» подходит несколько клиентов. Кому записать оплату ${money(amount, currency)}?`, reply_markup: { inline_keyboard: kb } });
+  return true;
+}
+
+// записать оплату конкретному клиенту + показать новый долг
+async function recordPayment(chatId, c, amount, currency) {
   await supsert("payments", { customer_id: c.id, amount, currency, date: new Date().toISOString(), note: "Оплата (из бота)" });
   const [sales, pays] = await Promise.all([clientSales(c.id), sget(`payments?customer_id=eq.${c.id}&select=*`)]);
   const { debt } = debtAndTurnover(sales, pays, c);
   await tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown", text: `✅ Оплата *${money(amount, currency)}* записана клиенту *${c.name}*.\nТекущий долг: *${curStr(debt)}*` });
-  return true;
 }
 
 export default async function handler(req, res) {
@@ -446,6 +459,17 @@ export default async function handler(req, res) {
         else if (data.startsWith("act:")) await sendActTo(chatId, data.slice(4));
         else if (data.startsWith("cust:")) await adminClientCard(chatId, data.slice(5));
         else if (data.startsWith("ainv:")) await sendPDFto(chatId, data.slice(5));
+        else if (data.startsWith("paysel:")) {
+          // выбор клиента для оплаты, когда имя подходило нескольким
+          const custId = data.slice(7);
+          const sess = await sget(`bot_sessions?chat_id=eq.${chatId}&select=state`);
+          const pp = sess[0]?.state?.pending_payment;
+          if (!pp || !(Number(pp.amount) > 0)) { await tg("sendMessage", { chat_id: chatId, text: "Оплата устарела — введите заново «Имя сумма»." }); return res.status(200).send("ok"); }
+          const cust = (await sget(`customers?id=eq.${encodeURIComponent(custId)}&select=id,name,opening_debt`))[0];
+          if (!cust) { await tg("sendMessage", { chat_id: chatId, text: "Клиент не найден." }); return res.status(200).send("ok"); }
+          await recordPayment(chatId, cust, Number(pp.amount), pp.currency || "som");
+          try { await supsert("bot_sessions", { chat_id: String(chatId), state: {}, updated_at: new Date().toISOString() }); } catch {}
+        }
         return res.status(200).send("ok");
       }
 
