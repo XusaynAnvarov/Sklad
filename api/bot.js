@@ -160,12 +160,19 @@ async function linkByPhone(phone, chatId, fromUser) {
   if (c) {
     const cid = String(chatId);
     const ids = Array.isArray(c.tg_chat_ids) ? c.tg_chat_ids.map(String) : [];
+    const accs = Array.isArray(c.tg_accounts) ? c.tg_accounts : [];
     const patch = {};
     if (!c.tg_chat_id) patch.tg_chat_id = cid;          // основной получатель накладных — первый привязавшийся
     if (!ids.includes(cid)) patch.tg_chat_ids = [...ids, cid]; // все привязанные аккаунты (для входа в бот)
+    // запоминаем, КАКОЙ номер привязал ЭТОТ Telegram → потом владелец выбирает получателя по телефону
+    if (!accs.some(a => String(a.chat_id) === cid)) patch.tg_accounts = [...accs, { phone: String(phone), chat_id: cid, name: fromUser || "" }];
     if (Object.keys(patch).length) {
-      try { await spatch(`customers?id=eq.${c.id}`, patch); }
-      catch { if (!c.tg_chat_id) { try { await spatch(`customers?id=eq.${c.id}`, { tg_chat_id: cid }); } catch {} } } // фолбэк, если колонки tg_chat_ids ещё нет
+      const tryPatch = async (obj) => { try { await spatch(`customers?id=eq.${c.id}`, obj); return true; } catch { return false; } };
+      // полный патч → без tg_accounts → только tg_chat_id (фолбэк, если новых колонок ещё нет)
+      if (!(await tryPatch(patch))) {
+        const { tg_accounts, ...noAcc } = patch;
+        if (!(await tryPatch(noAcc)) && patch.tg_chat_id) await tryPatch({ tg_chat_id: patch.tg_chat_id });
+      }
     }
     return c;
   }

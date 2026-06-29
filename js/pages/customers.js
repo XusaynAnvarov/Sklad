@@ -330,12 +330,39 @@ async function togglePaid(ctx, s) {
   ctx.refresh();
 }
 
+// ----------------------- ВЫБОР ПОЛУЧАТЕЛЯ ПО ТЕЛЕФОНУ -----------------------
+// Привязанные Telegram-аккаунты клиента: из tg_accounts (телефон↔chat) + основной tg_chat_id.
+function recipientsOf(c) {
+  const list = [], seen = new Set();
+  (Array.isArray(c.tg_accounts) ? c.tg_accounts : []).forEach(a => {
+    if (a && a.chat_id && !seen.has(String(a.chat_id))) { seen.add(String(a.chat_id)); list.push({ chat_id: String(a.chat_id), phone: a.phone || "", name: a.name || "" }); }
+  });
+  if (c.tg_chat_id && !seen.has(String(c.tg_chat_id))) { seen.add(String(c.tg_chat_id)); list.push({ chat_id: String(c.tg_chat_id), phone: c.contact || "", name: "основной" }); }
+  return list;
+}
+// Показать выбор «кому отправить по номеру телефона». Один получатель — отправляем сразу.
+function pickRecipient(c, onPick) {
+  const rec = recipientsOf(c);
+  if (!rec.length) { toast("У клиента нет привязанного Telegram. Клиент должен написать боту и поделиться своим номером.", "err"); return; }
+  if (rec.length === 1) { onPick(rec[0].chat_id); return; }
+  const m = modal({
+    title: "Кому отправить?",
+    body: el("div", {}, [
+      el("div.hint", { text: "Выберите номер телефона получателя — отправим в его Telegram." }),
+      ...rec.map(r => el("button.btn.btn-outline", { style: { display: "block", width: "100%", textAlign: "left", marginBottom: "8px" }, onclick: () => { m.close(); onPick(r.chat_id); } },
+        [icon("send", { size: 15 }), "  📱 " + (r.phone || ("chat " + r.chat_id)) + (r.name ? "  ·  " + r.name : "")])),
+    ]),
+    actions: [{ label: "Отмена", kind: "btn-outline", onClick: x => x() }],
+  });
+}
+
 // ----------------------- ОТПРАВКА НАКЛАДНОЙ -----------------------
 async function sendInvToClient(ctx, s, c, products) {
-  if (!c.tg_chat_id) { toast("Укажите chat_id клиента (кнопка «Изменить»)", "err"); return; }
-  // отправляем через КЛИЕНТСКОГО бота (админский бот не может писать клиенту)
-  try { await sendInvoicePDFToClient(s.id, c.tg_chat_id, "Ваша накладная"); toast("Отправлено клиенту", "ok"); }
-  catch (e) { toast("Не отправлено: " + e.message, "err"); }
+  // выбираем получателя по номеру телефона → сразу отправляем в его Telegram (клиентский бот)
+  pickRecipient(c, async (chatId) => {
+    try { await sendInvoicePDFToClient(s.id, chatId, "Ваша накладная"); toast("Отправлено клиенту", "ok"); }
+    catch (e) { toast("Не отправлено: " + e.message, "err"); }
+  });
 }
 async function sendInvToChannel(ctx, s, c, products) {
   showLoader("Отправляем в канал…");
@@ -422,10 +449,12 @@ function openActSverki(ctx, c, sales, payments) {
         } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); }
       } },
       { label: "📤 Клиенту", kind: "btn-ok", onClick: async (close) => {
-        if (!c.tg_chat_id) { toast("У клиента нет Telegram (chat_id) — укажите в «Изменить».", "err"); return; }
-        showLoader("Отправляем клиенту…");
-        try { await sendActToClient(c.id); toast("Акт отправлен клиенту", "ok"); close(); }
-        catch (e) { toast("Не отправлено: " + (e.message || e), "err"); } finally { hideLoader(); }
+        // выбор получателя по номеру телефона → сразу отправляем акт в его Telegram
+        pickRecipient(c, async (chatId) => {
+          showLoader("Отправляем клиенту…");
+          try { await sendActToClient(c.id, chatId); toast("Акт отправлен клиенту", "ok"); close(); }
+          catch (e) { toast("Не отправлено: " + (e.message || e), "err"); } finally { hideLoader(); }
+        });
       } },
       { label: "📢 В канал", kind: "btn-primary", onClick: async (close) => {
         showLoader("Отправляем в канал…");

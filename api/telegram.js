@@ -119,12 +119,14 @@ export default async function handler(req, res) {
       if (!customer_id) return res.status(400).json({ error: "Не указан клиент" });
       const cust = (await sget(`customers?id=eq.${encodeURIComponent(customer_id)}&select=id,name,tg_chat_id`))[0];
       if (!cust) return res.status(404).json({ error: "Клиент не найден" });
-      if (!cust.tg_chat_id) return res.status(400).json({ error: "У клиента нет привязанного Telegram" });
+      // получатель: выбранный chat_id (по номеру телефона) ИЛИ основной tg_chat_id
+      const target = chat_id || cust.tg_chat_id;
+      if (!target) return res.status(400).json({ error: "У клиента нет привязанного Telegram" });
       const act = await buildActFor(customer_id);
       if (!act) return res.status(404).json({ error: "Клиент не найден" });
       // 1) сам акт-PDF
       const fd = new FormData();
-      fd.append("chat_id", String(cust.tg_chat_id));
+      fd.append("chat_id", String(target));
       fd.append("caption", "📋 Ваш акт сверки взаиморасчётов");
       fd.append("document", new Blob([act.bytes], { type: "application/pdf" }), `akt-sverki.pdf`);
       const r = await fetch(capi("sendDocument"), { method: "POST", body: fd });
@@ -139,7 +141,7 @@ export default async function handler(req, res) {
       if (rows.length) {
         await fetch(capi("sendMessage"), {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: cust.tg_chat_id, text: "Нажмите на накладную, чтобы получить её PDF:", reply_markup: { inline_keyboard: rows } }),
+          body: JSON.stringify({ chat_id: target, text: "Нажмите на накладную, чтобы получить её PDF:", reply_markup: { inline_keyboard: rows } }),
         });
       }
       return res.status(200).json({ ok: true });

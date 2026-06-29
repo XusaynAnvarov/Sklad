@@ -32,8 +32,8 @@ export function sendInvoicePDF(saleId, channel) {
 }
 
 // Акт сверки клиенту в его бот (PDF + кнопки накладных)
-export function sendActToClient(customerId) {
-  return call({ action: "client_act_pdf", customer_id: customerId });
+export function sendActToClient(customerId, chatId) {
+  return call({ action: "client_act_pdf", customer_id: customerId, chat_id: chatId || "" });
 }
 // Акт сверки в канал
 export function sendActToChannel(customerId, channel) {
