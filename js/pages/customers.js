@@ -90,7 +90,7 @@ async function renderList(page, ctx) {
         : el("span.badge.muted", { text: "0" });
     tbody.append(el("tr", { style: { cursor: "pointer" }, onclick: () => ctx.navigate("customers?id=" + c.id) }, [
       el("td", {}, [el("strong", { text: c.name })]),
-      el("td", { text: c.contact || "—" }),
+      el("td", { text: (() => { const ns = (Array.isArray(c.phones) && c.phones.length) ? c.phones : (c.contact ? [c.contact] : []); return ns.length ? ns[0] + (ns.length > 1 ? " +" + (ns.length - 1) : "") : "—"; })() }),
       el("td", { text: cs.length + " накл." }),
       el("td", {}, [badge]),
       el("td.right", {}, [el("div.row-actions", {}, [
@@ -147,7 +147,8 @@ async function renderCard(page, ctx, id) {
   const lastPay = payments[0];
 
   // --- шапка ---
-  const subText = [c.contact, c.tg_chat_id ? "chat: " + c.tg_chat_id : null, c.note].filter(Boolean).join(" · ");
+  const allNums = (Array.isArray(c.phones) && c.phones.length) ? c.phones : (c.contact ? [c.contact] : []);
+  const subText = [allNums.join(", "), c.tg_chat_id ? "chat: " + c.tg_chat_id : null, c.note].filter(Boolean).join(" · ");
   // «К списку» — отдельной строкой сверху, чтобы шапка не была высокой (иначе под кнопками большой пустой отступ)
   page.append(el("button.btn.btn-outline.btn-sm", { onclick: () => ctx.navigate("customers"), style: { marginBottom: "12px" } }, [icon("arrow-left", { size: 15 }), "К списку"]));
   page.append(el("div.topbar", {}, [
@@ -461,7 +462,20 @@ function openPayment(ctx, c) {
 function openForm(ctx, c, allCustomers = []) {
   const isNew = !c; c = c || { name: "", contact: "", note: "", tg_chat_id: "" };
   const fName = inputList(allCustomers.map(x => x.name), { value: c.name, placeholder: "Имя / магазин" });
-  const fContact = inputList(allCustomers.map(x => x.contact), { value: c.contact || "", placeholder: "Телефон / @username" });
+  // несколько номеров: первый — основной (contact), остальные — дополнительные. Клиент может войти в бот с любого.
+  let numbers = (Array.isArray(c.phones) && c.phones.length) ? [...c.phones] : (c.contact ? [c.contact] : [""]);
+  const phonesBox = el("div", {});
+  function renderPhones() {
+    phonesBox.innerHTML = "";
+    numbers.forEach((num, i) => {
+      const inp = input({ value: num, placeholder: i === 0 ? "Основной телефон / @username" : "Доп. номер" });
+      inp.addEventListener("input", () => { numbers[i] = inp.value; });
+      const rm = el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить номер", onclick: (e) => { e.preventDefault(); numbers.splice(i, 1); if (!numbers.length) numbers = [""]; renderPhones(); } }, [icon("x", { size: 14 })]);
+      phonesBox.append(el("div", { style: { display: "flex", gap: "8px", marginBottom: "6px", alignItems: "center" } }, [el("div", { style: { flex: "1" } }, [inp]), ...(numbers.length > 1 ? [rm] : [])]));
+    });
+  }
+  renderPhones();
+  const addPhoneBtn = el("button.btn.btn-outline.btn-sm", { onclick: (e) => { e.preventDefault(); numbers.push(""); renderPhones(); } }, [icon("plus", { size: 14 }), "Добавить номер"]);
   const fChat = input({ value: c.tg_chat_id || "", placeholder: "chat_id (для отправки накладных)" });
   const fNote = input({ value: c.note || "", placeholder: "Заметка" });
   const od0 = openingDebt(c);
@@ -471,7 +485,11 @@ function openForm(ctx, c, allCustomers = []) {
   modal({
     title: isNew ? "Новый клиент" : "Клиент",
     body: el("div", {}, [
-      field("Имя", fName), field("Контакт", fContact),
+      field("Имя", fName),
+      el("div.field-label", { text: "Телефоны (клиент может войти в бот с любого номера)" }),
+      phonesBox,
+      addPhoneBtn,
+      el("div.hint", { text: "Первый номер — основной (на него отправляются накладные). Остальные тоже привязываются к этому клиенту." }),
       field("Telegram chat_id", fChat),
       el("div.hint", { text: "chat_id нужен, чтобы отправлять накладные клиенту. Клиент должен сначала написать боту /start." }),
       field("Заметка", fNote),
@@ -483,10 +501,18 @@ function openForm(ctx, c, allCustomers = []) {
       { label: "Отмена", kind: "btn-outline", onClick: x => x() },
       { label: "Сохранить", kind: "btn-primary", onClick: async (close) => {
         if (!fName.value.trim()) { toast("Введите имя", "err"); return; }
-        const base = { ...(isNew ? {} : { id: c.id }), name: fName.value.trim(), contact: fContact.value.trim(), tg_chat_id: fChat.value.trim(), note: fNote.value.trim() };
+        const cleanNums = numbers.map(s => String(s || "").trim()).filter(Boolean);
+        const contact = cleanNums[0] || "";
+        const base = { ...(isNew ? {} : { id: c.id }), name: fName.value.trim(), contact, tg_chat_id: fChat.value.trim(), note: fNote.value.trim() };
         const opening_debt = { som: +fOdSom.value || 0, usd: +fOdUsd.value || 0, yuan: +fOdYuan.value || 0 };
-        try { const r = await ctx.db.customers.upsert({ ...base, opening_debt }); if (isNew && r) await ctx.db.customers.upsert({ id: r.id, opening_debt }); }
-        catch (e) { await ctx.db.customers.upsert(base); toast("Старый долг не сохранён (нужен SQL): " + e.message, "err"); }
+        // пробуем сохранить с phones+opening_debt; при отсутствии колонок — поэтапный фолбэк
+        try {
+          const r = await ctx.db.customers.upsert({ ...base, phones: cleanNums, opening_debt });
+          if (isNew && r) await ctx.db.customers.upsert({ id: r.id, phones: cleanNums, opening_debt });
+        } catch (e) {
+          try { await ctx.db.customers.upsert({ ...base, phones: cleanNums }); toast("Старый долг не сохранён (нужен SQL)", "err"); }
+          catch { await ctx.db.customers.upsert(base); toast("Доп. номера/долг не сохранены (нужен SQL): " + e.message, "err"); }
+        }
         close(); toast("Сохранено", "ok"); ctx.refresh();
       } },
     ],

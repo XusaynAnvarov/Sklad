@@ -47,7 +47,16 @@ async function setLang(chatId, lang, customer) {
   if (customer) { try { await spatch(`customers?id=eq.${customer.id}`, { tg_lang: lang }); } catch {} }
 }
 
-async function findByChat(chatId) { return (await sget(`customers?tg_chat_id=eq.${encodeURIComponent(chatId)}&select=*`))[0] || null; }
+// все номера клиента: основной contact + дополнительные phones[]
+function custNumbers(c) { return [c.contact, ...(Array.isArray(c.phones) ? c.phones : [])].filter(Boolean); }
+async function findByChat(chatId) {
+  const id = String(chatId);
+  const byMain = (await sget(`customers?tg_chat_id=eq.${encodeURIComponent(id)}&select=*`))[0];
+  if (byMain) return byMain;
+  // также среди дополнительных привязанных Telegram-аккаунтов клиента (tg_chat_ids)
+  try { const byArr = (await sget(`customers?tg_chat_ids=cs.${encodeURIComponent(JSON.stringify([id]))}&select=*`))[0]; if (byArr) return byArr; } catch {}
+  return null;
+}
 async function clientSales(custId) { return sget(`sales?customer_id=eq.${custId}&select=*&order=date.desc`); }
 function debtAndTurnover(sales, payments, customer) {
   const debt = { som: 0, usd: 0, yuan: 0 }, turn = { som: 0, usd: 0, yuan: 0 };
@@ -146,8 +155,20 @@ const sendIntro = (chatId) => tg("sendAnimation", { chat_id: chatId, animation: 
 async function linkByPhone(phone, chatId, fromUser) {
   const ph = norm(phone);
   const all = await sget("customers?select=*");
-  const c = all.find(x => x.contact && norm(x.contact) === ph && ph.length >= 7);
-  if (c) { await spatch(`customers?id=eq.${c.id}`, { tg_chat_id: String(chatId) }); return c; }
+  // совпадение по ЛЮБОМУ из номеров клиента (основной + дополнительные)
+  const c = all.find(x => ph.length >= 7 && custNumbers(x).some(n => norm(n) === ph));
+  if (c) {
+    const cid = String(chatId);
+    const ids = Array.isArray(c.tg_chat_ids) ? c.tg_chat_ids.map(String) : [];
+    const patch = {};
+    if (!c.tg_chat_id) patch.tg_chat_id = cid;          // основной получатель накладных — первый привязавшийся
+    if (!ids.includes(cid)) patch.tg_chat_ids = [...ids, cid]; // все привязанные аккаунты (для входа в бот)
+    if (Object.keys(patch).length) {
+      try { await spatch(`customers?id=eq.${c.id}`, patch); }
+      catch { if (!c.tg_chat_id) { try { await spatch(`customers?id=eq.${c.id}`, { tg_chat_id: cid }); } catch {} } } // фолбэк, если колонки tg_chat_ids ещё нет
+    }
+    return c;
+  }
   await notifyAdmin(`🔔 Клиент пишет боту, номер не найден:\nТел: ${phone}\nchat_id: ${chatId}\nTG: ${fromUser || "—"}`);
   return null;
 }
