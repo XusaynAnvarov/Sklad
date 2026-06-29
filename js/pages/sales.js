@@ -146,15 +146,19 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
     showLoader("Импорт из Excel…");
     try {
       const rows = await parseRows(file, "sale");
+      // нормализация ключа: регистр, лишние пробелы — чтобы имена/артикулы совпадали надёжнее
+      const keyOf = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+      const lookup = {}; products.forEach(p => { lookup[keyOf(p.name)] = p.id; if (p.sku) lookup[keyOf(p.sku)] = p.id; });
+      if (!rows.length) { toast("В файле не найдено строк. Нужны колонки: Название, Количество, Цена (скачайте «Шаблон»).", "err"); return; }
       const notFound = []; let added = 0;
       rows.forEach(r => {
-        const id = nameToId[(r.name || "").toLowerCase()];
+        const id = lookup[keyOf(r.name)];
         if (!id) { notFound.push(r.name); return; }
         state.items.push({ product_id: id, qty: r.qty || 1, unit_price: r.price || 0, currency: state.currency, price_yuan_norm: round(convert(r.price || 0, state.currency, "yuan")), paid: state.paid });
         added++;
       });
       drawCart();
-      toast(`Добавлено позиций: ${added}`, added ? "ok" : "err");
+      toast(added ? `Добавлено позиций: ${added}` : `Ни одно название/артикул не совпало (строк в файле: ${rows.length})`, added ? "ok" : "err");
       if (notFound.length) showNotFound(notFound);
     } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
     finally { hideLoader(); }

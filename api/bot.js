@@ -352,6 +352,13 @@ export default async function handler(req, res) {
           }
         } catch (e) { console.error("site verify contact error", e); }
         if (!verifiedSite) {
+          // АНТИФРОД: привязка к аккаунту клиента — ТОЛЬКО по СВОЕМУ контакту (request_contact),
+          // а не по пересланной чужой карточке. Иначе любой, переслав контакт клиента, войдёт в его аккаунт.
+          const sharedOwn = String(u.message.contact.user_id || "") === String(u.message.from?.id || "");
+          if (u.message.from?.is_bot || !sharedOwn) {
+            await tg("sendMessage", { chat_id: chatId, text: "Поделитесь СВОИМ контактом кнопкой ниже. Пересланный чужой номер для входа не подходит.", reply_markup: { keyboard: [[{ text: "📱 Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
+            return res.status(200).send("ok");
+          }
           const c = await linkByPhone(phone, chatId, fromName);
           const L = T[await getLang(chatId, c)] || T.ru;
           if (c) { await setLang(chatId, await getLang(chatId, null), c); await tg("sendMessage", { chat_id: chatId, text: L.found(c.name), reply_markup: { remove_keyboard: true } }); await clientMenu(chatId, c, L); }
