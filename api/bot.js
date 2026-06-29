@@ -24,6 +24,30 @@ async function notifyAdmin(text) {
   try { await fetch(`https://api.telegram.org/bot${ADMIN_TOKEN}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: ADMIN_CHAT, text }) }); } catch {}
 }
 const isAdmin = (id) => String(id) === String(ADMIN_CHAT);
+
+// Антифрод-уведомление владельцу: кто-то прислал ЧУЖОЙ контакт (попытка войти в чужой аккаунт).
+async function alertImpersonation(from, sharedPhone, where) {
+  const who = [from?.first_name, from?.last_name].filter(Boolean).join(" ") || "—";
+  const uname = from?.username ? "@" + from.username : "—";
+  let targetName = "не наш номер";
+  try {
+    const all = await sget("customers?select=name,contact,phones");
+    const tgt = all.find(x => custNumbers(x).some(n => norm(n) === norm(sharedPhone)));
+    if (tgt) targetName = `клиента «${tgt.name}»`;
+  } catch {}
+  await notifyAdmin(
+    `🚨 Попытка входа по ЧУЖОМУ номеру (${where})\n\n` +
+    `Кто пытается войти:\n` +
+    `• Имя: ${who}\n` +
+    `• Username: ${uname}\n` +
+    `• Telegram ID: ${from?.id || "—"}\n` +
+    `• chat_id: ${from?.id || "—"}\n\n` +
+    `Отправил контакт:\n` +
+    `• Номер: ${sharedPhone}\n` +
+    `• Это номер: ${targetName}\n\n` +
+    `❌ Доступ заблокирован — контакт не принадлежит отправителю.`
+  );
+}
 const money = (n, cur) => { const v = Number(n) || 0; const s = (cur === "som" ? Math.round(v) : Math.round(v * 100) / 100).toLocaleString("ru-RU"); return cur === "som" ? s + " сум" : (SIGN[cur] || "") + s; };
 const norm = (s) => (String(s || "").replace(/\D/g, "")).slice(-9);
 const dt = (d) => new Date(d).toLocaleDateString("ru-RU");
@@ -315,6 +339,7 @@ export default async function handler(req, res) {
         if (v && !v.verified && new Date(v.expires_at) > new Date()) {
           const sharedOwn = String(u.message.contact.user_id || "") === String(u.message.from?.id || "");
           if (u.message.from?.is_bot || !sharedOwn) {
+            await alertImpersonation(u.message.from, u.message.contact.phone_number, "регистрация на сайте");
             await tg("sendMessage", { chat_id: chatId, text: "Поделитесь СВОИМ контактом кнопкой ниже — пересланный чужой номер не подходит для регистрации.", reply_markup: { keyboard: [[{ text: "Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
             return res.status(200).send("ok");
           }
@@ -356,6 +381,7 @@ export default async function handler(req, res) {
               // антифрод: контакт должен быть СВОИМ (user_id == from.id) и не бот-аккаунт
               const sharedOwn = String(u.message.contact.user_id || "") === String(u.message.from?.id || "");
               if (u.message.from?.is_bot || !sharedOwn) {
+                await alertImpersonation(u.message.from, u.message.contact.phone_number, "регистрация на сайте");
                 await tg("sendMessage", { chat_id: chatId, text: "Поделитесь СВОИМ контактом кнопкой ниже — пересланный чужой номер не подходит для регистрации.", reply_markup: { keyboard: [[{ text: "Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
                 return res.status(200).send("ok");
               }
@@ -376,6 +402,7 @@ export default async function handler(req, res) {
           // а не по пересланной чужой карточке. Иначе любой, переслав контакт клиента, войдёт в его аккаунт.
           const sharedOwn = String(u.message.contact.user_id || "") === String(u.message.from?.id || "");
           if (u.message.from?.is_bot || !sharedOwn) {
+            await alertImpersonation(u.message.from, u.message.contact.phone_number, "вход в бота");
             await tg("sendMessage", { chat_id: chatId, text: "Поделитесь СВОИМ контактом кнопкой ниже. Пересланный чужой номер для входа не подходит.", reply_markup: { keyboard: [[{ text: "📱 Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
             return res.status(200).send("ok");
           }
@@ -441,7 +468,12 @@ export default async function handler(req, res) {
         const sale = (await sget(`sales?id=eq.${encodeURIComponent(sid)}&select=*`))[0];
         if (!sale) { await tg("sendMessage", { chat_id: chatId, text: "Заказ не найден." }); return res.status(200).send("ok"); }
         let owns = String(sale.order_from?.chat_id || "") === String(chatId);
-        if (!owns && sale.customer_id) { const cu = (await sget(`customers?id=eq.${sale.customer_id}&select=tg_chat_id`))[0]; owns = String(cu?.tg_chat_id || "") === String(chatId); }
+        // подтвердить может ЛЮБОЙ привязанный к клиенту Telegram-аккаунт (несколько номеров клиента)
+        if (!owns && sale.customer_id) {
+          const cu = (await sget(`customers?id=eq.${sale.customer_id}&select=tg_chat_id,tg_chat_ids`))[0];
+          const ids = Array.isArray(cu?.tg_chat_ids) ? cu.tg_chat_ids.map(String) : [];
+          owns = String(cu?.tg_chat_id || "") === String(chatId) || ids.includes(String(chatId));
+        }
         if (!owns) { await tg("sendMessage", { chat_id: chatId, text: "Этот заказ не привязан к вам." }); return res.status(200).send("ok"); }
         const confirm = data.startsWith("ocf:");
         await spatch(`sales?id=eq.${encodeURIComponent(sid)}`, { status: confirm ? "confirmed" : "order" });
