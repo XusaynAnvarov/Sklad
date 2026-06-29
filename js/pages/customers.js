@@ -161,6 +161,7 @@ async function renderCard(page, ctx, id) {
     ]),
     el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
       el("button.btn.btn-outline", { onclick: () => openForm(ctx, c, customers) }, [icon("edit", { size: 16 }), "Изменить"]),
+      el("button.btn.btn-outline", { title: "Привязать Telegram клиента (если он написал боту, но не подвязался)", onclick: () => linkTelegram(ctx, c) }, ["🔗 Telegram"]),
       el("button.btn.btn-outline", { title: "Акт сверки: оплаты и отгрузки по датам, с PDF", onclick: () => openActSverki(ctx, c, sales, payments) }, ["📋 Акт сверки"]),
       el("button.btn.btn-ok", { onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 16 }), "Оплата"]),
       el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products, c.id) }, [icon("plus", { size: 16 }), "Накладная"]),
@@ -354,6 +355,45 @@ function pickRecipient(c, onPick) {
     ]),
     actions: [{ label: "Отмена", kind: "btn-outline", onClick: x => x() }],
   });
+}
+
+// Ручная привязка Telegram: список тех, кто писал боту → выбрать этого клиента.
+// Нужно, когда клиент написал боту ДО того, как его номер появился в системе (авто-match не сработал).
+async function linkTelegram(ctx, c) {
+  showLoader("Загрузка контактов бота…");
+  let contacts = [];
+  try { const r = await fetch("/api/admin/bot-contacts", { headers: await authHeaders() }); contacts = await r.json(); } catch {}
+  hideLoader();
+  if (!Array.isArray(contacts) || !contacts.length) { toast("Пока никто не делился номером с ботом. Попросите клиента открыть бот и нажать «📱 Поделиться номером».", "err"); return; }
+  const search = input({ placeholder: "Поиск по номеру или имени…" });
+  const listBox = el("div", { style: { maxHeight: "46vh", overflow: "auto", marginTop: "10px" } });
+  const render = () => {
+    const q = (search.value || "").toLowerCase().replace(/\D/g, "");
+    const qt = (search.value || "").toLowerCase();
+    listBox.innerHTML = "";
+    const fl = contacts.filter(x => !qt || (q && String(x.phone || "").replace(/\D/g, "").includes(q)) || (x.tg_name || "").toLowerCase().includes(qt) || (x.tg_username || "").toLowerCase().includes(qt));
+    if (!fl.length) { listBox.append(el("div.muted", { text: "Ничего не найдено", style: { padding: "10px" } })); return; }
+    fl.forEach(x => listBox.append(el("button.btn.btn-outline", { style: { display: "block", width: "100%", textAlign: "left", marginBottom: "6px" }, onclick: () => doLink(x) },
+      ["📱 " + (x.phone || x.chat_id) + (x.tg_name ? "  ·  " + x.tg_name : "") + (x.tg_username ? "  ·  @" + x.tg_username : "")])));
+  };
+  search.addEventListener("input", render);
+  const m = modal({
+    title: "Привязать Telegram клиента «" + c.name + "»",
+    body: el("div", {}, [el("div.hint", { text: "Кто из написавших боту — этот клиент? Выберите — привяжем его Telegram к карточке." }), search, listBox]),
+    actions: [{ label: "Отмена", kind: "btn-outline", onClick: x => x() }],
+  });
+  render();
+  async function doLink(x) {
+    const cid = String(x.chat_id);
+    const accs = Array.isArray(c.tg_accounts) ? c.tg_accounts : [];
+    const ids = Array.isArray(c.tg_chat_ids) ? c.tg_chat_ids.map(String) : [];
+    const patch = { id: c.id, tg_chat_id: c.tg_chat_id || cid };
+    if (!ids.includes(cid)) patch.tg_chat_ids = [...ids, cid];
+    if (!accs.some(a => String(a.chat_id) === cid)) patch.tg_accounts = [...accs, { phone: x.phone || "", chat_id: cid, name: x.tg_name || "" }];
+    try { await ctx.db.customers.upsert(patch); }
+    catch { try { await ctx.db.customers.upsert({ id: c.id, tg_chat_id: patch.tg_chat_id, tg_chat_ids: patch.tg_chat_ids }); } catch { await ctx.db.customers.upsert({ id: c.id, tg_chat_id: patch.tg_chat_id }); } }
+    m.close(); toast("Telegram привязан к клиенту", "ok"); ctx.refresh();
+  }
 }
 
 // ----------------------- ОТПРАВКА НАКЛАДНОЙ -----------------------

@@ -366,6 +366,8 @@ export default async function handler(req, res) {
             await tg("sendMessage", { chat_id: chatId, text: "Поделитесь СВОИМ контактом кнопкой ниже. Пересланный чужой номер для входа не подходит.", reply_markup: { keyboard: [[{ text: "📱 Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
             return res.status(200).send("ok");
           }
+          // директория контактов бота — чтобы владелец мог ПРИВЯЗАТЬ клиента вручную, если авто-match не сработал
+          try { await supsert("bot_sessions", { chat_id: String(chatId), phone: String(phone), tg_name: fromName || "", tg_username: u.message.from?.username || "", updated_at: new Date().toISOString() }); } catch {}
           const c = await linkByPhone(phone, chatId, fromName);
           const L = T[await getLang(chatId, c)] || T.ru;
           if (c) { await setLang(chatId, await getLang(chatId, null), c); await tg("sendMessage", { chat_id: chatId, text: L.found(c.name), reply_markup: { remove_keyboard: true } }); await clientMenu(chatId, c, L); }

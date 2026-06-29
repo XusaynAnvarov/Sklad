@@ -69,6 +69,7 @@ const routes = [
   [["GET","POST","DELETE","OPTIONS"], "/api/admin/db", "./api/admin/db.js"],
   [["GET"],   "/api/admin/site-clients",      "./api/admin/site-clients.js"],
   [["GET"],   "/api/admin/act-pdf",           "./api/admin/act-pdf.js"],
+  [["GET"],   "/api/admin/bot-contacts",      "./api/admin/bot-contacts.js"],
   [["POST","DELETE"], "/api/admin/site-client-delete", "./api/admin/site-client-delete.js"],
   [["POST","DELETE"], "/api/admin/unblock",   "./api/admin/unblock.js"],
   // сайт-админ (JWT клиента с phone=837138321)
