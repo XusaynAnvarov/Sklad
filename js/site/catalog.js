@@ -64,6 +64,8 @@ export async function renderCatalog(container) {
       const matchQ = !searchQuery || (p.name || "").toLowerCase().includes(searchQuery);
       return matchCat && matchQ;
     });
+    // хиты недели — вверх (по убыванию недельных продаж)
+    filtered.sort((a, b) => (Number(b.week_sold) || 0) - (Number(a.week_sold) || 0));
     if (!filtered.length) { grid.append(buildEmpty("Ничего не найдено")); return; }
     filtered.forEach((p, i) => {
       const card = buildCard(p);
@@ -122,6 +124,12 @@ function buildCard(p) {
   const body = mkEl("div", "product-card-body");
   const name = mkEl("div", "product-name"); name.textContent = p.name;
   const cat  = mkEl("div", "product-category"); cat.textContent = p.category || "";
+  // артикул — приходит с сервера ТОЛЬКО владельцу (клиентам поле не отдаётся)
+  let skuEl = null;
+  if (p.sku) { skuEl = mkEl("div", "product-category"); skuEl.style.cssText = "font-size:11px;opacity:.8"; skuEl.textContent = "Арт.: " + p.sku; }
+  // хит недели — сколько куплено за 7 дней
+  let weekEl = null;
+  if (Number(p.week_sold) > 0) { weekEl = mkEl("div"); weekEl.style.cssText = "font-size:12px;font-weight:600;color:#e8810c;margin-top:3px"; weekEl.textContent = "🔥 За неделю: " + p.week_sold + " шт"; }
   const footer = mkEl("div", "product-card-footer");
 
   const btn = document.createElement("button");
@@ -139,7 +147,10 @@ function buildCard(p) {
   }
 
   footer.append(btn);
-  body.append(name, cat, footer);
+  body.append(name, cat);
+  if (skuEl) body.append(skuEl);
+  if (weekEl) body.append(weekEl);
+  body.append(footer);
   card.append(imgWrap, body);
   return card;
 }

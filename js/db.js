@@ -234,6 +234,24 @@ export const db = {
     return info ? info.priceYuan : null;
   },
 
+  // Карта последних цен клиента по ВСЕМ товарам за один проход (для редактора заказа).
+  // product_id → { price, currency, date }. Берём первую (самую свежую) продажу каждого товара.
+  async lastPricesForCustomer(customerId) {
+    const map = new Map();
+    if (!customerId) return map;
+    const sales = (await this.sales.list())
+      .filter(s => s.customer_id === customerId)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    for (const s of sales) {
+      for (const it of (s.items || [])) {
+        if (!it.product_id || map.has(it.product_id)) continue;
+        if (it.unit_price == null && it.price_yuan_norm == null) continue;
+        map.set(it.product_id, { price: it.unit_price != null ? it.unit_price : null, currency: it.currency || s.currency || "som", priceYuan: it.price_yuan_norm != null ? it.price_yuan_norm : null, date: s.date });
+      }
+    }
+    return map;
+  },
+
   // Последняя продажа товара клиенту: ТОЧНАЯ цена в её валюте + дата.
   // (раньше возвращали цену в юанях и пересчитывали обратно — давало дрейф из-за округления/курса)
   async lastSaleInfoForCustomer(customerId, productId) {

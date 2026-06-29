@@ -56,7 +56,7 @@ function placeholder(name = "?") {
 }
 
 async function loadItems() {
-  const norm = (d) => ({ id: d.id, name: d.name, category: d.category, photo_url: d.photo_url, photos: (Array.isArray(d.photos) && d.photos.length) ? d.photos : (d.photo_url ? [d.photo_url] : []), status: d.status, is_new: !!d.is_new });
+  const norm = (d) => ({ id: d.id, name: d.name, category: d.category, photo_url: d.photo_url, photos: (Array.isArray(d.photos) && d.photos.length) ? d.photos : (d.photo_url ? [d.photo_url] : []), status: d.status, is_new: !!d.is_new, week_sold: Number(d.week_sold) || 0 });
   if (useSupabase) {
     // публичный API (отдаёт все фото товара)
     try {
@@ -74,6 +74,7 @@ async function loadItems() {
       photos: (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []),
       status: p.status_override || (Number(p.stock_qty) > 0 ? "in_stock" : "on_order"),
       is_new: ref > 0 && (Date.now() - ref) / 86400000 <= 7,
+      week_sold: 0,
     };
   });
 }
@@ -130,6 +131,7 @@ function cardHtml(p, i) {
       <div class="body">
         <div class="nm">${escapeHtml(p.name)}</div>
         <div class="cat">${escapeHtml(p.category || "")}</div>
+        ${p.week_sold > 0 ? `<div style="font-size:12px;font-weight:600;color:#e8810c;margin-top:3px">🔥 За неделю: ${p.week_sold} шт</div>` : ""}
         <div style="margin-top:auto">${statusBadge(p.status)}</div>
         ${addRow}
       </div></div>`;
@@ -144,6 +146,8 @@ function groupByCategory(list = items) {
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(p);
   });
+  // внутри каждой категории — хиты недели вверх (по убыванию недельных продаж)
+  for (const arr of map.values()) arr.sort((a, b) => (Number(b.week_sold) || 0) - (Number(a.week_sold) || 0));
   const groups = [...map.entries()].sort((a, b) => {
     if (a[0] === "Без категории") return 1;
     if (b[0] === "Без категории") return -1;
@@ -334,7 +338,7 @@ function renderOrderView() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=31", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=32", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();

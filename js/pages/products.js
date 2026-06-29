@@ -107,7 +107,7 @@ export default async function render(page, ctx) {
     const cat = catFilter.value;
     draw(all.filter(p =>
       (!cat || p.category === cat) &&
-      (p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q))));
+      (p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q))));
   }
 
   function draw(list) {
@@ -123,6 +123,7 @@ export default async function render(page, ctx) {
         el("div.body", {}, [
           el("div.nm", { text: p.name }),
           el("div.cat", { text: p.category || "—" }),
+          ...(p.sku ? [el("div.muted", { text: "Арт.: " + p.sku, style: { fontSize: "11px", marginTop: "-2px" } })] : []),
           el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" } }, [
             el("div", { style: { display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" } }, [
               isSoon ? el("span.badge.transit", {}, [icon("clock", { size: 13 }), "Скоро"]) : statusBadge(p),
@@ -152,10 +153,11 @@ export function placeholder(name = "?") {
 
 export function openForm(ctx, p, cats = []) {
   const isNew = !p;
-  p = p || { name: "", category: "", photo_url: "", stock_qty: 0, cost_usd: 0, cost_yuan: 0, price_yuan: 0, price_usd: 0, price_som: 0, status_override: null };
+  p = p || { name: "", category: "", sku: "", photo_url: "", stock_qty: 0, cost_usd: 0, cost_yuan: 0, price_yuan: 0, price_usd: 0, price_som: 0, status_override: null };
 
   const fName = input({ value: p.name, placeholder: "Название" });
   const fCat = inputList(cats, { value: p.category || "", placeholder: "Категория (выбор или ввод)" });
+  const fSku = input({ value: p.sku || "", placeholder: "Артикул (виден только вам)" });
   // несколько фото; первое — главное (показывается в списке и каталоге)
   let photos = (Array.isArray(p.photos) && p.photos.length) ? [...p.photos] : (p.photo_url ? [p.photo_url] : []);
   const thumbsBox = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "8px", minHeight: "20px" } });
@@ -201,7 +203,7 @@ export function openForm(ctx, p, cats = []) {
 
   const body = el("div", {}, [
     field("Название", fName),
-    field("Категория", fCat),
+    el("div.row2", {}, [field("Категория", fCat), field("Артикул (виден только вам)", fSku)]),
     el("div.section-h", { text: "Фотографии (можно несколько)" }),
     thumbsBox,
     field("Загрузить файлы (можно выбрать сразу несколько)", fFile),
@@ -263,6 +265,7 @@ export function openForm(ctx, p, cats = []) {
         const obj = {
           ...(isNew ? {} : { id: p.id }),
           name: fName.value.trim(), category: fCat.value.trim(),
+          sku: fSku.value.trim() || null,
           photo_url: photos[0] || "", photos,
           stock_qty: batches.length ? sumQty(batches) : desired,
           cost_usd: cc.cost_usd, cost_yuan: cc.cost_yuan,
@@ -272,7 +275,7 @@ export function openForm(ctx, p, cats = []) {
         // продажные цены (price_*) форма не редактирует — НЕ перезаписываем их (иначе обнуляются).
         // Для нового товара зададим явные нули, у существующего PATCH сохранит прежние.
         if (isNew) { obj.price_yuan = 0; obj.price_usd = 0; obj.price_som = 0; }
-        const noPhotos = (o) => { const { photos: _ph, cost_cur: _cc, ...rest } = o; return rest; }; // фолбэк, если колонок photos/cost_cur ещё нет
+        const noPhotos = (o) => { const { photos: _ph, cost_cur: _cc, sku: _sk, ...rest } = o; return rest; }; // фолбэк, если колонок photos/cost_cur/sku ещё нет
         try { await ctx.db.products.upsert({ ...obj, batches, ...(cost_prev ? { cost_prev } : {}) }); }
         catch (e) {
           try { await ctx.db.products.upsert({ ...obj, batches }); }

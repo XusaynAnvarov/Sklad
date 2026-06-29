@@ -2,31 +2,41 @@
 // Статусы: in_stock / out_stock / soon (site_status='soon') / hidden (скрыт)
 // Порядок: сначала новые (created_at desc), потом по категории
 import { sget } from "./lib/supa.js";
+import { getSiteAdmin } from "./lib/siteadmin.js";
 
 const NEW_DAYS = 7; // товар считается «новинкой» N дней после добавления или последнего прихода
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
   res.setHeader("Access-Control-Allow-Origin", "*");
+  // артикул (sku) видит только владелец → его ответ НЕ кэшируем (иначе утечёт в общий кэш CDN)
+  const isOwner = !!getSiteAdmin(req);
+  if (isOwner) { res.setHeader("Cache-Control", "private, no-store"); res.setHeader("Vary", "Authorization"); }
+  else res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
 
   try {
     let raw = [];
     try {
       raw = await sget(
-        "products?select=id,name,category,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at&order=created_at.desc,name.asc"
+        "products?select=id,name,category,sku,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at&order=created_at.desc,name.asc"
       );
     } catch {
       try {
         raw = await sget(
-          "products?select=id,name,category,photo_url,stock_qty,site_status,created_at&order=created_at.desc,name.asc"
+          "products?select=id,name,category,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at&order=created_at.desc,name.asc"
         );
       } catch {
-        // fallback если site_status ещё не добавлена в Supabase
-        raw = await sget(
-          "products?select=id,name,category,photo_url,stock_qty,created_at&order=created_at.desc,name.asc"
-        );
+        try {
+          raw = await sget(
+            "products?select=id,name,category,photo_url,stock_qty,site_status,created_at&order=created_at.desc,name.asc"
+          );
+        } catch {
+          // fallback если site_status ещё не добавлена в Supabase
+          raw = await sget(
+            "products?select=id,name,category,photo_url,stock_qty,created_at&order=created_at.desc,name.asc"
+          );
+        }
       }
     }
 
@@ -41,6 +51,14 @@ export default async function handler(req, res) {
     try {
       const inTransit = await sget("purchases?status=eq.in_transit&select=items");
       inTransit.forEach(p => (p.items || []).forEach(it => { if (it.product_id) transitIds.add(String(it.product_id)); }));
+    } catch {}
+
+    // Сколько единиц куплено за последние 7 дней (только оформленные накладные final)
+    const weekMap = {};
+    try {
+      const since = new Date(Date.now() - 7 * 864e5).toISOString();
+      const recent = await sget("sales?status=eq.final&date=gte." + encodeURIComponent(since) + "&select=items,date");
+      recent.forEach(s => (s.items || []).forEach(it => { if (it.product_id) weekMap[it.product_id] = (weekMap[it.product_id] || 0) + (Number(it.qty) || 0); }));
     } catch {}
 
     const now = Date.now();
@@ -72,6 +90,10 @@ export default async function handler(req, res) {
           // доступный остаток (для ограничения заказа); 0 если не в наличии
           stock: status === "in_stock" ? Math.max(0, Number(p.stock_qty) || 0) : 0,
           is_new: ageDays <= NEW_DAYS,
+          // куплено за неделю (для «хитов»); видно всем
+          week_sold: weekMap[p.id] || 0,
+          // артикул — ТОЛЬКО владельцу (его ответ не кэшируется)
+          ...(isOwner ? { sku: p.sku || "" } : {}),
         };
       });
 
