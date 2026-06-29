@@ -154,7 +154,8 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       rows.forEach(r => {
         const id = lookup[keyOf(r.name)];
         if (!id) { notFound.push(r.name); return; }
-        state.items.push({ product_id: id, qty: r.qty || 1, unit_price: r.price || 0, currency: state.currency, price_yuan_norm: round(convert(r.price || 0, state.currency, "yuan")), paid: state.paid });
+        const cur = r.currency || state.currency; // валюта из файла (если есть), иначе валюта чека
+        state.items.push({ product_id: id, qty: r.qty || 1, unit_price: r.price || 0, currency: cur, price_yuan_norm: round(convert(r.price || 0, cur, "yuan")), paid: state.paid });
         added++;
       });
       drawCart();
