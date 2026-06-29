@@ -211,8 +211,30 @@ function adminMenu(chatId) {
     [{ text: "🌐 Каталог", callback_data: "a_cat" }],
     [{ text: "👥 Клиенты", callback_data: "a_clients" }],
     [{ text: "💸 Долги", callback_data: "a_debts" }],
+    [{ text: "🔔 Напомнить должникам", callback_data: "a_remind" }],
     [{ text: "📋 Акты сверки", callback_data: "a_acts" }],
   ] } });
+}
+// Разослать должникам напоминание об оплате в их Telegram (через клиентского бота)
+async function adminRemindDebtors(chatId) {
+  try {
+    const [cs, sales, pays] = await Promise.all([
+      sget("customers?select=id,name,opening_debt,tg_chat_id"),
+      sget("sales?select=customer_id,currency,items,status"),
+      sget("payments?select=customer_id,amount,currency"),
+    ]);
+    let sent = 0, noTg = 0;
+    for (const c of cs) {
+      const { debt } = debtAndTurnover(sales.filter(s => s.customer_id === c.id), pays.filter(p => p.customer_id === c.id), c);
+      if (!["som", "usd", "yuan"].some(k => debt[k] > (k === "som" ? 1 : 0.01))) continue; // нет долга
+      if (!c.tg_chat_id) { noTg++; continue; }
+      try {
+        await tg("sendMessage", { chat_id: c.tg_chat_id, parse_mode: "Markdown", text: `Здравствуйте, ${c.name}! 👋\n\nНапоминаем о текущей задолженности: *${curStr(debt)}*.\nПросьба погасить при возможности. Спасибо! 🙏` });
+        sent++;
+      } catch {}
+    }
+    await tg("sendMessage", { chat_id: chatId, text: `🔔 Напоминания отправлены: ${sent}.${noTg ? ` Без Telegram (не привязаны): ${noTg}.` : ""}` });
+  } catch (e) { console.error("remind error", e); await tg("sendMessage", { chat_id: chatId, text: "Не удалось разослать напоминания." }); }
 }
 async function adminClients(chatId) {
   const cs = await sget("customers?select=id,name&order=name.asc");
@@ -360,6 +382,7 @@ export default async function handler(req, res) {
         if (t === "/clients") await adminClients(chatId);
         else if (t === "/debts") await adminDebts(chatId);
         else if (t === "/akt" || t === "/act" || t === "/sverka") await adminActs(chatId);
+        else if (t === "/remind" || t === "/dolg") await adminRemindDebtors(chatId);
         else if (t === "/catalog") await tg("sendMessage", { chat_id: chatId, text: `🌐 ${PUBLIC_URL}/catalog` });
         else if (t === "/start" || t === "/menu") await adminMenu(chatId);
         else { const handled = await tryAdminPayment(chatId, raw); if (!handled) await adminMenu(chatId); }
@@ -486,6 +509,7 @@ export default async function handler(req, res) {
         if (data === "a_cat") await tg("sendMessage", { chat_id: chatId, text: `🌐 ${PUBLIC_URL}/catalog` });
         else if (data === "a_clients") await adminClients(chatId);
         else if (data === "a_debts") await adminDebts(chatId);
+        else if (data === "a_remind") { adminRemindDebtors(chatId); } // рассылка — без await, чтобы вебхук не таймаутил
         else if (data === "a_acts") await adminActs(chatId);
         else if (data === "act_all") { adminActAll(chatId); } // длинная рассылка — без await, чтобы вебхук не таймаутил
         else if (data.startsWith("act:")) await sendActTo(chatId, data.slice(4));
