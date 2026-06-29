@@ -146,9 +146,12 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
     showLoader("Импорт из Excel…");
     try {
       const rows = await parseRows(file, "sale");
-      // нормализация ключа: регистр, лишние пробелы — чтобы имена/артикулы совпадали надёжнее
-      const keyOf = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
-      const lookup = {}; products.forEach(p => { lookup[keyOf(p.name)] = p.id; if (p.sku) lookup[keyOf(p.sku)] = p.id; });
+      // Надёжная нормализация: схожие кириллица/латиница (P↔Р, C↔С, O↔О…) → один вид,
+      // и убираем регистр, пробелы, скобки, |, /, дефисы — чтобы коды моделей совпадали.
+      const FOLD = { а: "a", в: "b", е: "e", к: "k", м: "m", н: "h", о: "o", р: "p", с: "c", т: "t", у: "y", х: "x", ё: "e", ѕ: "s", і: "i", ј: "j" };
+      const keyOf = (s) => String(s || "").toLowerCase().split("").map(ch => FOLD[ch] || ch).join("").replace(/[^a-zа-я0-9]+/gi, "");
+      const lookup = {};
+      products.forEach(p => { const k = keyOf(p.name); if (k) lookup[k] = p.id; if (p.sku) { const ks = keyOf(p.sku); if (ks) lookup[ks] = p.id; } });
       if (!rows.length) { toast("В файле не найдено строк. Нужны колонки: Название, Количество, Цена (скачайте «Шаблон»).", "err"); return; }
       const notFound = []; let added = 0;
       rows.forEach(r => {
@@ -159,7 +162,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
         added++;
       });
       drawCart();
-      toast(added ? `Добавлено позиций: ${added}` : `Ни одно название/артикул не совпало (строк в файле: ${rows.length})`, added ? "ok" : "err");
+      toast(`Добавлено: ${added} из ${rows.length}` + (notFound.length ? ` · не найдено: ${notFound.length}` : ""), added ? "ok" : "err");
       if (notFound.length) showNotFound(notFound);
     } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
     finally { hideLoader(); }
