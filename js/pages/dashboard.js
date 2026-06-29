@@ -159,14 +159,20 @@ export default async function render(page, ctx) {
     ["som", "usd", "yuan"].forEach(c => profitByCur[c] = turnByCur[c] * (pct[c] || 0) / 100);
     const profitUSD = ["som", "usd", "yuan"].reduce((t, c) => t + toUSD(profitByCur[c], c), 0);
 
+    // --- РЕАЛЬНАЯ прибыль = выручка − себестоимость (cogs_usd хранится на позиции при оформлении) ---
+    const pmap = Object.fromEntries(products.map(p => [p.id, p]));
+    const cogsUSDof = (it) => it.cogs_usd != null ? Number(it.cogs_usd) : (Number(pmap[it.product_id]?.cost_usd) || 0) * (Number(it.qty) || 0);
+    let realProfitUSD = 0;
+    fSales.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; const rev = toUSD(it.qty * it.unit_price, c); const cogs = cogsUSDof(it); if (isFinite(rev) && isFinite(cogs)) realProfitUSD += rev - cogs; }));
+
     // --- дневные ряды за последние 14 дней (для мини-графиков) ---
     const DAYS = 14, today0 = new Date(); today0.setHours(0, 0, 0, 0);
-    const salesSeries = new Array(DAYS).fill(0), profitSeries = new Array(DAYS).fill(0);
+    const salesSeries = new Array(DAYS).fill(0), profitSeries = new Array(DAYS).fill(0), realProfitSeries = new Array(DAYS).fill(0);
     sales.forEach(s => {
       const d = new Date(s.date); d.setHours(0, 0, 0, 0);
       const idx = DAYS - 1 - Math.round((today0 - d) / 86400000);
       if (idx < 0 || idx >= DAYS) return;
-      (s.items || []).forEach(it => { const c = it.currency || s.currency; const usd = toUSD(it.qty * it.unit_price, c); if (!isFinite(usd)) return; salesSeries[idx] += usd; profitSeries[idx] += usd * ((pct[c] || 0) / 100); });
+      (s.items || []).forEach(it => { const c = it.currency || s.currency; const usd = toUSD(it.qty * it.unit_price, c); if (!isFinite(usd)) return; salesSeries[idx] += usd; profitSeries[idx] += usd * ((pct[c] || 0) / 100); const cg = cogsUSDof(it); if (isFinite(cg)) realProfitSeries[idx] += usd - cg; });
     });
 
     // --- склад (себестоимость, USD) + кол-во и статусы ---
@@ -177,6 +183,9 @@ export default async function render(page, ctx) {
       stockUnits += Number(p.stock_qty) || 0;
       if (statusOf(p) === "in_stock") inStock++; else onOrder++;
     });
+    // --- заканчивается на складе (остаток ≤ порога) — пора заказать ---
+    const LOW_STOCK = 5;
+    const lowStock = products.filter(p => { const q = Number(p.stock_qty) || 0; return q > 0 && q <= LOW_STOCK && statusOf(p) === "in_stock"; }).sort((a, b) => (Number(a.stock_qty) || 0) - (Number(b.stock_qty) || 0));
     // --- в дороге: приходы со статусом ≠ «пришёл» ---
     let transitUSD = 0;
     purchases.filter(s => s.status !== "arrived").forEach(s => (s.items || []).forEach(it => { transitUSD += toUSD(it.qty * it.unit_cost, it.currency || s.currency); }));
@@ -187,12 +196,14 @@ export default async function render(page, ctx) {
     // предупреждения
     if (badCost.length) wrap.append(warnCard("alert", `Проверьте себестоимость: ${badCost.length} товаров`, "Себестоимость выше цены продажи — искажает прибыль. Нажмите, чтобы посмотреть.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => costWarnModal(badCost, editProduct, ctx)));
     if (noPrice.length) wrap.append(warnCard("tag", `Товары без цены (себестоимости): ${noPrice.length}`, "Нажмите, чтобы открыть список и вписать себестоимость.", "rgba(245,197,66,.6)", "rgba(245,197,66,.10)", () => productListModal("Товары без себестоимости", noPrice, editProduct)));
+    if (lowStock.length) wrap.append(warnCard("box", `Заканчивается на складе: ${lowStock.length} товаров`, `Остаток ≤ ${LOW_STOCK} — пора заказать у поставщика. Нажмите, чтобы посмотреть список.`, "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => productListModal(`Заканчивается на складе (остаток ≤ ${LOW_STOCK})`, lowStock, editProduct)));
 
     // оборот + прибыль (всего, $)
     wrap.append(el("div.section-h", { text: "Оборот и прибыль " + perLabel }));
     wrap.append(el("div.stat-grid", {}, [
       bigCard("Оборот всего", salesUSD, "wallet", true, salesSeries),
-      bigCard("Прибыль всего", profitUSD, "chart", false, profitSeries),
+      bigCard("Реальная прибыль (по себест.)", realProfitUSD, "chart", true, realProfitSeries),
+      bigCard("Прибыль по % (оценка)", profitUSD, "chart", false, profitSeries),
     ]));
 
     // оборот и прибыль по валютам (% задаёт владелец)
