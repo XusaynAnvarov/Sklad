@@ -166,10 +166,23 @@ function sbTable(name) {
     },
     async remove(id) {
       if (!adminToken()) throw new Error("Требуется авторизация");
+      // в Корзину: сохраняем копию записи перед удалением (для восстановления)
+      try { const row = await adminGet(name, id); if (row && row.id) await adminPost("trash", "upsert", { entity: name, data: row, deleted_at: new Date().toISOString() }); } catch {}
       return adminPost(name, "delete", null, id);
     },
   };
 }
+
+// Корзина: список удалённого, восстановление и окончательное удаление
+const trashApi = {
+  async list() { if (!adminToken()) throw new Error("Требуется авторизация"); return adminGet("trash"); },
+  async restore(item) {
+    if (!adminToken()) throw new Error("Требуется авторизация");
+    await adminPost(item.entity, "upsert", item.data);   // возвращаем запись в её таблицу
+    await adminPost("trash", "delete", null, item.id);     // убираем из корзины
+  },
+  async purge(id) { if (!adminToken()) throw new Error("Требуется авторизация"); return adminPost("trash", "delete", null, id); },
+};
 
 // Накладные/приходы хранят позиции как вложенный массив (JSONB в Supabase,
 // массив в localStorage) — единый интерфейс для обоих режимов.
@@ -190,6 +203,7 @@ export const db = {
   sales: docCollection("sales"),
   purchases: docCollection("purchases"),
   payments: DB_MODE === "local" ? localCollection("payments") : sbTable("payments"),
+  trash: trashApi,
 
   async getSettings() {
     if (DB_MODE === "local") return { ...store.settings };

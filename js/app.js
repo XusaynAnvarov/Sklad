@@ -19,6 +19,7 @@ import reports from "./pages/reports.js";
 import catalogPage from "./pages/catalog_admin.js";
 import settings from "./pages/settings.js";
 import siteClients from "./pages/site_clients.js";
+import trash from "./pages/trash.js";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -30,6 +31,7 @@ const NAV = [
   { id: "reports",      label: "Отчёты",          ic: "chart",     render: reports },
   { id: "catalog",      label: "Каталог",         ic: "globe",     render: catalogPage },
   { id: "site_clients", label: "Клиенты сайта",   ic: "broadcast", render: siteClients },
+  { id: "trash",        label: "Корзина",         ic: "trash",     render: trash },
   { id: "settings",     label: "Настройки",       ic: "settings",  render: settings },
 ];
 
@@ -122,7 +124,7 @@ boot();
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=41", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=42", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
