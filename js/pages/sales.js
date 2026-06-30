@@ -61,7 +61,7 @@ export default async function render(page, ctx) {
 export function openEditor(ctx, sale, customers, products, preselectId) {
   const isNew = !sale;
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
-  const nameToId = {}; products.forEach(p => { nameToId[(p.name || "").toLowerCase()] = p.id; if (p.sku) nameToId[String(p.sku).toLowerCase()] = p.id; });
+  const nameToId = {}; products.forEach(p => { nameToId[(p.name || "").toLowerCase()] = p.id; }); // поиск товара в накладной — ТОЛЬКО по названию (не по артикулу)
   const state = sale
     ? { customer_id: sale.customer_id, currency: sale.currency, date: sale.date, status: sale.status, boxes: sale.boxes || 0, paid: (sale.items || []).length > 0 && sale.items.every(i => i.paid), items: JSON.parse(JSON.stringify(sale.items || [])) }
     : { customer_id: preselectId || customers[0]?.id || "", currency: "som", date: new Date().toISOString(), status: "draft", boxes: 0, paid: false, items: [] };
@@ -96,7 +96,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
   fCurrency.addEventListener("change", () => { state.currency = fCurrency.value; refreshAdd(); });
 
   // ----- панель добавления товара -----
-  const fProduct = inputList(products.flatMap(p => p.sku ? [p.name, String(p.sku)] : [p.name]), { placeholder: "впишите название или артикул", style: { flex: "1", minWidth: "180px" } });
+  const fProduct = inputList(products.map(p => p.name), { placeholder: "впишите название", style: { flex: "1", minWidth: "180px" } });
   const qtyLbl = el("div.field-label", { text: "Кол-во" });
   const fQty = input({ type: "number", placeholder: "0", style: { width: "120px" } });
   const fPrice = input({ type: "number", step: "0.01", placeholder: "0", style: { width: "140px" } });
