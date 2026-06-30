@@ -3,6 +3,7 @@
 // Порядок: сначала новые (created_at desc), потом по категории
 import { sget } from "./lib/supa.js";
 import { getSiteAdmin } from "./lib/siteadmin.js";
+import { clientName } from "./lib/name.js";
 
 const NEW_DAYS = 7; // товар считается «новинкой» N дней после добавления или последнего прихода
 
@@ -81,7 +82,8 @@ export default async function handler(req, res) {
 
         return {
           id: p.id,
-          name: p.name,
+          // клиенту — имя без артикула; владельцу — полное
+          name: isOwner ? p.name : clientName(p.name, p.sku),
           category: p.category || "",
           photo_url: p.photo_url || null,
           // все фото товара (для галереи у клиента); если колонки photos нет — из photo_url

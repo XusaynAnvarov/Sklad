@@ -100,7 +100,7 @@ async function sendPDFto(chatId, saleId, cap) {
   const sale = (await sget(`sales?id=eq.${saleId}&select=*`))[0];
   if (!sale) return;
   const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
-  const products = await sget("products?select=id,name");
+  const products = await sget("products?select=id,name,sku");
   await tg("sendChatAction", { chat_id: chatId, action: "upload_document" });
   let status;
   if (sale.customer_id) {

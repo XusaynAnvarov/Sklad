@@ -80,7 +80,7 @@ export default async function handler(req, res) {
       const sale = (await sget(`sales?id=eq.${encodeURIComponent(sid)}&select=*`))[0];
       if (!sale) return res.status(404).json({ error: "Накладная не найдена" });
       const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
-      const products = await sget("products?select=id,name");
+      const products = await sget("products?select=id,name,sku");
       const bytes = await buildInvoicePDF({ sale, customer, products, status: await coverageFor(sale) });
       const cap = `🧾 Накладная — ${customer?.name || "—"} · ${new Date(sale.date).toLocaleDateString("ru-RU")}`;
       const fname = `nakladnaya-${new Date(sale.date).toISOString().slice(0, 10)}.pdf`;
@@ -190,7 +190,7 @@ export default async function handler(req, res) {
       const sale = (await sget(`sales?id=eq.${encodeURIComponent(sid)}&select=*`))[0];
       if (!sale) return res.status(404).json({ error: "Накладная не найдена" });
       const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
-      const products = await sget("products?select=id,name");
+      const products = await sget("products?select=id,name,sku");
       const bytes = await buildInvoicePDF({ sale, customer, products, status: await coverageFor(sale) });
       const fd = new FormData();
       fd.append("chat_id", String(chat_id));
@@ -208,7 +208,7 @@ export default async function handler(req, res) {
       if (!sid) return res.status(400).json({ error: "Неверный sale_id" });
       const sale = (await sget(`sales?id=eq.${encodeURIComponent(sid)}&select=*`))[0];
       if (!sale) return res.status(404).json({ error: "Заказ не найден" });
-      const products = await sget("products?select=id,name");
+      const products = await sget("products?select=id,name,sku");
       const pmap = Object.fromEntries(products.map(p => [p.id, p.name]));
       const sign = { yuan: "¥", usd: "$", som: "сум" };
       const items = sale.items || [];
