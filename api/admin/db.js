@@ -101,9 +101,11 @@ export default async function handler(req, res) {
       if (!data) return res.status(400).json({ error: "data required" });
 
       if (data.id) {
-        // обновление существующей записи
+        // обновление существующей записи; если её НЕТ (напр. восстановление из корзины) — вставляем заново с тем же id
         const rows = await sbPatch(`${table}?id=eq.${encodeURIComponent(data.id)}`, data);
-        return res.json((rows && rows[0]) || data);
+        if (rows && rows.length) return res.json(rows[0]);
+        const created = await sbPost(table, data);
+        return res.json((Array.isArray(created) ? created[0] : created) || data);
       } else {
         // вставка новой записи
         const rows = await sbPost(table, data);
