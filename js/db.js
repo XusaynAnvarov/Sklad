@@ -196,21 +196,33 @@ function docCollection(name) {
 function fileToDataUrl(file) {
   return new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(""); r.readAsDataURL(file); });
 }
-async function compressToDataUrl(file, maxDim = 1600, quality = 0.82) {
+async function compressToDataUrl(file, maxChars = 650 * 1024) {
   if (!file || !String(file.type || "").startsWith("image/")) return fileToDataUrl(file);
   try {
     const url = URL.createObjectURL(file);
     const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
-    let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
-    if (!w || !h) { URL.revokeObjectURL(url); return fileToDataUrl(file); }
-    if (Math.max(w, h) > maxDim) { const k = maxDim / Math.max(w, h); w = Math.round(w * k); h = Math.round(h * k); }
-    const canvas = document.createElement("canvas");
-    canvas.width = w; canvas.height = h;
-    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
     URL.revokeObjectURL(url);
-    // прозрачный PNG оставляем PNG, остальное → JPEG (меньше по размеру)
-    const out = canvas.toDataURL(/png/i.test(file.type) ? "image/png" : "image/jpeg", quality);
-    return (out && out.length > 32) ? out : fileToDataUrl(file);
+    const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+    if (!w0 || !h0) return fileToDataUrl(file);
+    // последовательно уменьшаем размер и качество, пока dataURL не уложится в лимит сервера (~800КБ)
+    const dims = [1600, 1280, 1024, 860, 720, 560];
+    const quals = [0.8, 0.68, 0.56, 0.45, 0.36];
+    let best = "";
+    for (const maxDim of dims) {
+      let w = w0, h = h0;
+      if (Math.max(w, h) > maxDim) { const k = maxDim / Math.max(w, h); w = Math.round(w * k); h = Math.round(h * k); }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const c2 = canvas.getContext("2d");
+      c2.fillStyle = "#fff"; c2.fillRect(0, 0, w, h);   // белый фон (на случай прозрачного PNG → JPEG)
+      c2.drawImage(img, 0, 0, w, h);
+      for (const q of quals) {
+        const out = canvas.toDataURL("image/jpeg", q);
+        if (out && out.length > 32) best = out;
+        if (out && out.length <= maxChars) return out; // уложились в лимит
+      }
+    }
+    return best || fileToDataUrl(file);
   } catch { return fileToDataUrl(file); }
 }
 
