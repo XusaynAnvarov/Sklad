@@ -1,7 +1,7 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input } from "../ui.js";
+import { el, animateCount, modal, input, toast } from "../ui.js";
 import { fmt, convert, toUSD, CUR } from "../fx.js";
 import { statusOf, placeholder, openForm as openProductForm } from "./products.js";
 import { ensureBatches } from "../inventory.js";
@@ -10,7 +10,7 @@ import { icon } from "../icons.js";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product, close) — по клику открыть товар на редактирование.
-function productListModal(title, list, onPick) {
+function productListModal(title, list, onPick, onZero) {
   const search = input({ placeholder: "Поиск…", style: { marginBottom: "12px" } });
   const box = el("div");
   let m;
@@ -22,6 +22,7 @@ function productListModal(title, list, onPick) {
       el("img.thumb", { src: p.photo_url || placeholder(p.name), style: { width: "38px", height: "38px" }, onerror: function () { this.src = placeholder(p.name); } }),
       el("div", { style: { flex: "1" } }, [el("div", { style: { fontWeight: "600" }, text: p.name }), onPick ? el("div.muted", { style: { fontSize: "11px" }, text: "нажмите, чтобы изменить" }) : null]),
       el("span" + (Number(p.stock_qty) > 0 ? ".badge.ok" : ".badge.order"), { text: "ост: " + (Number(p.stock_qty) || 0) }),
+      ...(onZero ? [el("button.btn.btn-danger.btn-sm", { title: "Нет в наличии — обнулить остаток", onclick: async (e) => { e.stopPropagation(); try { await onZero(p); const i = list.indexOf(p); if (i >= 0) list.splice(i, 1); draw(search.value); toast("Остаток обнулён", "ok"); } catch (err) { toast("Ошибка: " + (err.message || err), "err"); } } }, ["→ 0"])] : []),
     ])));
   };
   search.addEventListener("input", () => draw(search.value));
@@ -205,7 +206,11 @@ export default async function render(page, ctx) {
     // предупреждения
     if (badCost.length) wrap.append(warnCard("alert", `Проверьте себестоимость: ${badCost.length} товаров`, "Себестоимость выше цены продажи — искажает прибыль. Нажмите, чтобы посмотреть.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => costWarnModal(badCost, editProduct, ctx)));
     if (noPrice.length) wrap.append(warnCard("tag", `Товары без цены (себестоимости): ${noPrice.length}`, "Нажмите, чтобы открыть список и вписать себестоимость.", "rgba(245,197,66,.6)", "rgba(245,197,66,.10)", () => productListModal("Товары без себестоимости", noPrice, editProduct)));
-    if (lowStock.length) wrap.append(warnCard("box", `Заканчивается на складе: ${lowStock.length} товаров`, `Остаток ≤ ${LOW_STOCK} — пора заказать у поставщика. Нажмите, чтобы посмотреть список.`, "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => productListModal(`Заканчивается на складе (остаток ≤ ${LOW_STOCK})`, lowStock, editProduct)));
+    if (lowStock.length) wrap.append(warnCard("box", `Заканчивается на складе: ${lowStock.length} товаров`, `Остаток ≤ ${LOW_STOCK}. «→ 0» — если товара физически нет (обнулить). Или нажмите на товар, чтобы изменить.`, "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => productListModal(`Заканчивается на складе (остаток ≤ ${LOW_STOCK})`, lowStock.slice(), editProduct, async (p) => {
+      p.stock_qty = 0; p.batches = [];
+      try { await ctx.db.products.upsert({ id: p.id, stock_qty: 0, batches: [] }); }
+      catch { await ctx.db.products.upsert({ id: p.id, stock_qty: 0 }); }
+    })));
     if (pendingOrders.length) wrap.append(warnCard("cart", `Заказы не оформлены: ${pendingOrders.length}`, "Эти заказы ещё НЕ списаны со склада. Оформите их в «Заказы» — тогда остаток уменьшится.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => { location.hash = "#orders"; }));
 
     // что заказать (по продажам): заканчивается И продаётся
