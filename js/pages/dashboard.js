@@ -47,7 +47,7 @@ function costWarnModal(list, onPick, ctx) {
     title: `Проверьте себестоимость (${list.length})`, wide: true,
     body: el("div", {}, [el("div.hint", { text: "Нажмите на товар, чтобы открыть и поправить. Или «Я всё проверил» — скрыть предупреждение." }), box]),
     actions: [
-      { label: "✓ Я всё проверил — скрыть", kind: "btn-primary", onClick: (c) => { ackAllCost(list); c(); ctx && ctx.refresh && ctx.refresh(); } },
+      { label: "✓ Я всё проверил — скрыть", kind: "btn-primary", onClick: async (c) => { ackAllCost(list); try { for (const p of list) await ctx.db.products.upsert({ id: p.id, cost_ack_yuan: Number(p.cost_yuan) || 0 }); } catch (e) { /* колонки cost_ack_yuan ещё нет — останется локальная отметка */ } c(); ctx && ctx.refresh && ctx.refresh(); } },
       { label: "Закрыть", kind: "btn-outline", onClick: c => c() },
     ],
   });
@@ -150,7 +150,8 @@ export default async function render(page, ctx) {
     // предупреждения по данным
     const noPrice = products.filter(p => (Number(p.cost_yuan) || 0) <= 0 && (Number(p.cost_usd) || 0) <= 0);
     const ack = costAck();
-    const badCost = products.filter(p => Number(p.price_yuan) > 0 && Number(p.cost_yuan) > Number(p.price_yuan) && Number(ack[p.id]) !== Number(p.cost_yuan));
+    // «битая» себестоимость, исключая отмеченные как проверенные (локально gm_cost_ack ИЛИ в базе cost_ack_yuan)
+    const badCost = products.filter(p => Number(p.price_yuan) > 0 && Number(p.cost_yuan) > Number(p.price_yuan) && Number(ack[p.id]) !== Number(p.cost_yuan) && Number(p.cost_ack_yuan) !== Number(p.cost_yuan));
 
     // --- оборот по валютам (нативно) + всего в $; прибыль = оборот × % ---
     const turnByCur = { som: 0, usd: 0, yuan: 0 };
