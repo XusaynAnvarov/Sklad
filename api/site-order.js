@@ -46,6 +46,15 @@ export default async function handler(req, res) {
       unit_price: 0,
     }));
 
+    // АНТИДУБЛЬ: тот же клиент + те же позиции за 2 минуты → не создаём повторно
+    const sig = JSON.stringify(saleItems.map(i => [String(i.product_id), Number(i.qty) || 0]).sort());
+    try {
+      const since = new Date(Date.now() - 120000).toISOString();
+      const recent = await sget(`sales?status=eq.order&customer_id=eq.${client.customer_id}&date=gte.${encodeURIComponent(since)}&select=id,items`);
+      const dup = (recent || []).find(r => JSON.stringify((r.items || []).map(i => [String(i.product_id), Number(i.qty) || 0]).sort()) === sig);
+      if (dup) return res.status(200).json({ id: dup.id, status: "order", duplicate: true });
+    } catch {}
+
     const SUPA = process.env.SUPABASE_URL;
     const KEY = process.env.SUPABASE_SERVICE_KEY;
     const H = { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json", Prefer: "return=representation" };

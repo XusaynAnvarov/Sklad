@@ -85,6 +85,23 @@ export default async function handler(req, res) {
     const customer = (await sget(`customers?tg_chat_id=eq.${encodeURIComponent(user.id)}&select=id,name,tg_lang`))[0] || null;
     const tgName = [user.first_name, user.last_name].filter(Boolean).join(" ") || (user.username ? "@" + user.username : "Гость");
 
+    // АНТИДУБЛЬ: если такой же заказ (тот же чат/клиент, те же позиции) создан за последние 2 минуты — не дублируем
+    const sig = JSON.stringify(saleItems.map(i => [String(i.product_id), Number(i.qty) || 0]).sort());
+    try {
+      const since = new Date(Date.now() - 120000).toISOString();
+      const recent = await sget(`sales?status=eq.order&date=gte.${encodeURIComponent(since)}&select=items,customer_id,order_from`);
+      const dup = (recent || []).some(r => {
+        const sameChat = customer?.id ? (r.customer_id === customer.id) : (String(r.order_from?.chat_id || "") === String(user.id));
+        if (!sameChat) return false;
+        return JSON.stringify((r.items || []).map(i => [String(i.product_id), Number(i.qty) || 0]).sort()) === sig;
+      });
+      if (dup) {
+        const lang0 = await clientLang(user.id, customer);
+        await tgSend(CLIENT_TOKEN, user.id, OK_MSG[lang0] || OK_MSG.ru); // клиенту подтвердим (заказ уже принят), но дубль не создаём
+        return res.status(200).json({ ok: true, duplicate: true });
+      }
+    } catch {}
+
     await supsert("sales", {
       customer_id: customer?.id || null,
       status: "order", source: "bot",

@@ -371,7 +371,10 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
 // удаление накладной с возвратом товаров на склад
 export async function deleteSale(ctx, sale, products) {
   try {
-    for (const it of (sale.items || [])) {
+    // склад списывался ТОЛЬКО при оформлении (final). Заказ из бота/сайта (order/confirmed) — не списывался,
+    // поэтому при его удалении остаток НЕ трогаем (иначе ложно прибавим).
+    const wasDeducted = sale.status === "final";
+    if (wasDeducted) for (const it of (sale.items || [])) {
       const p = products.find(x => x.id === it.product_id); if (!p) continue;
       const perY = it.qty ? (Number(it.cogs_yuan) || 0) / it.qty : (Number(p.cost_yuan) || 0);
       const perU = it.qty ? (Number(it.cogs_usd) || 0) / it.qty : (Number(p.cost_usd) || 0);
@@ -381,7 +384,7 @@ export async function deleteSale(ctx, sale, products) {
       try { await ctx.db.products.upsert({ ...base, batches: p.batches }); } catch (e) { await ctx.db.products.upsert(base); }
     }
     await ctx.db.sales.remove(sale.id);
-    toast("Удалено, остаток возвращён", "ok"); ctx.refresh();
+    toast(wasDeducted ? "Удалено, остаток возвращён" : "Удалено", "ok"); ctx.refresh();
   } catch (e) { toast("Ошибка удаления: " + (e.message || e), "err"); }
 }
 

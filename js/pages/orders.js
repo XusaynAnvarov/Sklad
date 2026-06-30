@@ -4,7 +4,7 @@
 // ========================================================================
 import { el, toast, confirmDialog } from "../ui.js";
 import { icon } from "../icons.js";
-import { openEditor } from "./sales.js";
+import { openEditor, deleteSale } from "./sales.js";
 
 export default async function render(page, ctx) {
   const [sales, customers, products] = await Promise.all([
@@ -97,7 +97,7 @@ export default async function render(page, ctx) {
         el("div", { style: { marginTop: "8px", fontSize: "13px", color: "var(--muted)" }, text: preview }),
         el("div", { style: { marginTop: "10px", display: "flex", gap: "8px" } }, [
           el("button.btn.btn-primary.btn-sm", { text: "Открыть и оформить →", onclick: (e) => { e.stopPropagation(); openEditor(ctx, s, customers, products, s.customer_id); } }),
-          el("button.btn.btn-danger.btn-sm", { onclick: (e) => { e.stopPropagation(); confirmDialog("Удалить этот заказ?", async () => { await ctx.db.sales.remove(s.id); toast("Заказ удалён", "ok"); ctx.refresh(); }); } }, [icon("trash", { size: 15 }), "Удалить"]),
+          el("button.btn.btn-danger.btn-sm", { onclick: (e) => { e.stopPropagation(); confirmDialog("Удалить этот заказ?", () => deleteSale(ctx, s, products)); } }, [icon("trash", { size: 15 }), "Удалить"]),
         ]),
       ]);
       wrap.append(card);
