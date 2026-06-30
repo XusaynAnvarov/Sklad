@@ -35,6 +35,10 @@ export const api = {
   // каталог
   catalog: () => req("GET", "/catalog"),
 
+  // видео (только для вошедших клиентов)
+  videos: () => req("GET", "/videos"),
+  videoUrl: (id) => req("GET", `/video-url?id=${encodeURIComponent(id)}`),
+
   // верификация и регистрация
   verifyStart: (phone) => req("POST", "/client/verify-start", { phone }),
   verifyStatus: (token) => req("GET", `/client/verify-status?token=${encodeURIComponent(token)}`),

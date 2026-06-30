@@ -1,6 +1,7 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
 import { isLoggedIn, clearToken as _clearToken, api } from "./api.js";
 import { renderCatalog } from "./catalog.js";
+import { renderVideos } from "./videos.js";
 import { renderCabinet } from "./cabinet.js";
 import { renderAdminPanel } from "./admin-panel.js";
 import { renderOrder } from "./order.js";
@@ -289,6 +290,7 @@ function buildHeader() {
 
   const nav = document.createElement("nav"); nav.className = "site-nav";
   const links = [{ hash: "#catalog", label: t("catalog") }];
+  if (isLoggedIn()) links.push({ hash: "#videos", label: "Видео" });
   if (isAdmin()) links.push({ hash: "#admin-panel", label: t("adminPanel") });
   else if (isLoggedIn()) links.push({ hash: "#cabinet", label: t("cabinet") });
   links.forEach(l => {
@@ -359,6 +361,7 @@ async function route(main) {
   const inner = document.createElement("div"); inner.className = "site-main";
   try {
     if (r === "catalog") await renderCatalog(inner);
+    else if (r === "videos") { if (!isLoggedIn()) { openLogin(); await renderCatalog(inner); } else await renderVideos(inner); }
     else if (r === "order") await renderOrder(inner);
     else if (r === "admin-panel") {
       if (!isAdmin()) { await renderCatalog(inner); }
@@ -446,7 +449,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=50", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=51", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

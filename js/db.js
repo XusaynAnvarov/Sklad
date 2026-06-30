@@ -238,6 +238,7 @@ export const db = {
   sales: docCollection("sales"),
   purchases: docCollection("purchases"),
   payments: DB_MODE === "local" ? localCollection("payments") : sbTable("payments"),
+  videos: DB_MODE === "local" ? localCollection("videos") : sbTable("videos"),
   trash: trashApi,
 
   async getSettings() {
@@ -276,6 +277,20 @@ export const db = {
     const j = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(j.error || ("Загрузка не удалась " + resp.status));
     return j.url;
+  },
+
+  // Загрузка ВИДЕО: signed upload URL (admin) → файл напрямую в приватный бакет Supabase
+  // (минуя nginx, большие файлы проходят). Возвращает path в хранилище.
+  async uploadVideo(file) {
+    const r = await fetch("/api/video-sign-upload", {
+      method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ name: file.name }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ("Не удалось подготовить загрузку " + r.status));
+    const up = await fetch(j.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type || "video/mp4", "x-upsert": "true" }, body: file });
+    if (!up.ok) throw new Error("Загрузка видео не удалась (" + up.status + ")");
+    return j.path;
   },
 
   // Последняя цена в юанях, по которой товар продавался данному клиенту.

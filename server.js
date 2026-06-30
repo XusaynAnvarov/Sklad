@@ -70,6 +70,9 @@ const routes = [
   [["GET"],   "/api/admin/site-clients",      "./api/admin/site-clients.js"],
   [["GET"],   "/api/admin/act-pdf",           "./api/admin/act-pdf.js"],
   [["GET"],   "/api/admin/bot-contacts",      "./api/admin/bot-contacts.js"],
+  [["POST","OPTIONS"], "/api/video-sign-upload", "./api/video-sign-upload.js"],
+  [["GET"],   "/api/videos",                  "./api/videos.js"],
+  [["GET"],   "/api/video-url",               "./api/video-url.js"],
   [["POST","DELETE"], "/api/admin/site-client-delete", "./api/admin/site-client-delete.js"],
   [["POST","DELETE"], "/api/admin/unblock",   "./api/admin/unblock.js"],
   // сайт-админ (JWT клиента с phone=837138321)
