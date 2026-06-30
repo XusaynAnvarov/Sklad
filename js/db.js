@@ -191,6 +191,29 @@ function docCollection(name) {
   return sbTable(name);
 }
 
+// Сжатие изображения в браузере: ужимаем до maxDim по большей стороне и кодируем в JPEG.
+// Большие фото с телефона (5–12 МБ) → ~200–600 КБ, что проходит лимиты сервера (нет 413).
+function fileToDataUrl(file) {
+  return new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(""); r.readAsDataURL(file); });
+}
+async function compressToDataUrl(file, maxDim = 1600, quality = 0.82) {
+  if (!file || !String(file.type || "").startsWith("image/")) return fileToDataUrl(file);
+  try {
+    const url = URL.createObjectURL(file);
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+    let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    if (!w || !h) { URL.revokeObjectURL(url); return fileToDataUrl(file); }
+    if (Math.max(w, h) > maxDim) { const k = maxDim / Math.max(w, h); w = Math.round(w * k); h = Math.round(h * k); }
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    // прозрачный PNG оставляем PNG, остальное → JPEG (меньше по размеру)
+    const out = canvas.toDataURL(/png/i.test(file.type) ? "image/png" : "image/jpeg", quality);
+    return (out && out.length > 32) ? out : fileToDataUrl(file);
+  } catch { return fileToDataUrl(file); }
+}
+
 // ====================================================================
 //  ПУБЛИЧНЫЙ API
 // ====================================================================
@@ -231,7 +254,8 @@ export const db = {
   // Загрузка фото: локально → dataURL (base64); Supabase → через серверный
   // эндпоинт /api/upload (сервисный ключ, минуя RLS).
   async uploadPhoto(file) {
-    const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); });
+    // сжимаем в браузере (макс 1600px, JPEG) — иначе большое фото с телефона даёт 413 (слишком большой запрос)
+    const dataUrl = await compressToDataUrl(file);
     if (DB_MODE === "local") return dataUrl;
     const resp = await fetch((cfg.UPLOAD_API || "/api/upload"), {
       method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaders()) },
