@@ -6,7 +6,7 @@ import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js";
 import { openEditor, buildText, deleteSale } from "./sales.js";
 import { exportCustomerInvoice } from "../xlsx-export.js";
 import { placeholder as placeholderImg } from "./products.js";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel } from "../telegram.js";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js";
 import { authHeaders } from "../db.js";
 import { icon } from "../icons.js";
 
@@ -165,7 +165,12 @@ async function renderCard(page, ctx, id) {
       el("button.btn.btn-outline", { title: "Акт сверки: оплаты и отгрузки по датам, с PDF", onclick: () => openActSverki(ctx, c, sales, payments) }, ["📋 Акт сверки"]),
       el("button.btn.btn-ok", { onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 16 }), "Оплата"]),
       el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products, c.id) }, [icon("plus", { size: 16 }), "Накладная"]),
-      el("button.btn.btn-danger", { onclick: () => confirmDialog("Удалить клиента «" + c.name + "»? Накладные сохранятся, но без привязки к нему.", async () => { await ctx.db.customers.remove(c.id); toast("Клиент удалён", "ok"); ctx.navigate("customers"); }) }, [icon("trash", { size: 16 }), "Удалить"]),
+      el("button.btn.btn-danger", { onclick: () => confirmDialog("Удалить клиента «" + c.name + "»? Он также выйдет из Telegram-бота. Накладные сохранятся, но без привязки к нему.", async () => {
+        const chatIds = [c.tg_chat_id, ...(Array.isArray(c.tg_chat_ids) ? c.tg_chat_ids : [])].map(x => String(x || "")).filter(Boolean);
+        await ctx.db.customers.remove(c.id);
+        if (chatIds.length) { try { await logoutClientFromBot([...new Set(chatIds)]); } catch {} } // выгнать из бота + уведомить
+        toast("Клиент удалён", "ok"); ctx.navigate("customers");
+      }) }, [icon("trash", { size: 16 }), "Удалить"]),
     ]),
   ]));
 

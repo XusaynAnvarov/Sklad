@@ -55,6 +55,11 @@ export function notifyClient(chatId, text) {
   return call({ action: "client_message", chat_id: chatId, text });
 }
 
+// Выход клиента из бота (при удалении из склада): уведомить и сбросить сессию
+export function logoutClientFromBot(chatIds) {
+  return call({ action: "client_logout", chat_ids: chatIds });
+}
+
 // Запрос подтверждения заказа клиентом: список с ценами + кнопки ✅/❌
 export function requestOrderConfirm(saleId, chatId) {
   return call({ action: "client_confirm_request", sale_id: saleId, chat_id: chatId });

@@ -6,7 +6,7 @@
 //    TELEGRAM_BOT_TOKEN   — токен бота от @BotFather
 //    TELEGRAM_CHANNEL_ID  — @username или -100… id канала (по умолчанию)
 // ========================================================================
-import { sget } from "./lib/supa.js";
+import { sget, supsert } from "./lib/supa.js";
 import { buildInvoicePDF, buildReconciliationPDF } from "./lib/pdf.js";
 import { getUser } from "./lib/auth.js";
 import { invoiceCoverageStatus } from "./lib/debt.js";
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
 
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
-  const { action, text, photo, channel, chat_id, sale_id, customer_id } = body || {};
+  const { action, text, photo, channel, chat_id, chat_ids, sale_id, customer_id } = body || {};
 
   // собрать данные акта сверки по клиенту (только оформленные накладные + оплаты)
   async function buildActFor(custId) {
@@ -156,6 +156,16 @@ export default async function handler(req, res) {
     if (action === "message") {
       if (!chat_id) return res.status(400).json({ error: "Не указан chat_id" });
       await tg("sendMessage", { chat_id, text, disable_web_page_preview: false });
+      return res.status(200).json({ ok: true });
+    }
+    // выход клиента из бота при удалении из склада: уведомить и сбросить его сессию
+    if (action === "client_logout") {
+      const ids = Array.isArray(chat_ids) ? chat_ids.filter(Boolean) : [];
+      const capiUrl = (m) => `https://api.telegram.org/bot${CLIENT_TOKEN}/${m}`;
+      for (const id of ids) {
+        if (CLIENT_TOKEN) { try { await fetch(capiUrl("sendMessage"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: id, text: "Ваш аккаунт был удалён, доступ к боту закрыт. Если это ошибка — свяжитесь с нами.", reply_markup: { remove_keyboard: true } }) }); } catch {} }
+        try { await supsert("bot_sessions", { chat_id: String(id), state: {}, updated_at: new Date().toISOString() }); } catch {}
+      }
       return res.status(200).json({ ok: true });
     }
     if (action === "admin_message") {
