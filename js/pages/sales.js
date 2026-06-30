@@ -88,6 +88,9 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
   fPaid.addEventListener("change", () => { state.paid = fPaid.value === "paid"; });
   fDate.addEventListener("change", () => { state.date = fDate.value ? new Date(fDate.value).toISOString() : state.date; });
   fBoxes.addEventListener("input", () => { state.boxes = +fBoxes.value || 0; });
+  // «Не списывать со склада» — для восстановления накладной, чей товар уже отгружён ранее
+  const chkNoStock = el("input", { type: "checkbox" });
+  const noStockRow = el("label", { style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer", marginTop: "8px" } }, [chkNoStock, el("span", { text: "Не списывать со склада (товар уже отгружён ранее)" })]);
   fCustomer.addEventListener("input", () => { state.customer_id = custNameToId[(fCustomer.value || "").toLowerCase()] || ""; refreshAdd(); loadLastPrices(); });
   // валюта по умолчанию — только для новых позиций (старые не трогаем)
   fCurrency.addEventListener("change", () => { state.currency = fCurrency.value; refreshAdd(); });
@@ -232,6 +235,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       el("div", { style: { fontWeight: "800", fontSize: "16px", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" } }, [el("span", { style: { color: "#fbbf24" }, text: "●" }), "Оформить продажу"]),
       el("div.row3", {}, [field("Клиент (поиск)", fCustomer), field("Оплата", fPaid), field("Валюта по умолч.", fCurrency)]),
       el("div.row2", {}, [field("Дата", fDate), field("Коробок отправлено", fBoxes)]),
+      noStockRow,
     ]),
     el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", marginTop: "4px" } }, [
       el("div.section-h", { text: "Добавьте товары в чек", style: { margin: "0", flex: "1" } }),
@@ -268,8 +272,8 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       { label: "✅ Оформить (склад + PDF)", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, true) },
     ] : [
       { label: "Отмена", kind: "btn-outline", onClick: c => c() },
-      { label: "💾 Сохранить", kind: "btn-outline", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false) },
-      { label: "Сохранить + Telegram", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, true) },
+      { label: "💾 Сохранить", kind: "btn-outline", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, false, chkNoStock.checked) },
+      { label: "Сохранить + Telegram", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, true, false, chkNoStock.checked) },
     ],
   });
 }
@@ -292,7 +296,7 @@ async function sendForConfirm(ctx, sale, state, close, customers) {
   finally { hideLoader(); }
 }
 
-async function save(ctx, sale, state, status, close, customers, products, doSend, toClient) {
+async function save(ctx, sale, state, status, close, customers, products, doSend, toClient, noStock) {
   if (!state.customer_id) { toast("Выберите клиента", "err"); return; }
   if (!state.items.length) { toast("Добавьте товары", "err"); return; }
   state.items.forEach(it => { it.paid = !!state.paid; });
@@ -304,27 +308,37 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
     currency: state.currency, status, telegram_sent: sale?.telegram_sent || false, items: state.items,
   };
   try {
-    // --- FIFO: вернуть старые позиции (если правка обычной накладной) и списать новые ---
-    // для заказа из бота старые позиции НЕ возвращаем — их со склада ещё не списывали
-    if (sale && !wasOrder) (sale.items || []).forEach(it => {
-      const p = products.find(x => x.id === it.product_id); if (!p) return;
-      const perY = it.qty ? (Number(it.cogs_yuan) || 0) / it.qty : (Number(p.cost_yuan) || 0);
-      const perU = it.qty ? (Number(it.cogs_usd) || 0) / it.qty : (Number(p.cost_usd) || 0);
-      p.batches = returnToStock(ensureBatches(p), it.qty, perY, perU, sale.date);
-    });
-    state.items.forEach(it => {
-      const p = products.find(x => x.id === it.product_id); if (!p) return;
-      const r = consumeFIFO(ensureBatches(p), it.qty);
-      p.batches = r.batches; it.cogs_yuan = r.cogY; it.cogs_usd = r.cogU;
-    });
-    const touched = new Set([...((sale && sale.items) || []).map(i => i.product_id), ...state.items.map(i => i.product_id)]);
-    for (const pid of touched) {
-      const p = products.find(x => x.id === pid); if (!p) continue;
-      // склад распродан → сохраняем прежнюю себестоимость (не обнуляем)
-      const cc = costAfter(p.batches || [], p);
-      const base = { id: p.id, stock_qty: sumQty(p.batches || []), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
-      try { await ctx.db.products.upsert({ ...base, batches: p.batches }); }
-      catch (e) { await ctx.db.products.upsert(base); } // если колонки batches ещё нет
+    if (noStock) {
+      // «Не списывать со склада»: товар уже отгружён ранее (восстановление накладной).
+      // Остаток НЕ трогаем, но проставим себестоимость, чтобы при УДАЛЕНИИ накладной товар корректно вернулся на склад.
+      state.items.forEach(it => {
+        const p = products.find(x => x.id === it.product_id); if (!p) return;
+        it.cogs_yuan = (Number(p.cost_yuan) || 0) * (Number(it.qty) || 0);
+        it.cogs_usd = (Number(p.cost_usd) || 0) * (Number(it.qty) || 0);
+      });
+    } else {
+      // --- FIFO: вернуть старые позиции (если правка обычной накладной) и списать новые ---
+      // для заказа из бота старые позиции НЕ возвращаем — их со склада ещё не списывали
+      if (sale && !wasOrder) (sale.items || []).forEach(it => {
+        const p = products.find(x => x.id === it.product_id); if (!p) return;
+        const perY = it.qty ? (Number(it.cogs_yuan) || 0) / it.qty : (Number(p.cost_yuan) || 0);
+        const perU = it.qty ? (Number(it.cogs_usd) || 0) / it.qty : (Number(p.cost_usd) || 0);
+        p.batches = returnToStock(ensureBatches(p), it.qty, perY, perU, sale.date);
+      });
+      state.items.forEach(it => {
+        const p = products.find(x => x.id === it.product_id); if (!p) return;
+        const r = consumeFIFO(ensureBatches(p), it.qty);
+        p.batches = r.batches; it.cogs_yuan = r.cogY; it.cogs_usd = r.cogU;
+      });
+      const touched = new Set([...((sale && sale.items) || []).map(i => i.product_id), ...state.items.map(i => i.product_id)]);
+      for (const pid of touched) {
+        const p = products.find(x => x.id === pid); if (!p) continue;
+        // склад распродан → сохраняем прежнюю себестоимость (не обнуляем)
+        const cc = costAfter(p.batches || [], p);
+        const base = { id: p.id, stock_qty: sumQty(p.batches || []), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
+        try { await ctx.db.products.upsert({ ...base, batches: p.batches }); }
+        catch (e) { await ctx.db.products.upsert(base); } // если колонки batches ещё нет
+      }
     }
     const saved = await ctx.db.sales.upsert(obj);
     // коробки сохраняем отдельно (если колонка ещё не создана — просто пропустим)
