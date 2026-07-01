@@ -6,7 +6,7 @@
 //  ENV: CLIENT_BOT_TOKEN, TELEGRAM_BOT_TOKEN, ADMIN_CHAT_ID, SUPABASE_*
 // ========================================================================
 import crypto from "crypto";
-import { sget, supsert } from "./lib/supa.js";
+import { sget, supsert, spatch } from "./lib/supa.js";
 
 const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN;
 const ADMIN_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -85,35 +85,31 @@ export default async function handler(req, res) {
     const customer = (await sget(`customers?tg_chat_id=eq.${encodeURIComponent(user.id)}&select=id,name,tg_lang`))[0] || null;
     const tgName = [user.first_name, user.last_name].filter(Boolean).join(" ") || (user.username ? "@" + user.username : "Гость");
 
-    // АНТИДУБЛЬ: если такой же заказ (тот же чат/клиент, те же позиции) создан за последние 2 минуты — не дублируем
-    const sig = JSON.stringify(saleItems.map(i => [String(i.product_id), Number(i.qty) || 0]).sort());
+    // Если у клиента УЖЕ есть необработанный заказ (status=order) — ОБНОВЛЯЕМ его
+    // (клиент добавил/изменил товары и переотправил), а не плодим дубликаты.
+    let existingId = null;
     try {
-      const since = new Date(Date.now() - 120000).toISOString();
-      const recent = await sget(`sales?status=eq.order&date=gte.${encodeURIComponent(since)}&select=items,customer_id,order_from`);
-      const dup = (recent || []).some(r => {
-        const sameChat = customer?.id ? (r.customer_id === customer.id) : (String(r.order_from?.chat_id || "") === String(user.id));
-        if (!sameChat) return false;
-        return JSON.stringify((r.items || []).map(i => [String(i.product_id), Number(i.qty) || 0]).sort()) === sig;
-      });
-      if (dup) {
-        const lang0 = await clientLang(user.id, customer);
-        await tgSend(CLIENT_TOKEN, user.id, OK_MSG[lang0] || OK_MSG.ru); // клиенту подтвердим (заказ уже принят), но дубль не создаём
-        return res.status(200).json({ ok: true, duplicate: true });
-      }
+      let ex = [];
+      if (customer?.id) ex = await sget(`sales?customer_id=eq.${customer.id}&status=eq.order&select=id&order=date.desc&limit=1`);
+      else { const all = await sget(`sales?status=eq.order&select=id,order_from&order=date.desc&limit=30`); ex = (all || []).filter(r => String(r.order_from?.chat_id || "") === String(user.id)).slice(0, 1); }
+      existingId = ex[0]?.id || null;
     } catch {}
-
-    await supsert("sales", {
-      customer_id: customer?.id || null,
-      status: "order", source: "bot",
-      date: new Date().toISOString(), currency: "som",
-      items: saleItems,
-      order_from: customer ? null : { chat_id: String(user.id), name: tgName, username: user.username || null },
-    });
+    if (existingId) {
+      await spatch(`sales?id=eq.${encodeURIComponent(existingId)}`, { items: saleItems, date: new Date().toISOString() });
+    } else {
+      await supsert("sales", {
+        customer_id: customer?.id || null,
+        status: "order", source: "bot",
+        date: new Date().toISOString(), currency: "som",
+        items: saleItems,
+        order_from: customer ? null : { chat_id: String(user.id), name: tgName, username: user.username || null },
+      });
+    }
 
     // подтверждение клиенту (на его языке) + уведомление владельцу
     const lang = await clientLang(user.id, customer);
     await tgSend(CLIENT_TOKEN, user.id, OK_MSG[lang] || OK_MSG.ru);
-    await tgSend(ADMIN_TOKEN, ADMIN_CHAT, `🛒 Новый заказ из бота\nОт: ${customer?.name || tgName}${customer ? "" : " (не привязан)"}\nПозиций: ${saleItems.length}`);
+    await tgSend(ADMIN_TOKEN, ADMIN_CHAT, `${existingId ? "✏️ Заказ ИЗМЕНЁН клиентом (из бота)" : "🛒 Новый заказ из бота"}\nОт: ${customer?.name || tgName}${customer ? "" : " (не привязан)"}\nПозиций: ${saleItems.length}`);
 
     return res.status(200).json({ ok: true });
   } catch (e) {

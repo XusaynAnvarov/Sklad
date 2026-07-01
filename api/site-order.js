@@ -46,46 +46,45 @@ export default async function handler(req, res) {
       unit_price: 0,
     }));
 
-    // АНТИДУБЛЬ: тот же клиент + те же позиции за 2 минуты → не создаём повторно
-    const sig = JSON.stringify(saleItems.map(i => [String(i.product_id), Number(i.qty) || 0]).sort());
+    // Если у клиента УЖЕ есть необработанный заказ (status=order) — ОБНОВЛЯЕМ его
+    // (клиент изменил/добавил товары и переотправил), иначе создаём новый.
+    let existingId = null;
     try {
-      const since = new Date(Date.now() - 120000).toISOString();
-      const recent = await sget(`sales?status=eq.order&customer_id=eq.${client.customer_id}&date=gte.${encodeURIComponent(since)}&select=id,items`);
-      const dup = (recent || []).find(r => JSON.stringify((r.items || []).map(i => [String(i.product_id), Number(i.qty) || 0]).sort()) === sig);
-      if (dup) return res.status(200).json({ id: dup.id, status: "order", duplicate: true });
+      const ex = await sget(`sales?status=eq.order&customer_id=eq.${client.customer_id}&select=id&order=date.desc&limit=1`);
+      existingId = ex[0]?.id || null;
     } catch {}
 
     const SUPA = process.env.SUPABASE_URL;
     const KEY = process.env.SUPABASE_SERVICE_KEY;
     const H = { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json", Prefer: "return=representation" };
-    const r = await fetch(SUPA + "/rest/v1/sales", {
-      method: "POST", headers: H,
-      body: JSON.stringify({
-        customer_id: client.customer_id,
-        date: new Date().toISOString(),
-        currency: "som",
-        status: "order",
-        source: "site",
-        items: saleItems,
-        order_from: { phone: client.phone, account_id: client.sub },
-      }),
-    });
-    if (!r.ok) {
-      const err = await r.text();
-      console.error("site-order supabase error", err);
-      return res.status(500).json({ error: "Не удалось создать заказ" });
+    let sale;
+    if (existingId) {
+      const r = await fetch(SUPA + "/rest/v1/sales?id=eq." + encodeURIComponent(existingId), {
+        method: "PATCH", headers: H,
+        body: JSON.stringify({ items: saleItems, date: new Date().toISOString() }),
+      });
+      if (!r.ok) { console.error("site-order patch error", await r.text()); return res.status(500).json({ error: "Не удалось обновить заказ" }); }
+      const upd = await r.json(); sale = Array.isArray(upd) ? upd[0] : upd;
+    } else {
+      const r = await fetch(SUPA + "/rest/v1/sales", {
+        method: "POST", headers: H,
+        body: JSON.stringify({
+          customer_id: client.customer_id,
+          date: new Date().toISOString(), currency: "som",
+          status: "order", source: "site",
+          items: saleItems,
+          order_from: { phone: client.phone, account_id: client.sub },
+        }),
+      });
+      if (!r.ok) { console.error("site-order supabase error", await r.text()); return res.status(500).json({ error: "Не удалось создать заказ" }); }
+      const created = await r.json(); sale = Array.isArray(created) ? created[0] : created;
     }
-    const created = await r.json();
-    const sale = Array.isArray(created) ? created[0] : created;
 
     // уведомление владельцу
     const adminChatId = process.env.ADMIN_CHAT_ID;
     if (adminChatId) {
-      const lines = saleItems.map(it => {
-        const p = prodMap[it.product_id];
-        return `• ${p?.name || it.product_id} × ${it.qty}`;
-      });
-      const msg = `Новый заказ с сайта\n\nКлиент: ${client.phone}\n\n${lines.join("\n")}`;
+      const lines = saleItems.map(it => { const p = prodMap[it.product_id]; return `• ${p?.name || it.product_id} × ${it.qty}`; });
+      const msg = `${existingId ? "✏️ Заказ ИЗМЕНЁН клиентом (с сайта)" : "🛒 Новый заказ с сайта"}\n\nКлиент: ${client.phone}\n\n${lines.join("\n")}`;
       try { await notifyAdmin(msg); } catch {}
     }
 

@@ -501,7 +501,13 @@ export default async function handler(req, res) {
         const confirm = data.startsWith("ocf:");
         await spatch(`sales?id=eq.${encodeURIComponent(sid)}`, { status: confirm ? "confirmed" : "order" });
         await tg("sendMessage", { chat_id: chatId, text: confirm ? "✅ Спасибо! Заказ подтверждён — мы готовим накладную." : "❌ Заказ отклонён. Мы свяжемся с вами." });
-        await notifyAdmin(confirm ? `✅ Клиент подтвердил заказ (${(sale.items || []).length} поз.)` : "❌ Клиент отказался от заказа");
+        // владельцу — КТО и КАКОЙ клиент подтвердил/отменил
+        const custName = sale.customer_id ? ((await sget(`customers?id=eq.${sale.customer_id}&select=name`))[0]?.name || "Клиент") : (sale.order_from?.name || "Клиент");
+        const who = ([cq.from?.first_name, cq.from?.last_name].filter(Boolean).join(" ") || "—") + (cq.from?.username ? " (@" + cq.from.username + ")" : "");
+        const nPos = (sale.items || []).length;
+        await notifyAdmin(confirm
+          ? `✅ Заказ ПОДТВЕРЖДЁН\nКлиент: ${custName}\nПодтвердил: ${who}\nПозиций: ${nPos}`
+          : `❌ Заказ ОТМЕНЁН клиентом\nКлиент: ${custName}\nОтменил: ${who}\nПозиций: ${nPos}`);
         return res.status(200).send("ok");
       }
 
