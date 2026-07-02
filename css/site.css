@@ -143,6 +143,9 @@ html[data-site-theme="dark"] body::before {
 .site-nav-link.active { background: rgba(28,43,74,.06); color: var(--navy); font-weight: 600; }
 
 .site-header-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.site-tg-link { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 9px; color: #229ED9; background: rgba(34,158,217,.10); transition: background .2s, transform .15s; text-decoration: none; }
+.site-tg-link:hover { background: rgba(34,158,217,.20); transform: translateY(-1px); }
+.site-tg-link:active { transform: translateY(0); }
 
 /* ---------- Кнопка корзины ---------- */
 .cart-btn {

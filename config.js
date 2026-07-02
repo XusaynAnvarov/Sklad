@@ -28,6 +28,7 @@ window.APP_CONFIG = {
   // Токен бота НЕ хранится здесь — он лежит в переменных окружения Vercel.
   TELEGRAM_API: "/api/telegram",
   TELEGRAM_CHANNEL: "",      // @username канала или -100... id (для накладных)
+  TELEGRAM_BOT_URL: "https://t.me/generalmodernbot",  // ссылка на клиентского бота (иконка в шапке сайта)
 
   // --- Каталог ---
   CATALOG_URL: "catalog.html", // ссылка на публичный каталог

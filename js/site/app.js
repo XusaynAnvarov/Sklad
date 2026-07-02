@@ -315,6 +315,14 @@ function buildHeader() {
     right.append(skladBtn);
   }
 
+  // Telegram-бот — иконка-ссылка (видна всем)
+  const tgLink = document.createElement("a");
+  tgLink.href = (window.APP_CONFIG && window.APP_CONFIG.TELEGRAM_BOT_URL) || "https://t.me/generalmodernbot";
+  tgLink.target = "_blank"; tgLink.rel = "noopener";
+  tgLink.className = "site-tg-link"; tgLink.title = "Наш Telegram-бот"; tgLink.setAttribute("aria-label", "Telegram-бот");
+  tgLink.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.14-3.05-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>`;
+  right.append(tgLink);
+
   // Theme + Lang
   right.append(buildThemeToggle(), buildLangSwitcher());
 
@@ -449,7 +457,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=55", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=56", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
