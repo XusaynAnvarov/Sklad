@@ -83,6 +83,14 @@ html[data-theme="light"] .bg-stars{opacity:.45;}
 .navitem:hover{background:rgba(255,255,255,.05);color:var(--text);}
 .navitem.active{color:#fff;background:linear-gradient(90deg,rgba(79,124,240,.25),rgba(107,151,245,.12));}
 .navitem.active::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--grad);}
+
+/* ─── Анимация иконок: наведение (увеличение) и клик (нажатие) ─── */
+.navitem .ic svg,.btn svg,.row-actions .btn svg,.st-ic svg,.brand svg,.theme-toggle svg,.modal-x{transition:transform .2s cubic-bezier(.34,1.56,.64,1);}
+.navitem:hover .ic svg{transform:scale(1.22) rotate(-4deg);}
+.navitem:active .ic svg{transform:scale(.88);}
+.btn:hover svg{transform:scale(1.18);}
+.btn:active svg{transform:scale(.86);}
+.modal-x:hover{transform:scale(1.25) rotate(90deg);}
 .sidebar .mode-tag{margin-top:18px;font-size:11px;color:var(--muted);text-align:center;padding:8px;border-radius:10px;background:rgba(255,255,255,.03);}
 
 .main{padding:28px 34px 80px;max-width:1280px;}

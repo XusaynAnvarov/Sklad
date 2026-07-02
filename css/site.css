@@ -147,6 +147,14 @@ html[data-site-theme="dark"] body::before {
 .site-tg-link:hover { background: rgba(34,158,217,.20); transform: translateY(-1px); }
 .site-tg-link:active { transform: translateY(0); }
 
+/* ─── Анимация иконок сайта: наведение (увеличение) и клик (нажатие) ─── */
+.site-nav-link svg, .btn-primary svg, .btn-navy svg, .btn-warehouse svg, .btn-ghost svg, .btn-add-cart svg, .s-modal-close svg, .site-tg-link svg { transition: transform .2s cubic-bezier(.34,1.56,.64,1); }
+.btn-primary:hover svg, .btn-navy:hover svg, .btn-warehouse:hover svg, .btn-ghost:hover svg { transform: scale(1.18); }
+.btn-primary:active svg, .btn-navy:active svg, .btn-warehouse:active svg { transform: scale(.86); }
+.site-nav-link:hover svg { transform: scale(1.15); }
+.site-tg-link:hover svg { transform: scale(1.22) rotate(-10deg); }
+.s-modal-close:hover svg { transform: scale(1.2) rotate(90deg); }
+
 /* ---------- Кнопка корзины ---------- */
 .cart-btn {
   position: relative;
