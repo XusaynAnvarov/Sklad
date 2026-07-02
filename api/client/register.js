@@ -82,6 +82,18 @@ export default async function handler(req, res) {
     // активная сессия для нового аккаунта (single-session)
     const sid = genSessionId();
     try { await spatch(`site_accounts?id=eq.${acc.id}`, { session_id: sid, chat_id: v.chat_id ? String(v.chat_id) : null }); } catch {}
+    // уведомление владельцу: новый клиент зарегистрировался (через сайт + Telegram-верификацию)
+    try {
+      const AT = process.env.TELEGRAM_BOT_TOKEN, AC = process.env.ADMIN_CHAT_ID;
+      if (AT && AC) {
+        const head = match ? "Клиент склада завершил регистрацию на сайте" : "🆕 НОВЫЙ клиент зарегистрировался";
+        await fetch(`https://api.telegram.org/bot${AT}/sendMessage`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: AC, text: `✅ Регистрация\n\n${head}\nНомер: ${phone}\nUsername: ${v.tg_username ? "@" + v.tg_username : "—"}\nchat_id: ${v.chat_id || "—"}` }),
+        });
+      }
+    } catch {}
+
     const jwt = signToken({ sub: acc.id, customer_id: acc.customer_id, phone, sid });
     return res.status(200).json({ token: jwt, customer_id: acc.customer_id });
   } catch (e) {

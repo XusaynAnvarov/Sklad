@@ -176,7 +176,7 @@ const askLang = (chatId) => tg("sendMessage", { chat_id: chatId, text: CHOOSE_LA
 // Заставка-логотип при входе (анимация GENERAL MODERN). Не блокирует /start, если файл недоступен.
 const sendIntro = (chatId) => tg("sendAnimation", { chat_id: chatId, animation: PUBLIC_URL + "/brand/bot-intro.gif" }).catch(() => {});
 
-async function linkByPhone(phone, chatId, fromUser) {
+async function linkByPhone(phone, chatId, fromUser, username) {
   const ph = norm(phone);
   const all = await sget("customers?select=*");
   // совпадение по ЛЮБОМУ из номеров клиента (основной + дополнительные)
@@ -185,6 +185,7 @@ async function linkByPhone(phone, chatId, fromUser) {
     const cid = String(chatId);
     const ids = Array.isArray(c.tg_chat_ids) ? c.tg_chat_ids.map(String) : [];
     const accs = Array.isArray(c.tg_accounts) ? c.tg_accounts : [];
+    const isNewLink = !ids.includes(cid) && String(c.tg_chat_id || "") !== cid; // этот Telegram привязывается ВПЕРВЫЕ
     const patch = {};
     if (!c.tg_chat_id) patch.tg_chat_id = cid;          // основной получатель накладных — первый привязавшийся
     if (!ids.includes(cid)) patch.tg_chat_ids = [...ids, cid]; // все привязанные аккаунты (для входа в бот)
@@ -197,6 +198,17 @@ async function linkByPhone(phone, chatId, fromUser) {
         const { tg_accounts, ...noAcc } = patch;
         if (!(await tryPatch(noAcc)) && patch.tg_chat_id) await tryPatch({ tg_chat_id: patch.tg_chat_id });
       }
+    }
+    // владельцу — уведомление, что клиент ПОДКЛЮЧИЛСЯ к боту (только при первой привязке этого Telegram)
+    if (isNewLink) {
+      await notifyAdmin(
+        `✅ Клиент подключился к Telegram-боту\n\n` +
+        `Клиент: ${c.name}\n` +
+        `Номер: ${phone}\n` +
+        `Имя в Telegram: ${fromUser || "—"}\n` +
+        `Username: ${username ? "@" + username : "—"}\n` +
+        `chat_id: ${cid}`
+      );
     }
     return c;
   }
@@ -431,7 +443,7 @@ export default async function handler(req, res) {
           }
           // директория контактов бота — чтобы владелец мог ПРИВЯЗАТЬ клиента вручную, если авто-match не сработал
           try { await supsert("bot_sessions", { chat_id: String(chatId), phone: String(phone), tg_name: fromName || "", tg_username: u.message.from?.username || "", updated_at: new Date().toISOString() }); } catch {}
-          const c = await linkByPhone(phone, chatId, fromName);
+          const c = await linkByPhone(phone, chatId, fromName, u.message.from?.username);
           const L = T[await getLang(chatId, c)] || T.ru;
           if (c) { await setLang(chatId, await getLang(chatId, null), c); await tg("sendMessage", { chat_id: chatId, text: L.found(c.name), reply_markup: { remove_keyboard: true } }); await clientMenu(chatId, c, L); }
           else await tg("sendMessage", { chat_id: chatId, text: L.notFound, reply_markup: { remove_keyboard: true } });
