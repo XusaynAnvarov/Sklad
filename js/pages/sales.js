@@ -261,7 +261,9 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
   drawCart();
   loadLastPrices(); // подтянуть прошлые цены клиента и перерисовать строки с подсказками
 
-  const isBotOrder = sale && (sale.source === "bot" || ["order", "pending_confirm", "confirmed"].includes(sale.status));
+  // «заказ из бота/сайта» — пока НЕ оформлен (по статусу). Как только оформлен (final) — это обычная накладная,
+  // кнопку «На подтверждение» больше не показываем.
+  const isBotOrder = sale && ["order", "pending_confirm", "confirmed"].includes(sale.status);
 
   modal({
     title: isNew ? "Новая продажа" : (isBotOrder ? "Заказ из бота" : "Накладная"),
@@ -269,7 +271,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
     actions: isBotOrder ? [
       { label: "Отмена", kind: "btn-outline", onClick: c => c() },
       { label: "📤 На подтверждение клиенту", kind: "btn-outline", onClick: (close) => sendForConfirm(ctx, sale, state, close, customers) },
-      { label: "✅ Оформить (склад + PDF)", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, true) },
+      { label: "✅ Оформить и отправить PDF клиенту", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, true) },
     ] : [
       { label: "Отмена", kind: "btn-outline", onClick: c => c() },
       { label: "💾 Сохранить", kind: "btn-outline", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, false, chkNoStock.checked) },
