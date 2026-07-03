@@ -25,10 +25,11 @@ export default async function renderVideosAdmin(page, ctx) {
   } }, [icon("plus", { size: 16 }), "Загрузить"]);
 
   page.append(el("div.card", { style: { padding: "16px", marginBottom: "18px" } }, [
-    el("div.field-label", { text: "Новое видео", style: { marginBottom: "8px" } }),
-    el("div", { style: { marginBottom: "10px" } }, [fTitle]),
-    el("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center", marginBottom: "10px" } }, [fFile, upBtn]),
-    el("div", { style: { fontSize: "12px", color: "var(--muted)" } }, [el("span", { text: "Форматы: MP4/MOV/WebM. До ~100 МБ. Файл загружается напрямую в защищённое хранилище." })]),
+    el("div.field-label", { text: "Новое видео", style: { marginBottom: "10px" } }),
+    el("div", { style: { display: "block", marginBottom: "12px" } }, [fTitle]),
+    el("div", { style: { display: "block", marginBottom: "12px" } }, [fFile]),
+    el("div", { style: { display: "block", marginBottom: "12px" } }, [upBtn]),
+    el("div", { style: { display: "block", fontSize: "12px", color: "var(--muted)", lineHeight: "1.4" } }, [el("span", { text: "Форматы: MP4/MOV/WebM. До ~100 МБ. Файл загружается напрямую в защищённое хранилище." })]),
   ]));
 
   // --- список ---
