@@ -29,20 +29,30 @@ export default async function handler(req, res) {
 
   const SB = { apikey: SERVICE, Authorization: "Bearer " + SERVICE };
   // ВАЖНО: с Content-Type: application/json Supabase требует непустое тело → шлём "{}"
-  const sign = () => fetch(`${SUPA_URL}/storage/v1/object/upload/sign/${BUCKET}/${encodeURIComponent(path)}`, { method: "POST", headers: { ...SB, "Content-Type": "application/json" }, body: "{}" });
+  const sign = () => fetch(`${SUPA_URL}/storage/v1/object/upload/sign/${BUCKET}/${path}`, { method: "POST", headers: { ...SB, "Content-Type": "application/json" }, body: "{}" });
+
+  // Гарантируем существование приватного бакета ДО подписи (иначе sign → 404 "resource does not exist")
+  const ensureBucket = async () => {
+    const g = await fetch(`${SUPA_URL}/storage/v1/bucket/${BUCKET}`, { headers: SB });
+    if (g.ok) return null; // бакет уже есть
+    const c = await fetch(`${SUPA_URL}/storage/v1/bucket`, {
+      method: "POST", headers: { ...SB, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: BUCKET, name: BUCKET, public: false, file_size_limit: 104857600 }),
+    });
+    if (c.ok) return null;
+    const txt = await c.text();
+    // "already exists" — это ок (гонка/параллельный запрос)
+    if (/exist/i.test(txt)) return null;
+    return "Не удалось создать бакет: " + txt.slice(0, 200);
+  };
+
   try {
+    const bucketErr = await ensureBucket();
+    if (bucketErr) return res.status(500).json({ error: bucketErr });
+
     let r = await sign();
-    if (!r.ok) {
-      const txt = await r.text();
-      if (/bucket not found/i.test(txt) || r.status === 404 || r.status === 400) {
-        await fetch(`${SUPA_URL}/storage/v1/bucket`, {
-          method: "POST", headers: { ...SB, "Content-Type": "application/json" },
-          body: JSON.stringify({ id: BUCKET, name: BUCKET, public: false, file_size_limit: 104857600 }),
-        }).catch(() => {});
-        r = await sign();
-      }
-      if (!r.ok) return res.status(500).json({ error: "Storage sign: " + (await r.text()).slice(0, 200) });
-    }
+    if (!r.ok) return res.status(500).json({ error: "Storage sign: " + (await r.text()).slice(0, 200) });
+
     const j = await r.json(); // { url: "/object/upload/sign/<bucket>/<path>?token=..." }
     return res.status(200).json({ path, uploadUrl: `${SUPA_URL}/storage/v1${j.url}` });
   } catch (e) {
