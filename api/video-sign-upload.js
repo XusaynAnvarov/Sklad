@@ -35,12 +35,15 @@ export default async function handler(req, res) {
   const ensureBucket = async () => {
     const g = await fetch(`${SUPA_URL}/storage/v1/bucket/${BUCKET}`, { headers: SB });
     if (g.ok) return null; // бакет уже есть
-    const c = await fetch(`${SUPA_URL}/storage/v1/bucket`, {
+    // БЕЗ file_size_limit: явный лимит (100МБ) может превышать глобальный лимит
+    // проекта → Supabase отвечает 413. Без него бакет наследует глобальный лимит.
+    const mkBody = { id: BUCKET, name: BUCKET, public: false };
+    let c = await fetch(`${SUPA_URL}/storage/v1/bucket`, {
       method: "POST", headers: { ...SB, "Content-Type": "application/json" },
-      body: JSON.stringify({ id: BUCKET, name: BUCKET, public: false, file_size_limit: 104857600 }),
+      body: JSON.stringify(mkBody),
     });
     if (c.ok) return null;
-    const txt = await c.text();
+    let txt = await c.text();
     // "already exists" — это ок (гонка/параллельный запрос)
     if (/exist/i.test(txt)) return null;
     return "Не удалось создать бакет: " + txt.slice(0, 200);
