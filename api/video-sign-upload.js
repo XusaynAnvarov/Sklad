@@ -28,7 +28,8 @@ export default async function handler(req, res) {
   const path = `${Date.now()}_${safe}.${ext}`;
 
   const SB = { apikey: SERVICE, Authorization: "Bearer " + SERVICE };
-  const sign = () => fetch(`${SUPA_URL}/storage/v1/object/upload/sign/${BUCKET}/${encodeURIComponent(path)}`, { method: "POST", headers: { ...SB, "Content-Type": "application/json" } });
+  // ВАЖНО: с Content-Type: application/json Supabase требует непустое тело → шлём "{}"
+  const sign = () => fetch(`${SUPA_URL}/storage/v1/object/upload/sign/${BUCKET}/${encodeURIComponent(path)}`, { method: "POST", headers: { ...SB, "Content-Type": "application/json" }, body: "{}" });
   try {
     let r = await sign();
     if (!r.ok) {

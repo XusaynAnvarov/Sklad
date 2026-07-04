@@ -124,8 +124,8 @@ function cardHtml(p, i) {
   const mainPhoto = (p.photos && p.photos.length) ? p.photos[0] : p.photo_url;
   return `<div class="prod reveal" data-id="${id}" style="animation-delay:${(i % 12) * 0.03}s">
       <div style="position:relative">
-        <img class="ph" loading="lazy" src="${mainPhoto || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'" />
-        ${np > 1 ? `<span style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px">📷 ${np}</span>` : ""}
+        <img class="ph" loading="lazy" style="cursor:zoom-in" src="${mainPhoto || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'" />
+        ${np >= 1 ? `<span style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;pointer-events:none">📷 ${np}</span>` : ""}
         ${p.is_new ? `<span style="position:absolute;right:8px;top:8px;background:var(--accent,#4f7cf0);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">Новый</span>` : ""}
       </div>
       <div class="body">
@@ -338,7 +338,7 @@ function renderOrderView() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=60", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=61", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();

@@ -95,9 +95,9 @@ function buildCard(p) {
     img.onerror = () => { imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`; };
     img.addEventListener("click", (e) => { e.stopPropagation(); openGallery(photos, 0, p.name); });
     imgWrap.append(img);
-    if (photos.length > 1) {
+    {
       const pb = mkEl("span");
-      pb.style.cssText = "position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:2";
+      pb.style.cssText = "position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:2;pointer-events:none";
       pb.textContent = "📷 " + photos.length;
       imgWrap.append(pb);
     }
