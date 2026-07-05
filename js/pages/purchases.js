@@ -38,6 +38,28 @@ export function showNotFound(list) {
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 
+// Показать все товары накладной поставщика (фото + название + кол-во) — что в дороге / что пришло
+function showPurchaseItems(s, products) {
+  const pmap = Object.fromEntries(products.map(p => [p.id, p]));
+  const statusTxt = s.status === "arrived" ? "✅ Уже пришёл" : "🚚 В дороге";
+  const rows = (s.items || []).map(it => {
+    const p = pmap[it.product_id] || { name: "?" };
+    return el("div.card", { style: { padding: "8px 10px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center" } }, [
+      el("img.thumb", { src: p.photo_url || placeholder(p.name), style: { width: "60px", height: "60px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
+      el("div", { style: { flex: "1", minWidth: "0", fontWeight: "600" }, text: p.name }),
+      el("div", { style: { fontWeight: "700", whiteSpace: "nowrap", fontSize: "15px" }, text: "× " + it.qty }),
+    ]);
+  });
+  modal({
+    title: `${s.supplier || "—"} · ${statusTxt}`,
+    body: el("div", {}, [
+      el("div.hint", { text: `Дата: ${new Date(s.date).toLocaleDateString("ru-RU")} · Позиций: ${(s.items || []).length}` }),
+      el("div", { style: { maxHeight: "60vh", overflow: "auto", marginTop: "10px" } }, rows.length ? rows : [el("div.empty", {}, [el("p", { text: "Товаров нет" })])]),
+    ]),
+    actions: [{ label: "Закрыть", kind: "btn-primary", onClick: c => c() }],
+  });
+}
+
 export default async function render(page, ctx) {
   const [purchases, products] = await Promise.all([ctx.db.purchases.list(), ctx.db.products.list()]);
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
@@ -70,6 +92,7 @@ export default async function render(page, ctx) {
       el("td.right", {}, [el("div.row-actions", {}, [
         s.status !== "arrived" && el("button.btn.btn-ok.btn-sm", { text: "Оприходовать", title: "Отметить «пришёл» и добавить на склад", onclick: () => arrive(ctx, s, products) }),
         s.status === "arrived" && el("button.btn.btn-outline.btn-sm", { title: "Если оприходовали дважды — списать товары этого прихода один раз", onclick: () => unarriveOnce(ctx, s, products) }, ["↩️ −1 оприх."]),
+        el("button.btn.btn-outline.btn-sm", { title: "Показать товары этого поставщика (фото + кол-во)", text: "👁 Товары", onclick: () => showPurchaseItems(s, products) }),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать", onclick: () => openEditor(ctx, s, products, suppliers) }, [icon("edit", { size: 16 })]),
         el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить приход?" + (s.status === "arrived" ? " Оприходованные товары спишутся со склада." : ""), async () => {
           if (s.status === "arrived") { for (const it of (s.items || [])) { const p = pmap[it.product_id]; if (!p) continue; const r = consumeFIFO(ensureBatches(p), it.qty); p.batches = r.batches; const cc = costAfter(r.batches, p); const base = { id: p.id, stock_qty: sumQty(r.batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd }; try { await ctx.db.products.upsert({ ...base, batches: r.batches }); } catch (e) { await ctx.db.products.upsert(base); } } }

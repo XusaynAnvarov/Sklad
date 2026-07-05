@@ -166,8 +166,8 @@ export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan"
 
   const HEADBG = rgb(0.93, 0.93, 0.97), ZEBRA = rgb(0.975, 0.975, 0.99), WHITE = rgb(1, 1, 1);
   const tableX = M, tableR = W - M;
-  const cx = { l: tableX, name: tableX + 62, qty: tableX + 300, cost: tableX + 378, sum: tableX + 455, r: tableR };
-  const padR = 8, rowH = 50, headH = 24, BOTTOM = 70;
+  const cx = { l: tableX, name: tableX + 112, qty: tableX + 300, cost: tableX + 378, sum: tableX + 455, r: tableR };
+  const padR = 8, rowH = 104, headH = 24, BOTTOM = 70, PHOTO = 90;
   const tw = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
 
   let pg = doc.addPage([W, H]);
@@ -210,12 +210,12 @@ export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan"
     // фото
     const img = imgs[it.product_id];
     if (img) {
-      const box = 44; const dim = img.scale(1);
+      const box = PHOTO; const dim = img.scale(1);
       const k = Math.min(box / dim.width, box / dim.height);
       const w = dim.width * k, h = dim.height * k;
       pg.drawImage(img, { x: cx.l + 8 + (box - w) / 2, y: cy - rowH + (rowH - h) / 2, width: w, height: h });
     } else {
-      pg.drawRectangle({ x: cx.l + 8, y: cy - rowH + (rowH - 44) / 2, width: 44, height: 44, color: rgb(0.95, 0.95, 0.97) });
+      pg.drawRectangle({ x: cx.l + 8, y: cy - rowH + (rowH - PHOTO) / 2, width: PHOTO, height: PHOTO, color: rgb(0.95, 0.95, 0.97) });
     }
     const mid = cy - rowH / 2 - 4;
     let nm = String(p.name || "?"); if (nm.length > 40) nm = nm.slice(0, 39) + "…";

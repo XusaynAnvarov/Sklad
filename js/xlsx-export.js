@@ -136,7 +136,7 @@ export async function exportSupplierOrderExcel(items, supplier, currency, produc
   const NAVY = "FF16233B", NAVY2 = "FF22324F", GOLD = "FFD9B45A", BD = "FFD0D5DD";
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Заказ");
-  ws.columns = [{ width: 5 }, { width: 9 }, { width: 40 }, { width: 10 }, { width: 14 }, { width: 15 }];
+  ws.columns = [{ width: 5 }, { width: 15 }, { width: 40 }, { width: 10 }, { width: 14 }, { width: 15 }];
   const thin = { style: "thin", color: { argb: BD } };
   const box = { top: thin, left: thin, bottom: thin, right: thin };
   const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
@@ -166,7 +166,7 @@ export async function exportSupplierOrderExcel(items, supplier, currency, produc
     const sum = r2((Number(it.qty) || 0) * (Number(it.cost) || 0));
     total += sum;
     const r = ws.addRow([i + 1, "", p.name || "?", Number(it.qty) || 0, r2(it.cost), sum]);
-    r.height = 44;
+    r.height = 72;
     r.eachCell(c => { c.border = box; c.alignment = c.alignment || {}; });
     r.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
     r.getCell(3).alignment = { horizontal: "left", vertical: "middle", wrapText: true };
@@ -177,7 +177,7 @@ export async function exportSupplierOrderExcel(items, supplier, currency, produc
       const ext = /png/i.test(dataUrl.slice(0, 20)) ? "png" : "jpeg";
       const base64 = dataUrl.replace(/^data:[^,]*,/, ""); // ExcelJS ждёт «сырой» base64 без data-URI префикса
       const imgId = wb.addImage({ base64, extension: ext });
-      ws.addImage(imgId, { tl: { col: 1.15, row: r.number - 1 + 0.1 }, ext: { width: 40, height: 40 } });
+      ws.addImage(imgId, { tl: { col: 1.08, row: r.number - 1 + 0.05 }, ext: { width: 90, height: 90 } });
     }
   });
   const tr = ws.addRow(["", "", "", "", "ИТОГО:", r2(total)]);
