@@ -71,6 +71,7 @@ const routes = [
   [["GET"],   "/api/admin/act-pdf",           "./api/admin/act-pdf.js"],
   [["GET"],   "/api/admin/bot-contacts",      "./api/admin/bot-contacts.js"],
   [["POST","OPTIONS"], "/api/video-sign-upload", "./api/video-sign-upload.js"],
+  [["POST","OPTIONS"], "/api/supplier-order-pdf", "./api/supplier-order-pdf.js"],
   [["GET"],   "/api/videos",                  "./api/videos.js"],
   [["GET"],   "/api/video-url",               "./api/video-url.js"],
   [["POST","DELETE"], "/api/admin/site-client-delete", "./api/admin/site-client-delete.js"],
