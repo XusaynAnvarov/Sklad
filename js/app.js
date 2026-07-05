@@ -21,12 +21,14 @@ import settings from "./pages/settings.js";
 import siteClients from "./pages/site_clients.js";
 import trash from "./pages/trash.js";
 import videosAdmin from "./pages/videos_admin.js";
+import supplierOrder from "./pages/supplier_order.js";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
   { id: "products",     label: "Товары",          ic: "box",       render: products },
   { id: "sales",        label: "Продажи",         ic: "receipt",   render: sales },
   { id: "purchases",    label: "Приход",          ic: "truck",     render: purchases },
+  { id: "supplier_order", label: "Заказ поставщику", ic: "truck",   render: supplierOrder },
   { id: "customers",    label: "Клиенты",         ic: "user",      render: customers },
   { id: "orders",       label: "Заказы",          ic: "cart",      render: orders },
   { id: "reports",      label: "Отчёты",          ic: "chart",     render: reports },
@@ -126,7 +128,7 @@ boot();
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=61", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=62", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

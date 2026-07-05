@@ -223,8 +223,18 @@ async function renderInvoices(container) {
     const items = mkEl("div", "");
     (inv.items || []).forEach(it => {
       const row = mkEl("div", "");
-      row.style.cssText = "display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px";
-      row.innerHTML = `<span>${escHtml(it.product_name)}</span><span style="color:var(--muted)">${it.qty} × ${fmt(it.unit_price, it.currency)}</span>`;
+      row.style.cssText = "display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px";
+      if (it.photo) {
+        const im = document.createElement("img");
+        im.src = it.photo; im.loading = "lazy";
+        im.style.cssText = "width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:zoom-in;border:1px solid var(--border)";
+        im.onerror = () => { im.style.display = "none"; };
+        im.addEventListener("click", () => openPhoto(it.photo, it.product_name));
+        row.append(im);
+      }
+      const nameEl = mkEl("span", ""); nameEl.style.cssText = "flex:1;min-width:0"; nameEl.textContent = it.product_name;
+      const qtyEl = mkEl("span", ""); qtyEl.style.cssText = "color:var(--muted);flex-shrink:0"; qtyEl.textContent = `${it.qty} × ${fmt(it.unit_price, it.currency)}`;
+      row.append(nameEl, qtyEl);
       items.append(row);
     });
     const btns = mkEl("div", "");
@@ -365,6 +375,20 @@ function emptyState(text) {
   return w;
 }
 function escHtml(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+// Полноэкранный просмотр фото товара (клик по миниатюре в накладной)
+function openPhoto(src, name) {
+  const ov = document.createElement("div");
+  ov.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:16px";
+  const img = document.createElement("img");
+  img.src = src; img.alt = name || "";
+  img.style.cssText = "max-width:92vw;max-height:82vh;border-radius:12px;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.6)";
+  img.addEventListener("click", e => e.stopPropagation());
+  if (name) { const cap = document.createElement("div"); cap.textContent = name; cap.style.cssText = "position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-size:14px;padding:0 16px"; ov.append(cap); }
+  ov.addEventListener("click", () => ov.remove());
+  document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { ov.remove(); document.removeEventListener("keydown", esc); } });
+  ov.append(img); document.body.append(ov);
+}
 
 // SVG иконки (inline, без внешних зависимостей)
 function svgUser()    { const s=mkEl("svg",""); s.setAttribute("width","16"); s.setAttribute("height","16"); s.setAttribute("viewBox","0 0 24 24"); s.setAttribute("fill","none"); s.setAttribute("stroke","currentColor"); s.setAttribute("stroke-width","2"); s.innerHTML=`<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>`; return s; }

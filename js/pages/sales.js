@@ -308,6 +308,7 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
     ...(sale ? { id: sale.id } : {}),
     customer_id: state.customer_id, date: state.date || new Date().toISOString(),
     currency: state.currency, status, telegram_sent: sale?.telegram_sent || false, items: state.items,
+    boxes: +state.boxes || 0, // раньше писали отдельным запросом — теперь сразу (быстрее)
   };
   try {
     if (noStock) {
@@ -333,18 +334,23 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
         p.batches = r.batches; it.cogs_yuan = r.cogY; it.cogs_usd = r.cogU;
       });
       const touched = new Set([...((sale && sale.items) || []).map(i => i.product_id), ...state.items.map(i => i.product_id)]);
-      for (const pid of touched) {
-        const p = products.find(x => x.id === pid); if (!p) continue;
+      // пишем все затронутые товары ПАРАЛЛЕЛЬНО (раньше — по очереди, отсюда долгое сохранение)
+      await Promise.all([...touched].map(async (pid) => {
+        const p = products.find(x => x.id === pid); if (!p) return;
         // склад распродан → сохраняем прежнюю себестоимость (не обнуляем)
         const cc = costAfter(p.batches || [], p);
         const base = { id: p.id, stock_qty: sumQty(p.batches || []), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
         try { await ctx.db.products.upsert({ ...base, batches: p.batches }); }
         catch (e) { await ctx.db.products.upsert(base); } // если колонки batches ещё нет
-      }
+      }));
     }
-    const saved = await ctx.db.sales.upsert(obj);
-    // коробки сохраняем отдельно (если колонка ещё не создана — просто пропустим)
-    try { await ctx.db.sales.upsert({ id: (saved || obj).id, boxes: +state.boxes || 0 }); } catch (e) { console.warn("boxes:", e.message); }
+    let saved;
+    try { saved = await ctx.db.sales.upsert(obj); }
+    catch (e) {
+      // на случай, если колонки boxes ещё нет в старой БД — повторяем без неё
+      if (/boxes/i.test(String(e.message || ""))) { const { boxes, ...noBox } = obj; saved = await ctx.db.sales.upsert(noBox); }
+      else throw e;
+    }
     // новая «оплаченная» (наличная) продажа → записываем оплату (статус долга считается по оплатам)
     if (!sale && state.paid) {
       try {

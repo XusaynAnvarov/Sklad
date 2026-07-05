@@ -121,6 +121,77 @@ export async function exportCustomerInvoice(sale, customer, products, info = {})
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
+// --- Заказ поставщику → .xlsx с ФОТО товара (ExcelJS addImage) ---
+async function urlToDataUrl(url) {
+  try {
+    const r = await fetch(url); if (!r.ok) return null;
+    const b = await r.blob();
+    return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(b); });
+  } catch { return null; }
+}
+// items = [{product_id, qty, cost, currency}]
+export async function exportSupplierOrderExcel(items, supplier, currency, products) {
+  const ExcelJS = await libExcel();
+  const pmap = Object.fromEntries(products.map(p => [p.id, p]));
+  const NAVY = "FF16233B", NAVY2 = "FF22324F", GOLD = "FFD9B45A", BD = "FFD0D5DD";
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Заказ");
+  ws.columns = [{ width: 5 }, { width: 9 }, { width: 40 }, { width: 10 }, { width: 14 }, { width: 15 }];
+  const thin = { style: "thin", color: { argb: BD } };
+  const box = { top: thin, left: thin, bottom: thin, right: thin };
+  const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+
+  ws.mergeCells("A1:F1");
+  Object.assign(ws.getCell("A1"), { value: "GENERAL MODERN — Заказ поставщику", font: { bold: true, size: 18, color: { argb: GOLD } }, alignment: { horizontal: "center", vertical: "middle" }, fill: fill(NAVY) });
+  ws.getRow(1).height = 32;
+  const inf = ws.addRow(["", "Поставщик:", supplier || "—"]); inf.getCell(2).font = { bold: true }; ws.mergeCells(`C${inf.number}:F${inf.number}`);
+  const inf2 = ws.addRow(["", "Дата:", new Date().toLocaleDateString("ru-RU")]); inf2.getCell(2).font = { bold: true }; ws.mergeCells(`C${inf2.number}:F${inf2.number}`);
+  ws.addRow([]);
+
+  const sign = SIGN[currency] || currency;
+  const head = ws.addRow(["№", "Фото", "Товар", "Кол-во", "Себест. " + sign, "Сумма " + sign]);
+  head.eachCell(c => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = fill(NAVY2); c.alignment = { horizontal: "center", vertical: "middle" }; c.border = box; });
+
+  // фото тянем параллельно
+  const photos = await Promise.all(items.map(it => {
+    const p = pmap[it.product_id] || {};
+    const url = (p.photos && p.photos[0]) || p.photo_url || null;
+    return url ? urlToDataUrl(url) : Promise.resolve(null);
+  }));
+
+  let total = 0;
+  items.forEach((it, i) => {
+    const p = pmap[it.product_id] || { name: "?" };
+    const cur = it.currency || currency;
+    const sum = r2((Number(it.qty) || 0) * (Number(it.cost) || 0));
+    total += sum;
+    const r = ws.addRow([i + 1, "", p.name || "?", Number(it.qty) || 0, r2(it.cost), sum]);
+    r.height = 44;
+    r.eachCell(c => { c.border = box; c.alignment = c.alignment || {}; });
+    r.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+    r.getCell(3).alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+    [4, 5, 6].forEach(n => { r.getCell(n).numFmt = "#,##0"; r.getCell(n).alignment = { horizontal: "right", vertical: "middle" }; });
+    if (i % 2) r.eachCell(c => { c.fill = fill("FFF6F8FB"); });
+    const dataUrl = photos[i];
+    if (dataUrl) {
+      const ext = /png/i.test(dataUrl.slice(0, 20)) ? "png" : "jpeg";
+      const base64 = dataUrl.replace(/^data:[^,]*,/, ""); // ExcelJS ждёт «сырой» base64 без data-URI префикса
+      const imgId = wb.addImage({ base64, extension: ext });
+      ws.addImage(imgId, { tl: { col: 1.15, row: r.number - 1 + 0.1 }, ext: { width: 40, height: 40 } });
+    }
+  });
+  const tr = ws.addRow(["", "", "", "", "ИТОГО:", r2(total)]);
+  tr.getCell(5).font = { bold: true }; tr.getCell(5).alignment = { horizontal: "right" };
+  tr.getCell(6).font = { bold: true }; tr.getCell(6).numFmt = "#,##0"; tr.getCell(6).alignment = { horizontal: "right" };
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `zakaz-postavshiku-${safe(supplier)}-${new Date().toISOString().slice(0, 10)}.xlsx`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
 // Все накладные (плоская таблица: строка = позиция). customers/products — массивы.
 export async function exportAllSales(sales, customers, products) {
   const XLSX = await lib();

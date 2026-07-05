@@ -132,6 +132,113 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
   return await doc.save(); // Uint8Array
 }
 
+// ---- Заказ поставщику: фото товара + название + кол-во + себестоимость ----
+// Фото тянутся из публичного бакета и встраиваются в PDF (тяжелее обычной накладной).
+async function embedPhoto(doc, url) {
+  if (!url) return null;
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 5000);
+    const r = await fetch(url, { signal: ctrl.signal }).catch(() => null);
+    clearTimeout(to);
+    if (!r || !r.ok) return null;
+    const buf = new Uint8Array(await r.arrayBuffer());
+    try { return await doc.embedJpg(buf); } catch { try { return await doc.embedPng(buf); } catch { return null; } }
+  } catch { return null; }
+}
+
+export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan", products, company = "GENERAL MODERN" }) {
+  const pmap = Object.fromEntries((products || []).map(p => [p.id, p]));
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
+  const reg = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Regular.ttf")));
+  const bold = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Bold.ttf")));
+
+  const W = 595, H = 842, M = 44;
+  // встраиваем фото уникальных товаров параллельно (id → image | null)
+  const uniq = [...new Set((items || []).map(it => it.product_id).filter(Boolean))];
+  const imgs = {};
+  await Promise.all(uniq.map(async (id) => {
+    const p = pmap[id]; if (!p) return;
+    const url = (p.photos && p.photos[0]) || p.photo_url || null;
+    imgs[id] = await embedPhoto(doc, url);
+  }));
+
+  const HEADBG = rgb(0.93, 0.93, 0.97), ZEBRA = rgb(0.975, 0.975, 0.99), WHITE = rgb(1, 1, 1);
+  const tableX = M, tableR = W - M;
+  const cx = { l: tableX, name: tableX + 62, qty: tableX + 300, cost: tableX + 378, sum: tableX + 455, r: tableR };
+  const padR = 8, rowH = 50, headH = 24, BOTTOM = 70;
+  const tw = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
+
+  let pg = doc.addPage([W, H]);
+  const PT = (s, x, yy, size, f = reg, c = DARK) => pg.drawText(String(s == null ? "" : s), { x, y: yy, size, font: f, color: c });
+  const PRT = (s, xr, yy, size, f, c = DARK) => pg.drawText(String(s == null ? "" : s), { x: xr - tw(s, size, f), y: yy, size, font: f, color: c });
+  const hline = (yy) => pg.drawLine({ start: { x: tableX, y: yy }, end: { x: tableR, y: yy }, thickness: 0.8, color: LINE });
+
+  function banner() {
+    const bannerH = 96, bannerR = 16;
+    pg.drawSvgPath(`M 0 0 H ${W} V ${bannerH - bannerR} Q ${W} ${bannerH} ${W - bannerR} ${bannerH} H ${bannerR} Q 0 ${bannerH} 0 ${bannerH - bannerR} V 0 Z`, { x: 0, y: H, color: DARK });
+    roundRect(pg, 16, H - 96 + 18, 6, 60, 3, { color: ACCENT });
+    pg.drawText(company, { x: M, y: H - 50, size: 24, font: bold, color: rgb(1, 1, 1) });
+    pg.drawText("Заказ поставщику / Buyurtma", { x: M, y: H - 74, size: 12, font: reg, color: rgb(0.75, 0.75, 0.85) });
+    const dateStr = new Date().toLocaleDateString("ru-RU");
+    PRT("от " + dateStr, W - M, H - 50, 12, reg, rgb(0.85, 0.85, 0.92));
+  }
+  function colHeader(bandTop) {
+    const hw = tableR - tableX, hr = 8;
+    pg.drawSvgPath(`M ${hr} 0 H ${hw - hr} Q ${hw} 0 ${hw} ${hr} V ${headH} H 0 V ${hr} Q 0 0 ${hr} 0 Z`, { x: tableX, y: bandTop, color: HEADBG });
+    const hb = bandTop - 16;
+    PT("Фото", cx.l + 8, hb, 10, bold, GREY); PT("Товар", cx.name + 8, hb, 10, bold, GREY);
+    PRT("Кол-во", cx.cost - padR, hb, 10, bold, GREY); PRT("Себест.", cx.sum - padR, hb, 10, bold, GREY); PRT("Сумма", cx.r - padR, hb, 10, bold, GREY);
+    hline(bandTop); hline(bandTop - headH);
+  }
+
+  banner();
+  let y = H - 130;
+  pg.drawText("Поставщик: " + (supplier || "—"), { x: M, y, size: 12, font: bold, color: DARK }); y -= 26;
+
+  let bandTop = y, cy = bandTop - headH;
+  colHeader(bandTop);
+  let total = 0;
+  (items || []).forEach((it, i) => {
+    if (cy - rowH < BOTTOM) { pg = doc.addPage([W, H]); banner(); bandTop = H - 130; colHeader(bandTop); cy = bandTop - headH; }
+    const p = pmap[it.product_id] || { name: "?" };
+    const cur = it.currency || currency;
+    const sum = (Number(it.qty) || 0) * (Number(it.cost) || 0);
+    total += sum;
+    if (i % 2 === 1) pg.drawRectangle({ x: tableX, y: cy - rowH, width: tableR - tableX, height: rowH, color: ZEBRA });
+    // фото
+    const img = imgs[it.product_id];
+    if (img) {
+      const box = 44; const dim = img.scale(1);
+      const k = Math.min(box / dim.width, box / dim.height);
+      const w = dim.width * k, h = dim.height * k;
+      pg.drawImage(img, { x: cx.l + 8 + (box - w) / 2, y: cy - rowH + (rowH - h) / 2, width: w, height: h });
+    } else {
+      pg.drawRectangle({ x: cx.l + 8, y: cy - rowH + (rowH - 44) / 2, width: 44, height: 44, color: rgb(0.95, 0.95, 0.97) });
+    }
+    const mid = cy - rowH / 2 - 4;
+    let nm = String(p.name || "?"); if (nm.length > 40) nm = nm.slice(0, 39) + "…";
+    PT(nm, cx.name + 8, mid, 10, reg);
+    PRT(String(it.qty), cx.cost - padR, mid, 10, reg);
+    PRT(money(it.cost, cur), cx.sum - padR, mid, 10, reg);
+    PRT(money(sum, cur), cx.r - padR, mid, 10, bold);
+    cy -= rowH; hline(cy);
+  });
+  [cx.l, cx.name, cx.qty, cx.cost, cx.sum, cx.r].forEach(x => pg.drawLine({ start: { x, y: bandTop - headH }, end: { x, y: cy }, thickness: 0.8, color: LINE }));
+
+  // итог
+  const boxH = 34, gap = 16;
+  let boxY = cy - gap - boxH;
+  if (boxY < BOTTOM) { pg = doc.addPage([W, H]); banner(); boxY = H - 130 - boxH; }
+  roundRect(pg, cx.qty, boxY, cx.r - cx.qty, boxH, 10, { color: DARK });
+  PT("ИТОГО:", cx.qty + 14, boxY + 11, 13, bold, WHITE);
+  PRT(money(total, currency), cx.r - padR, boxY + 11, 13, bold, ACCENT);
+
+  pg.drawText("Сформировано: " + new Date().toLocaleString("ru-RU") + " · " + company, { x: M, y: 40, size: 9, font: reg, color: GREY });
+  return await doc.save();
+}
+
 // ---- Акт сверки взаиморасчётов (по каждой валюте, хронология, остаток) ----
 export async function buildReconciliationPDF({ customer, sales, payments, company = "GENERAL MODERN" }) {
   const doc = await PDFDocument.create();

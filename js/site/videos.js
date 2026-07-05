@@ -30,10 +30,24 @@ export async function renderVideos(container) {
   grid.innerHTML = "";
   list.forEach(v => {
     const card = document.createElement("div"); card.className = "product-card"; card.style.cursor = "pointer";
+    // обложка: фото привязанного товара (если есть) с иконкой ▶ поверх, иначе просто ▶
+    const cover = document.createElement("div");
+    cover.style.cssText = "position:relative;height:150px;background:var(--bg,#f4f0e8);display:flex;align-items:center;justify-content:center;overflow:hidden";
+    if (v.product_photo) {
+      const im = document.createElement("img");
+      im.src = v.product_photo; im.loading = "lazy"; im.style.cssText = "width:100%;height:100%;object-fit:cover";
+      im.onerror = () => { im.remove(); };
+      cover.append(im);
+    }
+    const play = document.createElement("div");
+    play.textContent = "▶";
+    play.style.cssText = "position:absolute;font-size:34px;color:#fff;width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;text-indent:4px";
+    cover.append(play);
     const body = document.createElement("div"); body.className = "product-card-body";
-    const ic = document.createElement("div"); ic.style.cssText = "font-size:40px;text-align:center;padding:22px 0;color:var(--navy)"; ic.textContent = "▶";
     const nm = document.createElement("div"); nm.className = "product-name"; nm.textContent = v.title || "Видео";
-    body.append(ic, nm); card.append(body);
+    body.append(nm);
+    if (v.product_name) { const pn = document.createElement("div"); pn.className = "product-category"; pn.textContent = v.product_name; body.append(pn); }
+    card.append(cover, body);
     card.addEventListener("click", () => openVideoPlayer(v));
     grid.append(card);
   });
