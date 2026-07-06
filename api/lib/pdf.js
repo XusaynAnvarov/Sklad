@@ -147,21 +147,29 @@ async function embedPhoto(doc, url) {
   } catch { return null; }
 }
 
-// Ярлыки PDF. Шрифт NotoSans поддерживает латиницу/кириллицу, но НЕ китайский —
-// поэтому для zh берём английские ярлыки (иначе «квадратики»). Excel-версия показывает 中文.
+// Ярлыки PDF. Для zh нужен CJK-шрифт (NotoSansSC) — он же покрывает кириллицу/латиницу,
+// поэтому в китайском режиме используем его для ВСЕГО текста (включая русские названия).
 const SO_PDF_LABELS = {
   ru: { po: "Заказ поставщику", supplier: "Поставщик", photo: "Фото", name: "Товар", qty: "Кол-во", price: "Себест.", sum: "Сумма", total: "ИТОГО", from: "от" },
   uz: { po: "Yetkazib beruvchiga buyurtma", supplier: "Yetkazib beruvchi", photo: "Rasm", name: "Mahsulot", qty: "Soni", price: "Narx", sum: "Summa", total: "JAMI", from: "sana" },
   en: { po: "Purchase order", supplier: "Supplier", photo: "Photo", name: "Product", qty: "Qty", price: "Price", sum: "Amount", total: "TOTAL", from: "date" },
+  zh: { po: "采购订单", supplier: "供应商", photo: "产品图片", name: "品名", qty: "数量", price: "单价", sum: "金额", total: "合计", from: "日期" },
 };
 
 export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan", products, company = "GENERAL MODERN", lang = "ru" }) {
-  const LB = lang === "zh" ? SO_PDF_LABELS.en : (SO_PDF_LABELS[lang] || SO_PDF_LABELS.ru);
   const pmap = Object.fromEntries((products || []).map(p => [p.id, p]));
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const reg = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Regular.ttf")));
-  const bold = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Bold.ttf")));
+  let reg = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Regular.ttf")));
+  let bold = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Bold.ttf")));
+  let LB = SO_PDF_LABELS[lang] || SO_PDF_LABELS.ru;
+  if (lang === "zh") {
+    try {
+      // NotoSansSC покрывает 中文 + кириллицу + латиницу → используем как единый шрифт
+      const cjk = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSansSC-Regular.otf")), { subset: true });
+      reg = cjk; bold = cjk; LB = SO_PDF_LABELS.zh;
+    } catch (e) { LB = SO_PDF_LABELS.en; } // шрифт недоступен → латиница (без «квадратиков»)
+  }
 
   const W = 595, H = 842, M = 44;
   // встраиваем фото уникальных товаров параллельно (id → image | null)

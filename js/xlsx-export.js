@@ -176,7 +176,7 @@ export async function exportSupplierOrderExcel(items, supplier, currency, produc
     const sum = r2((Number(it.qty) || 0) * (Number(it.cost) || 0));
     total += sum;
     const r = ws.addRow([i + 1, "", p.name || "?", L.pcs, Number(it.qty) || 0, r2(it.cost), sum]);
-    r.height = 68;
+    r.height = 76; // выше картинки (70px) → фото помещается с полями, не наезжает на соседний ряд
     r.eachCell(c => { c.border = box; c.fill = fill(ROW); });
     r.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
     r.getCell(3).alignment = { horizontal: "left", vertical: "middle", wrapText: true }; r.getCell(3).font = { bold: true };
@@ -188,7 +188,8 @@ export async function exportSupplierOrderExcel(items, supplier, currency, produc
       const ext = /png/i.test(dataUrl.slice(0, 20)) ? "png" : "jpeg";
       const base64 = dataUrl.replace(/^data:[^,]*,/, ""); // ExcelJS ждёт «сырой» base64 без data-URI префикса
       const imgId = wb.addImage({ base64, extension: ext });
-      ws.addImage(imgId, { tl: { col: 1.1, row: r.number - 1 + 0.06 }, ext: { width: 86, height: 86 } });
+      // фото по центру ячейки B, с полями — аккуратно и без наложения на соседние строки
+      ws.addImage(imgId, { tl: { col: 1.18, row: r.number - 1 + 0.14 }, ext: { width: 70, height: 70 }, editAs: "oneCell" });
     }
   });
   const tr = ws.addRow(["", "", "", "", "", L.total, r2(total)]);

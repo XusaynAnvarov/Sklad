@@ -133,7 +133,7 @@ export default async function render(page, ctx) {
 
   page.append(el("div.card", { style: { padding: "16px" } }, [
     el("div.row3", {}, [field("Поставщик", fSupplier), field("Валюта", fCurrency), field("Язык документа", fLang)]),
-    el("div.hint", { text: "Язык применяется к PDF и Excel (кроме названия товара). Китайский в PDF показывается латиницей — для 中文 используйте Excel." }),
+    el("div.hint", { text: "Язык применяется к PDF и Excel (кроме названия товара). Китайский (中文) работает и в PDF, и в Excel." }),
     el("div.section-h", { text: "Добавьте товары", style: { marginTop: "10px" } }),
     el("div", { style: { display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "10px" } }, [
       preview,
