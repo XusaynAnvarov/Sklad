@@ -124,11 +124,34 @@ async function route() {
 }
 function $$(s){return [...document.querySelectorAll(s)];}
 
-boot();
+// Если boot зависнет/упадёт — показываем ошибку и кнопку сброса кэша вместо вечной «Загрузки».
+function showBootError(err) {
+  console.error("boot failed:", err);
+  if (document.querySelector(".app")) return; // уже загрузилось — ничего не делаем
+  const msg = (err && err.message) ? err.message : String(err || "неизвестная ошибка");
+  root.textContent = "";
+  const wrap = el("div.login-wrap", {}, [el("div.login-card", { style: { maxWidth: "460px", textAlign: "center" } }, [
+    el("p", { text: "Не удалось загрузить", style: { fontWeight: "800", fontSize: "16px", color: "#b42318", margin: "0 0 8px" } }),
+    el("p", { text: msg, style: { fontSize: "13px", color: "#667085", margin: "0 0 14px", wordBreak: "break-word" } }),
+    el("button.btn.btn-primary", { text: "Обновить", style: { marginRight: "8px" }, onclick: () => location.reload() }),
+    el("button.btn.btn-outline", { text: "Сбросить кэш", onclick: async () => {
+      try {
+        if ("serviceWorker" in navigator) { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.unregister())); }
+        if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); }
+      } catch {}
+      location.reload();
+    } }),
+  ])]);
+  root.append(wrap);
+}
+
+boot().catch(showBootError);
+// сторож: если за 15с приложение не построилось (завис await в boot) — показываем ошибку
+setTimeout(() => { if (!document.querySelector(".app")) showBootError(new Error("Загрузка зависла. Нажмите «Сбросить кэш» — это очистит устаревший кэш и Service Worker.")); }, 15000);
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=63", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=64", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
