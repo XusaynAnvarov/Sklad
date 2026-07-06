@@ -18,7 +18,8 @@ export default async function render(page, ctx) {
   const nameToId = {}; products.forEach(p => { nameToId[(p.name || "").toLowerCase()] = p.id; });
   const suppliers = [...new Set((purchases || []).map(p => p.supplier).filter(Boolean))];
 
-  const state = { supplier: "", currency: "yuan", items: [] };
+  const state = { supplier: "", currency: "yuan", lang: "ru", items: [] };
+  const LANGS = [{ value: "ru", label: "Русский" }, { value: "uz", label: "Oʻzbekcha" }, { value: "zh", label: "中文 (хитойча)" }, { value: "en", label: "English" }];
 
   page.append(el("div.topbar", {}, [
     el("div", {}, [el("h1", { text: "Заказ поставщику" }), el("div.sub", { text: "Соберите список с фото → выгрузите PDF/Excel и отправьте поставщику" })]),
@@ -27,8 +28,10 @@ export default async function render(page, ctx) {
   // ----- шапка -----
   const fSupplier = inputList(suppliers, { value: "", placeholder: "Поставщик (выбор или ввод)" });
   const fCurrency = select(PCUR, state.currency);
+  const fLang = select(LANGS, state.lang);
   fSupplier.addEventListener("input", () => { state.supplier = fSupplier.value.trim(); });
   fCurrency.addEventListener("change", () => { state.currency = fCurrency.value; refreshAdd(); drawItems(); });
+  fLang.addEventListener("change", () => { state.lang = fLang.value; });
 
   // ----- панель добавления -----
   const fProduct = inputList(products.map(p => p.name), { placeholder: "впишите или выберите", style: { flex: "1", minWidth: "180px" } });
@@ -97,7 +100,7 @@ export default async function render(page, ctx) {
     try {
       const r = await fetch("/api/supplier-order-pdf", {
         method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaders()) },
-        body: JSON.stringify({ supplier: state.supplier, currency: state.currency, items: state.items }),
+        body: JSON.stringify({ supplier: state.supplier, currency: state.currency, lang: state.lang, items: state.items }),
       });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ("PDF " + r.status)); }
       const blob = await r.blob();
@@ -113,7 +116,7 @@ export default async function render(page, ctx) {
   async function downloadExcel() {
     if (!state.items.length) { toast("Добавьте товары", "err"); return; }
     showLoader("Готовим Excel (с фото)…");
-    try { await exportSupplierOrderExcel(state.items, state.supplier, state.currency, products); toast("Excel готов", "ok"); }
+    try { await exportSupplierOrderExcel(state.items, state.supplier, state.currency, products, state.lang); toast("Excel готов", "ok"); }
     catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
     finally { hideLoader(); }
   }
@@ -129,7 +132,8 @@ export default async function render(page, ctx) {
   }
 
   page.append(el("div.card", { style: { padding: "16px" } }, [
-    el("div.row2", {}, [field("Поставщик", fSupplier), field("Валюта", fCurrency)]),
+    el("div.row3", {}, [field("Поставщик", fSupplier), field("Валюта", fCurrency), field("Язык документа", fLang)]),
+    el("div.hint", { text: "Язык применяется к PDF и Excel (кроме названия товара). Китайский в PDF показывается латиницей — для 中文 используйте Excel." }),
     el("div.section-h", { text: "Добавьте товары", style: { marginTop: "10px" } }),
     el("div", { style: { display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "10px" } }, [
       preview,

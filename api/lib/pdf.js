@@ -147,7 +147,16 @@ async function embedPhoto(doc, url) {
   } catch { return null; }
 }
 
-export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan", products, company = "GENERAL MODERN" }) {
+// Ярлыки PDF. Шрифт NotoSans поддерживает латиницу/кириллицу, но НЕ китайский —
+// поэтому для zh берём английские ярлыки (иначе «квадратики»). Excel-версия показывает 中文.
+const SO_PDF_LABELS = {
+  ru: { po: "Заказ поставщику", supplier: "Поставщик", photo: "Фото", name: "Товар", qty: "Кол-во", price: "Себест.", sum: "Сумма", total: "ИТОГО", from: "от" },
+  uz: { po: "Yetkazib beruvchiga buyurtma", supplier: "Yetkazib beruvchi", photo: "Rasm", name: "Mahsulot", qty: "Soni", price: "Narx", sum: "Summa", total: "JAMI", from: "sana" },
+  en: { po: "Purchase order", supplier: "Supplier", photo: "Photo", name: "Product", qty: "Qty", price: "Price", sum: "Amount", total: "TOTAL", from: "date" },
+};
+
+export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan", products, company = "GENERAL MODERN", lang = "ru" }) {
+  const LB = lang === "zh" ? SO_PDF_LABELS.en : (SO_PDF_LABELS[lang] || SO_PDF_LABELS.ru);
   const pmap = Object.fromEntries((products || []).map(p => [p.id, p]));
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
@@ -180,22 +189,22 @@ export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan"
     pg.drawSvgPath(`M 0 0 H ${W} V ${bannerH - bannerR} Q ${W} ${bannerH} ${W - bannerR} ${bannerH} H ${bannerR} Q 0 ${bannerH} 0 ${bannerH - bannerR} V 0 Z`, { x: 0, y: H, color: DARK });
     roundRect(pg, 16, H - 96 + 18, 6, 60, 3, { color: ACCENT });
     pg.drawText(company, { x: M, y: H - 50, size: 24, font: bold, color: rgb(1, 1, 1) });
-    pg.drawText("Заказ поставщику / Buyurtma", { x: M, y: H - 74, size: 12, font: reg, color: rgb(0.75, 0.75, 0.85) });
+    pg.drawText(LB.po, { x: M, y: H - 74, size: 12, font: reg, color: rgb(0.75, 0.75, 0.85) });
     const dateStr = new Date().toLocaleDateString("ru-RU");
-    PRT("от " + dateStr, W - M, H - 50, 12, reg, rgb(0.85, 0.85, 0.92));
+    PRT(LB.from + " " + dateStr, W - M, H - 50, 12, reg, rgb(0.85, 0.85, 0.92));
   }
   function colHeader(bandTop) {
     const hw = tableR - tableX, hr = 8;
     pg.drawSvgPath(`M ${hr} 0 H ${hw - hr} Q ${hw} 0 ${hw} ${hr} V ${headH} H 0 V ${hr} Q 0 0 ${hr} 0 Z`, { x: tableX, y: bandTop, color: HEADBG });
     const hb = bandTop - 16;
-    PT("Фото", cx.l + 8, hb, 10, bold, GREY); PT("Товар", cx.name + 8, hb, 10, bold, GREY);
-    PRT("Кол-во", cx.cost - padR, hb, 10, bold, GREY); PRT("Себест.", cx.sum - padR, hb, 10, bold, GREY); PRT("Сумма", cx.r - padR, hb, 10, bold, GREY);
+    PT(LB.photo, cx.l + 8, hb, 10, bold, GREY); PT(LB.name, cx.name + 8, hb, 10, bold, GREY);
+    PRT(LB.qty, cx.cost - padR, hb, 10, bold, GREY); PRT(LB.price, cx.sum - padR, hb, 10, bold, GREY); PRT(LB.sum, cx.r - padR, hb, 10, bold, GREY);
     hline(bandTop); hline(bandTop - headH);
   }
 
   banner();
   let y = H - 130;
-  pg.drawText("Поставщик: " + (supplier || "—"), { x: M, y, size: 12, font: bold, color: DARK }); y -= 26;
+  pg.drawText(LB.supplier + ": " + (supplier || "—"), { x: M, y, size: 12, font: bold, color: DARK }); y -= 26;
 
   let bandTop = y, cy = bandTop - headH;
   colHeader(bandTop);
@@ -232,7 +241,7 @@ export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan"
   let boxY = cy - gap - boxH;
   if (boxY < BOTTOM) { pg = doc.addPage([W, H]); banner(); boxY = H - 130 - boxH; }
   roundRect(pg, cx.qty, boxY, cx.r - cx.qty, boxH, 10, { color: DARK });
-  PT("ИТОГО:", cx.qty + 14, boxY + 11, 13, bold, WHITE);
+  PT(LB.total + ":", cx.qty + 14, boxY + 11, 13, bold, WHITE);
   PRT(money(total, currency), cx.r - padR, boxY + 11, 13, bold, ACCENT);
 
   pg.drawText("Сформировано: " + new Date().toLocaleString("ru-RU") + " · " + company, { x: M, y: 40, size: 9, font: reg, color: GREY });

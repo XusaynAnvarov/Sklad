@@ -20,12 +20,13 @@ export default async function handler(req, res) {
   if (!items.length) return res.status(400).json({ error: "Пустой список" });
   const supplier = String(body?.supplier || "").slice(0, 120);
   const currency = ["yuan", "usd", "som"].includes(body?.currency) ? body.currency : "yuan";
+  const lang = ["ru", "uz", "zh", "en"].includes(body?.lang) ? body.lang : "ru";
 
   try {
     const ids = [...new Set(items.map(i => i.product_id).filter(Boolean))];
     let products = [];
     if (ids.length) products = await sget(`products?id=in.(${ids.map(encodeURIComponent).join(",")})&select=id,name,photo_url,photos`);
-    const bytes = await buildSupplierOrderPDF({ items, supplier, currency, products });
+    const bytes = await buildSupplierOrderPDF({ items, supplier, currency, products, lang });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="zakaz-postavshiku-${new Date().toISOString().slice(0, 10)}.pdf"`);
     return res.status(200).end(Buffer.from(bytes));

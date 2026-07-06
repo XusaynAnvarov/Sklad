@@ -129,28 +129,39 @@ async function urlToDataUrl(url) {
     return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(b); });
   } catch { return null; }
 }
-// items = [{product_id, qty, cost, currency}]
-export async function exportSupplierOrderExcel(items, supplier, currency, products) {
+// Локализация ярлыков (всё, кроме названия товара). Название товара НЕ переводим.
+export const SO_LABELS = {
+  ru: { po: "Заказ поставщику", supplier: "Поставщик", date: "Дата", num: "№", photo: "Фото товара", name: "Наименование", unit: "Ед.изм", qty: "Кол-во", price: "Цена", sum: "Сумма", total: "ИТОГО", pcs: "шт" },
+  uz: { po: "Yetkazib beruvchiga buyurtma", supplier: "Yetkazib beruvchi", date: "Sana", num: "№", photo: "Mahsulot rasmi", name: "Nomi", unit: "Oʻlchov", qty: "Soni", price: "Narxi", sum: "Summa", total: "JAMI", pcs: "dona" },
+  zh: { po: "采购订单", supplier: "供应商", date: "日期", num: "序号", photo: "产品图片", name: "品名", unit: "单位", qty: "数量", price: "单价", sum: "金额", total: "合计", pcs: "个" },
+  en: { po: "Purchase order", supplier: "Supplier", date: "Date", num: "No.", photo: "Photo", name: "Name", unit: "Unit", qty: "Qty", price: "Price", sum: "Amount", total: "TOTAL", pcs: "pcs" },
+};
+
+// items = [{product_id, qty, cost, currency}]; lang = ru|uz|zh|en
+export async function exportSupplierOrderExcel(items, supplier, currency, products, lang = "ru") {
   const ExcelJS = await libExcel();
+  const L = SO_LABELS[lang] || SO_LABELS.ru;
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
-  const NAVY = "FF16233B", NAVY2 = "FF22324F", GOLD = "FFD9B45A", BD = "FFD0D5DD";
+  const sign = SIGN[currency] || currency;
+  const numFmt = currency === "som" ? `#,##0" ${sign}"` : `"${sign} "#,##0.00`;
+  const NAVY = "FF16233B", HEADBLUE = "FF2F5597", ROW = "FFDDEBF7", GOLD = "FFD9B45A", BD = "FFBFC7D5";
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet("Заказ");
-  ws.columns = [{ width: 5 }, { width: 15 }, { width: 40 }, { width: 10 }, { width: 14 }, { width: 15 }];
+  const ws = wb.addWorksheet((L.po || "Order").slice(0, 28));
+  ws.columns = [{ width: 5 }, { width: 15 }, { width: 40 }, { width: 9 }, { width: 10 }, { width: 15 }, { width: 16 }];
   const thin = { style: "thin", color: { argb: BD } };
   const box = { top: thin, left: thin, bottom: thin, right: thin };
   const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
 
-  ws.mergeCells("A1:F1");
-  Object.assign(ws.getCell("A1"), { value: "GENERAL MODERN — Заказ поставщику", font: { bold: true, size: 18, color: { argb: GOLD } }, alignment: { horizontal: "center", vertical: "middle" }, fill: fill(NAVY) });
-  ws.getRow(1).height = 32;
-  const inf = ws.addRow(["", "Поставщик:", supplier || "—"]); inf.getCell(2).font = { bold: true }; ws.mergeCells(`C${inf.number}:F${inf.number}`);
-  const inf2 = ws.addRow(["", "Дата:", new Date().toLocaleDateString("ru-RU")]); inf2.getCell(2).font = { bold: true }; ws.mergeCells(`C${inf2.number}:F${inf2.number}`);
+  ws.mergeCells("A1:G1");
+  Object.assign(ws.getCell("A1"), { value: "GENERAL MODERN — " + L.po, font: { bold: true, size: 18, color: { argb: GOLD } }, alignment: { horizontal: "center", vertical: "middle" }, fill: fill(NAVY) });
+  ws.getRow(1).height = 34;
+  const inf = ws.addRow(["", L.supplier + ":", supplier || "—"]); inf.getCell(2).font = { bold: true }; ws.mergeCells(`C${inf.number}:G${inf.number}`);
+  const inf2 = ws.addRow(["", L.date + ":", new Date().toLocaleDateString("ru-RU")]); inf2.getCell(2).font = { bold: true }; ws.mergeCells(`C${inf2.number}:G${inf2.number}`);
   ws.addRow([]);
 
-  const sign = SIGN[currency] || currency;
-  const head = ws.addRow(["№", "Фото", "Товар", "Кол-во", "Себест. " + sign, "Сумма " + sign]);
-  head.eachCell(c => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = fill(NAVY2); c.alignment = { horizontal: "center", vertical: "middle" }; c.border = box; });
+  const head = ws.addRow([L.num, L.photo, L.name, L.unit, L.qty, L.price, L.sum]);
+  head.height = 22;
+  head.eachCell(c => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = fill(HEADBLUE); c.alignment = { horizontal: "center", vertical: "middle" }; c.border = box; });
 
   // фото тянем параллельно
   const photos = await Promise.all(items.map(it => {
@@ -162,27 +173,27 @@ export async function exportSupplierOrderExcel(items, supplier, currency, produc
   let total = 0;
   items.forEach((it, i) => {
     const p = pmap[it.product_id] || { name: "?" };
-    const cur = it.currency || currency;
     const sum = r2((Number(it.qty) || 0) * (Number(it.cost) || 0));
     total += sum;
-    const r = ws.addRow([i + 1, "", p.name || "?", Number(it.qty) || 0, r2(it.cost), sum]);
-    r.height = 72;
-    r.eachCell(c => { c.border = box; c.alignment = c.alignment || {}; });
+    const r = ws.addRow([i + 1, "", p.name || "?", L.pcs, Number(it.qty) || 0, r2(it.cost), sum]);
+    r.height = 68;
+    r.eachCell(c => { c.border = box; c.fill = fill(ROW); });
     r.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
-    r.getCell(3).alignment = { horizontal: "left", vertical: "middle", wrapText: true };
-    [4, 5, 6].forEach(n => { r.getCell(n).numFmt = "#,##0"; r.getCell(n).alignment = { horizontal: "right", vertical: "middle" }; });
-    if (i % 2) r.eachCell(c => { c.fill = fill("FFF6F8FB"); });
+    r.getCell(3).alignment = { horizontal: "left", vertical: "middle", wrapText: true }; r.getCell(3).font = { bold: true };
+    r.getCell(4).alignment = { horizontal: "center", vertical: "middle" };
+    r.getCell(5).alignment = { horizontal: "center", vertical: "middle" };
+    [6, 7].forEach(n => { r.getCell(n).numFmt = numFmt; r.getCell(n).alignment = { horizontal: "right", vertical: "middle" }; });
     const dataUrl = photos[i];
     if (dataUrl) {
       const ext = /png/i.test(dataUrl.slice(0, 20)) ? "png" : "jpeg";
       const base64 = dataUrl.replace(/^data:[^,]*,/, ""); // ExcelJS ждёт «сырой» base64 без data-URI префикса
       const imgId = wb.addImage({ base64, extension: ext });
-      ws.addImage(imgId, { tl: { col: 1.08, row: r.number - 1 + 0.05 }, ext: { width: 90, height: 90 } });
+      ws.addImage(imgId, { tl: { col: 1.1, row: r.number - 1 + 0.06 }, ext: { width: 86, height: 86 } });
     }
   });
-  const tr = ws.addRow(["", "", "", "", "ИТОГО:", r2(total)]);
-  tr.getCell(5).font = { bold: true }; tr.getCell(5).alignment = { horizontal: "right" };
-  tr.getCell(6).font = { bold: true }; tr.getCell(6).numFmt = "#,##0"; tr.getCell(6).alignment = { horizontal: "right" };
+  const tr = ws.addRow(["", "", "", "", "", L.total, r2(total)]);
+  tr.getCell(6).font = { bold: true, size: 12 }; tr.getCell(6).alignment = { horizontal: "right" };
+  tr.getCell(7).font = { bold: true, size: 12 }; tr.getCell(7).numFmt = numFmt; tr.getCell(7).alignment = { horizontal: "right" };
 
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
