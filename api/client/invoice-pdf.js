@@ -2,7 +2,7 @@
 import { getClient } from "../lib/clientauth.js";
 import { sget } from "../lib/supa.js";
 import { buildInvoicePDF } from "../lib/pdf.js";
-import { invoiceCoverageStatus } from "../lib/debt.js";
+import { invoiceCoverageStatus, invoiceDebtSummary } from "../lib/debt.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -25,13 +25,14 @@ export default async function handler(req, res) {
 
     const [customers, allSales, payments, products] = await Promise.all([
       sget(`customers?id=eq.${sale.customer_id}&select=*`),
-      sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items`),
+      sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items,status`),
       sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency`),
       sget("products?select=id,name,sku"),
     ]);
     const customer = customers[0] || { name: "—" };
     const status = invoiceCoverageStatus(sale.id, allSales, payments, customer.opening_debt);
-    const bytes = await buildInvoicePDF({ sale, customer, products, status });
+    const debt = invoiceDebtSummary(sale.id, allSales, payments, customer.opening_debt);
+    const bytes = await buildInvoicePDF({ sale, customer, products, status, debt });
 
     const dateStr = new Date(sale.date).toISOString().slice(0, 10);
     res.setHeader("Content-Type", "application/pdf");

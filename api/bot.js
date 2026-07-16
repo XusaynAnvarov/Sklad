@@ -8,7 +8,7 @@
 // ========================================================================
 import { sget, spatch, supsert } from "./lib/supa.js";
 import { buildInvoicePDF, buildReconciliationPDF } from "./lib/pdf.js";
-import { invoiceCoverageStatus } from "./lib/debt.js";
+import { invoiceCoverageStatus, invoiceDebtSummary } from "./lib/debt.js";
 
 const TOKEN = process.env.CLIENT_BOT_TOKEN;
 const ADMIN_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -102,12 +102,13 @@ async function sendPDFto(chatId, saleId, cap) {
   const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
   const products = await sget("products?select=id,name,sku");
   await tg("sendChatAction", { chat_id: chatId, action: "upload_document" });
-  let status;
+  let status, debt;
   if (sale.customer_id) {
-    const [cs, pays] = await Promise.all([sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items`), sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency`)]);
+    const [cs, pays] = await Promise.all([sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items,status`), sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency`)]);
     status = invoiceCoverageStatus(sale.id, cs, pays, customer.opening_debt);
+    debt = invoiceDebtSummary(sale.id, cs, pays, customer.opening_debt);
   }
-  const bytes = await buildInvoicePDF({ sale, customer, products, status });
+  const bytes = await buildInvoicePDF({ sale, customer, products, status, debt });
   const fd = new FormData();
   fd.append("chat_id", String(chatId));
   fd.append("caption", cap || `🧾 ${dt(sale.date)}`);

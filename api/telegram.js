@@ -9,19 +9,20 @@
 import { sget, supsert } from "./lib/supa.js";
 import { buildInvoicePDF, buildReconciliationPDF } from "./lib/pdf.js";
 import { getUser } from "./lib/auth.js";
-import { invoiceCoverageStatus } from "./lib/debt.js";
+import { invoiceCoverageStatus, invoiceDebtSummary } from "./lib/debt.js";
 
 const safeId = (v) => (/^[\w-]+$/.test(String(v || "")) ? String(v) : null);
 
-// реальный статус накладной по оплатам клиента
+// реальный статус накладной по оплатам + сводка долга (прошлый/общий) для PDF
 async function coverageFor(sale) {
-  if (!sale || !sale.customer_id) return undefined;
+  if (!sale || !sale.customer_id) return {};
   const [cs, pays, cust] = await Promise.all([
-    sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items`),
+    sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items,status`),
     sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency`),
     sget(`customers?id=eq.${sale.customer_id}&select=opening_debt`),
   ]);
-  return invoiceCoverageStatus(sale.id, cs, pays, cust[0]?.opening_debt);
+  const od = cust[0]?.opening_debt;
+  return { status: invoiceCoverageStatus(sale.id, cs, pays, od), debt: invoiceDebtSummary(sale.id, cs, pays, od) };
 }
 
 export default async function handler(req, res) {
@@ -81,7 +82,8 @@ export default async function handler(req, res) {
       if (!sale) return res.status(404).json({ error: "Накладная не найдена" });
       const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
       const products = await sget("products?select=id,name,sku");
-      const bytes = await buildInvoicePDF({ sale, customer, products, status: await coverageFor(sale) });
+      const cd = await coverageFor(sale);
+      const bytes = await buildInvoicePDF({ sale, customer, products, status: cd.status, debt: cd.debt });
       const cap = `🧾 Накладная — ${customer?.name || "—"} · ${new Date(sale.date).toLocaleDateString("ru-RU")}`;
       const fname = `nakladnaya-${new Date(sale.date).toISOString().slice(0, 10)}.pdf`;
       const makeFd = () => { const fd = new FormData(); fd.append("chat_id", String(target)); fd.append("caption", cap); fd.append("document", new Blob([bytes], { type: "application/pdf" }), fname); return fd; };
@@ -191,7 +193,8 @@ export default async function handler(req, res) {
       if (!sale) return res.status(404).json({ error: "Накладная не найдена" });
       const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
       const products = await sget("products?select=id,name,sku");
-      const bytes = await buildInvoicePDF({ sale, customer, products, status: await coverageFor(sale) });
+      const cd = await coverageFor(sale);
+      const bytes = await buildInvoicePDF({ sale, customer, products, status: cd.status, debt: cd.debt });
       const fd = new FormData();
       fd.append("chat_id", String(chat_id));
       fd.append("caption", text || `🧾 Ваша накладная · ${new Date(sale.date).toLocaleDateString("ru-RU")}`);
