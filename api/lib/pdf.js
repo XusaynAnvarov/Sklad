@@ -132,10 +132,16 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
     const shown = CURS.filter(c => sig(debt.invoiceTotal[c], c) || sig(debt.balanceBefore[c], c) || sig(debt.balanceAfter[c], c));
     if (shown.length) {
       const lineH = 15;
-      const need = 22 + shown.length * (lineH * 3 + 10);
+      const need = 22 + (debt.lastPay ? 16 : 0) + shown.length * (lineH * 3 + 10);
       let dy = boxY - 24;
       if (dy - need < BOTTOM) { pg = doc.addPage([595, 842]); dy = 842 - 70; }
       PT("Расчёты с клиентом", cx.l, dy, 11, bold, GREY); dy -= 18;
+      if (debt.lastPay) {
+        const lp = debt.lastPay;
+        PT("Последняя оплата:", cx.name, dy, 10, reg, GREY);
+        PRT(money(lp.amount, lp.currency) + " · " + new Date(lp.date).toLocaleDateString("ru-RU"), cx.r - padR, dy, 10, reg, GREEN);
+        dy -= 16;
+      }
       for (const c of shown) {
         const before = debt.balanceBefore[c], inv = debt.invoiceTotal[c], after = debt.balanceAfter[c];
         if (before > 0 && sig(before, c)) { PT("Прошлый долг:", cx.name, dy, 10, reg, GREY); PRT("+ " + money(before, c), cx.r - padR, dy, 10, reg, DARK); dy -= lineH; }

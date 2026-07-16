@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     const [customers, allSales, payments, products] = await Promise.all([
       sget(`customers?id=eq.${sale.customer_id}&select=*`),
       sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items,status`),
-      sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency`),
+      sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency,date`),
       sget("products?select=id,name,sku"),
     ]);
     const customer = customers[0] || { name: "—" };

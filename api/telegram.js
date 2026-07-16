@@ -18,7 +18,7 @@ async function coverageFor(sale) {
   if (!sale || !sale.customer_id) return {};
   const [cs, pays, cust] = await Promise.all([
     sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items,status`),
-    sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency`),
+    sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency,date`),
     sget(`customers?id=eq.${sale.customer_id}&select=opening_debt`),
   ]);
   const od = cust[0]?.opening_debt;

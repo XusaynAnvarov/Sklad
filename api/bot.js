@@ -104,7 +104,7 @@ async function sendPDFto(chatId, saleId, cap) {
   await tg("sendChatAction", { chat_id: chatId, action: "upload_document" });
   let status, debt;
   if (sale.customer_id) {
-    const [cs, pays] = await Promise.all([sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items,status`), sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency`)]);
+    const [cs, pays] = await Promise.all([sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items,status`), sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency,date`)]);
     status = invoiceCoverageStatus(sale.id, cs, pays, customer.opening_debt);
     debt = invoiceDebtSummary(sale.id, cs, pays, customer.opening_debt);
   }

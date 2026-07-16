@@ -32,7 +32,15 @@ export function invoiceDebtSummary(saleId, custSales, payments, openingDebt) {
 
   const balanceBefore = { som: 0, usd: 0, yuan: 0 };
   CURS.forEach(c => (balanceBefore[c] = balanceAfter[c] - invoiceTotal[c]));
-  return { invoiceTotal, balanceBefore, balanceAfter };
+
+  // последняя оплата клиента (сумма + валюта + дата) — для строки в PDF
+  let lastPay = null;
+  (payments || []).forEach(p => {
+    if (!p.date) return;
+    if (!lastPay || new Date(p.date) > new Date(lastPay.date)) lastPay = { amount: Number(p.amount) || 0, currency: p.currency, date: p.date };
+  });
+
+  return { invoiceTotal, balanceBefore, balanceAfter, lastPay };
 }
 
 export function invoiceCoverageStatus(saleId, custSales, payments, openingDebt) {
