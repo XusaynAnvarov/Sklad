@@ -131,25 +131,27 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
     const sig = (v, c) => Math.abs(Number(v) || 0) >= (c === "som" ? 1 : 0.01);
     const shown = CURS.filter(c => sig(debt.invoiceTotal[c], c) || sig(debt.balanceBefore[c], c) || sig(debt.balanceAfter[c], c));
     if (shown.length) {
-      const lineH = 15;
-      const need = 22 + (debt.lastPay ? 16 : 0) + shown.length * (lineH * 3 + 10);
-      let dy = boxY - 24;
+      const lineH = 16;
+      const need = 30 + (debt.lastPay ? 18 : 0) + shown.length * 74;
+      let dy = boxY - 26;
       if (dy - need < BOTTOM) { pg = doc.addPage([595, 842]); dy = 842 - 70; }
-      PT("Расчёты с клиентом", cx.l, dy, 11, bold, GREY); dy -= 18;
+      PT("Расчёты с клиентом", cx.l, dy, 11, bold, GREY); dy -= 20;
       if (debt.lastPay) {
         const lp = debt.lastPay;
         PT("Последняя оплата:", cx.name, dy, 10, reg, GREY);
         PRT(money(lp.amount, lp.currency) + " · " + new Date(lp.date).toLocaleDateString("ru-RU"), cx.r - padR, dy, 10, reg, GREEN);
-        dy -= 16;
+        dy -= lineH;
       }
       for (const c of shown) {
         const before = debt.balanceBefore[c], inv = debt.invoiceTotal[c], after = debt.balanceAfter[c];
         if (before > 0 && sig(before, c)) { PT("Прошлый долг:", cx.name, dy, 10, reg, GREY); PRT("+ " + money(before, c), cx.r - padR, dy, 10, reg, DARK); dy -= lineH; }
         else if (before < 0 && sig(before, c)) { PT("Скидка (аванс):", cx.name, dy, 10, reg, GREY); PRT("− " + money(-before, c), cx.r - padR, dy, 10, reg, GREEN); dy -= lineH; }
         if (sig(inv, c)) { PT("Эта накладная:", cx.name, dy, 10, reg, GREY); PRT(money(inv, c), cx.r - padR, dy, 10, reg, DARK); dy -= lineH; }
-        pg.drawLine({ start: { x: cx.name, y: dy + 4 }, end: { x: cx.r, y: dy + 4 }, thickness: 0.6, color: LINE });
-        if (after >= 0) { PT("Общий долг клиента:", cx.name, dy - 4, 11, bold, DARK); PRT(money(after, c), cx.r - padR, dy - 4, 11, bold, sig(after, c) ? RED : GREEN); }
-        else { PT("Аванс клиенту (мы должны):", cx.name, dy - 4, 11, bold, DARK); PRT(money(-after, c), cx.r - padR, dy - 4, 11, bold, GREEN); }
+        // разделитель — с отступом от текста сверху и снизу (иначе линия наезжала на «Общий долг»)
+        pg.drawLine({ start: { x: cx.name, y: dy + 7 }, end: { x: cx.r, y: dy + 7 }, thickness: 0.6, color: LINE });
+        dy -= 9;
+        if (after >= 0) { PT("Общий долг клиента:", cx.name, dy, 11, bold, DARK); PRT(money(after, c), cx.r - padR, dy, 11, bold, sig(after, c) ? RED : GREEN); }
+        else { PT("Аванс клиенту (мы должны):", cx.name, dy, 11, bold, DARK); PRT(money(-after, c), cx.r - padR, dy, 11, bold, GREEN); }
         dy -= lineH + 12;
       }
     }
