@@ -9,6 +9,8 @@ import { placeholder } from "./products.js";
 import { icon } from "../icons.js";
 import { authHeaders } from "../db.js";
 import { exportSupplierOrderExcel } from "../xlsx-export.js";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
+import { showNotFound } from "./purchases.js";
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 
@@ -120,6 +122,31 @@ export default async function render(page, ctx) {
     catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
     finally { hideLoader(); }
   }
+  // импорт списка из Excel (название + кол-во + себестоимость), как в «Приходе»
+  async function importFromExcel(file) {
+    showLoader("Импорт из Excel…");
+    try {
+      const rows = await parseRows(file, "purchase");
+      if (!rows.length) { toast("В файле нет строк. Нужны колонки: Название, Количество, Себестоимость (скачайте «Шаблон»).", "err"); return; }
+      // надёжное сопоставление названий: схожие кириллица/латиница → один вид
+      const FOLD = { а: "a", в: "b", е: "e", к: "k", м: "m", н: "h", о: "o", р: "p", с: "c", т: "t", у: "y", х: "x", ё: "e" };
+      const keyOf = (s) => String(s || "").toLowerCase().split("").map(ch => FOLD[ch] || ch).join("").replace(/[^a-zа-я0-9]+/gi, "");
+      const lookup = {};
+      products.forEach(p => { const k = keyOf(p.name); if (k) lookup[k] = p.id; if (p.sku) { const ks = keyOf(p.sku); if (ks) lookup[ks] = p.id; } });
+      const notFound = []; let added = 0;
+      rows.forEach(r => {
+        const id = lookup[keyOf(r.name)];
+        if (!id) { notFound.push(r.name); return; }
+        state.items.push({ product_id: id, qty: r.qty || 1, cost: r.cost || 0, currency: state.currency });
+        added++;
+      });
+      drawItems();
+      toast(`Добавлено: ${added} из ${rows.length}` + (notFound.length ? ` · не найдено: ${notFound.length}` : ""), added ? "ok" : "err");
+      if (notFound.length) showNotFound(notFound);
+    } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
+    finally { hideLoader(); }
+  }
+
   async function saveAsPurchase() {
     if (!state.items.length) { toast("Добавьте товары", "err"); return; }
     showLoader("Сохранение…");
@@ -134,7 +161,11 @@ export default async function render(page, ctx) {
   page.append(el("div.card", { style: { padding: "16px" } }, [
     el("div.row3", {}, [field("Поставщик", fSupplier), field("Валюта", fCurrency), field("Язык документа", fLang)]),
     el("div.hint", { text: "Язык применяется к PDF и Excel (кроме названия товара). Китайский (中文) работает и в PDF, и в Excel." }),
-    el("div.section-h", { text: "Добавьте товары", style: { marginTop: "10px" } }),
+    el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", marginTop: "10px" } }, [
+      el("div.section-h", { text: "Добавьте товары", style: { margin: "0", flex: "1" } }),
+      el("button.btn.btn-outline.btn-sm", { text: "📄 Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("purchase") }),
+      el("button.btn.btn-outline.btn-sm", { text: "📥 Из Excel", title: "Импорт списка из Excel", onclick: () => pickFile(importFromExcel) }),
+    ]),
     el("div", { style: { display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "10px" } }, [
       preview,
       el("div", { style: { flex: "1", minWidth: "260px" } }, [

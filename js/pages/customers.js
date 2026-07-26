@@ -205,6 +205,32 @@ async function renderCard(page, ctx, id) {
   ]));
   if (curStr(onlyPositive(od)) !== "0") page.append(el("div.hint", { style: { marginTop: "2px" }, text: "Из общего долга старый долг (до системы): " + curStr(onlyPositive(od)) }));
 
+  // --- оплаты (сверху: сразу под статистикой) — можно добавить, изменить, удалить ---
+  page.append(el("div.section-h", { style: { display: "flex", alignItems: "center", gap: "8px" } }, [
+    el("span", { text: "История оплат" }),
+    el("button.btn.btn-ok.btn-sm", { style: { marginLeft: "auto" }, onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 14 }), "Оплата"]),
+  ]));
+  if (!payments.length) page.append(el("div.empty", { style: { padding: "24px" } }, [el("p", { text: "Оплат пока нет" })]));
+  else {
+    const tbp = el("tbody");
+    payments.forEach(p => {
+      tbp.append(el("tr", {}, [
+        el("td", { text: new Date(p.date).toLocaleDateString("ru-RU") }),
+        el("td", {}, [el("strong", { text: fmt(p.amount, p.currency) })]),
+        el("td", {}, [el("span.badge.cur", { text: CUR[p.currency].label })]),
+        el("td", { text: p.note || "—" }),
+        el("td.right", {}, [el("div.row-actions", {}, [
+          el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Изменить оплату", onclick: () => openPayment(ctx, c, p) }, [icon("edit", { size: 15 })]),
+          el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить оплату?", async () => { await ctx.db.payments.remove(p.id); toast("Удалено", "ok"); ctx.refresh(); }) }, [icon("trash", { size: 15 })]),
+        ])]),
+      ]));
+    });
+    page.append(el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
+      el("thead", {}, [el("tr", {}, ["Дата", "Сумма", "Валюта", "Комментарий", ""].map(h => el("th", { text: h })))]),
+      tbp,
+    ])]));
+  }
+
   // --- накладные (по датам, раскрываются по клику) ---
   page.append(el("div.section-h", { text: "Накладные клиента" }));
   page.append(el("div.hint", { text: "Нажмите на накладную, чтобы посмотреть, что заказано в этот день." }));
@@ -280,25 +306,6 @@ async function renderCard(page, ctx, id) {
     ])]));
   }
 
-  // --- оплаты ---
-  page.append(el("div.section-h", { text: "История оплат" }));
-  if (!payments.length) page.append(el("div.empty", { style: { padding: "30px" } }, [el("p", { text: "Оплат пока нет" })]));
-  else {
-    const tb = el("tbody");
-    payments.forEach(p => {
-      tb.append(el("tr", {}, [
-        el("td", { text: new Date(p.date).toLocaleDateString("ru-RU") }),
-        el("td", {}, [el("strong", { text: fmt(p.amount, p.currency) })]),
-        el("td", {}, [el("span.badge.cur", { text: CUR[p.currency].label })]),
-        el("td", { text: p.note || "—" }),
-        el("td.right", {}, [el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить оплату?", async () => { await ctx.db.payments.remove(p.id); toast("Удалено", "ok"); ctx.refresh(); }) }, [icon("trash", { size: 16 })])]),
-      ]));
-    });
-    page.append(el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
-      el("thead", {}, [el("tr", {}, ["Дата", "Сумма", "Валюта", "Комментарий", ""].map(h => el("th", { text: h })))]),
-      tb,
-    ])]));
-  }
 }
 
 function statCard(label, value, sub, ic, grad) {
@@ -535,23 +542,27 @@ function openActSverki(ctx, c, sales, payments) {
 }
 
 // ----------------------- ФОРМА ОПЛАТЫ -----------------------
-function openPayment(ctx, c) {
-  const fAmount = input({ type: "number", step: "0.01", placeholder: "Сумма" });
-  const fCur = select(Object.values(CUR).map(x => ({ value: x.code, label: x.label })), "yuan");
-  const fNote = input({ placeholder: "Комментарий (необязательно)" });
+// pay — если передан, режим редактирования существующей оплаты
+function openPayment(ctx, c, pay) {
+  const isEdit = !!pay;
+  const fAmount = input({ type: "number", step: "0.01", placeholder: "Сумма", value: isEdit ? pay.amount : "" });
+  const fCur = select(Object.values(CUR).map(x => ({ value: x.code, label: x.label })), isEdit ? pay.currency : "yuan");
+  const fDate = input({ type: "date", value: (isEdit && pay.date ? pay.date : new Date().toISOString()).slice(0, 10) });
+  const fNote = input({ placeholder: "Комментарий (необязательно)", value: isEdit ? (pay.note || "") : "" });
   modal({
-    title: "Новая оплата — " + c.name,
+    title: (isEdit ? "Изменить оплату — " : "Новая оплата — ") + c.name,
     body: el("div", {}, [
       el("div.row2", {}, [field("Сумма", fAmount), field("Валюта", fCur)]),
-      field("Комментарий", fNote),
+      el("div.row2", {}, [field("Дата", fDate), field("Комментарий", fNote)]),
     ]),
     actions: [
       { label: "Отмена", kind: "btn-outline", onClick: x => x() },
       { label: "Сохранить", kind: "btn-primary", onClick: async (close) => {
         if (!(+fAmount.value > 0)) { toast("Введите сумму", "err"); return; }
         const amount = +fAmount.value, currency = fCur.value;
-        await ctx.db.payments.upsert({ customer_id: c.id, amount, currency, date: new Date().toISOString(), note: fNote.value.trim() });
-        close(); toast("Оплата добавлена, долг обновлён", "ok"); ctx.refresh();
+        const date = fDate.value ? new Date(fDate.value).toISOString() : (isEdit ? pay.date : new Date().toISOString());
+        await ctx.db.payments.upsert({ ...(isEdit ? { id: pay.id } : {}), customer_id: c.id, amount, currency, date, note: fNote.value.trim() });
+        close(); toast(isEdit ? "Оплата изменена, долг обновлён" : "Оплата добавлена, долг обновлён", "ok"); ctx.refresh();
       } },
     ],
   });
