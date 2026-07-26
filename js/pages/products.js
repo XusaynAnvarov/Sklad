@@ -47,11 +47,17 @@ const freshness = p => Math.max(
 export default async function render(page, ctx) {
   const [all, allPurchases] = await Promise.all([ctx.db.products.list(), ctx.db.purchases.list()]);
   all.sort((a, b) => freshness(b) - freshness(a));
-  const transitIds = new Set(
-    allPurchases
-      .filter(p => p.status === "in_transit")
-      .flatMap(p => (p.items || []).map(it => String(it.product_id)))
-  );
+  // сколько каждого товара сейчас «в дороге» (приходы со статусом in_transit) + у каких поставщиков
+  const transit = {};
+  allPurchases.filter(p => p.status === "in_transit").forEach(p => {
+    (p.items || []).forEach(it => {
+      const k = String(it.product_id); if (!k) return;
+      if (!transit[k]) transit[k] = { qty: 0, suppliers: new Set() };
+      transit[k].qty += Number(it.qty) || 0;
+      if (p.supplier) transit[k].suppliers.add(p.supplier);
+    });
+  });
+  const transitIds = new Set(Object.keys(transit));
 
   const search = input({ placeholder: "Поиск товара…", style: { maxWidth: "320px" } });
   const grid = el("div.grid");
@@ -115,7 +121,14 @@ export default async function render(page, ctx) {
     if (!list.length) { grid.append(el("div.empty", {}, [el("div.em-ic", {}, [icon("box", { size: 40 })]), el("p", { text: "Товаров нет" })])); return; }
     list.forEach(p => {
       const isNew  = freshness(p) > 0 && (Date.now() - freshness(p)) / 86400000 <= WAREHOUSE_NEW_DAYS;
-      const isSoon = transitIds.has(String(p.id)) && (Number(p.stock_qty) || 0) <= 0;
+      const tr = transit[String(p.id)];
+      const isSoon = !!tr && (Number(p.stock_qty) || 0) <= 0;
+      // остатка нет, но товар уже едет → примечание с количеством и поставщиком
+      const transitNote = isSoon ? el("div", {
+        title: tr.suppliers.size ? "Поставщик: " + [...tr.suppliers].join(", ") : "",
+        style: { fontSize: "11px", fontWeight: "700", color: "#b45309", background: "rgba(245,158,11,.13)", border: "1px solid rgba(245,158,11,.35)", borderRadius: "6px", padding: "3px 7px", margin: "4px 0 2px", lineHeight: "1.3" },
+        text: "🚚 В дороге: " + tr.qty + " шт" + (tr.suppliers.size ? " · " + [...tr.suppliers].join(", ") : ""),
+      }) : null;
       const card = el("div.prod.reveal", { onclick: () => openForm(ctx, p, cats) }, [
         el("img.ph", { src: p.photo_url || placeholder(p.name), alt: p.name, loading: "lazy", title: "Нажмите для увеличения",
           onclick: (e) => { const ph = (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []); if (ph.length) { e.stopPropagation(); lightbox(ph); } },
@@ -124,6 +137,7 @@ export default async function render(page, ctx) {
           el("div.nm", { text: p.name }),
           el("div.cat", { text: p.category || "—" }),
           ...(p.sku ? [el("div.muted", { text: "Арт.: " + p.sku, style: { fontSize: "11px", marginTop: "-2px" } })] : []),
+          transitNote,
           el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" } }, [
             el("div", { style: { display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" } }, [
               isSoon ? el("span.badge.transit", {}, [icon("clock", { size: 13 }), "Скоро"]) : statusBadge(p),

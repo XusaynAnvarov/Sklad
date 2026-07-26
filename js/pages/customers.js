@@ -74,15 +74,25 @@ export default async function render(page, ctx) {
 async function renderList(page, ctx) {
   const [list, sales, payments] = await Promise.all([ctx.db.customers.list(), ctx.db.sales.list(), ctx.db.payments.list()]);
 
+  const sub = el("div.sub", { text: `Всего: ${list.length}` });
   page.append(el("div.topbar", {}, [
-    el("div", {}, [el("h1", { text: "Клиенты" }), el("div.sub", { text: `Всего: ${list.length}` })]),
+    el("div", {}, [el("h1", { text: "Клиенты" }), sub]),
     el("button.btn.btn-primary", { onclick: () => openForm(ctx, null, list) }, [icon("plus", { size: 16 }), "Добавить клиента"]),
   ]));
 
   if (!list.length) { page.append(el("div.empty", {}, [el("div.em-ic", {}, [icon("user", { size: 40 })]), el("p", { text: "Клиентов пока нет" })])); return; }
 
+  // поиск по имени и по номеру телефона (учитываются все номера клиента)
+  const search = input({ placeholder: "Поиск: имя или номер телефона…", style: { maxWidth: "340px" } });
+  page.append(el("div.toolbar", {}, [search]));
+  const phonesOf = (c) => (Array.isArray(c.phones) && c.phones.length) ? c.phones : (c.contact ? [c.contact] : []);
+
   const tbody = el("tbody");
-  list.forEach(c => {
+  function draw(rows) {
+  tbody.innerHTML = "";
+  sub.textContent = rows.length === list.length ? `Всего: ${list.length}` : `Найдено: ${rows.length} из ${list.length}`;
+  if (!rows.length) tbody.append(el("tr", {}, [el("td", { colSpan: 5, style: { textAlign: "center", padding: "22px", color: "var(--muted)" }, text: "Никого не нашли — измените запрос" })]));
+  rows.forEach(c => {
     const cs = sales.filter(s => s.customer_id === c.id);
     const cp = payments.filter(p => p.customer_id === c.id);
     const raw = debtByCur(cs, cp, c);
@@ -93,7 +103,7 @@ async function renderList(page, ctx) {
         : el("span.badge.muted", { text: "0" });
     tbody.append(el("tr", { style: { cursor: "pointer" }, onclick: () => ctx.navigate("customers?id=" + c.id) }, [
       el("td", {}, [el("strong", { text: c.name })]),
-      el("td", { text: (() => { const ns = (Array.isArray(c.phones) && c.phones.length) ? c.phones : (c.contact ? [c.contact] : []); return ns.length ? ns[0] + (ns.length > 1 ? " +" + (ns.length - 1) : "") : "—"; })() }),
+      el("td", { text: (() => { const ns = phonesOf(c); return ns.length ? ns[0] + (ns.length > 1 ? " +" + (ns.length - 1) : "") : "—"; })() }),
       el("td", { text: cs.length + " накл." }),
       el("td", {}, [badge]),
       el("td.right", {}, [el("div.row-actions", {}, [
@@ -102,6 +112,18 @@ async function renderList(page, ctx) {
       ])]),
     ]));
   });
+  }
+
+  search.addEventListener("input", () => {
+    const q = (search.value || "").trim().toLowerCase();
+    if (!q) return draw(list);
+    const qd = q.replace(/\D/g, ""); // цифры запроса — поиск по номеру телефона
+    draw(list.filter(c =>
+      (c.name || "").toLowerCase().includes(q) ||
+      (!!qd && phonesOf(c).some(n => String(n || "").replace(/\D/g, "").includes(qd)))));
+  });
+  draw(list);
+
   page.append(el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
     el("thead", {}, [el("tr", {}, ["Имя", "Контакт", "Накладные", "Долг", ""].map(h => el("th", { text: h })))]),
     tbody,
