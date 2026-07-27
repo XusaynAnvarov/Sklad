@@ -205,30 +205,47 @@ async function renderCard(page, ctx, id) {
   ]));
   if (curStr(onlyPositive(od)) !== "0") page.append(el("div.hint", { style: { marginTop: "2px" }, text: "Из общего долга старый долг (до системы): " + curStr(onlyPositive(od)) }));
 
-  // --- оплаты (сверху: сразу под статистикой) — можно добавить, изменить, удалить ---
-  page.append(el("div.section-h", { style: { display: "flex", alignItems: "center", gap: "8px" } }, [
-    el("span", { text: "История оплат" }),
-    el("button.btn.btn-ok.btn-sm", { style: { marginLeft: "auto" }, onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 14 }), "Оплата"]),
-  ]));
-  if (!payments.length) page.append(el("div.empty", { style: { padding: "24px" } }, [el("p", { text: "Оплат пока нет" })]));
-  else {
-    const tbp = el("tbody");
-    payments.forEach(p => {
-      tbp.append(el("tr", {}, [
-        el("td", { text: new Date(p.date).toLocaleDateString("ru-RU") }),
-        el("td", {}, [el("strong", { text: fmt(p.amount, p.currency) })]),
-        el("td", {}, [el("span.badge.cur", { text: CUR[p.currency].label })]),
-        el("td", { text: p.note || "—" }),
-        el("td.right", {}, [el("div.row-actions", {}, [
-          el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Изменить оплату", onclick: () => openPayment(ctx, c, p) }, [icon("edit", { size: 15 })]),
-          el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить оплату?", async () => { await ctx.db.payments.remove(p.id); toast("Удалено", "ok"); ctx.refresh(); }) }, [icon("trash", { size: 15 })]),
-        ])]),
-      ]));
-    });
-    page.append(el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
-      el("thead", {}, [el("tr", {}, ["Дата", "Сумма", "Валюта", "Комментарий", ""].map(h => el("th", { text: h })))]),
-      tbp,
-    ])]));
+  // --- оплаты (сверху) — выпадающий (сворачиваемый) список, добавить / изменить / удалить ---
+  {
+    // содержимое списка (таблица или «пусто»)
+    let payContent;
+    if (!payments.length) payContent = el("div.empty", { style: { padding: "22px" } }, [el("p", { text: "Оплат пока нет" })]);
+    else {
+      const tbp = el("tbody");
+      payments.forEach(p => {
+        tbp.append(el("tr", {}, [
+          el("td", { text: new Date(p.date).toLocaleDateString("ru-RU") }),
+          el("td", {}, [el("strong", { text: fmt(p.amount, p.currency) })]),
+          el("td", {}, [el("span.badge.cur", { text: CUR[p.currency].label })]),
+          el("td", { text: p.note || "—" }),
+          el("td.right", {}, [el("div.row-actions", {}, [
+            el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Изменить оплату", onclick: () => openPayment(ctx, c, p) }, [icon("edit", { size: 15 })]),
+            el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить оплату?", async () => { await ctx.db.payments.remove(p.id); toast("Удалено", "ok"); ctx.refresh(); }) }, [icon("trash", { size: 15 })]),
+          ])]),
+        ]));
+      });
+      payContent = el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
+        el("thead", {}, [el("tr", {}, ["Дата", "Сумма", "Валюта", "Комментарий", ""].map(h => el("th", { text: h })))]),
+        tbp,
+      ])]);
+    }
+    // сворачиваемая обёртка (по умолчанию свёрнута)
+    const payBody = el("div", { style: { display: "none", marginTop: "10px" } }, [payContent]);
+    const chevron = el("span", { text: "▸", style: { transition: "transform .15s", fontSize: "13px", color: "var(--muted)" } });
+    const header = el("div.card", { style: { padding: "12px 14px", display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", userSelect: "none" }, onclick: (e) => {
+      if (e.target.closest("button")) return;
+      const open = payBody.style.display !== "none";
+      payBody.style.display = open ? "none" : "block";
+      chevron.style.transform = open ? "" : "rotate(90deg)";
+    } }, [
+      chevron,
+      el("span", { style: { display: "flex", color: "var(--muted)" } }, [icon("wallet", { size: 17 })]),
+      el("strong", { text: "История оплат" }),
+      el("span.badge.cur", { text: String(payments.length), style: { marginLeft: "2px" } }),
+      el("button.btn.btn-ok.btn-sm", { style: { marginLeft: "auto" }, onclick: (e) => { e.stopPropagation(); openPayment(ctx, c); } }, [icon("plus", { size: 14 }), "Оплата"]),
+    ]);
+    page.append(el("div.section-h", { text: "Оплаты" }));
+    page.append(header, payBody);
   }
 
   // --- накладные (по датам, раскрываются по клику) ---
