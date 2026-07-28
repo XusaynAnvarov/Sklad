@@ -124,6 +124,25 @@ async function route() {
 }
 function $$(s){return [...document.querySelectorAll(s)];}
 
+// Волна от точки нажатия на кнопках и пунктах меню (один слушатель на документ)
+(function initRipple() {
+  const SEL = ".btn,.navitem,.pill-tabs button,.filter-chip";
+  document.addEventListener("pointerdown", (e) => {
+    const b = e.target.closest && e.target.closest(SEL);
+    if (!b || b.disabled) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const r = b.getBoundingClientRect();
+    const s = Math.max(r.width, r.height);
+    const sp = document.createElement("span");
+    sp.className = "gm-ripple";
+    sp.style.width = sp.style.height = s + "px";
+    sp.style.left = (e.clientX - r.left - s / 2) + "px";
+    sp.style.top = (e.clientY - r.top - s / 2) + "px";
+    b.appendChild(sp);
+    setTimeout(() => sp.remove(), 560);
+  }, { passive: true });
+})();
+
 // Если boot зависнет/упадёт — показываем ошибку и кнопку сброса кэша вместо вечной «Загрузки».
 function showBootError(err) {
   console.error("boot failed:", err);

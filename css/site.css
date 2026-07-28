@@ -42,26 +42,47 @@ body {
 }
 
 /* ---------- CSS Tokens (dark) ---------- */
+/* Тёмная тема сайта — «чёрный и золото»: чистый чёрный фон, золото как главный акцент */
 html[data-site-theme="dark"] {
-  --navy:      #93c5fd;
-  --navy-d:    #0f172a;
-  --navy-l:    #1d4ed8;
-  --gold:      #c9a84c;
-  --gold-l:    #e3c163;
-  --gold-d:    #a07828;
-  --accent:    #60a5fa;
-  --shadow:    0 4px 24px rgba(0,0,0,.4);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,.55);
-  --white:     #1e293b;
-  --bg:        #0f172a;
-  --bg2:       #1e293b;
-  --border:    #334155;
-  --text:      #f1f5f9;
-  --muted:     #94a3b8;
+  --navy:      #d9b45a;   /* акцент = золото (кнопки, ссылки, активные элементы) */
+  --navy-d:    #0b0b0d;
+  --navy-l:    #e8cd86;
+  --gold:      #d9b45a;
+  --gold-l:    #f0dca4;
+  --gold-d:    #a8873c;
+  --accent:    #d9b45a;
+  --shadow:    0 6px 26px rgba(0,0,0,.55);
+  --shadow-lg: 0 14px 48px rgba(0,0,0,.7);
+  --white:     #141419;   /* поверхность карточек */
+  --bg:        #0b0b0d;   /* фон страницы — чёрный */
+  --bg2:       #1a1a20;
+  --border:    #23232b;
+  --text:      #f2f2f5;
+  --muted:     #8a8a95;
   --success:   #4ade80;
   --danger:    #f87171;
   --warn:      #fbbf24;
 }
+
+/* На золотом фоне текст должен быть ТЁМНЫМ — иначе не читается.
+   Ниже — все элементы, у которых фон = акцент (--navy стал золотом в тёмной теме). */
+html[data-site-theme="dark"] .btn-navy,
+html[data-site-theme="dark"] .btn-primary,
+html[data-site-theme="dark"] .btn-warehouse:hover,
+html[data-site-theme="dark"] .btn-add-cart.available,
+html[data-site-theme="dark"] .filter-chip.active,
+html[data-site-theme="dark"] .verify-step.active .verify-step-num,
+html[data-site-theme="dark"] .cart-count:not(.zero) {
+  color: #17140c;
+}
+html[data-site-theme="dark"] .btn-navy svg,
+html[data-site-theme="dark"] .btn-primary svg,
+html[data-site-theme="dark"] .btn-add-cart.available svg { color: #17140c; }
+/* «Новинка»/золотые бейджи и подчёркивания оставляем золотыми на тёмном */
+html[data-site-theme="dark"] .order-badge.final { background: rgba(217,180,90,.14); color: var(--gold-l); }
+html[data-site-theme="dark"] .btn-warehouse { background: rgba(217,180,90,.10); border-color: rgba(217,180,90,.22); }
+html[data-site-theme="dark"] .site-nav-link:hover,
+html[data-site-theme="dark"] .site-nav-link.active { background: rgba(217,180,90,.10); }
 
 /* ---------- Animated Background ---------- */
 body::before {
@@ -77,12 +98,13 @@ body::before {
     radial-gradient(ellipse at 90% 70%, rgba(28,43,74,.05) 0%, transparent 40%);
   animation: bgFlow 18s ease-in-out infinite alternate;
 }
+/* чёрный фон с еле заметным золотым свечением — глубина без «синевы» */
 html[data-site-theme="dark"] body::before {
   background:
-    radial-gradient(ellipse at 15% 45%, rgba(29,78,216,.18) 0%, transparent 55%),
-    radial-gradient(ellipse at 85% 15%, rgba(201,168,76,.10) 0%, transparent 45%),
-    radial-gradient(ellipse at 55% 85%, rgba(96,165,250,.10) 0%, transparent 45%),
-    radial-gradient(ellipse at 90% 70%, rgba(29,78,216,.08) 0%, transparent 40%);
+    radial-gradient(ellipse at 15% 45%, rgba(217,180,90,.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 15%, rgba(217,180,90,.05) 0%, transparent 45%),
+    radial-gradient(ellipse at 55% 85%, rgba(255,255,255,.03) 0%, transparent 45%),
+    radial-gradient(ellipse at 90% 70%, rgba(217,180,90,.04) 0%, transparent 40%);
 }
 @keyframes bgFlow {
   0%   { transform: scale(1)    translate(0px, 0px); }
@@ -777,4 +799,43 @@ html[data-site-theme="dark"] .btn-warehouse {
 @media (max-width: 480px) {
   .ap-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
   .ap-title { font-size: 18px; }
+}
+
+/* ================================================================
+   Анимации: плавные переходы между разделами и отклик на нажатие
+   ================================================================ */
+/* появление контента раздела (роутер добавляет класс на .site-main) */
+.site-main { animation: gmIn .38s cubic-bezier(.2,.8,.25,1) both; }
+@keyframes gmIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* карточка товара: подъём при наведении, «нажатие» при клике */
+.product-card { transition: transform .3s cubic-bezier(.2,.8,.25,1), border-color .3s, box-shadow .3s; }
+.product-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); border-color: rgba(217,180,90,.45); }
+.product-card:active { transform: translateY(-2px) scale(.99); }
+
+/* кнопки: лёгкое сжатие + волна от точки нажатия */
+.btn-primary, .btn-navy, .btn-ghost, .btn-add-cart, .filter-chip, .cabinet-nav-item {
+  position: relative; overflow: hidden;
+  transition: transform .14s ease, background .25s, color .25s, border-color .25s, box-shadow .25s;
+}
+.btn-primary:active, .btn-navy:active, .btn-ghost:active, .btn-add-cart:active, .filter-chip:active { transform: scale(.96); }
+.gm-ripple {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  background: rgba(255,255,255,.45); transform: scale(0); animation: gmRipple .55s ease-out forwards;
+}
+html[data-site-theme="dark"] .btn-primary .gm-ripple { background: rgba(0,0,0,.28); }
+@keyframes gmRipple { to { transform: scale(3.2); opacity: 0; } }
+
+/* активная вкладка/чип — мягкое золотое подчёркивание */
+html[data-site-theme="dark"] .filter-chip.active { background: var(--gold); color: #17140c; border-color: var(--gold); }
+html[data-site-theme="dark"] .site-nav-link.active { color: var(--gold); }
+
+/* фото в карточке — деликатное приближение */
+.product-card-img img { transition: transform .45s cubic-bezier(.2,.8,.25,1); }
+.product-card:hover .product-card-img img { transform: scale(1.05); }
+
+/* уважение к системной настройке «меньше движения» */
+@media (prefers-reduced-motion: reduce) {
+  .site-main, .gm-ripple { animation: none !important; }
+  .product-card, .product-card-img img { transition: none !important; }
 }

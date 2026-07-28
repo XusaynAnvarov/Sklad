@@ -360,6 +360,25 @@ function getRoute() {
   return h.split("?")[0];
 }
 
+// Волна от точки нажатия (материальный отклик). Один слушатель на весь документ.
+function initRipple() {
+  const SEL = ".btn-primary,.btn-navy,.btn-ghost,.btn-add-cart,.filter-chip,.cabinet-nav-item,.cart-btn";
+  document.addEventListener("pointerdown", (e) => {
+    const b = e.target.closest && e.target.closest(SEL);
+    if (!b || b.disabled) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const r = b.getBoundingClientRect();
+    const s = Math.max(r.width, r.height);
+    const sp = document.createElement("span");
+    sp.className = "gm-ripple";
+    sp.style.width = sp.style.height = s + "px";
+    sp.style.left = (e.clientX - r.left - s / 2) + "px";
+    sp.style.top = (e.clientY - r.top - s / 2) + "px";
+    b.appendChild(sp);
+    setTimeout(() => sp.remove(), 560);
+  }, { passive: true });
+}
+
 // Позиция прокрутки по каждому разделу — чтобы возврат не начинался «сначала».
 const SCROLL_KEY = (r) => "gm_scroll_" + r;
 let curRoute = null;
@@ -434,6 +453,8 @@ export async function boot() {
   }
   rebuild();
   window.addEventListener("hashchange", () => route(document.getElementById("site-main") || document.createElement("div")));
+
+  initRipple();   // волна от точки нажатия на кнопках
 
   // сами управляем позицией прокрутки: браузер не должен сбрасывать её наверх
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
