@@ -12,6 +12,42 @@ export function openLogin() {
   openModal("auth-modal", buildAuthModal());
 }
 
+// Ссылка «Как зарегистрироваться?» → открывает видео-инструкцию (GIF, по языку сайта)
+const GUIDE_TXT = {
+  ru: { link: "❓ Как зарегистрироваться? Смотреть инструкцию", title: "Как зарегистрироваться", close: "Закрыть" },
+  uz: { link: "❓ Qanday ro'yxatdan o'tish? Yo'riqnomani ko'rish", title: "Qanday ro'yxatdan o'tish", close: "Yopish" },
+  en: { link: "❓ How to register? Watch the guide", title: "How to register", close: "Close" },
+};
+function guideLang() { const l = localStorage.getItem("gm_lang") || "ru"; return GUIDE_TXT[l] ? l : "ru"; }
+export function openGuide() {
+  const lang = guideLang(), T = GUIDE_TXT[lang];
+  const ov = document.createElement("div");
+  ov.style.cssText = "position:fixed;inset:0;z-index:10000;background:rgba(10,16,28,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px";
+  const img = document.createElement("img");
+  img.src = `/guide/guide-${lang === "en" ? "ru" : lang}.gif`;   // англ. версии пока нет — показываем русскую
+  img.alt = T.title;
+  img.style.cssText = "max-width:min(92vw,420px);max-height:78vh;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6)";
+  const btn = document.createElement("button");
+  btn.textContent = T.close;
+  btn.style.cssText = "background:#e3c163;color:#1c2b4a;border:none;border-radius:10px;padding:10px 24px;font-weight:700;font-size:15px;cursor:pointer";
+  btn.addEventListener("click", () => ov.remove());
+  ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+  document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { ov.remove(); document.removeEventListener("keydown", esc); } });
+  ov.append(img, btn);
+  document.body.append(ov);
+}
+function guideLink() {
+  const T = GUIDE_TXT[guideLang()];
+  const d = document.createElement("div");
+  d.style.cssText = "text-align:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border,#e6e2d8)";
+  const a = document.createElement("a");
+  a.href = "#"; a.textContent = T.link;
+  a.style.cssText = "font-size:13px;color:var(--navy,#1c2b4a);font-weight:600;text-decoration:none";
+  a.addEventListener("click", (e) => { e.preventDefault(); openGuide(); });
+  d.append(a);
+  return d;
+}
+
 function buildAuthModal() {
   const wrap = document.createElement("div");
   let mode = "login"; // login | register | verify
@@ -26,6 +62,7 @@ function buildAuthModal() {
     if (mode === "login") wrap.append(buildLogin());
     else if (mode === "register") wrap.append(buildRegister());
     else if (mode === "verify") wrap.append(buildVerify());
+    wrap.append(guideLink());   // «Как зарегистрироваться?» — видео-инструкция
   }
 
   // 2 шага: 1) телефон → код в Telegram; 2) код + пароль → вход.
