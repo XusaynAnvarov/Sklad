@@ -1,7 +1,7 @@
 // ========================================================================
 //  НАСТРОЙКИ — курсы валют, Telegram, доступ, демо-данные
 // ========================================================================
-import { el, toast, field, input, confirmDialog } from "../ui.js";
+import { el, toast, field, input, select, confirmDialog, showLoader, hideLoader } from "../ui.js";
 import { fetchLiveRates, setRates, getRates } from "../fx.js";
 import { authHeaders } from "../db.js";
 
@@ -68,6 +68,48 @@ export default async function render(page, ctx) {
       ]),
     ]);
   }
+
+  // ---------- Видео-инструкция для клиентов ----------
+  const guideLang = select([{ value: "ru", label: "Русская версия" }, { value: "uz", label: "O'zbekcha" }], "ru");
+  const guideTest = input({ placeholder: "chat_id для теста (необязательно)", style: { maxWidth: "260px" } });
+  async function sendGuide(all) {
+    const lang = guideLang.value;
+    const chat_id = guideTest.value.trim();
+    if (all && !chat_id) {
+      // массовая рассылка — только после подтверждения
+      return confirmDialog("Отправить видео-инструкцию ВСЕМ клиентам с Telegram? Сообщение придёт каждому.", () => doSend(lang, null));
+    }
+    if (!chat_id) { toast("Впишите chat_id для теста или нажмите «Отправить всем»", "err"); return; }
+    doSend(lang, chat_id);
+  }
+  async function doSend(lang, chat_id) {
+    showLoader(chat_id ? "Отправка…" : "Рассылка клиентам…");
+    try {
+      const r = await fetch("/api/send-guide", {
+        method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+        body: JSON.stringify({ lang, ...(chat_id ? { chat_id } : {}) }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || r.status);
+      toast(`Отправлено: ${j.sent || 0}` + (j.failed ? ` · не дошло: ${j.failed}` : ""), j.sent ? "ok" : "err");
+    } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
+    finally { hideLoader(); }
+  }
+  const guideUrl = (l) => location.origin + "/guide/guide-" + l + ".gif";
+  const guideCard = el("div.card", { style: { marginBottom: "18px" } }, [
+    el("div.section-h", { text: "Видео-инструкция для клиентов", style: { marginTop: 0 } }),
+    el("div.hint", { text: "Короткое видео: как зарегистрироваться на сайте и в Telegram-боте. Бот отправит его клиентам как видео." }),
+    el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", margin: "10px 0" } }, [
+      guideLang, guideTest,
+      el("button.btn.btn-outline", { text: "Отправить себе (тест)", onclick: () => sendGuide(false) }),
+      el("button.btn.btn-primary", { text: "📢 Отправить всем клиентам", onclick: () => sendGuide(true) }),
+    ]),
+    el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
+      el("a.btn.btn-outline.btn-sm", { text: "Посмотреть (ru)", href: guideUrl("ru"), target: "_blank" }),
+      el("a.btn.btn-outline.btn-sm", { text: "Посмотреть (uz)", href: guideUrl("uz"), target: "_blank" }),
+      el("button.btn.btn-outline.btn-sm", { text: "Копировать ссылку (ru)", onclick: () => { navigator.clipboard?.writeText(guideUrl("ru")); toast("Ссылка скопирована — можно вставить в Telegram", "ok"); } }),
+    ]),
+  ]);
 
   // ---------- Резервная копия данных ----------
   const TABLES = ["products", "customers", "sales", "purchases", "payments"];
@@ -198,5 +240,5 @@ export default async function render(page, ctx) {
     } }),
   ]);
 
-  page.append(fxCard, tgCard, linksCard, passCard, backupCard, sysCard);
+  page.append(fxCard, tgCard, linksCard, guideCard, passCard, backupCard, sysCard);
 }

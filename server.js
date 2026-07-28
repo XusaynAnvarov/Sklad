@@ -61,6 +61,7 @@ const routes = [
   [["POST"],  "/api/site-order",              "./api/site-order.js"],
   // рассылка клиентам о новинках (при оприходовании прихода)
   [["POST"],  "/api/notify-new-products",     "./api/notify-new-products.js"],
+  [["POST","OPTIONS"], "/api/send-guide",     "./api/send-guide.js"],
   // каталог (переиспользуем если есть)
   [["GET"],   "/api/catalog",                 "./api/catalog.js"],
   // загрузка фото товара в Supabase Storage (бакет product-photos)
