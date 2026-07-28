@@ -69,6 +69,19 @@ async function applySales(ctx, list, pmapById) {
   return { okCount, problems };
 }
 
+// Пометить накладные как проверенные (склад НЕ трогаем) — «эти правильные, больше не показывать»
+async function markChecked(ctx, list) {
+  let ok = 0; const problems = [];
+  for (const s of list) {
+    try {
+      const items = (s.items || []).map(it => ({ ...it, applied: true }));
+      await ctx.db.sales.upsert({ id: s.id, items });
+      ok++;
+    } catch (e) { problems.push(`${new Date(s.date).toLocaleDateString("ru-RU")}: ${e.message || e}`); }
+  }
+  return { ok, problems };
+}
+
 // Модалка: список непроведённых накладных с галочками и предпросмотром остатков
 export function openStockFix(ctx, products, sales) {
   const pmapById = Object.fromEntries(products.map(p => [p.id, p]));
@@ -137,6 +150,21 @@ export function openStockFix(ctx, products, sales) {
     ]),
     actions: [
       { label: "Закрыть", kind: "btn-outline", onClick: c => c() },
+      { label: "✓ Я проверил — остальные правильные", kind: "btn-outline", onClick: (close) => {
+        // помечаем ВСЕ показанные накладные как проверенные, склад не трогаем:
+        // они уйдут с дашборда, а новые проблемные появятся снова.
+        const list = unappliedSales(sales, days);
+        if (!list.length) { toast("Список пуст", "err"); return; }
+        confirmDialog(`Пометить ${list.length} накладных как проверенные? Остатки НЕ изменятся, предупреждение с дашборда уйдёт.`, async () => {
+          showLoader("Отмечаем…");
+          try {
+            const { ok, problems } = await markChecked(ctx, list);
+            toast(`Отмечено: ${ok}` + (problems.length ? `, ошибок: ${problems.length}` : ""), problems.length ? "err" : "ok");
+            close(); ctx.refresh();
+          } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
+          finally { hideLoader(); }
+        });
+      } },
       { label: "✅ Списать выбранные", kind: "btn-primary", onClick: (close) => {
         const list = unappliedSales(sales, days).filter(s => checked.has(s.id));
         if (!list.length) { toast("Отметьте накладные", "err"); return; }
