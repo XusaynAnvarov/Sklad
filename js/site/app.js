@@ -360,8 +360,30 @@ function getRoute() {
   return h.split("?")[0];
 }
 
+// Позиция прокрутки по каждому разделу — чтобы возврат не начинался «сначала».
+const SCROLL_KEY = (r) => "gm_scroll_" + r;
+let curRoute = null;
+function saveScroll() {
+  if (!curRoute) return;
+  try { sessionStorage.setItem(SCROLL_KEY(curRoute), String(window.scrollY || 0)); } catch {}
+}
+function restoreScrollFor(r) {
+  let y = 0;
+  try { y = Number(sessionStorage.getItem(SCROLL_KEY(r))) || 0; } catch {}
+  if (y <= 0) return;
+  let tries = 0;
+  const tick = () => {
+    if (++tries > 12) return;
+    window.scrollTo(0, y);
+    if (Math.abs((window.scrollY || 0) - y) > 4) setTimeout(tick, 60);
+  };
+  setTimeout(tick, 40);
+}
+
 async function route(main) {
   const r = getRoute();
+  saveScroll();               // запомнить, где были в предыдущем разделе
+  curRoute = r;
   document.querySelectorAll(".site-nav-link").forEach(a => {
     a.classList.toggle("active", a.getAttribute("href") === "#" + r);
   });
@@ -380,9 +402,14 @@ async function route(main) {
       else await renderCabinet(inner);
     } else await renderCatalog(inner);
   } catch (e) {
-    inner.innerHTML = `<div class="s-empty"><p>${t("errorMsg")}: ${e.message}</p></div>`;
+    // текст ошибки вставляем как ТЕКСТ (не HTML) — иначе разметка из сообщения попадёт на страницу
+    inner.innerHTML = "";
+    const box = document.createElement("div"); box.className = "s-empty";
+    const p = document.createElement("p"); p.textContent = `${t("errorMsg")}: ${e.message}`;
+    box.append(p); inner.append(box);
   }
   main.innerHTML = ""; main.append(inner);
+  restoreScrollFor(r);        // вернуть клиента туда, где он остановился
 }
 
 // ---- Boot ----
@@ -407,6 +434,14 @@ export async function boot() {
   }
   rebuild();
   window.addEventListener("hashchange", () => route(document.getElementById("site-main") || document.createElement("div")));
+
+  // сами управляем позицией прокрутки: браузер не должен сбрасывать её наверх
+  try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
+  // запоминаем место при прокрутке, уходе со страницы и переключении в другое приложение
+  let _st = 0;
+  window.addEventListener("scroll", () => { clearTimeout(_st); _st = setTimeout(saveScroll, 200); }, { passive: true });
+  window.addEventListener("pagehide", saveScroll);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) saveScroll(); });
 
   startSessionWatch();
   showOwnerReturnBar();
@@ -457,7 +492,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=70", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=71", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

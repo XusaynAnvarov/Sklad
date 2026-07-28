@@ -5,6 +5,21 @@ import { openLogin } from "./auth.js";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
+// ---- Состояние каталога: товары, фильтр, поиск, позиция прокрутки ----
+// Хранится в sessionStorage → переживает уход в другое приложение и перезагрузку вкладки,
+// поэтому клиент возвращается ровно туда, где остановился (ничего не начинается сначала).
+const CAT_KEY = "gm_cat_state";
+const CAT_TTL = 5 * 60 * 1000; // товары считаем свежими 5 минут, дальше тихо обновляем
+let catState = { products: null, fetchedAt: 0, category: "Все", query: "", scrollY: 0 };
+try {
+  const raw = sessionStorage.getItem(CAT_KEY);
+  if (raw) { const s = JSON.parse(raw); if (s && typeof s === "object") catState = { ...catState, ...s }; }
+} catch {}
+function saveCatState() {
+  try { sessionStorage.setItem(CAT_KEY, JSON.stringify(catState)); } catch {}
+}
+function rememberScroll() { catState.scrollY = window.scrollY || 0; saveCatState(); }
+
 export async function renderCatalog(container) {
   container.innerHTML = "";
 
@@ -22,40 +37,81 @@ export async function renderCatalog(container) {
   const grid = mkEl("div", "product-grid");
   container.append(grid);
 
-  // Скелетоны при загрузке
-  for (let i = 0; i < 8; i++) grid.append(buildSkeleton());
+  // восстанавливаем то, что было: товары из кэша, поиск, категория
+  let products = Array.isArray(catState.products) ? catState.products : [];
+  let activeCategory = catState.category || "Все";
+  let searchQuery = catState.query || "";
+  searchInput.value = catState.query || "";
+  const fresh = products.length && (Date.now() - (catState.fetchedAt || 0) < CAT_TTL);
 
-  let products = [];
-  let categories = ["Все"];
-  let activeCategory = "Все";
-  let searchQuery = "";
+  if (products.length) { drawChips(); renderCards(); restoreScroll(); }
+  else for (let i = 0; i < 8; i++) grid.append(buildSkeleton()); // первый заход — скелетоны
 
-  try {
-    const res = await api.catalog();
-    products = Array.isArray(res) ? res : (res.products || []);
+  // данные тянем всегда, но если кэш свежий — в фоне (экран не мигает и место не теряется)
+  const load = async () => {
+    try {
+      const res = await api.catalog();
+      const list = Array.isArray(res) ? res : (res.products || []);
+      if (!list.length && products.length) return;         // пустой ответ не затирает показанное
+      products = list;
+      catState.products = list; catState.fetchedAt = Date.now(); saveCatState();
+      drawChips();
+      const y = window.scrollY;                             // перерисовка не должна сбивать прокрутку
+      renderCards();
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    } catch (e) {
+      if (!products.length) { grid.innerHTML = ""; grid.append(buildEmpty("Не удалось загрузить каталог. Попробуйте позже.")); }
+    }
+  };
+  if (fresh) load(); else await load();
+
+  function drawChips() {
     const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
-    categories = ["Все", ...cats];
-  } catch (e) {
-    grid.innerHTML = "";
-    grid.append(buildEmpty("Не удалось загрузить каталог. Попробуйте позже."));
-    return;
+    const categories = ["Все", ...cats];
+    if (!categories.includes(activeCategory)) activeCategory = "Все";
+    filterChips.innerHTML = "";
+    categories.forEach(cat => {
+      const chip = mkEl("button", "filter-chip");
+      chip.textContent = cat;
+      if (cat === activeCategory) chip.classList.add("active");
+      chip.addEventListener("click", () => {
+        activeCategory = cat;
+        catState.category = cat; catState.scrollY = 0; saveCatState();
+        filterChips.querySelectorAll(".filter-chip").forEach(c => c.classList.toggle("active", c.textContent === cat));
+        renderCards();
+      });
+      filterChips.append(chip);
+    });
   }
 
-  // Фильтры
-  filterChips.innerHTML = "";
-  categories.forEach(cat => {
-    const chip = mkEl("button", "filter-chip");
-    chip.textContent = cat;
-    if (cat === activeCategory) chip.classList.add("active");
-    chip.addEventListener("click", () => {
-      activeCategory = cat;
-      filterChips.querySelectorAll(".filter-chip").forEach(c => c.classList.toggle("active", c.textContent === cat));
-      renderCards();
-    });
-    filterChips.append(chip);
+  searchInput.addEventListener("input", () => {
+    searchQuery = searchInput.value.toLowerCase();
+    catState.query = searchInput.value; catState.scrollY = 0; saveCatState();
+    renderCards();
   });
 
-  searchInput.addEventListener("input", () => { searchQuery = searchInput.value.toLowerCase(); renderCards(); });
+  // запоминаем позицию прокрутки (с троттлингом) + при уходе со страницы/в другое приложение
+  if (!window.__gmCatScrollBound) {
+    window.__gmCatScrollBound = true;
+    let t = 0;
+    window.addEventListener("scroll", () => { clearTimeout(t); t = setTimeout(rememberScroll, 200); }, { passive: true });
+    window.addEventListener("pagehide", rememberScroll);
+    document.addEventListener("visibilitychange", () => { if (document.hidden) rememberScroll(); });
+  }
+
+  function restoreScroll() {
+    const y = Number(catState.scrollY) || 0;
+    if (y <= 0) return;
+    // контейнер в этот момент ещё не вставлен в страницу (роутер добавит его позже),
+    // поэтому повторяем попытку, пока высота страницы не позволит прокрутить
+    let tries = 0;
+    const tick = () => {
+      if (++tries > 12) return;
+      window.scrollTo(0, y);
+      if (Math.abs((window.scrollY || 0) - y) > 4) setTimeout(tick, 60);
+    };
+    setTimeout(tick, 40);
+  }
 
   function renderCards() {
     grid.innerHTML = "";
@@ -76,8 +132,6 @@ export async function renderCatalog(container) {
       grid.append(card);
     });
   }
-
-  renderCards();
 }
 
 function buildCard(p) {
