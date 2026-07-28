@@ -321,28 +321,57 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
       });
     } else {
       // --- FIFO: вернуть старые позиции (если правка обычной накладной) и списать новые ---
+      const touched = new Set([...((sale && sale.items) || []).map(i => i.product_id), ...state.items.map(i => i.product_id)].filter(Boolean));
+      // ВАЖНО: берём КАРТОЧКИ ТОВАРОВ СВЕЖИМИ с сервера. Список в памяти мог устареть
+      // (страницу открыли давно / правили с другого устройства) — тогда остаток записывался неверно.
+      const fresh = {};
+      await Promise.all([...touched].map(async (pid) => {
+        try { const p = await ctx.db.products.get(pid); if (p && p.id) fresh[pid] = p; } catch {}
+      }));
+      const P = (id) => fresh[id] || products.find(x => x.id === id);
+
       // для заказа из бота старые позиции НЕ возвращаем — их со склада ещё не списывали
       if (sale && !wasOrder) (sale.items || []).forEach(it => {
-        const p = products.find(x => x.id === it.product_id); if (!p) return;
+        const p = P(it.product_id); if (!p) return;
         const perY = it.qty ? (Number(it.cogs_yuan) || 0) / it.qty : (Number(p.cost_yuan) || 0);
         const perU = it.qty ? (Number(it.cogs_usd) || 0) / it.qty : (Number(p.cost_usd) || 0);
         p.batches = returnToStock(ensureBatches(p), it.qty, perY, perU, sale.date);
       });
       state.items.forEach(it => {
-        const p = products.find(x => x.id === it.product_id); if (!p) return;
+        const p = P(it.product_id); if (!p) return;
         const r = consumeFIFO(ensureBatches(p), it.qty);
         p.batches = r.batches; it.cogs_yuan = r.cogY; it.cogs_usd = r.cogU;
       });
-      const touched = new Set([...((sale && sale.items) || []).map(i => i.product_id), ...state.items.map(i => i.product_id)]);
+
       // пишем все затронутые товары ПАРАЛЛЕЛЬНО (раньше — по очереди, отсюда долгое сохранение)
+      const expected = {};
+      const notFound = [];
       await Promise.all([...touched].map(async (pid) => {
-        const p = products.find(x => x.id === pid); if (!p) return;
+        const p = P(pid);
+        if (!p) { notFound.push(pid); return; }
         // склад распродан → сохраняем прежнюю себестоимость (не обнуляем)
         const cc = costAfter(p.batches || [], p);
-        const base = { id: p.id, stock_qty: sumQty(p.batches || []), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
+        const qty = sumQty(p.batches || []);
+        expected[pid] = qty;
+        const base = { id: p.id, stock_qty: qty, cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
         try { await ctx.db.products.upsert({ ...base, batches: p.batches }); }
         catch (e) { await ctx.db.products.upsert(base); } // если колонки batches ещё нет
       }));
+
+      // ПРОВЕРКА: остаток действительно изменился на сервере (раньше сбой проходил незаметно)
+      const bad = [];
+      await Promise.all(Object.keys(expected).map(async (pid) => {
+        try {
+          const now = await ctx.db.products.get(pid);
+          if (!now || Math.abs((Number(now.stock_qty) || 0) - expected[pid]) > 0.001) {
+            await ctx.db.products.upsert({ id: pid, stock_qty: expected[pid] });   // повторная попытка
+            const again = await ctx.db.products.get(pid);
+            if (!again || Math.abs((Number(again.stock_qty) || 0) - expected[pid]) > 0.001) bad.push(P(pid)?.name || pid);
+          }
+        } catch { bad.push(P(pid)?.name || pid); }
+      }));
+      if (notFound.length) toast("Товар не найден в базе (остаток не изменён): " + notFound.length + " поз.", "err");
+      if (bad.length) toast("⚠ Остаток НЕ записался: " + bad.slice(0, 3).join(", ") + (bad.length > 3 ? " и ещё " + (bad.length - 3) : "") + ". Проверьте связь и повторите.", "err");
     }
     let saved;
     try { saved = await ctx.db.sales.upsert(obj); }

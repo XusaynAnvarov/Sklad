@@ -23,22 +23,30 @@ export function ensureBatches(p) {
   const q = Number(p.stock_qty) || 0;
   return q > 0 ? [{ qty: q, cost_yuan: Number(p.cost_yuan) || 0, cost_usd: Number(p.cost_usd) || 0, date: p.created_at || new Date().toISOString() }] : [];
 }
-// списать qty по FIFO → вернуть новые партии и себестоимость списания
+// списать qty по FIFO → вернуть новые партии и себестоимость списания.
+// Если товара не хватает — уходим В МИНУС: остаётся «долговая» партия с отрицательным qty,
+// поэтому остаток показывает, сколько товара мы должны (например −84). Приход её погашает.
 export function consumeFIFO(batches, qty) {
   const list = (batches || []).map(b => ({ ...b }));
   let need = Number(qty) || 0, cogY = 0, cogU = 0;
   for (const b of list) {
     if (need <= 0) break;
-    const take = Math.min(need, Number(b.qty) || 0);
-    b.qty = (Number(b.qty) || 0) - take; need -= take;
+    const have = Number(b.qty) || 0;
+    if (have <= 0) continue;                 // пустые и «долговые» партии пропускаем
+    const take = Math.min(need, have);
+    b.qty = have - take; need -= take;
     cogY += take * (Number(b.cost_yuan) || 0); cogU += take * (Number(b.cost_usd) || 0);
   }
-  if (need > 0) { // не хватило — добиваем по последней цене
-    const last = list[list.length - 1];
-    cogY += need * (last ? Number(last.cost_yuan) || 0 : 0);
-    cogU += need * (last ? Number(last.cost_usd) || 0 : 0);
+  const kept = list.filter(b => Math.abs(Number(b.qty) || 0) > 0.0001);
+  if (need > 0) { // не хватило — считаем по последней известной цене и уходим в минус
+    const ref = [...list].reverse().find(b => (Number(b.cost_yuan) || 0) > 0 || (Number(b.cost_usd) || 0) > 0) || list[list.length - 1];
+    const cy = ref ? Number(ref.cost_yuan) || 0 : 0, cu = ref ? Number(ref.cost_usd) || 0 : 0;
+    cogY += need * cy; cogU += need * cu;
+    const debt = kept.find(b => (Number(b.qty) || 0) < 0);
+    if (debt) debt.qty = (Number(debt.qty) || 0) - need;   // уже были должны — увеличиваем долг
+    else kept.push({ qty: -need, cost_yuan: cy, cost_usd: cu, date: new Date().toISOString(), shortage: true });
   }
-  return { batches: list.filter(b => (Number(b.qty) || 0) > 0.0001), cogY: r2(cogY), cogU: r2(cogU) };
+  return { batches: kept, cogY: r2(cogY), cogU: r2(cogU) };
 }
 // вернуть товар на склад (в НАЧАЛО — сохраняя FIFO-порядок), для отмены/удаления
 export function returnToStock(batches, qty, cost_yuan, cost_usd, date) {

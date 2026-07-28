@@ -143,7 +143,12 @@ export default async function render(page, ctx) {
               isSoon ? el("span.badge.transit", {}, [icon("clock", { size: 13 }), "Скоро"]) : statusBadge(p),
               ...(isNew ? [el("span.badge", { style: "background:var(--gold,#e3c163);color:#1c2b4a;font-size:10px;", text: "Новинка" })] : []),
             ]),
-            el("span.muted", { text: "ост: " + (Number(p.stock_qty) || 0) }),
+            // минус = товара не хватило (продали больше, чем было) — показываем красным
+            el("span" + ((Number(p.stock_qty) || 0) < 0 ? "" : ".muted"), {
+              text: "ост: " + (Number(p.stock_qty) || 0),
+              title: (Number(p.stock_qty) || 0) < 0 ? "Продано больше, чем было на складе — долг по товару" : "",
+              style: (Number(p.stock_qty) || 0) < 0 ? { color: "var(--danger,#f87171)", fontWeight: "700" } : {},
+            }),
           ]),
           el("div.pr", {}, ["себест: " + costShow(p.cost_yuan, p.cost_usd, p.cost_cur),
             (p.cost_prev && Number(p.cost_prev.cost_yuan) > 0 && Math.abs(Number(p.cost_prev.cost_yuan) - Number(p.cost_yuan)) > 0.001)
