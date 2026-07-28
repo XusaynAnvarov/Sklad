@@ -318,6 +318,7 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
         const p = products.find(x => x.id === it.product_id); if (!p) return;
         it.cogs_yuan = (Number(p.cost_yuan) || 0) * (Number(it.qty) || 0);
         it.cogs_usd = (Number(p.cost_usd) || 0) * (Number(it.qty) || 0);
+        it.applied = true;      // склад намеренно не трогаем, но накладную считаем проведённой
       });
     } else {
       // --- FIFO: вернуть старые позиции (если правка обычной накладной) и списать новые ---
@@ -341,6 +342,7 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
         const p = P(it.product_id); if (!p) return;
         const r = consumeFIFO(ensureBatches(p), it.qty);
         p.batches = r.batches; it.cogs_yuan = r.cogY; it.cogs_usd = r.cogU;
+        it.applied = true;      // отметка «со склада списано» — по ней ищем непроведённые накладные
       });
 
       // пишем все затронутые товары ПАРАЛЛЕЛЬНО (раньше — по очереди, отсюда долгое сохранение)

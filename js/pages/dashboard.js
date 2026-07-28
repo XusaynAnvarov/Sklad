@@ -7,6 +7,7 @@ import { statusOf, placeholder, openForm as openProductForm } from "./products.j
 import { ensureBatches, sumQty } from "../inventory.js";
 import { sparkline } from "../charts.js";
 import { icon } from "../icons.js";
+import { openStockFix, unappliedSales } from "./stock_fix.js";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
@@ -233,6 +234,10 @@ export default async function render(page, ctx) {
       catch { await ctx.db.products.upsert({ id: p.id, stock_qty: 0 }); }
     })));
     if (pendingOrders.length) wrap.append(warnCard("cart", `Заказы не оформлены: ${pendingOrders.length}`, "Эти заказы ещё НЕ списаны со склада. Оформите их в «Заказы» — тогда остаток уменьшится.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => { location.hash = "#orders"; }));
+    // накладные оформлены, но товар со склада не списался — можно списать одним действием
+    const unapplied = unappliedSales(sales, 7);
+    if (unapplied.length) wrap.append(warnCard("receipt", `Проверьте списание со склада: ${unapplied.length} накладных`, "Нет отметки, что товар ушёл с остатка. Нажмите — сверить «было → станет» и списать нужные.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
+      () => openStockFix(ctx, products, sales)));
     // ушли в минус: продали больше, чем было — эти товары нужно докупить
     const negative = products.filter(p => (Number(p.stock_qty) || 0) < 0).sort((a, b) => (Number(a.stock_qty) || 0) - (Number(b.stock_qty) || 0));
     if (negative.length) wrap.append(warnCard("alert", `Ушли в минус: ${negative.length} товаров`, "Продано больше, чем было на складе. Нажмите — список, сколько нужно докупить.", "rgba(239,68,68,.55)", "rgba(239,68,68,.08)",
