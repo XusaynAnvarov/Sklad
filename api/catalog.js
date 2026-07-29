@@ -89,13 +89,16 @@ export default async function handler(req, res) {
           // все фото товара (для галереи у клиента); если колонки photos нет — из photo_url
           photos: (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []),
           status,
-          // доступный остаток (для ограничения заказа); 0 если не в наличии
-          stock: status === "in_stock" ? Math.max(0, Number(p.stock_qty) || 0) : 0,
           is_new: ageDays <= NEW_DAYS,
-          // куплено за неделю (для «хитов»); видно всем
-          week_sold: weekMap[p.id] || 0,
-          // артикул — ТОЛЬКО владельцу (его ответ не кэшируется)
-          ...(isOwner ? { sku: p.sku || "" } : {}),
+          // ХИТ недели — только признак (да/нет). Само число продаж клиенту не отдаём.
+          hit: (weekMap[p.id] || 0) > 0,
+          // Числа (остаток, продажи за неделю) и артикул — ТОЛЬКО владельцу.
+          // Клиент видит лишь «есть / нет / скоро» — ни количества, ни цен.
+          ...(isOwner ? {
+            sku: p.sku || "",
+            stock: Number(p.stock_qty) || 0,
+            week_sold: weekMap[p.id] || 0,
+          } : {}),
         };
       });
 

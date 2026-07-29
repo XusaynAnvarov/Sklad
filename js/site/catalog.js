@@ -121,7 +121,8 @@ export async function renderCatalog(container) {
       return matchCat && matchQ;
     });
     // хиты недели — вверх (по убыванию недельных продаж)
-    filtered.sort((a, b) => (Number(b.week_sold) || 0) - (Number(a.week_sold) || 0));
+    // хиты недели — вверх (только признак, без чисел: количество клиенту не показываем)
+    filtered.sort((a, b) => (b.hit ? 1 : 0) - (a.hit ? 1 : 0));
     if (!filtered.length) { grid.append(buildEmpty("Ничего не найдено")); return; }
     filtered.forEach((p, i) => {
       const card = buildCard(p);
@@ -183,7 +184,8 @@ function buildCard(p) {
   if (p.sku) { skuEl = mkEl("div", "product-category"); skuEl.style.cssText = "font-size:11px;opacity:.8"; skuEl.textContent = "Арт.: " + p.sku; }
   // хит недели — сколько куплено за 7 дней
   let weekEl = null;
-  if (Number(p.week_sold) > 0) { weekEl = mkEl("div"); weekEl.style.cssText = "font-size:12px;font-weight:600;color:#e8810c;margin-top:3px"; weekEl.textContent = "🔥 За неделю: " + p.week_sold + " шт"; }
+  // «Хит» — без числа продаж: клиент не видит количеств
+  if (p.hit) { weekEl = mkEl("div"); weekEl.style.cssText = "font-size:12px;font-weight:600;color:#e8810c;margin-top:3px"; weekEl.textContent = "🔥 Хит недели"; }
   const footer = mkEl("div", "product-card-footer");
 
   const btn = document.createElement("button");
