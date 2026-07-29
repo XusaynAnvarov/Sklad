@@ -7,7 +7,7 @@ import { db, rawClient } from "./db.js";
 import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20260623b";
 import { setRates } from "./fx.js";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20260703u";
+import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20260703v";
 import { applyI18n, makeLangSwitcher } from "./i18n.js";
 
 import dashboard from "./pages/dashboard.js";
@@ -171,7 +171,7 @@ setTimeout(() => { if (!document.querySelector(".app")) showBootError(new Error(
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=79", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=80", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
