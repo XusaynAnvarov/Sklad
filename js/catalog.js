@@ -56,7 +56,8 @@ function placeholder(name = "?") {
 }
 
 async function loadItems() {
-  const norm = (d) => ({ id: d.id, name: d.name, category: d.category, photo_url: d.photo_url, photos: (Array.isArray(d.photos) && d.photos.length) ? d.photos : (d.photo_url ? [d.photo_url] : []), status: d.status, is_new: !!d.is_new, week_sold: Number(d.week_sold) || 0 });
+  // клиенту — только «есть / нет / скоро» и признак хита; количеств и цен не показываем
+  const norm = (d) => ({ id: d.id, name: d.name, category: d.category, photo_url: d.photo_url, photos: (Array.isArray(d.photos) && d.photos.length) ? d.photos : (d.photo_url ? [d.photo_url] : []), status: d.status, is_new: !!d.is_new, hit: !!d.hit });
   if (useSupabase) {
     // публичный API (отдаёт все фото товара)
     try {
@@ -66,7 +67,8 @@ async function loadItems() {
   }
   // локальный режим: берём из того же хранилища, что и админка, БЕЗ цен
   const raw = localStorage.getItem("sklad_db_v1");
-  const store = raw ? JSON.parse(raw) : { products: [] };
+  let store = { products: [] };
+  try { if (raw) store = JSON.parse(raw) || store; } catch { store = { products: [] }; }  // повреждённые данные не должны ронять каталог
   return (store.products || []).map(p => {
     const ref = Math.max(p.created_at ? +new Date(p.created_at) : 0, p.last_arrival_at ? +new Date(p.last_arrival_at) : 0);
     return {
@@ -74,7 +76,7 @@ async function loadItems() {
       photos: (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []),
       status: p.status_override || (Number(p.stock_qty) > 0 ? "in_stock" : "on_order"),
       is_new: ref > 0 && (Date.now() - ref) / 86400000 <= 7,
-      week_sold: 0,
+      hit: false,
     };
   });
 }
@@ -124,14 +126,14 @@ function cardHtml(p, i) {
   const mainPhoto = (p.photos && p.photos.length) ? p.photos[0] : p.photo_url;
   return `<div class="prod reveal" data-id="${id}" style="animation-delay:${(i % 12) * 0.03}s">
       <div style="position:relative">
-        <img class="ph" loading="lazy" style="cursor:zoom-in" src="${mainPhoto || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'" />
+        <img class="ph" loading="lazy" style="cursor:zoom-in" src="${escapeHtml(mainPhoto || placeholder(p.name))}" data-ph="${escapeHtml(placeholder(p.name))}" onerror="this.src=this.dataset.ph" />
         ${np >= 1 ? `<span style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;pointer-events:none">📷 ${np}</span>` : ""}
         ${p.is_new ? `<span style="position:absolute;right:8px;top:8px;background:var(--accent,#4f7cf0);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">Новый</span>` : ""}
       </div>
       <div class="body">
         <div class="nm">${escapeHtml(p.name)}</div>
         <div class="cat">${escapeHtml(p.category || "")}</div>
-        ${p.week_sold > 0 ? `<div style="font-size:12px;font-weight:600;color:#e8810c;margin-top:3px">🔥 За неделю: ${p.week_sold} шт</div>` : ""}
+        ${p.hit ? `<div style="font-size:12px;font-weight:600;color:#e8810c;margin-top:3px">🔥 Хит недели</div>` : ""}
         <div style="margin-top:auto">${statusBadge(p.status)}</div>
         ${addRow}
       </div></div>`;
@@ -146,8 +148,8 @@ function groupByCategory(list = items) {
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(p);
   });
-  // внутри каждой категории — хиты недели вверх (по убыванию недельных продаж)
-  for (const arr of map.values()) arr.sort((a, b) => (Number(b.week_sold) || 0) - (Number(a.week_sold) || 0));
+  // внутри каждой категории — хиты недели вверх (только признак, чисел клиенту не даём)
+  for (const arr of map.values()) arr.sort((a, b) => (b.hit ? 1 : 0) - (a.hit ? 1 : 0));
   const groups = [...map.entries()].sort((a, b) => {
     if (a[0] === "Без категории") return 1;
     if (b[0] === "Без категории") return -1;
@@ -327,7 +329,7 @@ function renderOrderView() {
     const p = byId(id) || { name: "?", photo_url: "" };
     const oos = p.status && p.status !== "in_stock";
     const row = document.createElement("div"); row.className = "ov-row" + (oos ? " oos" : ""); row.setAttribute("data-id", id);
-    row.innerHTML = `<img class="ov-ph" src="${p.photo_url || placeholder(p.name)}" onerror="this.src='${placeholder(p.name)}'"/>
+    row.innerHTML = `<img class="ov-ph" src="${escapeHtml(p.photo_url || placeholder(p.name))}" data-ph="${escapeHtml(placeholder(p.name))}" onerror="this.src=this.dataset.ph"/>
       <div class="ov-nm">${escapeHtml(p.name)}${oos ? `<span class="ov-oos">${iconSvg("x", { size: 11 })} нет в наличии</span>` : ""}</div>
       <div class="qrow"><button class="qbtn minus" type="button">−</button><input class="qinp" type="number" inputmode="numeric" min="0" value="${qty}"><button class="qbtn plus" type="button">＋</button></div>
       <button class="qbtn del" type="button" title="Удалить">${iconSvg("trash", { size: 16 })}</button>`;
@@ -338,7 +340,7 @@ function renderOrderView() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=77", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=78", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();
