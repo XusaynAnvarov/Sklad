@@ -97,7 +97,15 @@ export function initStarfield() {
 
 // ---------- Тема ----------
 export function initTheme() {
-  // по умолчанию — тёмная тема («чёрный и изумруд»); выбор пользователя сохраняется
+  // по умолчанию — тёмная тема («чёрный и изумруд»).
+  // Разовый переход на новый дизайн: у кого раньше стояла светлая — включаем тёмную
+  // один раз (метка sklad_theme_v2), дальше выбор пользователя снова уважается.
+  try {
+    if (!localStorage.getItem("sklad_theme_v2")) {
+      localStorage.setItem(THEME_KEY, "dark");
+      localStorage.setItem("sklad_theme_v2", "1");
+    }
+  } catch {}
   const saved = localStorage.getItem(THEME_KEY) || "dark";
   applyTheme(saved);
 }

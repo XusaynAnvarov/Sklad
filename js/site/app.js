@@ -54,8 +54,18 @@ export function setLang(l) { localStorage.setItem("gm_lang", l); }
 export function t(key) { return (TRANSLATIONS[getLang()] || TRANSLATIONS.ru)[key] || key; }
 
 // ---- Theme ----
-// по умолчанию — тёмная тема («чёрный и золото»); выбор клиента сохраняется
-export function getTheme() { return localStorage.getItem("gm_site_theme") || "dark"; }
+// по умолчанию — тёмная тема («чёрный и золото»).
+// Разовый переход на новый дизайн: у тех, кто раньше выбрал светлую, включаем тёмную
+// один раз (метка gm_theme_v2), дальше выбор пользователя снова уважается.
+export function getTheme() {
+  try {
+    if (!localStorage.getItem("gm_theme_v2")) {
+      localStorage.setItem("gm_site_theme", "dark");
+      localStorage.setItem("gm_theme_v2", "1");
+    }
+  } catch {}
+  return localStorage.getItem("gm_site_theme") || "dark";
+}
 export function setTheme(theme) {
   localStorage.setItem("gm_site_theme", theme);
   const root = document.documentElement;
@@ -514,7 +524,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=78", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=79", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
