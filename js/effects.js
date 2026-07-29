@@ -97,7 +97,8 @@ export function initStarfield() {
 
 // ---------- Тема ----------
 export function initTheme() {
-  const saved = localStorage.getItem(THEME_KEY) || "light";
+  // по умолчанию — тёмная тема («чёрный и изумруд»); выбор пользователя сохраняется
+  const saved = localStorage.getItem(THEME_KEY) || "dark";
   applyTheme(saved);
 }
 export function applyTheme(mode) {
