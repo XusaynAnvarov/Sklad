@@ -237,11 +237,11 @@ export default async function render(page, ctx) {
     // накладные оформлены, но товар со склада не списался — можно списать одним действием
     const unapplied = unappliedSales(sales, 7);
     if (unapplied.length) wrap.append(warnCard("receipt", `Проверьте списание со склада: ${unapplied.length} накладных`, "Нет отметки, что товар ушёл с остатка. Нажмите — сверить «было → станет» и списать нужные.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
-      () => openStockFix(ctx, products, sales)));
+      () => { location.hash = "#stock_check"; }));
     // ушли в минус: продали больше, чем было — эти товары нужно докупить
     const negative = products.filter(p => (Number(p.stock_qty) || 0) < 0).sort((a, b) => (Number(a.stock_qty) || 0) - (Number(b.stock_qty) || 0));
     if (negative.length) wrap.append(warnCard("alert", `Ушли в минус: ${negative.length} товаров`, "Продано больше, чем было на складе. Нажмите — список, сколько нужно докупить.", "rgba(239,68,68,.55)", "rgba(239,68,68,.08)",
-      () => productListModal("Не хватает на складе (минус)", negative.slice(), editProduct, null, (p) => "не хватает: " + Math.abs(Number(p.stock_qty) || 0))));
+      () => { location.hash = "#stock_check"; }));
     // нет на складе, но товар уже в пути
     if (transitOOS.length) wrap.append(warnCard("truck", `В пути (нет на складе): ${transitOOS.length} товаров`, "Этих товаров нет на складе, но они уже едут. Нажмите — список с количеством и поставщиком.", "rgba(59,130,246,.5)", "rgba(59,130,246,.08)",
       () => productListModal("В пути — нет на складе", transitOOS.slice(), editProduct, null, (p) => { const t = transitMap[String(p.id)]; return "🚚 в пути: " + (t?.qty || 0) + (t?.suppliers.size ? " · " + [...t.suppliers].join(", ") : ""); })));

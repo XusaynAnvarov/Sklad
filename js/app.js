@@ -7,7 +7,7 @@ import { db, rawClient } from "./db.js";
 import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20260623b";
 import { setRates } from "./fx.js";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20260703y";
+import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20260703z";
 import { applyI18n, makeLangSwitcher } from "./i18n.js";
 
 import dashboard from "./pages/dashboard.js";
@@ -23,10 +23,12 @@ import siteClients from "./pages/site_clients.js";
 import trash from "./pages/trash.js";
 import videosAdmin from "./pages/videos_admin.js";
 import supplierOrder from "./pages/supplier_order.js";
+import stockCheck from "./pages/stock_check.js";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
   { id: "products",     label: "Товары",          ic: "box",       render: products },
+  { id: "stock_check",  label: "Проверка склада", ic: "check",     render: stockCheck },
   { id: "sales",        label: "Продажи",         ic: "receipt",   render: sales },
   { id: "purchases",    label: "Приход",          ic: "truck",     render: purchases },
   { id: "supplier_order", label: "Заказ поставщику", ic: "truck",   render: supplierOrder },
@@ -122,6 +124,22 @@ async function route() {
   }
   reveal(view);
   applyI18n(document.body);
+  labelTableCells(view);   // подписи для «карточного» вида таблиц на телефоне
+}
+
+// На узких экранах таблица превращается в карточки (css/theme.css), и каждой ячейке
+// нужна подпись — берём её из заголовка соответствующей колонки.
+function labelTableCells(root) {
+  (root || document).querySelectorAll("table.tbl").forEach(tbl => {
+    const heads = [...tbl.querySelectorAll("thead th")].map(th => (th.textContent || "").trim());
+    if (!heads.length) return;
+    tbl.querySelectorAll("tbody tr").forEach(tr => {
+      [...tr.children].forEach((td, i) => {
+        const h = heads[i];
+        if (h) td.setAttribute("data-label", h); else td.removeAttribute("data-label");
+      });
+    });
+  });
 }
 function $$(s){return [...document.querySelectorAll(s)];}
 
@@ -171,7 +189,7 @@ setTimeout(() => { if (!document.querySelector(".app")) showBootError(new Error(
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=83", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=84", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

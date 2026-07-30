@@ -204,6 +204,20 @@ export function openForm(ctx, p, cats = []) {
   const addUrlBtn = el("button.btn.btn-outline.btn-sm", { text: "+ Ссылка", onclick: (e) => { e.preventDefault(); const u = fPhotoUrl.value.trim(); if (u) { photos.push(u); fPhotoUrl.value = ""; renderThumbs(); } } });
 
   const fStock = input({ type: "number", value: p.stock_qty, placeholder: "0" });
+  // «Пришло на склад» — прибавляется к текущему остатку. Удобно, когда товар в минусе:
+  // вписал сколько привезли, минус погасится сам (считать в уме не нужно).
+  const fArrived = input({ type: "number", min: "0", placeholder: "0", value: "" });
+  const arrivedHint = el("div.hint", { style: { marginTop: "-6px" } });
+  const paintArrived = () => {
+    const add = +fArrived.value || 0;
+    const have = Number(fStock.value) || 0;
+    arrivedHint.textContent = add > 0
+      ? `Было ${have} → станет ${have + add}` + (have < 0 ? " (минус погасится)" : "")
+      : "Если привезли товар — впишите сколько. Прибавится к остатку, «Остаток» вручную менять не нужно.";
+  };
+  fArrived.addEventListener("input", paintArrived);
+  fStock.addEventListener("input", paintArrived);
+  paintArrived();
   // себестоимость одной суммой + валюта прихода (показываем в той валюте, в которой ввели — cost_cur)
   const costCur0 = p.cost_cur || ((Number(p.cost_usd) > 0 && !(Number(p.cost_yuan) > 0)) ? "usd" : "yuan");
   const costVal0 = costCur0 === "usd" ? p.cost_usd
@@ -232,7 +246,9 @@ export function openForm(ctx, p, cats = []) {
     ]),
     el("div.hint", { text: "Первое фото — главное (в списке и каталоге). Клиенты видят все фото." }),
     el("div.section-h", { text: "Остаток и себестоимость" }),
-    el("div.row3", {}, [field("Остаток (кол-во)", fStock), field("Себестоимость", fCost), field("Валюта прихода", fCostCur)]),
+    el("div.row3", {}, [field("Остаток (кол-во)", fStock), field("Пришло на склад (+)", fArrived), field("Себестоимость", fCost)]),
+    arrivedHint,
+    field("Валюта прихода", fCostCur),
     el("div.hint", { text: "Цены продажи вводятся при продаже. Вторая валюта себестоимости считается по курсу автоматически." }),
     (p.cost_prev && Number(p.cost_prev.cost_yuan) > 0 && Math.abs(Number(p.cost_prev.cost_yuan) - Number(p.cost_yuan)) > 0.001)
       ? el("div.hint", { text: "Прошлая себестоимость: " + fmt(p.cost_prev.cost_yuan, "yuan") }) : null,
@@ -256,7 +272,10 @@ export function openForm(ctx, p, cats = []) {
         const amt = +fCost.value || 0, cur = fCostCur.value;
         const cost_yuan = cur === "yuan" ? amt : Math.round(convert(amt, cur, "yuan") * 100) / 100;
         const cost_usd = cur === "usd" ? amt : Math.round(convert(amt, cur, "usd") * 100) / 100;
-        const desired = +fStock.value || 0;
+        // «Пришло на склад» прибавляем к текущему остатку (в т.ч. гасим минус),
+        // иначе берём то, что вписано в поле «Остаток».
+        const arrived = Math.max(0, +fArrived.value || 0);
+        const desired = arrived > 0 ? (Number(fStock.value) || 0) + arrived : (+fStock.value || 0);
         // --- партии (FIFO): подгоняем под введённый остаток ---
         let batches = isNew ? [] : ensureBatches(p);
         const have = sumQty(batches);

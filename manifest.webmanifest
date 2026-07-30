@@ -1,16 +1,17 @@
 {
   "name": "GENERAL MODERN",
   "short_name": "GENERAL MODERN",
-  "description": "GENERAL MODERN — склад, продажи, каталог.",
-  "start_url": "./#key=sklad-9f3a7c21b8e4",
-  "scope": "./",
+  "description": "GENERAL MODERN — оптовые поставки: каталог, заказы, кабинет клиента.",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#141f33",
-  "theme_color": "#f5f6f8",
+  "background_color": "#0b0b0d",
+  "theme_color": "#0b0b0d",
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

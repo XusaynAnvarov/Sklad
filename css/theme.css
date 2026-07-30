@@ -460,3 +460,54 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb{background:#cbd2dc;}
   .page-enter,.gm-ripple{animation:none !important;}
   .prod,.stat-card,.card,.navitem{transition:none !important;}
 }
+
+/* ================================================================
+   Мобильная доводка (Android + iPhone). Базовые правила выше,
+   здесь — то, что мешало пользоваться складом с телефона.
+   ================================================================ */
+/* высота экрана: на iOS панель браузера съедает низ при 100vh */
+html, body { min-height: 100dvh; }
+/* нет задержки 300 мс и двойного тап-зума на кнопках */
+.btn, .navitem, .prod, .tbl tbody tr, .filter-chip, .pill-tabs button { touch-action: manipulation; }
+/* инерционная прокрутка таблиц/списков на iOS */
+.tbl-wrap, [style*="overflow-x"], .modal { -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 760px) {
+  /* поля ввода: 16px — иначе iOS зумит страницу при фокусе */
+  .inp, input, select, textarea { font-size: 16px; }
+  /* таблицы превращаем в карточки: заголовки прячем, у каждой ячейки — своя подпись */
+  .tbl thead { display: none; }
+  .tbl, .tbl tbody, .tbl tr, .tbl td { display: block; width: 100%; }
+  .tbl tr {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; margin-bottom: 10px;
+  }
+  .tbl td { border: none !important; padding: 5px 0; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+  .tbl td::before {
+    content: attr(data-label); color: var(--muted); font-size: 12px; font-weight: 600;
+    flex-shrink: 0; text-transform: uppercase; letter-spacing: .03em;
+  }
+  .tbl td.right { justify-content: flex-end; }
+  .tbl td .row-actions { justify-content: flex-end; flex-wrap: wrap; }
+  /* модалка — почти во весь экран, с учётом «чёлки» и домашней полосы */
+  .modal {
+    width: 100vw; max-width: 100vw; max-height: 100dvh; border-radius: 18px 18px 0 0;
+    margin-top: auto; padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+  .modal-body { max-height: calc(100dvh - 180px); }
+  /* строка товара в накладной складывается в 2 ряда */
+  .sale-item { gap: 8px; }
+  .sale-item .thumb { width: 52px; height: 52px; }
+  .sale-item input, .sale-item select { width: 100% !important; }
+  .sale-item > div { flex: 1 1 46%; min-width: 0; }
+  /* кнопки — под палец */
+  .btn { min-height: 44px; }
+  .btn-icon { min-width: 44px; min-height: 44px; }
+  .toolbar { gap: 8px; }
+  .toolbar .inp, .toolbar select { flex: 1 1 100%; }
+}
+@media (max-width: 420px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .topbar h1 { font-size: 21px; }
+}
