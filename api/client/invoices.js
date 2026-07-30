@@ -1,7 +1,7 @@
 // GET /api/client/invoices — накладные клиента (status=final)
 import { getClient } from "../lib/clientauth.js";
 import { sget } from "../lib/supa.js";
-import { invoiceCoverageStatus } from "../lib/debt.js";
+import { invoiceCoverageStatus, allocatePayments } from "../lib/debt.js";
 import { clientName } from "../lib/name.js";
 
 export default async function handler(req, res) {
@@ -26,14 +26,20 @@ export default async function handler(req, res) {
       prods.forEach(p => (prodMap[p.id] = { name: clientName(p.name, p.sku), photo: (p.photos && p.photos[0]) || p.photo_url || null }));
     }
 
+    // разложение оплат по накладным: сколько по каждой закрыто и сколько осталось
+    const alloc = allocatePayments(sales, payments, openDebt);
+
     const invoices = sales.map(s => {
       const status = invoiceCoverageStatus(s.id, sales, payments, openDebt);
       const total = (s.items || []).reduce((acc, it) => acc + it.qty * it.unit_price, 0);
+      const a = alloc.get(String(s.id)) || { covered: 0, remaining: total };
       return {
         id: s.id,
         date: s.date,
         currency: s.currency,
         total,
+        covered: a.covered,      // оплачено по этой накладной
+        remaining: a.remaining,  // остаток долга по ней
         status, // paid | partial | debt
         items: (s.items || []).map(it => ({
           product_name: prodMap[it.product_id]?.name || "—",

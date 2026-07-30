@@ -204,6 +204,91 @@ export async function exportSupplierOrderExcel(items, supplier, currency, produc
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
+// --- Накладная КЛИЕНТА из кабинета → .xlsx с фото товара ---
+// inv: { date, currency, total, covered, remaining, items:[{product_name, photo, qty, unit_price, currency}] }
+export async function exportClientInvoiceExcel(inv, customerName) {
+  const ExcelJS = await libExcel();
+  const NAVY = "FF16233B", HEAD = "FF22324F", ROW = "FFF6F8FB", GOLD = "FFD9B45A", BD = "FFD0D5DD";
+  const RED = "FFB42318", GREEN = "FF067647";
+  const cur0 = inv.currency || "som";
+  const numFmt = cur0 === "som" ? '#,##0" сум"' : cur0 === "usd" ? '"$"#,##0.00' : '"¥ "#,##0.00';
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Накладная");
+  ws.columns = [{ width: 5 }, { width: 15 }, { width: 40 }, { width: 10 }, { width: 14 }, { width: 16 }];
+  const thin = { style: "thin", color: { argb: BD } };
+  const box = { top: thin, left: thin, bottom: thin, right: thin };
+  const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+
+  ws.mergeCells("A1:F1");
+  Object.assign(ws.getCell("A1"), { value: "GENERAL MODERN", font: { bold: true, size: 20, color: { argb: GOLD } }, alignment: { horizontal: "center", vertical: "middle" }, fill: fill(NAVY) });
+  ws.getRow(1).height = 34;
+  ws.mergeCells("A2:F2");
+  Object.assign(ws.getCell("A2"), { value: "Накладная", font: { bold: true, size: 12, color: { argb: "FFFFFFFF" } }, alignment: { horizontal: "center" }, fill: fill(HEAD) });
+  ws.getRow(2).height = 20;
+  ws.addRow([]);
+  const info = (label, val) => { const r = ws.addRow(["", label, val]); r.getCell(2).font = { bold: true }; ws.mergeCells(`C${r.number}:F${r.number}`); };
+  info("Клиент:", customerName || "—");
+  info("Дата:", new Date(inv.date).toLocaleDateString("ru-RU"));
+  info("№ накладной:", String(inv.id || "").slice(-6).toUpperCase());
+  ws.addRow([]);
+
+  const head = ws.addRow(["№", "Фото", "Товар", "Кол-во", "Цена", "Сумма"]);
+  head.height = 22;
+  head.eachCell(c => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = fill(HEAD); c.alignment = { horizontal: "center", vertical: "middle" }; c.border = box; });
+
+  // фото тянем параллельно (как в заказе поставщику)
+  const items = inv.items || [];
+  const photos = await Promise.all(items.map(it => (it.photo ? urlToDataUrl(it.photo) : Promise.resolve(null))));
+
+  let total = 0;
+  items.forEach((it, i) => {
+    const cur = it.currency || cur0;
+    const sum = r2((Number(it.qty) || 0) * (Number(it.unit_price) || 0));
+    total += sum;
+    const r = ws.addRow([i + 1, "", it.product_name || "—", Number(it.qty) || 0, r2(it.unit_price), sum]);
+    r.height = 76;
+    r.eachCell(c => { c.border = box; if (i % 2) c.fill = fill(ROW); });
+    r.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+    r.getCell(3).alignment = { horizontal: "left", vertical: "middle", wrapText: true }; r.getCell(3).font = { bold: true };
+    r.getCell(4).alignment = { horizontal: "center", vertical: "middle" };
+    [5, 6].forEach(n => { r.getCell(n).numFmt = numFmt; r.getCell(n).alignment = { horizontal: "right", vertical: "middle" }; });
+    const dataUrl = photos[i];
+    if (dataUrl) {
+      const ext = /png/i.test(dataUrl.slice(0, 20)) ? "png" : "jpeg";
+      const base64 = dataUrl.replace(/^data:[^,]*,/, "");
+      const imgId = wb.addImage({ base64, extension: ext });
+      ws.addImage(imgId, { tl: { col: 1.18, row: r.number - 1 + 0.14 }, ext: { width: 70, height: 70 }, editAs: "oneCell" });
+    }
+  });
+
+  const tr = ws.addRow(["", "", "", "", "ИТОГО:", r2(total)]);
+  tr.getCell(5).font = { bold: true, size: 12 }; tr.getCell(5).alignment = { horizontal: "right" };
+  tr.getCell(6).font = { bold: true, size: 12 }; tr.getCell(6).numFmt = numFmt; tr.getCell(6).alignment = { horizontal: "right" };
+
+  // оплачено / остаток по этой накладной
+  const line = (label, value, color, bg) => {
+    const r = ws.addRow(["", label, "", "", "", r2(value)]);
+    r.getCell(2).font = { bold: true };
+    ws.mergeCells(`B${r.number}:E${r.number}`);
+    r.getCell(6).font = { bold: true, color: { argb: color } };
+    r.getCell(6).numFmt = numFmt; r.getCell(6).alignment = { horizontal: "right" };
+    if (bg) { r.getCell(2).fill = fill(bg); r.getCell(6).fill = fill(bg); }
+  };
+  if (inv.covered != null) line("Оплачено по этой накладной:", inv.covered, GREEN, "FFEAF7EE");
+  if (inv.remaining != null) line("Остаток долга:", inv.remaining, (Number(inv.remaining) || 0) > 0.01 ? RED : GREEN, (Number(inv.remaining) || 0) > 0.01 ? "FFFDECEC" : "FFEAF7EE");
+
+  ws.addRow([]);
+  const f = ws.addRow(["", "Спасибо за покупку! GENERAL MODERN"]);
+  f.getCell(2).font = { italic: true, color: { argb: "FF667085" } };
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `nakladnaya-${new Date(inv.date).toISOString().slice(0, 10)}.xlsx`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
 // Все накладные (плоская таблица: строка = позиция). customers/products — массивы.
 export async function exportAllSales(sales, customers, products) {
   const XLSX = await lib();

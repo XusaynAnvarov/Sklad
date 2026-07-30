@@ -43,6 +43,41 @@ export function invoiceDebtSummary(saleId, custSales, payments, openingDebt) {
   return { invoiceTotal, balanceBefore, balanceAfter, lastPay };
 }
 
+// Разложить оплаты по накладным (та же логика, что и в статусе: старые гасятся первыми,
+// перед ними — «старый долг» opening_debt). Возвращает Map: saleId → { total, covered, remaining }
+// в валюте накладной. Используется в кабинете клиента («оплачено» / «долг» по накладным).
+export function allocatePayments(custSales, payments, openingDebt) {
+  const CURS = ["som", "usd", "yuan"];
+  const pool = { som: 0, usd: 0, yuan: 0 };
+  (payments || []).forEach(p => { if (pool[p.currency] !== undefined) pool[p.currency] += Number(p.amount) || 0; });
+  const od = openingDebt || {};
+  CURS.forEach(c => { pool[c] -= Math.max(0, Number(od[c]) || 0); if (pool[c] < 0) pool[c] = 0; });
+
+  const out = new Map();
+  const asc = [...(custSales || [])].filter(s => !s.status || s.status === "final")
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  for (const s of asc) {
+    const need = { som: 0, usd: 0, yuan: 0 };
+    (s.items || []).forEach(it => {
+      const c = it.currency || s.currency;
+      if (need[c] !== undefined) need[c] += (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
+    });
+    let total = 0, covered = 0;
+    CURS.forEach(c => {
+      if (need[c] <= 0.0001) return;
+      total += need[c];
+      const take = Math.min(pool[c], need[c]);
+      pool[c] -= take; covered += take;
+    });
+    out.set(String(s.id), {
+      total: Math.round(total * 100) / 100,
+      covered: Math.round(covered * 100) / 100,
+      remaining: Math.round(Math.max(0, total - covered) * 100) / 100,
+    });
+  }
+  return out;
+}
+
 export function invoiceCoverageStatus(saleId, custSales, payments, openingDebt) {
   const pool = { som: 0, usd: 0, yuan: 0 };
   (payments || []).forEach(p => { if (pool[p.currency] !== undefined) pool[p.currency] += Number(p.amount) || 0; });

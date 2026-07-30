@@ -70,7 +70,7 @@ export async function renderCabinet(container) {
       else if (active === "payments") await renderPayments(content);
       else if (active === "security") await renderSecurity(content);
     } catch (e) {
-      content.innerHTML = `<div class="s-empty"><p>Ошибка загрузки: ${e.message}</p></div>`;
+      content.innerHTML = `<div class="s-empty"><p>Ошибка загрузки: ${escHtml(e.message)}</p></div>`;
     }
   }
 
@@ -86,6 +86,7 @@ async function renderProfile(container) {
 
   const name = res.customer?.name || "—";
   const phone = res.customer?.contact || "—";
+  clientName = res.customer?.name || clientName;   // пригодится для имени в Excel
   const head = mkEl("div", "");
   head.style.cssText = "display:flex;align-items:center;gap:14px;margin-bottom:16px";
   const ava = mkEl("div", "");
@@ -137,36 +138,161 @@ async function renderProfile(container) {
     }
   });
 
-  const debtTitle = el("div", { text: "Текущий долг", style: "font-size:13px;font-weight:600;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em" });
-  card.append(debtTitle);
-
-  const currencies = ["som", "usd", "yuan"];
-  let hasDebt = false;
-  currencies.forEach(cur => {
-    const d = (res.debt || {})[cur] || 0;
-    if (d > 0.001) {
-      hasDebt = true;
-      const row = mkEl("div", "");
-      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(239,68,68,.05);border:1.5px solid rgba(239,68,68,.15);border-radius:10px;margin-bottom:8px";
-      row.innerHTML = `<span style="font-size:14px;font-weight:600;color:var(--muted)">${cur === "som" ? "Сумы" : cur === "usd" ? "Доллары" : "Юани"}</span><span style="font-size:18px;font-weight:700;color:#dc2626">${fmt(d, cur)}</span>`;
-      card.append(row);
-    }
-    const adv = (res.advance || {})[cur] || 0;
-    if (adv > 0.001) {
-      hasDebt = true;
-      const row = mkEl("div", "");
-      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(34,197,94,.05);border:1.5px solid rgba(34,197,94,.2);border-radius:10px;margin-bottom:8px";
-      row.innerHTML = `<span style="font-size:14px;font-weight:600;color:var(--muted)">Аванс (переплата)</span><span style="font-size:18px;font-weight:700;color:#16a34a">+ ${fmt(adv, cur)}</span>`;
-      card.append(row);
-    }
-  });
-  if (!hasDebt) {
-    const zero = mkEl("div", "");
-    zero.style.cssText = "padding:16px;text-align:center;color:#16a34a;font-weight:600;font-size:15px;background:rgba(34,197,94,.07);border-radius:10px";
-    zero.textContent = "Долгов нет";
-    card.append(zero);
-  }
   container.append(card);
+
+  // --- личный дашборд: оборот / оплачено / долг с периодом и детализацией ---
+  const dash = mkEl("div", "cabinet-card");
+  dash.style.marginTop = "12px";
+  dash.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted)">Загрузка данных…</div>`;
+  container.append(dash);
+  try {
+    const inv = await api.invoices();
+    renderDashboard(dash, inv.invoices || [], res);
+  } catch (e) {
+    dash.innerHTML = "";
+    dash.append(el("p", { text: "Не удалось загрузить: " + (e.message || e), style: "color:var(--muted);padding:16px" }));
+  }
+}
+
+// ---- Дашборд клиента: сколько закупил, оплатил и должен ----
+const CUR_NAME = { som: "Сумы", usd: "Доллары", yuan: "Юани" };
+const inPeriod = (d, p) => {
+  if (p === "all") return true;
+  const dt = new Date(d), now = new Date();
+  if (p === "month") return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
+  if (p === "year") return dt.getFullYear() === now.getFullYear();
+  return true;
+};
+// суммы по валютам → строка «1 000 сум + ¥250»
+function byCurStr(map) {
+  const parts = [];
+  ["som", "usd", "yuan"].forEach(c => { if (Math.abs(map[c] || 0) >= (c === "som" ? 1 : 0.01)) parts.push(fmt(map[c], c)); });
+  return parts.length ? parts.join("  +  ") : "0";
+}
+
+function renderDashboard(box, invoices, me) {
+  let period = "all";
+  let openCard = null;   // turn | paid | debt | null
+
+  function draw() {
+    box.innerHTML = "";
+    const list = invoices.filter(i => inPeriod(i.date, period));
+    const turn = { som: 0, usd: 0, yuan: 0 }, paid = { som: 0, usd: 0, yuan: 0 }, debt = { som: 0, usd: 0, yuan: 0 };
+    list.forEach(i => {
+      const c = i.currency || "som";
+      if (turn[c] === undefined) return;
+      turn[c] += Number(i.total) || 0;
+      paid[c] += Number(i.covered) || 0;
+      debt[c] += Number(i.remaining) || 0;
+    });
+
+    // заголовок + период
+    const head = mkEl("div", "");
+    head.style.cssText = "display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px";
+    head.append(el("div", { text: "Мои показатели", style: "font-size:15px;font-weight:700;color:var(--navy);flex:1" }));
+    const tabs = mkEl("div", "");
+    tabs.style.cssText = "display:flex;gap:4px;background:var(--bg2);padding:3px;border-radius:10px";
+    [["month", "Месяц"], ["year", "Год"], ["all", "Всё время"]].forEach(([v, label]) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.style.cssText = "border:none;background:" + (period === v ? "var(--navy)" : "transparent") + ";color:" + (period === v ? "var(--white)" : "var(--muted)") + ";font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;transition:background .2s,color .2s";
+      b.addEventListener("click", () => { period = v; draw(); });
+      tabs.append(b);
+    });
+    head.append(tabs);
+    box.append(head);
+
+    // три карточки
+    const grid = mkEl("div", "");
+    grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px";
+    const stat = (key, label, value, color, sub) => {
+      const c = mkEl("div", "");
+      const active = openCard === key;
+      c.style.cssText = "padding:14px;border-radius:12px;background:var(--bg2);border:1.5px solid " + (active ? "var(--navy)" : "transparent") + ";cursor:pointer;transition:border-color .2s,transform .15s";
+      c.addEventListener("click", () => { openCard = active ? null : key; draw(); });
+      c.addEventListener("mouseenter", () => { c.style.transform = "translateY(-2px)"; });
+      c.addEventListener("mouseleave", () => { c.style.transform = ""; });
+      c.append(el("div", { text: label + " ›", style: "font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em" }));
+      c.append(el("div", { text: value, style: "font-size:18px;font-weight:800;color:" + color + ";margin-top:6px;word-break:break-word" }));
+      if (sub) c.append(el("div", { text: sub, style: "font-size:12px;color:var(--muted);margin-top:2px" }));
+      return c;
+    };
+    grid.append(
+      stat("turn", "Оборот", byCurStr(turn), "var(--navy)", list.length + " накл."),
+      stat("paid", "Оплачено", byCurStr(paid), "#16a34a"),
+      stat("debt", "Мой долг", byCurStr(debt), byCurStr(debt) === "0" ? "#16a34a" : "#dc2626", byCurStr(debt) === "0" ? "долгов нет" : null),
+    );
+    box.append(grid);
+
+    // аванс (переплата) — если есть
+    const adv = me && me.advance;
+    if (adv && ["som", "usd", "yuan"].some(c => (adv[c] || 0) > 0.001)) {
+      box.append(el("div", {
+        text: "Аванс (переплата): " + byCurStr(adv),
+        style: "margin-top:10px;padding:10px 14px;border-radius:10px;background:rgba(34,197,94,.08);color:#16a34a;font-weight:600;font-size:13px",
+      }));
+    }
+
+    if (openCard) box.append(buildDetails(openCard, list));
+  }
+
+  // детализация под карточками
+  function buildDetails(kind, list) {
+    const wrap = mkEl("div", "");
+    wrap.style.cssText = "margin-top:14px;border-top:1px solid var(--border);padding-top:12px";
+    const rows = kind === "turn" ? list
+      : kind === "paid" ? list.filter(i => (Number(i.covered) || 0) > 0.001)
+        : list.filter(i => (Number(i.remaining) || 0) > 0.001);
+    const title = kind === "turn" ? "Накладные периода" : kind === "paid" ? "По каким накладным прошла оплата" : "За какие накладные есть долг";
+    wrap.append(el("div", { text: title, style: "font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px" }));
+    if (!rows.length) { wrap.append(el("div", { text: "Здесь пока пусто", style: "color:var(--muted);font-size:13px;padding:8px 0" })); return wrap; }
+
+    rows.forEach(inv => {
+      const cur = inv.currency || "som";
+      const line = mkEl("div", "");
+      line.style.cssText = "border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:border-color .2s";
+      const right = kind === "paid" ? `оплачено ${fmt(inv.covered, cur)} из ${fmt(inv.total, cur)}`
+        : kind === "debt" ? `осталось ${fmt(inv.remaining, cur)} из ${fmt(inv.total, cur)}`
+          : fmt(inv.total, cur);
+      const headRow = mkEl("div", "");
+      headRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap";
+      headRow.append(
+        el("div", { text: new Date(inv.date).toLocaleDateString("ru-RU"), style: "font-weight:700;font-size:14px" }),
+        el("div", { text: right, style: "font-size:13px;font-weight:600;color:" + (kind === "debt" ? "#dc2626" : kind === "paid" ? "#16a34a" : "var(--navy)") }),
+      );
+      const items = mkEl("div", "");
+      items.style.cssText = "display:none;margin-top:10px;padding-top:8px;border-top:1px dashed var(--border)";
+      (inv.items || []).forEach(it => {
+        const r = mkEl("div", "");
+        r.style.cssText = "display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px";
+        if (it.photo) {
+          const im = document.createElement("img");
+          im.src = it.photo; im.loading = "lazy";
+          im.style.cssText = "width:34px;height:34px;border-radius:7px;object-fit:cover;flex-shrink:0;cursor:zoom-in;border:1px solid var(--border)";
+          im.onerror = () => { im.style.display = "none"; };
+          im.addEventListener("click", (e) => { e.stopPropagation(); openPhoto(it.photo, it.product_name); });
+          r.append(im);
+        }
+        r.append(el("span", { text: it.product_name, style: "flex:1;min-width:0" }));
+        const c2 = it.currency || cur;
+        r.append(el("span", {
+          text: `${it.qty} × ${fmt(it.unit_price, c2)} = ${fmt(it.qty * it.unit_price, c2)}`,
+          style: "color:var(--muted);white-space:nowrap",
+        }));
+        items.append(r);
+      });
+      line.addEventListener("click", () => {
+        const open = items.style.display !== "none";
+        items.style.display = open ? "none" : "block";
+        line.style.borderColor = open ? "var(--border)" : "var(--navy)";
+      });
+      line.append(headRow, items);
+      wrap.append(line);
+    });
+    return wrap;
+  }
+
+  draw();
 }
 
 // ---- Заказы ----
@@ -182,7 +308,7 @@ async function renderOrders(container) {
     head.style.cssText = "display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px";
     const date = new Date(o.date).toLocaleDateString("ru-RU");
     const cls = STATUS_CLASS[o.status] || "order";
-    const lbl = STATUS_LABEL[o.status] || o.status;
+    const lbl = STATUS_LABEL[o.status] || "Заказ";   // только известные подписи (значение из БД в HTML не вставляем)
     const src = o.source === "site" ? "с сайта" : o.source === "bot" ? "из бота" : "";
     head.innerHTML = `
       <div>
@@ -190,20 +316,41 @@ async function renderOrders(container) {
       </div>
       <span class="order-badge ${cls}">${lbl}</span>`;
     const items = mkEl("div", "");
+    const totals = { som: 0, usd: 0, yuan: 0 };
+    let allPriced = true;
     (o.items || []).forEach(it => {
       const row = mkEl("div", "");
-      row.style.cssText = "display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px";
-      row.innerHTML = `<span>${escHtml(it.product_name)}</span><span style="color:var(--muted)">× ${it.qty}</span>`;
+      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px";
+      const cur = it.currency || o.currency || "som";
+      const price = Number(it.unit_price) || 0;
+      if (price > 0) { if (totals[cur] !== undefined) totals[cur] += it.qty * price; } else allPriced = false;
+      // цена и сумма по позиции; если цену ещё не проставили — так и пишем
+      const right = price > 0
+        ? `× ${it.qty} · ${fmt(price, cur)} = ${fmt(it.qty * price, cur)}`
+        : `× ${it.qty} · цена уточняется`;
+      row.append(
+        el("span", { text: it.product_name, style: "flex:1;min-width:0" }),
+        el("span", { text: right, style: "color:var(--muted);white-space:nowrap" }),
+      );
       items.append(row);
     });
     card.append(head, items);
+    if (allPriced && ["som", "usd", "yuan"].some(c => totals[c] > 0.001)) {
+      card.append(el("div", {
+        text: "Итого по заказу: " + byCurStr(totals),
+        style: "margin-top:10px;text-align:right;font-weight:700;font-size:15px;color:var(--navy)",
+      }));
+    }
     container.append(card);
   });
 }
 
 // ---- Накладные ----
+let clientName = "";   // имя клиента для файлов (заполняется в профиле / при первом заходе сюда)
+
 async function renderInvoices(container) {
   const res = await api.invoices();
+  if (!clientName) { try { const me = await api.me(); clientName = me.customer?.name || ""; } catch {} }
   container.innerHTML = "";
   const invoices = res.invoices || [];
   if (!invoices.length) { container.append(emptyState("Оформленных накладных пока нет")); return; }
@@ -213,7 +360,7 @@ async function renderInvoices(container) {
     const head = mkEl("div", "");
     head.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px";
     const date = new Date(inv.date).toLocaleDateString("ru-RU");
-    const dCls = DEBT_LABEL[inv.status] ? inv.status : "debt";
+    const dCls = ({ paid: "paid", partial: "partial", debt: "debt" })[inv.status] || "debt";  // только известные классы
     head.innerHTML = `
       <div>
         <div style="font-size:15px;font-weight:700;color:var(--navy)">${fmt(inv.total, inv.currency)}</div>
@@ -254,57 +401,22 @@ async function renderInvoices(container) {
     });
     const xlsBtn = document.createElement("button");
     xlsBtn.className = "btn-ghost"; xlsBtn.innerHTML = svgDownload().outerHTML + " Excel";
-    xlsBtn.addEventListener("click", () => exportExcel(inv, date));
+    xlsBtn.addEventListener("click", async () => {
+      const old = xlsBtn.innerHTML;
+      xlsBtn.disabled = true; xlsBtn.innerHTML = '<span class="s-spinner"></span> Готовим…';
+      try {
+        const { exportClientInvoiceExcel } = await import("../xlsx-export.js");
+        await exportClientInvoiceExcel(inv, clientName);
+        sToast("Excel файл сохранён", "ok");
+      } catch (e) { sToast("Ошибка: " + (e.message || e), "err"); }
+      finally { xlsBtn.disabled = false; xlsBtn.innerHTML = old; }
+    });
     btns.append(pdfBtn, xlsBtn);
     card.append(head, items, btns);
     container.append(card);
   });
 }
 
-function exportExcel(inv, dateStr) {
-  const headers = ["Товар", "Кол-во", "Цена", "Валюта", "Сумма"];
-  const dataRows = (inv.items || []).map(it => [
-    it.product_name,
-    it.qty,
-    it.unit_price,
-    it.currency || inv.currency,
-    it.qty * it.unit_price,
-  ]);
-
-  function xCell(val, bold) {
-    const isNum = typeof val === "number";
-    const style = bold ? ' ss:StyleID="B"' : "";
-    const safe = String(val ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return `<Cell${style}><Data ss:Type="${isNum ? "Number" : "String"}">${safe}</Data></Cell>`;
-  }
-
-  const totalRow = `<Row>${xCell("ИТОГО", true)}${xCell("")}${xCell("")}${xCell("")}${xCell(inv.total, true)}</Row>`;
-
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-<Styles>
-  <Style ss:ID="H"><Interior ss:Color="#1C2B4A" ss:Pattern="Solid"/><Font ss:Bold="1" ss:Color="#E3C163"/></Style>
-  <Style ss:ID="B"><Font ss:Bold="1"/></Style>
-</Styles>
-<Worksheet ss:Name="Накладная">
-<Table>
-<Row>${headers.map(h => `<Cell ss:StyleID="H"><Data ss:Type="String">${h}</Data></Cell>`).join("")}</Row>
-${dataRows.map(r => `<Row>${r.map(v => xCell(v, false)).join("")}</Row>`).join("\n")}
-<Row></Row>
-${totalRow}
-</Table>
-</Worksheet>
-</Workbook>`;
-
-  const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `nakladnaya-${dateStr.replace(/\./g, "-")}.xls`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  sToast("Excel файл сохранён", "ok");
-}
 
 // ---- Оплаты ----
 async function renderPayments(container) {
