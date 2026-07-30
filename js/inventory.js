@@ -17,11 +17,16 @@ export function costAfter(batches, prev) {
   if ((batches || []).some(b => (Number(b.qty) || 0) > 0)) return currentCost(batches);
   return { cost_yuan: Number(prev && prev.cost_yuan) || 0, cost_usd: Number(prev && prev.cost_usd) || 0 };
 }
-// гарантируем наличие стартовой партии (ленивая миграция из stock_qty+cost)
+// гарантируем наличие стартовой партии (ленивая миграция из stock_qty+cost).
+// ВАЖНО: отрицательный остаток («минус» — продали больше, чем было) тоже переносим
+// в партию, иначе он молча превращался в 0: минус исчезал сам собой, а при удалении
+// накладной на склад возвращался товар, которого нет.
 export function ensureBatches(p) {
   if (Array.isArray(p.batches) && p.batches.length) return p.batches.map(b => ({ ...b }));
   const q = Number(p.stock_qty) || 0;
-  return q > 0 ? [{ qty: q, cost_yuan: Number(p.cost_yuan) || 0, cost_usd: Number(p.cost_usd) || 0, date: p.created_at || new Date().toISOString() }] : [];
+  if (q === 0) return [];
+  const base = { qty: q, cost_yuan: Number(p.cost_yuan) || 0, cost_usd: Number(p.cost_usd) || 0, date: p.created_at || new Date().toISOString() };
+  return q > 0 ? [base] : [{ ...base, shortage: true }];
 }
 // списать qty по FIFO → вернуть новые партии и себестоимость списания.
 // Если товара не хватает — уходим В МИНУС: остаётся «долговая» партия с отрицательным qty,
