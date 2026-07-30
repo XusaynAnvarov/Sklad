@@ -357,16 +357,34 @@ async function renderInvoices(container) {
   invoices.forEach(inv => {
     const card = mkEl("div", "cabinet-card");
     card.style.marginBottom = "12px";
+    // шапка накладной — кликабельная: список товаров и кнопки раскрываются по нажатию
     const head = mkEl("div", "");
-    head.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px";
+    head.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;user-select:none";
     const date = new Date(inv.date).toLocaleDateString("ru-RU");
     const dCls = ({ paid: "paid", partial: "partial", debt: "debt" })[inv.status] || "debt";  // только известные классы
-    head.innerHTML = `
-      <div>
-        <div style="font-size:15px;font-weight:700;color:var(--navy)">${fmt(inv.total, inv.currency)}</div>
-        <div style="font-size:13px;color:var(--muted);margin-top:2px">${date}</div>
-      </div>
-      <span class="debt-badge ${dCls}">${DEBT_LABEL[inv.status] || "Долг"}</span>`;
+    const chevron = mkEl("span", "");
+    chevron.textContent = "▸";
+    chevron.style.cssText = "font-size:14px;color:var(--muted);transition:transform .18s;flex-shrink:0";
+    const headLeft = mkEl("div", "");
+    headLeft.style.cssText = "display:flex;align-items:center;gap:10px;flex:1;min-width:0";
+    const headInfo = mkEl("div", "");
+    headInfo.innerHTML = `
+      <div style="font-size:15px;font-weight:700;color:var(--navy)">${fmt(inv.total, inv.currency)}</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px">${date} · ${(inv.items || []).length} поз.</div>`;
+    headLeft.append(chevron, headInfo);
+    const badge = mkEl("span", "debt-badge " + dCls);
+    badge.textContent = DEBT_LABEL[inv.status] || "Долг";
+    head.append(headLeft, badge);
+
+    // всё, что раскрывается (товары + кнопки)
+    const details = mkEl("div", "");
+    details.style.cssText = "display:none;margin-top:12px";
+    head.addEventListener("click", () => {
+      const open = details.style.display !== "none";
+      details.style.display = open ? "none" : "block";
+      chevron.style.transform = open ? "" : "rotate(90deg)";
+    });
+
     const items = mkEl("div", "");
     (inv.items || []).forEach(it => {
       const row = mkEl("div", "");
@@ -412,7 +430,8 @@ async function renderInvoices(container) {
       finally { xlsBtn.disabled = false; xlsBtn.innerHTML = old; }
     });
     btns.append(pdfBtn, xlsBtn);
-    card.append(head, items, btns);
+    details.append(items, btns);
+    card.append(head, details);
     container.append(card);
   });
 }
