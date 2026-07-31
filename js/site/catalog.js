@@ -8,17 +8,30 @@ const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none"
 // ---- Состояние каталога: товары, фильтр, поиск, позиция прокрутки ----
 // Хранится в sessionStorage → переживает уход в другое приложение и перезагрузку вкладки,
 // поэтому клиент возвращается ровно туда, где остановился (ничего не начинается сначала).
-const CAT_KEY = "gm_cat_state";
-const CAT_TTL = 5 * 60 * 1000; // товары считаем свежими 5 минут, дальше тихо обновляем
+// ВАЖНО: храним РАЗДЕЛЬНО. Товаров сотни — их JSON пишем только после загрузки данных.
+// Позицию прокрутки/фильтры пишем часто (при скролле), поэтому это отдельный крошечный ключ:
+// иначе на телефоне каждые 200 мс сериализовались бы все товары и Safari падал.
+const CAT_KEY = "gm_cat_data";   // товары + время загрузки
+const UI_KEY = "gm_cat_ui";      // категория, поиск, позиция прокрутки
+const CAT_TTL = 5 * 60 * 1000;   // товары считаем свежими 5 минут, дальше тихо обновляем
+const PAGE = 48;                 // сколько карточек рисуем за раз (остальные — по мере прокрутки)
+
 let catState = { products: null, fetchedAt: 0, category: "Все", query: "", scrollY: 0 };
 try {
-  const raw = sessionStorage.getItem(CAT_KEY);
-  if (raw) { const s = JSON.parse(raw); if (s && typeof s === "object") catState = { ...catState, ...s }; }
+  const d = JSON.parse(sessionStorage.getItem(CAT_KEY) || "null");
+  if (d && Array.isArray(d.products)) { catState.products = d.products; catState.fetchedAt = d.fetchedAt || 0; }
+  const u = JSON.parse(sessionStorage.getItem(UI_KEY) || "null");
+  if (u && typeof u === "object") { catState.category = u.category || "Все"; catState.query = u.query || ""; catState.scrollY = u.scrollY || 0; }
 } catch {}
-function saveCatState() {
-  try { sessionStorage.setItem(CAT_KEY, JSON.stringify(catState)); } catch {}
+
+function saveProducts() {
+  try { sessionStorage.setItem(CAT_KEY, JSON.stringify({ products: catState.products, fetchedAt: catState.fetchedAt })); }
+  catch { try { sessionStorage.removeItem(CAT_KEY); } catch {} }   // не влезло — просто не кэшируем
 }
-function rememberScroll() { catState.scrollY = window.scrollY || 0; saveCatState(); }
+function saveUi() {
+  try { sessionStorage.setItem(UI_KEY, JSON.stringify({ category: catState.category, query: catState.query, scrollY: catState.scrollY })); } catch {}
+}
+function rememberScroll() { catState.scrollY = window.scrollY || 0; saveUi(); }
 
 export async function renderCatalog(container) {
   container.innerHTML = "";
@@ -54,7 +67,7 @@ export async function renderCatalog(container) {
       const list = Array.isArray(res) ? res : (res.products || []);
       if (!list.length && products.length) return;         // пустой ответ не затирает показанное
       products = list;
-      catState.products = list; catState.fetchedAt = Date.now(); saveCatState();
+      catState.products = list; catState.fetchedAt = Date.now(); saveProducts();
       drawChips();
       const y = window.scrollY;                             // перерисовка не должна сбивать прокрутку
       renderCards();
@@ -76,7 +89,7 @@ export async function renderCatalog(container) {
       if (cat === activeCategory) chip.classList.add("active");
       chip.addEventListener("click", () => {
         activeCategory = cat;
-        catState.category = cat; catState.scrollY = 0; saveCatState();
+        catState.category = cat; catState.scrollY = 0; saveUi();
         filterChips.querySelectorAll(".filter-chip").forEach(c => c.classList.toggle("active", c.textContent === cat));
         renderCards();
       });
@@ -86,7 +99,7 @@ export async function renderCatalog(container) {
 
   searchInput.addEventListener("input", () => {
     searchQuery = searchInput.value.toLowerCase();
-    catState.query = searchInput.value; catState.scrollY = 0; saveCatState();
+    catState.query = searchInput.value; catState.scrollY = 0; saveUi();
     renderCards();
   });
 
@@ -102,36 +115,63 @@ export async function renderCatalog(container) {
   function restoreScroll() {
     const y = Number(catState.scrollY) || 0;
     if (y <= 0) return;
-    // контейнер в этот момент ещё не вставлен в страницу (роутер добавит его позже),
-    // поэтому повторяем попытку, пока высота страницы не позволит прокрутить
+    // Контейнер ещё не вставлен в страницу (роутер добавит его позже), да и карточки
+    // рисуются порциями — поэтому по мере попыток догружаем следующие порции.
     let tries = 0;
     const tick = () => {
-      if (++tries > 12) return;
+      if (++tries > 30) return;
       window.scrollTo(0, y);
-      if (Math.abs((window.scrollY || 0) - y) > 4) setTimeout(tick, 60);
+      if (Math.abs((window.scrollY || 0) - y) > 4) {
+        if (typeof shown === "number" && shown < filteredList.length) appendChunk();  // мало высоты — добавим карточек
+        setTimeout(tick, 60);
+      }
     };
     setTimeout(tick, 40);
   }
 
+  // Рисуем карточки ПОРЦИЯМИ по PAGE штук: на телефоне 800+ карточек с фото разом
+  // съедали всю память и Safari «падал». Остальные догружаются при прокрутке.
+  let shown = 0, filteredList = [], sentinel = null, io = null;
+
+  function appendChunk() {
+    const slice = filteredList.slice(shown, shown + PAGE);
+    if (!slice.length) return;
+    const frag = document.createDocumentFragment();
+    slice.forEach((p, i) => {
+      const card = buildCard(p);
+      card.classList.add("card-reveal");
+      if (shown === 0 && i < 12) setTimeout(() => card.classList.add("in"), i * 30);
+      else card.classList.add("in");
+      frag.append(card);
+    });
+    grid.append(frag);
+    shown += slice.length;
+    if (sentinel) {                       // маячок всегда в конце списка
+      grid.append(sentinel);
+      if (shown >= filteredList.length) { sentinel.remove(); if (io) io.disconnect(); }
+    }
+  }
+
   function renderCards() {
     grid.innerHTML = "";
-    const filtered = products.filter(p => {
+    shown = 0;
+    if (io) { io.disconnect(); io = null; }
+    filteredList = products.filter(p => {
       const matchCat = activeCategory === "Все" || p.category === activeCategory;
       const matchQ = !searchQuery || (p.name || "").toLowerCase().includes(searchQuery);
       return matchCat && matchQ;
     });
-    // хиты недели — вверх (по убыванию недельных продаж)
     // хиты недели — вверх (только признак, без чисел: количество клиенту не показываем)
-    filtered.sort((a, b) => (b.hit ? 1 : 0) - (a.hit ? 1 : 0));
-    if (!filtered.length) { grid.append(buildEmpty("Ничего не найдено")); return; }
-    filtered.forEach((p, i) => {
-      const card = buildCard(p);
-      card.classList.add("card-reveal");
-      // только первые карточки анимируем со сдвигом — иначе на телефоне с сотнями товаров лагает
-      if (i < 16) setTimeout(() => card.classList.add("in"), i * 30);
-      else card.classList.add("in");
-      grid.append(card);
-    });
+    filteredList.sort((a, b) => (b.hit ? 1 : 0) - (a.hit ? 1 : 0));
+    if (!filteredList.length) { grid.append(buildEmpty("Ничего не найдено")); return; }
+
+    sentinel = mkEl("div", "");
+    sentinel.style.cssText = "grid-column:1/-1;height:1px";
+    appendChunk();
+    if (shown < filteredList.length && "IntersectionObserver" in window) {
+      io = new IntersectionObserver((entries) => { if (entries.some(e => e.isIntersecting)) appendChunk(); }, { rootMargin: "600px" });
+      io.observe(sentinel);
+    }
   }
 }
 
