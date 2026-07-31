@@ -50,6 +50,11 @@ export async function renderCatalog(container) {
   const grid = mkEl("div", "product-grid");
   container.append(grid);
 
+  // Карточки рисуем ПОРЦИЯМИ по PAGE штук: на телефоне 800+ карточек с фото разом
+  // съедали всю память и Safari «падал». Остальные догружаются при прокрутке.
+  // (объявлено до первых вызовов renderCards — иначе ReferenceError)
+  let shown = 0, filteredList = [], sentinel = null, io = null;
+
   // восстанавливаем то, что было: товары из кэша, поиск, категория
   let products = Array.isArray(catState.products) ? catState.products : [];
   let activeCategory = catState.category || "Все";
@@ -128,10 +133,6 @@ export async function renderCatalog(container) {
     };
     setTimeout(tick, 40);
   }
-
-  // Рисуем карточки ПОРЦИЯМИ по PAGE штук: на телефоне 800+ карточек с фото разом
-  // съедали всю память и Safari «падал». Остальные догружаются при прокрутке.
-  let shown = 0, filteredList = [], sentinel = null, io = null;
 
   function appendChunk() {
     const slice = filteredList.slice(shown, shown + PAGE);
