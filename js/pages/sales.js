@@ -1,16 +1,16 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js";
-import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient, requestOrderConfirm } from "../telegram.js";
-import { placeholder } from "./products.js";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js";
-import { icon } from "../icons.js";
-import { showLoader, hideLoader } from "../ui.js";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
-import { exportInvoice } from "../xlsx-export.js";
-import { showNotFound } from "./purchases.js";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260731a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260731a";
+import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient, requestOrderConfirm } from "../telegram.js?v=20260731a";
+import { placeholder } from "./products.js?v=20260731a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260731a";
+import { icon } from "../icons.js?v=20260731a";
+import { showLoader, hideLoader } from "../ui.js?v=20260731a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260731a";
+import { exportInvoice } from "../xlsx-export.js?v=20260731a";
+import { showNotFound } from "./purchases.js?v=20260731a";
 
 const cfg = window.APP_CONFIG || {};
 

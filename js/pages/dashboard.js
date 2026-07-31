@@ -1,13 +1,13 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog } from "../ui.js";
-import { fmt, convert, toUSD, CUR } from "../fx.js";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js";
-import { ensureBatches, sumQty } from "../inventory.js";
-import { sparkline } from "../charts.js";
-import { icon } from "../icons.js";
-import { openStockFix, unappliedSales } from "./stock_fix.js";
+import { el, animateCount, modal, input, toast, confirmDialog } from "../ui.js?v=20260731a";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260731a";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260731a";
+import { ensureBatches, sumQty } from "../inventory.js?v=20260731a";
+import { sparkline } from "../charts.js?v=20260731a";
+import { icon } from "../icons.js?v=20260731a";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260731a";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.

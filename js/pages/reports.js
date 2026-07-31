@@ -1,8 +1,8 @@
 // ========================================================================
 //  ОТЧЁТЫ: топ товаров, топ клиентов (повторные покупки), долги/оборот
 // ========================================================================
-import { el, modal, select } from "../ui.js";
-import { fmt, sumByCur, curStr, toUSD } from "../fx.js";
+import { el, modal, select } from "../ui.js?v=20260731a";
+import { fmt, sumByCur, curStr, toUSD } from "../fx.js?v=20260731a";
 
 const isPaid = (s) => (s.items || []).length > 0 && s.items.every(i => i.paid);
 

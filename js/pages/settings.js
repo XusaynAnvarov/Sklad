@@ -1,9 +1,9 @@
 // ========================================================================
 //  НАСТРОЙКИ — курсы валют, Telegram, доступ, демо-данные
 // ========================================================================
-import { el, toast, field, input, select, confirmDialog, showLoader, hideLoader } from "../ui.js";
-import { fetchLiveRates, setRates, getRates } from "../fx.js";
-import { authHeaders } from "../db.js";
+import { el, toast, field, input, select, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260731a";
+import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20260731a";
+import { authHeaders } from "../db.js?v=20260731a";
 
 const cfg = window.APP_CONFIG || {};
 

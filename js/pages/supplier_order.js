@@ -3,14 +3,14 @@
 //  себестоимость) и выгрузить в PDF (с реальными фото) или Excel (с фото),
 //  чтобы отправить поставщику. Можно сохранить как «приход (в дороге)».
 // ========================================================================
-import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js";
-import { fmt, CUR, convert } from "../fx.js";
-import { placeholder } from "./products.js";
-import { icon } from "../icons.js";
-import { authHeaders } from "../db.js";
-import { exportSupplierOrderExcel } from "../xlsx-export.js";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js";
-import { showNotFound } from "./purchases.js";
+import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260731a";
+import { fmt, CUR, convert } from "../fx.js?v=20260731a";
+import { placeholder } from "./products.js?v=20260731a";
+import { icon } from "../icons.js?v=20260731a";
+import { authHeaders } from "../db.js?v=20260731a";
+import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20260731a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260731a";
+import { showNotFound } from "./purchases.js?v=20260731a";
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 
