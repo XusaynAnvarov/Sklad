@@ -33,6 +33,10 @@ function saveUi() {
 }
 function rememberScroll() { catState.scrollY = window.scrollY || 0; saveUi(); }
 
+// Подгрузка следующей порции карточек. Основной механизм — IntersectionObserver,
+// это — страховка на случай, если он не сработал (старые браузеры, нестандартный скролл).
+let currentLoadMore = null;
+
 export async function renderCatalog(container) {
   container.innerHTML = "";
 
@@ -109,10 +113,20 @@ export async function renderCatalog(container) {
   });
 
   // запоминаем позицию прокрутки (с троттлингом) + при уходе со страницы/в другое приложение
+  // догрузка порции, когда до низа осталось меньше двух экранов
+  currentLoadMore = () => {
+    if (shown >= filteredList.length) return;
+    const left = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+    if (left < window.innerHeight * 2) appendChunk();
+  };
+
   if (!window.__gmCatScrollBound) {
     window.__gmCatScrollBound = true;
     let t = 0;
-    window.addEventListener("scroll", () => { clearTimeout(t); t = setTimeout(rememberScroll, 200); }, { passive: true });
+    window.addEventListener("scroll", () => {
+      if (currentLoadMore) currentLoadMore();
+      clearTimeout(t); t = setTimeout(rememberScroll, 200);
+    }, { passive: true });
     window.addEventListener("pagehide", rememberScroll);
     document.addEventListener("visibilitychange", () => { if (document.hidden) rememberScroll(); });
   }
