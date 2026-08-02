@@ -6,11 +6,11 @@
 //  C. Товары в минусе (+ быстрый ввод прихода)
 //  D. Заказы не оформлены (склад ещё не трогали — это норма)
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260731a";
-import { icon } from "../icons.js?v=20260731a";
-import { ensureBatches, sumQty, costAfter, returnToStock, currentCost } from "../inventory.js?v=20260731a";
-import { placeholder } from "./products.js?v=20260731a";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260731a";
+import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260802a";
+import { icon } from "../icons.js?v=20260802a";
+import { ensureBatches, sumQty, costAfter, returnToStock, currentCost } from "../inventory.js?v=20260802a";
+import { placeholder } from "./products.js?v=20260802a";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260802a";
 
 export default async function render(page, ctx) {
   const [products, sales] = await Promise.all([ctx.db.products.list(), ctx.db.sales.list()]);

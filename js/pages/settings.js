@@ -1,9 +1,10 @@
 // ========================================================================
 //  НАСТРОЙКИ — курсы валют, Telegram, доступ, демо-данные
 // ========================================================================
-import { el, toast, field, input, select, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260731a";
-import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20260731a";
-import { authHeaders } from "../db.js?v=20260731a";
+import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260802a";
+import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20260802a";
+import { authHeaders } from "../db.js?v=20260802a";
+import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20260802a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -189,6 +190,66 @@ export default async function render(page, ctx) {
     },
   });
 
+  // ---------- Прибыль по группам товаров ----------
+  // Правило = «категория/название → % от выручки или $ за штуку».
+  // Приоритет при подборе: точное название → содержит → категория (см. js/profit.js).
+  let rules = loadRules(s);
+  let allProducts = [];
+  try { allProducts = await ctx.db.products.list(); } catch { allProducts = []; }
+  const allCats = [...new Set(allProducts.map(p => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ru"));
+  const allNames = allProducts.map(p => p.name).filter(Boolean).sort((a, b) => a.localeCompare(b, "ru"));
+
+  const rulesBox = el("div");
+  function drawRules() {
+    rulesBox.innerHTML = "";
+    if (!rules.length) rulesBox.append(el("div.empty", { style: { padding: "18px" } }, [el("p", { text: "Правил нет — прибыль везде считается по общему проценту валюты" })]));
+    rules.forEach((r, i) => {
+      const fKind = select([
+        { value: "category", label: KIND_LABEL.category },
+        { value: "name", label: KIND_LABEL.name },
+        { value: "contains", label: KIND_LABEL.contains },
+      ], r.kind, { style: { minWidth: "150px" } });
+      const fKey = inputList(r.kind === "category" ? allCats : allNames, { value: r.key, placeholder: r.kind === "category" ? "Например: Нинала" : "Например: Нож-100", style: { minWidth: "180px" } });
+      const fMode = select([
+        { value: "pct", label: MODE_LABEL.pct },
+        { value: "fixed_usd", label: MODE_LABEL.fixed_usd },
+      ], r.mode, { style: { minWidth: "140px" } });
+      const fVal = input({ type: "number", step: "0.1", min: "0", value: r.value, style: { width: "100px", textAlign: "center" } });
+
+      fKind.addEventListener("change", () => { r.kind = fKind.value; drawRules(); });
+      fKey.addEventListener("input", () => { r.key = fKey.value; });
+      fMode.addEventListener("change", () => { r.mode = fMode.value; });
+      fVal.addEventListener("input", () => { r.value = +fVal.value || 0; });
+
+      rulesBox.append(el("div.card", { style: { padding: "10px 12px", marginBottom: "8px", display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" } }, [
+        fKind, fKey, fMode, fVal,
+        el("span.muted", { style: { fontSize: "12px" }, text: r.mode === "fixed_usd" ? "$ с каждой штуки" : "% от суммы продажи" }),
+        el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить правило", onclick: () => { rules.splice(i, 1); drawRules(); } }, ["🗑"]),
+      ]));
+    });
+  }
+  drawRules();
+
+  const profitCard = el("div.card", { style: { marginBottom: "18px" } }, [
+    el("div.section-h", { text: "Прибыль по группам товаров", style: { marginTop: 0 } }),
+    el("p.muted", { text: "У разных товаров прибыль разная. Здесь можно задать: у категории «Нинала» (иглы) — 10% от выручки, у Нож-70/90/100/125 — по $5 с каждой штуки. Товары без правила считаются по общему проценту валюты с Дашборда.", style: { lineHeight: "1.55", marginBottom: "14px" } }),
+    rulesBox,
+    el("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "12px" } }, [
+      el("button.btn.btn-outline", { text: "+ Добавить правило", onclick: () => { rules.push({ id: "r" + Date.now(), kind: "category", key: "", mode: "pct", value: 10, note: "" }); drawRules(); } }),
+      el("button.btn.btn-primary", { text: "Сохранить правила", onclick: async () => {
+        const bad = rules.find(r => !String(r.key || "").trim());
+        if (bad) { toast("Заполните значение во всех правилах (или удалите пустое)", "err"); return; }
+        showLoader("Сохраняем…");
+        const res = await saveRules(ctx, rules);
+        hideLoader();
+        if (res.ok) toast("Правила сохранены", "ok");
+        else toast("Запомнили в браузере; в облако не сохранилось: " + res.error, "err");
+      } }),
+      el("button.btn.btn-outline", { text: "Вернуть базовые (иглы 10%, ножи $5)", onclick: () => confirmDialog("Заменить все правила базовыми: иглы (Нинала) — 10%, Нож-70/90/100/125 — $5 за штуку?", () => { rules = DEFAULT_RULES.map(r => ({ ...r })); drawRules(); toast("Базовые правила подставлены — нажмите «Сохранить»", "ok"); }) }),
+    ]),
+    el("div.hint", { text: "Порядок подбора: сначала точное название товара, потом «содержит в названии», потом категория. Первое подошедшее правило и применяется.", style: { marginTop: "14px", marginBottom: 0, lineHeight: "1.5" } }),
+  ]);
+
   const backupCard = el("div.card", { style: { marginBottom: "18px" } }, [
     el("div.section-h", { text: "Резервная копия данных", style: { marginTop: 0 } }),
     el("p.muted", { text: "Сохраните копию всех данных (товары, клиенты, продажи, приходы, оплаты, настройки) в файл и храните в надёжном месте (флешка / облако).", style: { lineHeight: "1.55", marginBottom: "16px" } }),
@@ -240,5 +301,5 @@ export default async function render(page, ctx) {
     } }),
   ]);
 
-  page.append(fxCard, tgCard, linksCard, guideCard, passCard, backupCard, sysCard);
+  page.append(fxCard, profitCard, tgCard, linksCard, guideCard, passCard, backupCard, sysCard);
 }

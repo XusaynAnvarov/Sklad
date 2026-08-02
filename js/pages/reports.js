@@ -1,64 +1,42 @@
 // ========================================================================
-//  ОТЧЁТЫ: топ товаров, топ клиентов (повторные покупки), долги/оборот
+//  ОТЧЁТЫ: итоги, диаграммы (месяцы · категории · сезоны · топ-полосы),
+//  сезонность товаров, советы, топ товаров/клиентов, долги и оборот.
 // ========================================================================
-import { el, modal, select } from "../ui.js?v=20260731a";
-import { fmt, sumByCur, curStr, toUSD } from "../fx.js?v=20260731a";
+import { el, modal, select } from "../ui.js?v=20260802a";
+import { curStr, toUSD } from "../fx.js?v=20260802a";
+import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260802a";
+import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText } from "../profit.js?v=20260802a";
+import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260802a";
+import { buildAdvice } from "../advice.js?v=20260802a";
+import { placeholder } from "./products.js?v=20260802a";
+import { icon } from "../icons.js?v=20260802a";
 
-const isPaid = (s) => (s.items || []).length > 0 && s.items.every(i => i.paid);
-
-const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
-const SEASONS = [["winter", "Зима"], ["spring", "Весна"], ["summer", "Лето"], ["autumn", "Осень"]];
-
-// проверка даты на выбранный период: all | this_month | last_month | y:YYYY | m:YYYY-MM | s:YYYY-<season>
-function matchPeriod(dateStr, sel) {
-  if (!sel || sel === "all") return true;
-  const d = new Date(dateStr); if (isNaN(d)) return false;
-  const y = d.getFullYear(), m = d.getMonth(), now = new Date();
-  if (sel === "this_month") return y === now.getFullYear() && m === now.getMonth();
-  if (sel === "last_month") { const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1); return y === lm.getFullYear() && m === lm.getMonth(); }
-  if (sel.startsWith("y:")) return y === Number(sel.slice(2));
-  if (sel.startsWith("m:")) { const [yy, mm] = sel.slice(2).split("-").map(Number); return y === yy && m === mm - 1; }
-  if (sel.startsWith("s:")) {
-    const [yy, season] = sel.slice(2).split("-"); const Y = Number(yy);
-    if (season === "winter") return (y === Y - 1 && m === 11) || (y === Y && (m === 0 || m === 1));
-    if (season === "spring") return y === Y && m >= 2 && m <= 4;
-    if (season === "summer") return y === Y && m >= 5 && m <= 7;
-    if (season === "autumn") return y === Y && m >= 8 && m <= 10;
-  }
-  return true;
-}
-
-// варианты периода из дат продаж: всё / этот-прошлый месяц / годы / сезоны / конкретные месяцы
-function buildPeriodOptions(sales) {
-  const years = new Set(), months = new Set();
-  sales.forEach(s => { const d = new Date(s.date); if (isNaN(d)) return; years.add(d.getFullYear()); months.add(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); });
-  const yearsArr = [...years].sort((a, b) => b - a);
-  const monthsArr = [...months].sort().reverse().slice(0, 18);
-  const opts = [
-    { value: "all", label: "Всё время" },
-    { value: "this_month", label: "Этот месяц" },
-    { value: "last_month", label: "Прошлый месяц" },
-  ];
-  yearsArr.forEach(y => opts.push({ value: "y:" + y, label: y + " год" }));
-  yearsArr.forEach(y => SEASONS.forEach(([k, lbl]) => opts.push({ value: `s:${y}-${k}`, label: `${lbl} ${y}` })));
-  monthsArr.forEach(ym => { const [y, mm] = ym.split("-").map(Number); opts.push({ value: "m:" + ym, label: `${MONTHS[mm - 1]} ${y}` }); });
-  return opts;
-}
+const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
 export default async function render(page, ctx) {
-  const [products, sales, customers, payments] = await Promise.all([
+  const [products, sales, customers, payments, settings] = await Promise.all([
     ctx.db.products.list(), ctx.db.sales.list(), ctx.db.customers.list(), ctx.db.payments.list(),
+    ctx.db.getSettings().catch(() => ({})),
   ]);
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
   const cmap = Object.fromEntries(customers.map(c => [c.id, c.name]));
 
+  const rules = loadRules(settings);
+  let pct = (settings && settings.profit_pct) || null;
+  if (!pct) { try { pct = JSON.parse(localStorage.getItem("sklad_profit_pct") || "null"); } catch { } }
+  pct = pct || {};
+
   let period = "this_month";
-  const periodOpts = buildPeriodOptions(sales);
+  let catMetric = "rev";                       // что показывает круговая: выручка или прибыль
+  const periodOpts = buildPeriodOptions(sales, payments);
   const periodLabel = () => (periodOpts.find(o => o.value === period) || {}).label || "";
   const periodSel = select(periodOpts, period, { style: { minWidth: "190px" } });
   periodSel.addEventListener("change", () => { period = periodSel.value; draw(); });
-  page.append(el("div.topbar", {}, [el("div", {}, [el("h1", { text: "Отчёты" }), el("div.sub", { text: "Аналитика продаж и долгов" })]), periodSel]));
+  page.append(el("div.topbar", {}, [el("div", {}, [el("h1", { text: "Отчёты" }), el("div.sub", { text: "Аналитика продаж, прибыли и сезонов" })]), periodSel]));
   const wrap = el("div"); page.append(wrap);
+
+  // советы считаются по всей истории — они про «сейчас», а не про выбранный месяц
+  const advice = buildAdvice(products, sales, rules, pct);
 
   function table(headers, rows) {
     return el("div", { style: { overflowX: "auto", marginBottom: "10px" } }, [el("table.tbl", {}, [
@@ -66,78 +44,212 @@ export default async function render(page, ctx) {
       el("tbody", {}, rows),
     ])]);
   }
+  const miniCard = (label, val, color, override, sub) => el("div.stat-card", {}, [
+    el("div.st-label", { text: label }),
+    el("div.st-value", { text: override != null ? override : usd(val), style: color ? { color } : {} }),
+    sub ? el("div.st-sub", { text: sub }) : null,
+  ].filter(Boolean));
 
-  const miniCard = (label, val, color, override) => el("div.stat-card", {}, [el("div.st-label", { text: label }), el("div.st-value", { text: override != null ? override : ("$" + Math.round(val).toLocaleString("ru-RU")), style: color ? { color } : {} })]);
+  // блок-диаграмма: заголовок + SVG (SVG строится строкой, поэтому innerHTML)
+  function chartBox(title, html, hint) {
+    const body = el("div.chart-box");
+    body.innerHTML = html;
+    return el("div", { style: { marginBottom: "18px" } }, [
+      el("div.section-h", { text: title }),
+      hint ? el("div.hint", { text: hint, style: { marginTop: "-4px" } }) : null,
+      body,
+    ].filter(Boolean));
+  }
+
+  // модалка со списком товаров из совета
+  function adviceModal(adv) {
+    const box = el("div");
+    (adv.items || []).forEach(x => box.append(el("div.card", { style: { padding: "10px 12px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } }, [
+      el("img.thumb", { src: x.p.photo_url || placeholder(x.p.name), style: { width: "42px", height: "42px" }, onerror: function () { this.src = placeholder(x.p.name); } }),
+      el("div", { style: { flex: "1", minWidth: "150px" } }, [
+        el("div", { style: { fontWeight: "600" }, text: x.p.name }),
+        el("div.muted", { style: { fontSize: "12px" }, text: x.sub || "" }),
+      ]),
+      el("span" + (x.bad ? ".badge.order" : ".badge.transit"), { text: x.badge || "" }),
+    ])));
+    modal({
+      title: adv.title, wide: true,
+      body: el("div", {}, [el("div.hint", { text: adv.text }), box]),
+      actions: [{ label: "Закрыть", kind: "btn-outline", onClick: c => c() }],
+    });
+  }
 
   function draw() {
     wrap.innerHTML = "";
     const fSales = sales.filter(s => matchPeriod(s.date, period));
     const fPays = payments.filter(p => matchPeriod(p.date, period));
-    const cogsUSDof = (it) => it.cogs_usd != null ? Number(it.cogs_usd) : (Number(pmap[it.product_id]?.cost_usd) || 0) * (Number(it.qty) || 0);
+    const agg = aggregate(fSales, pmap, rules, pct);
 
-    // ---------- ИТОГИ: выручка / себестоимость / прибыль / маржа ($) ----------
-    let revUSD = 0, cogsUSD = 0;
-    fSales.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; const r = toUSD(it.qty * it.unit_price, c); const g = cogsUSDof(it); if (isFinite(r)) revUSD += r; if (isFinite(g)) cogsUSD += g; }));
-    const profUSD = revUSD - cogsUSD, margin = revUSD > 0 ? (profUSD / revUSD * 100) : 0;
+    // ---------- ИТОГИ ----------
+    const margin = agg.total.rev > 0 ? (agg.total.profit / agg.total.rev * 100) : 0;
     wrap.append(el("div.section-h", { text: "Итоги — " + periodLabel() + " (в $ по курсу)" }));
     wrap.append(el("div.stat-grid", {}, [
-      miniCard("Выручка", revUSD),
-      miniCard("Себестоимость", cogsUSD),
-      miniCard("Прибыль", profUSD, profUSD >= 0 ? "#34d399" : "#f87171"),
-      miniCard("Маржа", margin, profUSD >= 0 ? "#34d399" : "#f87171", margin.toFixed(1) + "%"),
+      miniCard("Выручка", agg.total.rev),
+      miniCard("Прибыль (по правилам)", agg.total.profit, agg.total.profit >= 0 ? "#34d399" : "#f87171", null, "иглы 10% · ножи $5/шт · остальное — общий %"),
+      miniCard("Реальная (по себест.)", agg.total.real, agg.total.real >= 0 ? "#34d399" : "#f87171", null, "для сверки, если себестоимость заполнена"),
+      miniCard("Маржа", margin, agg.total.profit >= 0 ? "#34d399" : "#f87171", margin.toFixed(1) + "%"),
     ]));
 
-    // ---------- ТОП ТОВАРОВ ----------
-    const prodAgg = {};
-    fSales.forEach(s => (s.items || []).forEach(it => {
-      const a = prodAgg[it.product_id] = prodAgg[it.product_id] || { qty: 0, rev: { som: 0, usd: 0, yuan: 0 }, profit: 0 };
-      a.qty += Number(it.qty) || 0;
-      const c = it.currency || s.currency; if (a.rev[c] !== undefined) a.rev[c] += it.qty * it.unit_price;
-      const r = toUSD(it.qty * it.unit_price, c), g = cogsUSDof(it); if (isFinite(r) && isFinite(g)) a.profit += r - g;
-    }));
-    const topProd = Object.entries(prodAgg).sort((x, y) => y[1].qty - x[1].qty).slice(0, 20);
-    wrap.append(el("div.section-h", { text: "Топ товаров по продажам — " + periodLabel() + " (" + topProd.length + ")" }));
-    wrap.append(topProd.length ? table(["#", "Товар", "Продано", "Выручка"], topProd.map(([id, a], i) => el("tr", {}, [
-      el("td", { text: i + 1 }),
-      el("td", {}, [el("strong", { text: pmap[id]?.name || "?" })]),
-      el("td", {}, [el("strong", { text: a.qty })]),
-      el("td", { text: curStr(a.rev) }),
-    ]))) : el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Нет продаж за период" })]));
+    // ---------- СОВЕТЫ ----------
+    if (advice.length) {
+      wrap.append(el("div.section-h", { text: "Советы — что сделать сейчас (" + advice.length + ")" }));
+      advice.forEach(a => wrap.append(el("div.advice." + a.level, { onclick: () => adviceModal(a), title: "Показать список товаров" }, [
+        el("div.advice-ic", {}, [icon(a.ic, { size: 22 })]),
+        el("div", { style: { flex: "1", minWidth: "0" } }, [
+          el("div.advice-t", { text: a.title }),
+          el("div.advice-s", { text: a.text }),
+        ]),
+        el("span.advice-n", { text: (a.items || []).length + " ›" }),
+      ])));
+    }
 
-    // ---------- ТОП ПО ПРИБЫЛИ ----------
-    const topProfit = Object.entries(prodAgg).filter(([, a]) => a.profit !== 0).sort((x, y) => y[1].profit - x[1].profit).slice(0, 20);
-    if (topProfit.length) {
-      wrap.append(el("div.section-h", { text: "Топ товаров по прибыли ($)" }));
-      wrap.append(table(["#", "Товар", "Продано", "Прибыль ($)"], topProfit.map(([id, a], i) => el("tr", {}, [
-        el("td", { text: i + 1 }),
-        el("td", {}, [el("strong", { text: pmap[id]?.name || "?" })]),
-        el("td", { text: a.qty }),
-        el("td", {}, [el("strong", { text: "$" + Math.round(a.profit).toLocaleString("ru-RU"), style: { color: a.profit >= 0 ? "#34d399" : "#f87171" } })]),
+    // ---------- ДИАГРАММА ПО МЕСЯЦАМ ----------
+    const months = monthsWithData(sales).slice(-24);
+    const monthAgg = {};
+    months.forEach(k => monthAgg[k] = { rev: 0, profit: 0 });
+    sales.forEach(s => {
+      const k = monthKey(s.date); if (!monthAgg[k]) return;
+      (s.items || []).forEach(it => {
+        const p = pmap[it.product_id];
+        monthAgg[k].rev += itemRevenueUSD(it, s);
+        monthAgg[k].profit += itemProfitUSD(it, s, p, rules, pct);
+      });
+    });
+    const monthRows = months.map(k => ({ key: k, label: monthShort(k), a: monthAgg[k].rev, b: monthAgg[k].profit }));
+    const monthsBox = chartBox("Оборот и прибыль по месяцам", monthRows.length ? barChart(monthRows, { height: 250 }) : noData("Продаж пока нет"), "Нажмите на месяц — отчёт пересчитается за него");
+    wrap.append(monthsBox);
+    monthsBox.querySelectorAll(".bar-g").forEach(g => g.addEventListener("click", () => {
+      const k = g.getAttribute("data-key"); if (!k) return;   // data-key = "2026-07"
+      const v = "m:" + k;
+      if (periodOpts.some(o => o.value === v)) { period = v; periodSel.value = v; draw(); }
+    }));
+
+    // ---------- КРУГОВАЯ ПО КАТЕГОРИЯМ ----------
+    const catRows = Object.entries(agg.byCategory).map(([name, a]) => ({ name, ...a }))
+      .sort((x, y) => y[catMetric === "rev" ? "rev" : "profit"] - x[catMetric === "rev" ? "rev" : "profit"]);
+    const catToggle = el("div.pill-tabs", { style: { marginBottom: "10px" } }, [
+      el("button" + (catMetric === "rev" ? ".active" : ""), { text: "По обороту", onclick: () => { catMetric = "rev"; draw(); } }),
+      el("button" + (catMetric === "profit" ? ".active" : ""), { text: "По прибыли", onclick: () => { catMetric = "profit"; draw(); } }),
+    ]);
+    wrap.append(el("div.section-h", { text: "Категории товаров — " + periodLabel() }));
+    wrap.append(catToggle);
+    const donutBox = el("div.chart-box");
+    donutBox.innerHTML = catRows.length
+      ? donutChart(catRows.map(c => ({ label: c.name, value: catMetric === "rev" ? c.rev : c.profit })), {
+          centerLabel: catMetric === "rev" ? "оборот" : "прибыль",
+          centerValue: usd(catRows.reduce((t, c) => t + (catMetric === "rev" ? c.rev : c.profit), 0)),
+        })
+      : noData();
+    wrap.append(donutBox);
+    if (catRows.length) {
+      wrap.append(table(["Категория", "Продано", "Выручка", "Прибыль", "Маржа"], catRows.slice(0, 30).map(c => el("tr", {}, [
+        el("td", {}, [el("strong", { text: c.name })]),
+        el("td", { text: c.qty }),
+        el("td", { text: usd(c.rev) }),
+        el("td", {}, [el("strong", { text: usd(c.profit), style: { color: c.profit >= 0 ? "#34d399" : "#f87171" } })]),
+        el("td", { text: (c.rev > 0 ? (c.profit / c.rev * 100).toFixed(1) : "0") + "%" }),
       ]))));
     }
 
-    // ---------- ТОП КЛИЕНТОВ (повторные покупки) ----------
-    const cliAgg = {};
-    fSales.forEach(s => { if (!s.customer_id) return; const a = cliAgg[s.customer_id] = cliAgg[s.customer_id] || { inv: 0, items: 0, rev: { som: 0, usd: 0, yuan: 0 } }; a.inv++; a.items += (s.items || []).length; (s.items || []).forEach(it => { const c = it.currency || s.currency; if (a.rev[c] !== undefined) a.rev[c] += it.qty * it.unit_price; }); });
-    const topCli = Object.entries(cliAgg).sort((x, y) => y[1].inv - x[1].inv).slice(0, 20);
-    wrap.append(el("div.section-h", { text: "Клиенты по повторным покупкам (нажмите на строку)" }));
-    wrap.append(topCli.length ? table(["#", "Клиент", "Накладных", "Позиций", "Оборот"], topCli.map(([id, a], i) => el("tr", { style: { cursor: "pointer" }, title: "Какие товары покупал повторно", onclick: () => repeatModal(id) }, [
+    // ---------- СЕЗОНЫ ----------
+    const bySeason = { winter: { rev: 0, profit: 0 }, spring: { rev: 0, profit: 0 }, summer: { rev: 0, profit: 0 }, autumn: { rev: 0, profit: 0 } };
+    const prodSeason = {};  // product_id → {winter,spring,summer,autumn} в штуках
+    sales.forEach(s => {
+      const sea = seasonOf(s.date); if (!sea) return;
+      (s.items || []).forEach(it => {
+        const p = pmap[it.product_id];
+        bySeason[sea].rev += itemRevenueUSD(it, s);
+        bySeason[sea].profit += itemProfitUSD(it, s, p, rules, pct);
+        const a = prodSeason[it.product_id] = prodSeason[it.product_id] || { winter: 0, spring: 0, summer: 0, autumn: 0, total: 0 };
+        const q = Number(it.qty) || 0; a[sea] += q; a.total += q;
+      });
+    });
+    wrap.append(chartBox("Сезоны — за всё время", seasonChart(bySeason), "Зима: дек–фев · Весна: мар–май · Лето: июн–авг · Осень: сен–ноя"));
+
+    // сезонные товары: один сезон даёт ≥40% продаж при ≥10 проданных штук
+    const seasonal = Object.entries(prodSeason).map(([pid, a]) => {
+      const best = ["winter", "spring", "summer", "autumn"].reduce((x, k) => (a[k] > a[x] ? k : x), "winter");
+      return { pid, a, best, share: a.total > 0 ? a[best] / a.total : 0 };
+    }).filter(x => x.a.total >= 10 && x.share >= 0.4).sort((x, y) => y.share - x.share || y.a.total - x.a.total);
+
+    wrap.append(el("div.section-h", { text: "Сезонные товары (" + seasonal.length + ")" }));
+    wrap.append(el("div.hint", { text: "Товары, у которых один сезон даёт 40% и больше всех продаж. Их стоит закупать перед сезоном.", style: { marginTop: "-4px" } }));
+    if (seasonal.length) {
+      wrap.append(table(["Товар", "Пик", "Доля пика", "Продано всего", "Остаток", "Разбивка по сезонам"], seasonal.slice(0, 40).map(x => {
+        const p = pmap[x.pid] || { name: "?" };
+        const st = Number(p.stock_qty) || 0;
+        const cell = el("td"); cell.innerHTML = miniSeason(x.a);
+        return el("tr", {}, [
+          el("td", {}, [el("strong", { text: p.name })]),
+          el("td", {}, [el("span.badge.transit", { text: SEASON_ICON[x.best] + " " + SEASON_LABEL[x.best] })]),
+          el("td", {}, [el("strong", { text: Math.round(x.share * 100) + "%" })]),
+          el("td", { text: x.a.total }),
+          el("td", {}, [el("span" + (st > 0 ? ".badge.ok" : ".badge.order"), { text: String(st) })]),
+          cell,
+        ]);
+      })));
+    } else {
+      wrap.append(el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Пока нет товаров с явной сезонностью — нужно больше продаж за разные сезоны" })]));
+    }
+
+    // ---------- ТОП ТОВАРОВ (полосы + таблица) ----------
+    const prodRows = Object.entries(agg.byProduct).map(([id, a]) => ({ id, name: pmap[id]?.name || "?", ...a }));
+    const topRev = [...prodRows].sort((x, y) => y.rev - x.rev).slice(0, 10);
+    wrap.append(chartBox("Топ-10 товаров по обороту — " + periodLabel(),
+      topRev.length ? hBars(topRev.map(r => ({ label: r.name, value: r.rev, sub: r.qty + " шт" }))) : noData()));
+
+    const topProfit = [...prodRows].filter(r => r.profit !== 0).sort((x, y) => y.profit - x.profit).slice(0, 10);
+    wrap.append(chartBox("Топ-10 товаров по прибыли",
+      topProfit.length ? hBars(topProfit.map(r => ({ label: r.name, value: r.profit, sub: ruleText(ruleFor(pmap[r.id], rules)) })), { color: "#34d399" }) : noData()));
+
+    const topQty = [...prodRows].sort((x, y) => y.qty - x.qty).slice(0, 20);
+    wrap.append(el("div.section-h", { text: "Топ товаров по количеству — " + periodLabel() }));
+    wrap.append(topQty.length ? table(["#", "Товар", "Продано", "Выручка", "Прибыль", "Правило"], topQty.map((r, i) => el("tr", {}, [
       el("td", { text: i + 1 }),
-      el("td", {}, [el("strong", { text: cmap[id] || "—" })]),
-      el("td", {}, [el("strong", { text: a.inv })]),
-      el("td", { text: a.items }),
-      el("td", { text: curStr(a.rev) }),
+      el("td", {}, [el("strong", { text: r.name })]),
+      el("td", {}, [el("strong", { text: r.qty })]),
+      el("td", { text: usd(r.rev) }),
+      el("td", {}, [el("strong", { text: usd(r.profit), style: { color: r.profit >= 0 ? "#34d399" : "#f87171" } })]),
+      el("td", {}, [el("span.muted", { style: { fontSize: "12px" }, text: ruleText(ruleFor(pmap[r.id], rules)) })]),
+    ]))) : el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Нет продаж за период" })]));
+
+    // ---------- ТОП КЛИЕНТОВ ----------
+    const cliAgg = {};
+    fSales.forEach(s => {
+      if (!s.customer_id) return;
+      const a = cliAgg[s.customer_id] = cliAgg[s.customer_id] || { inv: 0, items: 0, rev: { som: 0, usd: 0, yuan: 0 }, revUSD: 0 };
+      a.inv++; a.items += (s.items || []).length;
+      (s.items || []).forEach(it => { const c = it.currency || s.currency; if (a.rev[c] !== undefined) a.rev[c] += it.qty * it.unit_price; a.revUSD += itemRevenueUSD(it, s); });
+    });
+    const cliRows = Object.entries(cliAgg).map(([id, a]) => ({ id, name: cmap[id] || "—", ...a }));
+    const topCliBars = [...cliRows].sort((x, y) => y.revUSD - x.revUSD).slice(0, 10);
+    wrap.append(chartBox("Топ-10 клиентов по обороту — " + periodLabel(),
+      topCliBars.length ? hBars(topCliBars.map(r => ({ label: r.name, value: r.revUSD, sub: r.inv + " накл." })), { color: "#60a5fa" }) : noData()));
+
+    const topCli = [...cliRows].sort((x, y) => y.inv - x.inv).slice(0, 20);
+    wrap.append(el("div.section-h", { text: "Клиенты по повторным покупкам (нажмите на строку)" }));
+    wrap.append(topCli.length ? table(["#", "Клиент", "Накладных", "Позиций", "Оборот"], topCli.map((r, i) => el("tr", { style: { cursor: "pointer" }, title: "Какие товары покупал повторно", onclick: () => repeatModal(r.id) }, [
+      el("td", { text: i + 1 }),
+      el("td", {}, [el("strong", { text: r.name })]),
+      el("td", {}, [el("strong", { text: r.inv })]),
+      el("td", { text: r.items }),
+      el("td", { text: curStr(r.rev) }),
     ]))) : el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Нет данных" })]));
 
     // какие товары клиент покупал повторно (за выбранный период)
     function repeatModal(custId) {
-      const agg = {};
+      const agg2 = {};
       fSales.filter(s => s.customer_id === custId).forEach(s => (s.items || []).forEach(it => {
-        const a = agg[it.product_id] = agg[it.product_id] || { qty: 0, invoices: new Set(), rev: { som: 0, usd: 0, yuan: 0 } };
+        const a = agg2[it.product_id] = agg2[it.product_id] || { qty: 0, invoices: new Set(), rev: { som: 0, usd: 0, yuan: 0 } };
         a.qty += Number(it.qty) || 0; a.invoices.add(s.id);
         const c = it.currency || s.currency; if (a.rev[c] !== undefined) a.rev[c] += it.qty * it.unit_price;
       }));
-      const rows = Object.entries(agg).map(([pid, a]) => ({ pid, qty: a.qty, times: a.invoices.size, rev: a.rev }))
+      const rows = Object.entries(agg2).map(([pid, a]) => ({ pid, qty: a.qty, times: a.invoices.size, rev: a.rev }))
         .sort((x, y) => y.times - x.times || y.qty - x.qty);
       const repeats = rows.filter(r => r.times >= 2);
       const box = el("div");

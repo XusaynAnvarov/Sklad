@@ -511,3 +511,76 @@ html, body { min-height: 100dvh; }
   .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .topbar h1 { font-size: 21px; }
 }
+
+/* ======================================================================
+   ДИАГРАММЫ И СОВЕТЫ (Отчёты, Дашборд)
+   ====================================================================== */
+.chart-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 6px; }
+/* широкие диаграммы скроллятся ВНУТРИ себя — страница вбок не едет */
+.chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.chart-scroll .chart { display: block; }
+.chart-empty { padding: 26px 14px; text-align: center; color: var(--muted); font-size: 13px; }
+.chart-hint { font-size: 12px; color: var(--muted); margin-top: 10px; text-align: center; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.chart-legend.col { flex-direction: column; gap: 7px; flex: 1; min-width: 190px; }
+.chart-legend span { display: flex; align-items: center; gap: 7px; }
+.chart-legend i { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+.chart-legend b { color: var(--text); font-weight: 700; }
+.chart-legend em { font-style: normal; margin-left: auto; color: var(--muted); }
+.bar-g rect:first-child, .bar-g rect:nth-child(2) { transition: opacity .15s; }
+.bar-g:hover rect { opacity: .82; }
+
+.donut-wrap { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.donut-slice { transition: opacity .15s; }
+.donut-slice:hover { opacity: .8; }
+
+.hbars { display: flex; flex-direction: column; gap: 9px; }
+.hbar { display: grid; grid-template-columns: minmax(110px, 1.4fr) 2fr minmax(84px, auto); gap: 10px; align-items: center; font-size: 13px; }
+.hbar-name { display: flex; align-items: center; gap: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-n { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; border-radius: 5px; background: rgba(255,255,255,.07); font-size: 11px; color: var(--muted); flex: none; }
+.hbar-track { height: 10px; border-radius: 5px; background: rgba(255,255,255,.06); overflow: hidden; }
+.hbar-fill { height: 100%; border-radius: 5px; transition: width .5s cubic-bezier(.2,.7,.3,1); }
+.hbar-val { text-align: right; font-weight: 700; white-space: nowrap; }
+.hbar-val em { display: block; font-style: normal; font-size: 11px; font-weight: 500; color: var(--muted); }
+
+.season-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.season-col { text-align: center; padding: 10px 4px; border-radius: 10px; border: 1px solid transparent; transition: .2s; }
+.season-col.best { border-color: rgba(217,180,90,.45); background: rgba(217,180,90,.07); }
+.season-bar-box { height: 110px; display: flex; align-items: flex-end; justify-content: center; }
+.season-bar { width: 62%; max-width: 46px; border-radius: 6px 6px 0 0; transition: height .5s cubic-bezier(.2,.7,.3,1); }
+.season-lbl { margin-top: 8px; font-size: 12px; color: var(--muted); }
+.season-val { font-weight: 700; font-size: 14px; }
+.season-sub { font-size: 11px; color: var(--muted); }
+
+.mini-season { display: flex; height: 8px; border-radius: 4px; overflow: hidden; min-width: 90px; background: rgba(255,255,255,.06); }
+.mini-season i { display: block; height: 100%; }
+
+/* карточка-совет */
+.advice { display: flex; gap: 12px; align-items: flex-start; padding: 13px 15px; margin-bottom: 10px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--card); cursor: pointer; transition: .2s; }
+.advice:hover { transform: translateY(-2px); border-color: var(--accent); }
+.advice.warn { border-color: rgba(245,158,11,.5); background: rgba(245,158,11,.07); }
+.advice.danger { border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.07); }
+.advice.info { border-color: rgba(59,130,246,.45); background: rgba(59,130,246,.06); }
+.advice-ic { display: flex; color: var(--warn, #f59e0b); margin-top: 1px; flex: none; }
+.advice.info .advice-ic { color: #60a5fa; }
+.advice.danger .advice-ic { color: #f87171; }
+.advice-t { font-weight: 700; font-size: 14px; }
+.advice-s { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+.advice-n { font-size: 12px; color: var(--muted); white-space: nowrap; align-self: center; }
+
+/* таблица «Все месяцы» */
+.delta-up { color: #34d399; font-weight: 700; }
+.delta-down { color: #f87171; font-weight: 700; }
+tr.month-active td { background: rgba(217,180,90,.10); }
+tr.month-active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
+@media (max-width: 560px) {
+  .donut-wrap { justify-content: center; }
+  .chart-legend.col { min-width: 100%; }
+  .hbar { grid-template-columns: 1fr; gap: 3px; }
+  .hbar-val { text-align: left; }
+  .hbar-val em { display: inline; margin-left: 8px; }
+  .season-grid { grid-template-columns: repeat(2, 1fr); }
+  .season-bar-box { height: 84px; }
+}

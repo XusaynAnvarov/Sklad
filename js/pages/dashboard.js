@@ -1,13 +1,16 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog } from "../ui.js?v=20260731a";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260731a";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260731a";
-import { ensureBatches, sumQty } from "../inventory.js?v=20260731a";
-import { sparkline } from "../charts.js?v=20260731a";
-import { icon } from "../icons.js?v=20260731a";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260731a";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260802a";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260802a";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260802a";
+import { ensureBatches, sumQty } from "../inventory.js?v=20260802a";
+import { sparkline } from "../charts.js?v=20260802a";
+import { icon } from "../icons.js?v=20260802a";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260802a";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260802a";
+import { loadRules, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD } from "../profit.js?v=20260802a";
+import { buildAdvice } from "../advice.js?v=20260802a";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
@@ -79,15 +82,6 @@ function paymentsModal(title, list, cmap) {
 
 const cfg = window.APP_CONFIG || {};
 
-function inPeriod(dateStr, period) {
-  if (period === "all") return true;
-  const d = new Date(dateStr), now = new Date();
-  if (period === "day") return d.toDateString() === now.toDateString();
-  if (period === "month") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  if (period === "year") return d.getFullYear() === now.getFullYear();
-  return true;
-}
-
 // прибыль-%: читаем из настроек (облако) с резервом в localStorage
 function readPct(settings) {
   let p = (settings && settings.profit_pct) || null;
@@ -124,28 +118,46 @@ export default async function render(page, ctx) {
   const settings = await ctx.db.getSettings().catch(() => ({}));
   const pct = readPct(settings);
 
+  // правила прибыли по группам товаров (иглы 10%, ножи $5/шт и т.д.)
+  const rules = loadRules(settings);
+  // советы считаются по всей истории — они про «сейчас», а не про выбранный период
+  const advice = buildAdvice(products, sales, rules, pct);
+
   let period = "all";
+  const periodOpts = buildPeriodOptions(sales, payments);
+  const periodSel = select(periodOpts, period, { style: { minWidth: "170px" } });
+  periodSel.addEventListener("change", () => { setPeriod(periodSel.value); });
+
   const periodTabs = el("div.pill-tabs", {}, [
-    tab("Сегодня", "day"), tab("Месяц", "month"), tab("Год", "year"), tab("Всё время", "all"),
+    tab("Сегодня", "today"), tab("Месяц", "this_month"), tab("Год", "this_year"), tab("Всё время", "all"),
   ]);
   function tab(label, val) {
-    const b = el("button", { text: label, onclick: () => { period = val; [...periodTabs.children].forEach(c => c.classList.remove("active")); b.classList.add("active"); compute(); } });
+    const b = el("button", { text: label, onclick: () => setPeriod(val) });
+    b.dataset.period = val;
     if (val === "all") b.classList.add("active");
     return b;
   }
+  // единая точка смены периода: вкладки и выпадающий список всегда согласованы
+  function setPeriod(val) {
+    period = val;
+    [...periodTabs.children].forEach(c => c.classList.toggle("active", c.dataset.period === val));
+    if (periodSel.value !== val) periodSel.value = periodOpts.some(o => o.value === val) ? val : "";
+    compute();
+  }
+  const periodLabelOf = (val) => (periodOpts.find(o => o.value === val) || {}).label || "за всё время";
 
   page.append(el("div.topbar", {}, [
     el("div", {}, [el("h1", { text: "Дашборд" }), el("div.sub", { text: db_mode(ctx) })]),
-    periodTabs,
+    el("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" } }, [periodTabs, periodSel]),
   ]));
 
   const wrap = el("div");
   page.append(wrap);
 
   function compute() {
-    const fSales = sales.filter(s => inPeriod(s.date, period));
-    const fPays = payments.filter(p => inPeriod(p.date, period));
-    const perLabel = period === "day" ? "за сегодня" : period === "month" ? "за месяц" : period === "year" ? "за год" : "за всё время";
+    const fSales = sales.filter(s => matchPeriod(s.date, period));
+    const fPays = payments.filter(p => matchPeriod(p.date, period));
+    const perLabel = period === "all" ? "за всё время" : "— " + periodLabelOf(period);
 
     // оплаты клиентов за период по валютам
     const payTotals = { som: 0, usd: 0, yuan: 0 };
@@ -163,19 +175,22 @@ export default async function render(page, ctx) {
     // «битая» себестоимость, исключая отмеченные как проверенные (локально gm_cost_ack ИЛИ в базе cost_ack_yuan)
     const badCost = products.filter(p => Number(p.price_yuan) > 0 && Number(p.cost_yuan) > Number(p.price_yuan) && Number(ack[p.id]) !== Number(p.cost_yuan) && Number(p.cost_ack_yuan) !== Number(p.cost_yuan));
 
-    // --- оборот по валютам (нативно) + всего в $; прибыль = оборот × % ---
+    // --- оборот по валютам (нативно) + всего в $ ---
+    const pmap = Object.fromEntries(products.map(p => [p.id, p]));
     const turnByCur = { som: 0, usd: 0, yuan: 0 };
     fSales.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; if (turnByCur[c] !== undefined) turnByCur[c] += it.qty * it.unit_price; }));
     const salesUSD = ["som", "usd", "yuan"].reduce((t, c) => t + toUSD(turnByCur[c], c), 0);
+    // общий % валюты — применяется только к товарам БЕЗ своего правила
     const profitByCur = { som: 0, usd: 0, yuan: 0 };
     ["som", "usd", "yuan"].forEach(c => profitByCur[c] = turnByCur[c] * (pct[c] || 0) / 100);
-    const profitUSD = ["som", "usd", "yuan"].reduce((t, c) => t + toUSD(profitByCur[c], c), 0);
 
-    // --- РЕАЛЬНАЯ прибыль = выручка − себестоимость (cogs_usd хранится на позиции при оформлении) ---
-    const pmap = Object.fromEntries(products.map(p => [p.id, p]));
-    const cogsUSDof = (it) => it.cogs_usd != null ? Number(it.cogs_usd) : (Number(pmap[it.product_id]?.cost_usd) || 0) * (Number(it.qty) || 0);
-    let realProfitUSD = 0;
-    fSales.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; const rev = toUSD(it.qty * it.unit_price, c); const cogs = cogsUSDof(it); if (isFinite(rev) && isFinite(cogs)) realProfitUSD += rev - cogs; }));
+    // --- ПРИБЫЛЬ ПО ПРАВИЛАМ (главная цифра) и РЕАЛЬНАЯ по себестоимости ---
+    let profitUSD = 0, realProfitUSD = 0;
+    fSales.forEach(s => (s.items || []).forEach(it => {
+      const p = pmap[it.product_id];
+      profitUSD += itemProfitUSD(it, s, p, rules, pct);
+      realProfitUSD += itemRealProfitUSD(it, s, p);
+    }));
 
     // --- дневные ряды за последние 14 дней (для мини-графиков) ---
     const DAYS = 14, today0 = new Date(); today0.setHours(0, 0, 0, 0);
@@ -184,8 +199,28 @@ export default async function render(page, ctx) {
       const d = new Date(s.date); d.setHours(0, 0, 0, 0);
       const idx = DAYS - 1 - Math.round((today0 - d) / 86400000);
       if (idx < 0 || idx >= DAYS) return;
-      (s.items || []).forEach(it => { const c = it.currency || s.currency; const usd = toUSD(it.qty * it.unit_price, c); if (!isFinite(usd)) return; salesSeries[idx] += usd; profitSeries[idx] += usd * ((pct[c] || 0) / 100); const cg = cogsUSDof(it); if (isFinite(cg)) realProfitSeries[idx] += usd - cg; });
+      (s.items || []).forEach(it => {
+        const p = pmap[it.product_id];
+        const rev = itemRevenueUSD(it, s); if (!isFinite(rev)) return;
+        salesSeries[idx] += rev;
+        profitSeries[idx] += itemProfitUSD(it, s, p, rules, pct);
+        realProfitSeries[idx] += itemRealProfitUSD(it, s, p);
+      });
     });
+
+    // --- помесячная сводка (таблица «Все месяцы») ---
+    const monthKeys = monthsWithData(sales, payments);
+    const monthAgg = {};
+    monthKeys.forEach(k => monthAgg[k] = { rev: 0, profit: 0, paid: 0 });
+    sales.forEach(s => {
+      const k = monthKey(s.date); if (!monthAgg[k]) return;
+      (s.items || []).forEach(it => {
+        const p = pmap[it.product_id];
+        monthAgg[k].rev += itemRevenueUSD(it, s);
+        monthAgg[k].profit += itemProfitUSD(it, s, p, rules, pct);
+      });
+    });
+    payments.forEach(pm => { const k = monthKey(pm.date); if (monthAgg[k]) monthAgg[k].paid += toUSD(Number(pm.amount) || 0, pm.currency); });
 
     // --- склад (себестоимость, USD) + кол-во и статусы ---
     let stockUSD = 0, stockUnits = 0, inStock = 0, onOrder = 0;
@@ -266,16 +301,56 @@ export default async function render(page, ctx) {
       ])]));
     }
 
+    // ---------- ТОП-3 СОВЕТА (полный список — в Отчётах) ----------
+    if (advice.length) {
+      wrap.append(el("div.section-h", { text: "Советы — что сделать сейчас" }));
+      advice.slice(0, 3).forEach(a => wrap.append(el("div.advice." + a.level + ".reveal", { onclick: () => { location.hash = "#reports"; }, title: "Открыть Отчёты" }, [
+        el("div.advice-ic", {}, [icon(a.ic, { size: 22 })]),
+        el("div", { style: { flex: "1", minWidth: "0" } }, [
+          el("div.advice-t", { text: a.title }),
+          el("div.advice-s", { text: a.text }),
+        ]),
+        el("span.advice-n", { text: (a.items || []).length + " ›" }),
+      ])));
+      if (advice.length > 3) wrap.append(el("div.hint", { text: `Ещё советов: ${advice.length - 3} — смотрите в разделе «Отчёты».`, style: { marginTop: "-6px", marginBottom: "16px" } }));
+    }
+
     // оборот + прибыль (всего, $)
     wrap.append(el("div.section-h", { text: "Оборот и прибыль " + perLabel }));
     wrap.append(el("div.stat-grid", {}, [
       bigCard("Оборот всего", salesUSD, "wallet", true, salesSeries),
-      bigCard("Реальная прибыль (по себест.)", realProfitUSD, "chart", true, realProfitSeries),
-      bigCard("Прибыль по % (оценка)", profitUSD, "chart", false, profitSeries),
+      bigCard("Прибыль (по правилам)", profitUSD, "chart", true, profitSeries, "иглы 10% · ножи $5/шт · остальное — общий %"),
+      bigCard("Реальная прибыль (по себест.)", realProfitUSD, "chart", false, realProfitSeries, "для сверки, если себестоимость заполнена"),
     ]));
+
+    // ---------- ВСЕ МЕСЯЦЫ ----------
+    if (monthKeys.length) {
+      wrap.append(el("div.section-h", { text: "Все месяцы — нажмите на месяц, чтобы посмотреть его отдельно" }));
+      const mtb = el("tbody");
+      [...monthKeys].reverse().forEach((k) => {
+        const cur = monthAgg[k];
+        const i = monthKeys.indexOf(k);
+        const prev = i > 0 ? monthAgg[monthKeys[i - 1]] : null;
+        const delta = prev && prev.rev > 0 ? ((cur.rev - prev.rev) / prev.rev) * 100 : null;
+        const active = period === "m:" + k;
+        mtb.append(el("tr" + (active ? ".month-active" : ""), { style: { cursor: "pointer" }, title: "Показать дашборд за " + monthLabel(k), onclick: () => setPeriod("m:" + k) }, [
+          el("td", {}, [el("strong", { text: monthLabel(k) })]),
+          el("td", { text: "$" + Math.round(cur.rev).toLocaleString("ru-RU") }),
+          el("td", {}, [el("strong", { text: "$" + Math.round(cur.profit).toLocaleString("ru-RU"), style: { color: cur.profit >= 0 ? "#34d399" : "#f87171" } })]),
+          el("td", { text: "$" + Math.round(cur.paid).toLocaleString("ru-RU") }),
+          el("td", {}, [delta == null
+            ? el("span.muted", { text: "—" })
+            : el("span" + (delta >= 0 ? ".delta-up" : ".delta-down"), { text: (delta >= 0 ? "▲ " : "▼ ") + Math.abs(delta).toFixed(0) + "%" })]),
+        ]));
+      });
+      wrap.append(el("div", { style: { overflowX: "auto", marginBottom: "16px" } }, [el("table.tbl", {}, [
+        el("thead", {}, [el("tr", {}, ["Месяц", "Оборот", "Прибыль", "Оплачено", "К прошлому"].map(h => el("th", { text: h })))]), mtb,
+      ])]));
+    }
 
     // оборот и прибыль по валютам (% задаёт владелец)
     wrap.append(el("div.section-h", { text: "Оборот и прибыль по валютам (% впишите сами)" }));
+    wrap.append(el("div.hint", { text: "Этот процент применяется к товарам БЕЗ своего правила. Правила для групп (иглы, ножи…) — в Настройках → «Прибыль по группам товаров».", style: { marginTop: "-4px" } }));
     wrap.append(el("div.stat-grid", {}, [
       profitCard("som", turnByCur.som, profitByCur.som),
       profitCard("usd", turnByCur.usd, profitByCur.usd),
@@ -324,10 +399,10 @@ export default async function render(page, ctx) {
       ]),
     ]);
   }
-  function bigCard(label, usd, ic, grad, series) {
+  function bigCard(label, usd, ic, grad, series, sub) {
     const v = el("div.st-value");
     const c = el("div" + (grad ? ".stat-card.grad.reveal" : ".stat-card.reveal"), {}, [
-      el("div.st-ic", {}, [icon(ic, { size: 22 })]), el("div.st-label", { text: label }), v, el("div.st-sub", { text: "в долларах · 14 дней" }),
+      el("div.st-ic", {}, [icon(ic, { size: 22 })]), el("div.st-label", { text: label }), v, el("div.st-sub", { text: sub || "в долларах · 14 дней" }),
     ]);
     animateCount(v, usd, n => "$" + Math.round(n).toLocaleString("ru-RU"));
     if (series && series.some(x => x > 0)) {

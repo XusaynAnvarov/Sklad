@@ -1,14 +1,14 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260731a";
-import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260731a";
-import { openEditor, buildText, deleteSale } from "./sales.js?v=20260731a";
-import { exportCustomerInvoice } from "../xlsx-export.js?v=20260731a";
-import { placeholder as placeholderImg } from "./products.js?v=20260731a";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260731a";
-import { authHeaders } from "../db.js?v=20260731a";
-import { icon } from "../icons.js?v=20260731a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260802a";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260802a";
+import { openEditor, buildText, deleteSale } from "./sales.js?v=20260802a";
+import { exportCustomerInvoice } from "../xlsx-export.js?v=20260802a";
+import { placeholder as placeholderImg } from "./products.js?v=20260802a";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260802a";
+import { authHeaders } from "../db.js?v=20260802a";
+import { icon } from "../icons.js?v=20260802a";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
 const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);
