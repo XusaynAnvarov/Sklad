@@ -1,35 +1,39 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20260802a";
-import { t } from "./app.js?v=20260802a";
-import { openLogin } from "./auth.js?v=20260802a";
+import { api, isLoggedIn } from "./api.js?v=20260802b";
+import { t } from "./app.js?v=20260802b";
+import { openLogin } from "./auth.js?v=20260802b";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
 // ---- Состояние каталога: товары, фильтр, поиск, позиция прокрутки ----
-// Хранится в sessionStorage → переживает уход в другое приложение и перезагрузку вкладки,
-// поэтому клиент возвращается ровно туда, где остановился (ничего не начинается сначала).
+// Хранится в localStorage (НЕ sessionStorage!): sessionStorage стирается, когда клиент
+// закрывает браузер или выходит из Telegram — и всё начиналось сначала. localStorage
+// переживает и это, поэтому клиент возвращается ровно туда, где остановился.
 // ВАЖНО: храним РАЗДЕЛЬНО. Товаров сотни — их JSON пишем только после загрузки данных.
 // Позицию прокрутки/фильтры пишем часто (при скролле), поэтому это отдельный крошечный ключ:
 // иначе на телефоне каждые 200 мс сериализовались бы все товары и Safari падал.
 const CAT_KEY = "gm_cat_data";   // товары + время загрузки
 const UI_KEY = "gm_cat_ui";      // категория, поиск, позиция прокрутки
 const CAT_TTL = 5 * 60 * 1000;   // товары считаем свежими 5 минут, дальше тихо обновляем
+const UI_TTL = 24 * 60 * 60 * 1000; // место возврата помним сутки; через сутки — начинаем сверху
 const PAGE = 48;                 // сколько карточек рисуем за раз (остальные — по мере прокрутки)
 
 let catState = { products: null, fetchedAt: 0, category: "Все", query: "", scrollY: 0 };
 try {
-  const d = JSON.parse(sessionStorage.getItem(CAT_KEY) || "null");
+  const d = JSON.parse(localStorage.getItem(CAT_KEY) || "null");
   if (d && Array.isArray(d.products)) { catState.products = d.products; catState.fetchedAt = d.fetchedAt || 0; }
-  const u = JSON.parse(sessionStorage.getItem(UI_KEY) || "null");
-  if (u && typeof u === "object") { catState.category = u.category || "Все"; catState.query = u.query || ""; catState.scrollY = u.scrollY || 0; }
+  const u = JSON.parse(localStorage.getItem(UI_KEY) || "null");
+  if (u && typeof u === "object" && (!u.at || Date.now() - u.at < UI_TTL)) {
+    catState.category = u.category || "Все"; catState.query = u.query || ""; catState.scrollY = u.scrollY || 0;
+  }
 } catch {}
 
 function saveProducts() {
-  try { sessionStorage.setItem(CAT_KEY, JSON.stringify({ products: catState.products, fetchedAt: catState.fetchedAt })); }
-  catch { try { sessionStorage.removeItem(CAT_KEY); } catch {} }   // не влезло — просто не кэшируем
+  try { localStorage.setItem(CAT_KEY, JSON.stringify({ products: catState.products, fetchedAt: catState.fetchedAt })); }
+  catch { try { localStorage.removeItem(CAT_KEY); } catch {} }   // не влезло — просто не кэшируем
 }
 function saveUi() {
-  try { sessionStorage.setItem(UI_KEY, JSON.stringify({ category: catState.category, query: catState.query, scrollY: catState.scrollY })); } catch {}
+  try { localStorage.setItem(UI_KEY, JSON.stringify({ category: catState.category, query: catState.query, scrollY: catState.scrollY, at: Date.now() })); } catch {}
 }
 function rememberScroll() { catState.scrollY = window.scrollY || 0; saveUi(); }
 

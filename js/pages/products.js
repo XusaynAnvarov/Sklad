@@ -1,12 +1,12 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260802a";
-import { icon } from "../icons.js?v=20260802a";
-import { fmt, convert } from "../fx.js?v=20260802a";
-import { consumeFIFO, ensureBatches, sumQty, currentCost } from "../inventory.js?v=20260802a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260802a";
-import { openEditor } from "./sales.js?v=20260802a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260802b";
+import { icon } from "../icons.js?v=20260802b";
+import { fmt, convert } from "../fx.js?v=20260802b";
+import { consumeFIFO, ensureBatches, sumQty, currentCost } from "../inventory.js?v=20260802b";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260802b";
+import { openEditor } from "./sales.js?v=20260802b";
 
 // себестоимость в той валюте, в которой её ввели (cost_cur). По умолчанию — юань.
 function costShow(cy, cu, ccur) {
@@ -116,9 +116,39 @@ export default async function render(page, ctx) {
       (p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q))));
   }
 
+  // ---- порционная отрисовка: 866 карточек разом вешают телефон ----
+  const PAGE = 48;
+  let shown = 0, drawList = [], sentinel = null, io = null;
+
   function draw(list) {
+    if (io) { io.disconnect(); io = null; }
     grid.innerHTML = "";
+    shown = 0; drawList = list; sentinel = null;
     if (!list.length) { grid.append(el("div.empty", {}, [el("div.em-ic", {}, [icon("box", { size: 40 })]), el("p", { text: "Товаров нет" })])); return; }
+    appendChunk();
+    // догрузка следующей порции, когда «маячок» подходит к экрану
+    io = new IntersectionObserver((es) => { if (es.some(e => e.isIntersecting)) appendChunk(); }, { rootMargin: "600px" });
+    if (sentinel) io.observe(sentinel);
+  }
+
+  function appendChunk() {
+    const slice = drawList.slice(shown, shown + PAGE);
+    if (!slice.length) { if (sentinel) { sentinel.remove(); sentinel = null; } return; }
+    shown += slice.length;
+    renderCards(slice);
+    // маячок всегда в конце списка
+    if (!sentinel) { sentinel = el("div", { style: { gridColumn: "1/-1", height: "1px" } }); }
+    grid.append(sentinel);
+    if (io) { io.unobserve(sentinel); if (shown < drawList.length) io.observe(sentinel); else { sentinel.remove(); sentinel = null; } }
+  }
+
+  // страховка: если IntersectionObserver не сработал — догружаем по прокрутке
+  window.addEventListener("scroll", () => {
+    if (!drawList.length || shown >= drawList.length) return;
+    if (document.documentElement.scrollHeight - (window.scrollY + window.innerHeight) < 700) appendChunk();
+  }, { passive: true });
+
+  function renderCards(list) {
     list.forEach(p => {
       const isNew  = freshness(p) > 0 && (Date.now() - freshness(p)) / 86400000 <= WAREHOUSE_NEW_DAYS;
       const tr = transit[String(p.id)];
@@ -157,8 +187,8 @@ export default async function render(page, ctx) {
       ]);
       grid.append(card);
     });
-    // повторно включить анимацию появления
-    requestAnimationFrame(() => grid.querySelectorAll(".reveal").forEach((n, i) => setTimeout(() => n.classList.add("in"), i * 30)));
+    // анимация появления — только у новой порции, иначе на телефоне это тысячи таймеров
+    requestAnimationFrame(() => grid.querySelectorAll(".reveal:not(.in)").forEach((n, i) => setTimeout(() => n.classList.add("in"), Math.min(i, 20) * 30)));
   }
   draw(all);
   search.addEventListener("input", applyFilters);

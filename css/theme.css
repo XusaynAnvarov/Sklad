@@ -134,8 +134,10 @@ html[data-theme="light"] .bg-stars{opacity:.45;}
 
 /* ---------- Сетка товаров ---------- */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;}
-.prod{border-radius:var(--radius);overflow:hidden;background:var(--card);border:1px solid var(--border);
-  backdrop-filter:blur(8px);transition:transform .3s,border-color .3s,box-shadow .3s;cursor:pointer;display:flex;flex-direction:column;}
+/* без backdrop-filter: карточек товара сотни, размытие фона у каждой вешает телефон
+   и рисует мусорные «мини-скриншоты» поверх карточки (баг композитора на iOS/Android) */
+.prod{border-radius:var(--radius);overflow:hidden;background:var(--panel);border:1px solid var(--border);
+  transition:transform .3s,border-color .3s,box-shadow .3s;cursor:pointer;display:flex;flex-direction:column;}
 .prod:hover{transform:translateY(-2px);border-color:rgba(47,91,208,.35);box-shadow:0 6px 18px rgba(16,24,40,.08);}
 .prod .ph{aspect-ratio:1/1;width:100%;object-fit:cover;background:#12122a;}
 .prod .body{padding:14px;flex:1;display:flex;flex-direction:column;gap:6px;}
@@ -204,7 +206,12 @@ select.inp{appearance:none;cursor:pointer;}
 /* анимации появления */
 @keyframes rise{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:none;}}
 @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
-.reveal{opacity:0;transform:translateY(22px);transition:opacity .5s ease,transform .5s ease;}
+/* Появление карточек. Раньше видимость зависела от JS (класс .in по requestAnimationFrame):
+   если кадры не успевали — на телефоне со сотнями карточек — содержимое оставалось
+   невидимым, и казалось, что фото не грузятся. Теперь показ гарантирует сама CSS-анимация,
+   а класс .in лишь дублирует её конечное состояние. */
+@keyframes revealIn{from{opacity:0;transform:translateY(22px);}to{opacity:1;transform:none;}}
+.reveal{opacity:0;transform:translateY(22px);animation:revealIn .45s ease forwards;}
 .reveal.in{opacity:1;transform:none;}
 .page-enter{animation:rise .45s ease both;}
 
@@ -244,6 +251,31 @@ select.inp{appearance:none;cursor:pointer;}
   .section-h{margin:20px 0 10px;}
   .toolbar{gap:8px;}
   .menu-btn{top:calc(14px + env(safe-area-inset-top));}
+}
+
+/* ---------------------------------------------------------------------
+   ТЕЛЕФОН: убираем тяжёлую графику.
+   На iOS/Android размытие фона (backdrop-filter) у сотен элементов плюс
+   два фиксированных пятна с blur(130px) ломают композитор: поверх карточек
+   появляются мусорные «мини-скриншоты» страницы, а нажатия по полям
+   (поиск, категории) не доходят до элемента. Ставим сплошной фон.
+   --------------------------------------------------------------------- */
+@media (max-width: 860px) {
+  body::before, body::after { display: none; }
+  .bg-stars { display: none; }
+  .card, .stat-card, .prod, .tbl, .sidebar, .modal, .modal-overlay, .combo-panel,
+  .theme-toggle.floating, .lang-switch.floating, .gm-loader { backdrop-filter: none !important; }
+  .sidebar { background: var(--panel); }
+  .combo-panel { background: var(--panel); }
+  .modal-overlay { background: rgba(3,3,12,.86); }
+  .gm-loader { background: var(--bg); }
+  /* поиск и фильтр категорий всегда выше карточек — чтобы тап попадал по ним */
+  .toolbar { position: relative; z-index: 5; }
+  .toolbar .inp, .toolbar .cselect { min-height: 46px; }
+  /* На телефоне карточки показываем сразу. Раньше они стартовали невидимыми
+     (.reveal{opacity:0}) и проявлялись по очереди — при 866 товарах последние
+     появлялись только через ~26 секунд, и казалось, что фото не грузятся. */
+  .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
 
 /* ===================================================================
@@ -459,6 +491,8 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb{background:#cbd2dc;}
 @media (prefers-reduced-motion: reduce){
   .page-enter,.gm-ripple{animation:none !important;}
   .prod,.stat-card,.card,.navitem{transition:none !important;}
+  /* анимацию убираем, но содержимое обязано остаться видимым */
+  .reveal{animation:none !important;opacity:1 !important;transform:none !important;}
 }
 
 /* ================================================================

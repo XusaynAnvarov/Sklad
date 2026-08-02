@@ -879,3 +879,10 @@ html, body { min-height: 100dvh; }
   .product-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .site-main { padding-left: 12px; padding-right: 12px; }
 }
+
+/* Телефон: размытие фона (backdrop-filter) на бейдже КАЖДОГО товара ломает
+   композитор мобильных браузеров — поверх карточек рисуется мусор, а нажатия
+   не доходят до элемента. Бейджей сотни, поэтому просто делаем их плотными. */
+@media (max-width: 860px) {
+  .product-badge { backdrop-filter: none; }
+}

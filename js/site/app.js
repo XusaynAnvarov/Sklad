@@ -1,11 +1,11 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20260802a";
-import { renderCatalog } from "./catalog.js?v=20260802a";
-import { renderVideos } from "./videos.js?v=20260802a";
-import { renderCabinet } from "./cabinet.js?v=20260802a";
-import { renderAdminPanel } from "./admin-panel.js?v=20260802a";
-import { renderOrder } from "./order.js?v=20260802a";
-import { setAuthChangeCallback, openLogin, logout as _logout } from "./auth.js?v=20260802a";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20260802b";
+import { renderCatalog } from "./catalog.js?v=20260802b";
+import { renderVideos } from "./videos.js?v=20260802b";
+import { renderCabinet } from "./cabinet.js?v=20260802b";
+import { renderAdminPanel } from "./admin-panel.js?v=20260802b";
+import { renderOrder } from "./order.js?v=20260802b";
+import { setAuthChangeCallback, openLogin, logout as _logout } from "./auth.js?v=20260802b";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -209,7 +209,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20260802a");
+        const { api: siteApi } = await import("./api.js?v=20260802b");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -391,15 +391,34 @@ function initRipple() {
 }
 
 // Позиция прокрутки по каждому разделу — чтобы возврат не начинался «сначала».
+// localStorage, а НЕ sessionStorage: sessionStorage стирается при закрытии браузера
+// и при выходе из Telegram, поэтому клиент терял своё место.
 const SCROLL_KEY = (r) => "gm_scroll_" + r;
+const LAST_ROUTE_KEY = "gm_last_route";       // где клиент был в прошлый раз
+const RESUME_TTL = 24 * 60 * 60 * 1000;       // возвращаем на место в течение суток
 let curRoute = null;
 function saveScroll() {
   if (!curRoute) return;
-  try { sessionStorage.setItem(SCROLL_KEY(curRoute), String(window.scrollY || 0)); } catch {}
+  try { localStorage.setItem(SCROLL_KEY(curRoute), String(window.scrollY || 0)); } catch {}
+  rememberRoute();
+}
+// «последний раздел» пишем сразу при переходе, а не только при прокрутке:
+// клиент может открыть раздел и тут же свернуть браузер, не прокрутив ничего.
+function rememberRoute() {
+  if (!curRoute) return;
+  try { localStorage.setItem(LAST_ROUTE_KEY, JSON.stringify({ route: curRoute, at: Date.now() })); } catch {}
+}
+// куда вернуть клиента, если он открыл сайт без конкретной ссылки
+function lastRoute() {
+  try {
+    const v = JSON.parse(localStorage.getItem(LAST_ROUTE_KEY) || "null");
+    if (v && v.route && Date.now() - (v.at || 0) < RESUME_TTL) return v.route;
+  } catch {}
+  return null;
 }
 function restoreScrollFor(r) {
   let y = 0;
-  try { y = Number(sessionStorage.getItem(SCROLL_KEY(r))) || 0; } catch {}
+  try { y = Number(localStorage.getItem(SCROLL_KEY(r))) || 0; } catch {}
   if (y <= 0) return;
   let tries = 0;
   const tick = () => {
@@ -414,6 +433,7 @@ async function route(main) {
   const r = getRoute();
   saveScroll();               // запомнить, где были в предыдущем разделе
   curRoute = r;
+  rememberRoute();            // и сразу отметить новый раздел как «последний»
   document.querySelectorAll(".site-nav-link").forEach(a => {
     a.classList.toggle("active", a.getAttribute("href") === "#" + r);
   });
@@ -455,6 +475,13 @@ export async function boot() {
 
   const app = document.getElementById("site-app");
   if (!app) return;
+
+  // Открыли сайт без конкретной ссылки — вернуть в тот раздел, где клиент был
+  // в прошлый раз (после закрытия браузера или выхода из Telegram).
+  if (!location.hash) {
+    const last = lastRoute();
+    if (last && last !== "catalog") { try { history.replaceState(null, "", "#" + last); } catch { location.hash = "#" + last; } }
+  }
 
   function rebuild() {
     app.innerHTML = "";
@@ -524,7 +551,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=89", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=90", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
