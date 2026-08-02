@@ -1,10 +1,10 @@
 // ========================================================================
 //  НАСТРОЙКИ — курсы валют, Telegram, доступ, демо-данные
 // ========================================================================
-import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260802b";
-import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20260802b";
-import { authHeaders } from "../db.js?v=20260802b";
-import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20260802b";
+import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260802c";
+import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20260802c";
+import { authHeaders } from "../db.js?v=20260802c";
+import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20260802c";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -13,28 +13,49 @@ export default async function render(page, ctx) {
   page.append(el("div.topbar", {}, [el("div", {}, [el("h1", { text: "Настройки" })])]));
 
   // ---------- Курсы валют ----------
-  const fYuan = input({ type: "number", step: "0.0001", value: s.rate_yuan_usd ?? 0.14 });
-  const fSom = input({ type: "number", step: "0.0000001", value: s.rate_som_usd ?? 0.000079 });
+  // Вводим по-человечески: «сколько сумов/юаней за 1 доллар».
+  // Внутри система хранит обратные величины (сколько $ в одной единице).
+  const somPerUsd = s.rate_som_usd > 0 ? Math.round(1 / s.rate_som_usd) : 12700;
+  const yuanPerUsd = s.rate_yuan_usd > 0 ? +(1 / s.rate_yuan_usd).toFixed(3) : 7.15;
+  const fSom = input({ type: "number", step: "1", min: "0", value: somPerUsd });
+  const fYuan = input({ type: "number", step: "0.01", min: "0", value: yuanPerUsd });
   const updated = el("div.hint", { text: "Обновлено: " + new Date(s.rates_updated_at || Date.now()).toLocaleString("ru-RU") });
+  // подсказка «что получится» — сразу видно, не ошиблись ли в нуле
+  const preview = el("div.hint", { style: { marginTop: "-4px" } });
+  const drawPreview = () => {
+    const sp = +fSom.value || 0, yp = +fYuan.value || 0;
+    preview.textContent = sp > 0 && yp > 0
+      ? `Получится: $1 = ${sp.toLocaleString("ru-RU")} сум · $1 = ${yp} ¥ · 1 ¥ = ${Math.round(sp / yp).toLocaleString("ru-RU")} сум`
+      : "Впишите оба курса";
+  };
+  drawPreview();
+  fSom.addEventListener("input", drawPreview);
+  fYuan.addEventListener("input", drawPreview);
 
   const fxCard = el("div.card", { style: { marginBottom: "18px" } }, [
-    el("div.section-h", { text: "Курсы валют (к доллару)", style: { marginTop: 0 } }),
+    el("div.section-h", { text: "Курсы валют", style: { marginTop: 0 } }),
+    el("p.muted", { text: "Впишите курс вручную — сколько сумов и юаней вы считаете за 1 доллар. По этому курсу пересчитываются отчёты и итоги.", style: { lineHeight: "1.55", marginBottom: "14px" } }),
     el("div.row2", {}, [
-      field("1 юань = $ (yuan→usd)", fYuan),
-      field("1 сум = $ (som→usd)", fSom),
+      field("Сколько сумов за 1 доллар", fSom),
+      field("Сколько юаней за 1 доллар", fYuan),
     ]),
+    preview,
     updated,
     el("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap" } }, [
-      el("button.btn.btn-outline", { text: "Обновить из интернета", onclick: async () => {
+      el("button.btn.btn-outline", { text: "Подставить из интернета", onclick: async () => {
         toast("Получаю курсы…", "info");
         try {
           const live = await fetchLiveRates();
-          fYuan.value = live.rate_yuan_usd.toFixed(4); fSom.value = live.rate_som_usd.toFixed(8);
-          toast("Курсы получены, нажмите «Сохранить»", "ok");
+          fSom.value = Math.round(1 / live.rate_som_usd);
+          fYuan.value = +(1 / live.rate_yuan_usd).toFixed(3);
+          drawPreview();
+          toast("Курсы подставлены, нажмите «Сохранить»", "ok");
         } catch (e) { toast(e.message, "err"); }
       } }),
       el("button.btn.btn-primary", { text: "Сохранить курсы", onclick: async () => {
-        const patch = { rate_yuan_usd: +fYuan.value, rate_som_usd: +fSom.value, rates_updated_at: new Date().toISOString() };
+        const sp = +fSom.value || 0, yp = +fYuan.value || 0;
+        if (sp <= 0 || yp <= 0) { toast("Курсы должны быть больше нуля", "err"); return; }
+        const patch = { rate_som_usd: 1 / sp, rate_yuan_usd: 1 / yp, rates_updated_at: new Date().toISOString() };
         await ctx.db.saveSettings(patch); setRates({ ...s, ...patch });
         toast("Курсы сохранены", "ok"); ctx.refresh();
       } }),
@@ -215,15 +236,19 @@ export default async function render(page, ctx) {
         { value: "fixed_usd", label: MODE_LABEL.fixed_usd },
       ], r.mode, { style: { minWidth: "140px" } });
       const fVal = input({ type: "number", step: "0.1", min: "0", value: r.value, style: { width: "100px", textAlign: "center" } });
+      // группа = название отдельной карточки на Дашборде (Иглы, Ножи…)
+      const fGroup = inputList([...new Set(rules.map(x => x.group).filter(Boolean))], { value: r.group || "", placeholder: "Группа (напр. Иглы)", style: { width: "160px" } });
 
       fKind.addEventListener("change", () => { r.kind = fKind.value; drawRules(); });
       fKey.addEventListener("input", () => { r.key = fKey.value; });
-      fMode.addEventListener("change", () => { r.mode = fMode.value; });
+      fMode.addEventListener("change", () => { r.mode = fMode.value; drawRules(); });
       fVal.addEventListener("input", () => { r.value = +fVal.value || 0; });
+      fGroup.addEventListener("input", () => { r.group = fGroup.value; });
 
       rulesBox.append(el("div.card", { style: { padding: "10px 12px", marginBottom: "8px", display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" } }, [
         fKind, fKey, fMode, fVal,
         el("span.muted", { style: { fontSize: "12px" }, text: r.mode === "fixed_usd" ? "$ с каждой штуки" : "% от суммы продажи" }),
+        fGroup,
         el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить правило", onclick: () => { rules.splice(i, 1); drawRules(); } }, ["🗑"]),
       ]));
     });
@@ -235,7 +260,7 @@ export default async function render(page, ctx) {
     el("p.muted", { text: "У разных товаров прибыль разная. Здесь можно задать: у категории «Нинала» (иглы) — 10% от выручки, у Нож-70/90/100/125 — по $5 с каждой штуки. Товары без правила считаются по общему проценту валюты с Дашборда.", style: { lineHeight: "1.55", marginBottom: "14px" } }),
     rulesBox,
     el("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "12px" } }, [
-      el("button.btn.btn-outline", { text: "+ Добавить правило", onclick: () => { rules.push({ id: "r" + Date.now(), kind: "category", key: "", mode: "pct", value: 10, note: "" }); drawRules(); } }),
+      el("button.btn.btn-outline", { text: "+ Добавить правило", onclick: () => { rules.push({ id: "r" + Date.now(), kind: "category", key: "", mode: "pct", value: 10, group: "", note: "" }); drawRules(); } }),
       el("button.btn.btn-primary", { text: "Сохранить правила", onclick: async () => {
         const bad = rules.find(r => !String(r.key || "").trim());
         if (bad) { toast("Заполните значение во всех правилах (или удалите пустое)", "err"); return; }
@@ -247,7 +272,8 @@ export default async function render(page, ctx) {
       } }),
       el("button.btn.btn-outline", { text: "Вернуть базовые (иглы 10%, ножи $5)", onclick: () => confirmDialog("Заменить все правила базовыми: иглы (Нинала) — 10%, Нож-70/90/100/125 — $5 за штуку?", () => { rules = DEFAULT_RULES.map(r => ({ ...r })); drawRules(); toast("Базовые правила подставлены — нажмите «Сохранить»", "ok"); }) }),
     ]),
-    el("div.hint", { text: "Порядок подбора: сначала точное название товара, потом «содержит в названии», потом категория. Первое подошедшее правило и применяется.", style: { marginTop: "14px", marginBottom: 0, lineHeight: "1.5" } }),
+    el("div.hint", { text: "Порядок подбора: сначала точное название товара, потом «содержит в названии», потом категория. Первое подошедшее правило и применяется.", style: { marginTop: "14px", marginBottom: "6px", lineHeight: "1.5" } }),
+    el("div.hint", { text: "«Группа» — под каким названием группа выходит отдельной карточкой на Дашборде (напр. все четыре ножа с группой «Ножи» дают одну карточку). Там же можно менять число, не заходя в Настройки.", style: { marginTop: 0, marginBottom: 0, lineHeight: "1.5" } }),
   ]);
 
   const backupCard = el("div.card", { style: { marginBottom: "18px" } }, [

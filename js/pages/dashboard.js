@@ -1,16 +1,16 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260802b";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260802b";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260802b";
-import { ensureBatches, sumQty } from "../inventory.js?v=20260802b";
-import { sparkline } from "../charts.js?v=20260802b";
-import { icon } from "../icons.js?v=20260802b";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260802b";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260802b";
-import { loadRules, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD } from "../profit.js?v=20260802b";
-import { buildAdvice } from "../advice.js?v=20260802b";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260802c";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260802c";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260802c";
+import { ensureBatches, sumQty } from "../inventory.js?v=20260802c";
+import { sparkline } from "../charts.js?v=20260802c";
+import { icon } from "../icons.js?v=20260802c";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260802c";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260802c";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260802c";
+import { buildAdvice } from "../advice.js?v=20260802c";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
@@ -82,6 +82,9 @@ function paymentsModal(title, list, cmap) {
 
 const cfg = window.APP_CONFIG || {};
 
+// подписи «в чём показаны суммы» (склонение вручную — автоматом получается «в долларх»)
+const CUR_IN = { som: "в сумах", usd: "в долларах", yuan: "в юанях" };
+
 // прибыль-%: читаем из настроек (облако) с резервом в localStorage
 function readPct(settings) {
   let p = (settings && settings.profit_pct) || null;
@@ -119,7 +122,27 @@ export default async function render(page, ctx) {
   const pct = readPct(settings);
 
   // правила прибыли по группам товаров (иглы 10%, ножи $5/шт и т.д.)
-  const rules = loadRules(settings);
+  let rules = loadRules(settings);
+
+  // Валюта отображения итогов и таблицы месяцев. Внутри всё считается в долларах,
+  // здесь только пересчёт для показа — по курсу из Настроек.
+  let curView = "usd";
+  try { const v = localStorage.getItem("gm_dash_cur"); if (v && CUR[v]) curView = v; } catch { }
+  const money = (usdAmount) => fmt(convert(usdAmount, "usd", curView), curView);
+  const curTabs = el("div.pill-tabs", {}, [
+    curTab("Сум", "som"), curTab("Доллар $", "usd"), curTab("Юань ¥", "yuan"),
+  ]);
+  function curTab(label, val) {
+    const b = el("button", { text: label, onclick: () => {
+      curView = val;
+      try { localStorage.setItem("gm_dash_cur", val); } catch { }
+      [...curTabs.children].forEach(c => c.classList.toggle("active", c.dataset.cur === val));
+      compute();
+    } });
+    b.dataset.cur = val;
+    if (val === curView) b.classList.add("active");
+    return b;
+  }
   // советы считаются по всей истории — они про «сейчас», а не про выбранный период
   const advice = buildAdvice(products, sales, rules, pct);
 
@@ -175,22 +198,15 @@ export default async function render(page, ctx) {
     // «битая» себестоимость, исключая отмеченные как проверенные (локально gm_cost_ack ИЛИ в базе cost_ack_yuan)
     const badCost = products.filter(p => Number(p.price_yuan) > 0 && Number(p.cost_yuan) > Number(p.price_yuan) && Number(ack[p.id]) !== Number(p.cost_yuan) && Number(p.cost_ack_yuan) !== Number(p.cost_yuan));
 
-    // --- оборот по валютам (нативно) + всего в $ ---
+    // --- один общий проход: итоги, разбивка по группам правил и «без правила» ---
     const pmap = Object.fromEntries(products.map(p => [p.id, p]));
-    const turnByCur = { som: 0, usd: 0, yuan: 0 };
-    fSales.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; if (turnByCur[c] !== undefined) turnByCur[c] += it.qty * it.unit_price; }));
-    const salesUSD = ["som", "usd", "yuan"].reduce((t, c) => t + toUSD(turnByCur[c], c), 0);
-    // общий % валюты — применяется только к товарам БЕЗ своего правила
+    const agg = aggregate(fSales, pmap, rules, pct);
+    const salesUSD = agg.total.rev, profitUSD = agg.total.profit, realProfitUSD = agg.total.real;
+    // ВАЖНО: в карточки «% прибыли» идёт оборот ТОЛЬКО тех товаров, у которых нет
+    // своего правила. Иглы и ножи считаются отдельными карточками ниже.
+    const turnByCur = agg.noRuleByCur;
     const profitByCur = { som: 0, usd: 0, yuan: 0 };
     ["som", "usd", "yuan"].forEach(c => profitByCur[c] = turnByCur[c] * (pct[c] || 0) / 100);
-
-    // --- ПРИБЫЛЬ ПО ПРАВИЛАМ (главная цифра) и РЕАЛЬНАЯ по себестоимости ---
-    let profitUSD = 0, realProfitUSD = 0;
-    fSales.forEach(s => (s.items || []).forEach(it => {
-      const p = pmap[it.product_id];
-      profitUSD += itemProfitUSD(it, s, p, rules, pct);
-      realProfitUSD += itemRealProfitUSD(it, s, p);
-    }));
 
     // --- дневные ряды за последние 14 дней (для мини-графиков) ---
     const DAYS = 14, today0 = new Date(); today0.setHours(0, 0, 0, 0);
@@ -315,11 +331,14 @@ export default async function render(page, ctx) {
       if (advice.length > 3) wrap.append(el("div.hint", { text: `Ещё советов: ${advice.length - 3} — смотрите в разделе «Отчёты».`, style: { marginTop: "-6px", marginBottom: "16px" } }));
     }
 
-    // оборот + прибыль (всего, $)
-    wrap.append(el("div.section-h", { text: "Оборот и прибыль " + perLabel }));
+    // оборот + прибыль (всего) — в выбранной валюте
+    wrap.append(el("div", { style: { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", margin: "28px 0 14px" } }, [
+      el("div.section-h", { text: "Оборот и прибыль " + perLabel, style: { margin: 0 } }),
+      curTabs,
+    ]));
     wrap.append(el("div.stat-grid", {}, [
       bigCard("Оборот всего", salesUSD, "wallet", true, salesSeries),
-      bigCard("Прибыль (по правилам)", profitUSD, "chart", true, profitSeries, "иглы 10% · ножи $5/шт · остальное — общий %"),
+      bigCard("Прибыль (по правилам)", profitUSD, "chart", true, profitSeries, "по правилам групп + общий % у остальных"),
       bigCard("Реальная прибыль (по себест.)", realProfitUSD, "chart", false, realProfitSeries, "для сверки, если себестоимость заполнена"),
     ]));
 
@@ -335,9 +354,9 @@ export default async function render(page, ctx) {
         const active = period === "m:" + k;
         mtb.append(el("tr" + (active ? ".month-active" : ""), { style: { cursor: "pointer" }, title: "Показать дашборд за " + monthLabel(k), onclick: () => setPeriod("m:" + k) }, [
           el("td", {}, [el("strong", { text: monthLabel(k) })]),
-          el("td", { text: "$" + Math.round(cur.rev).toLocaleString("ru-RU") }),
-          el("td", {}, [el("strong", { text: "$" + Math.round(cur.profit).toLocaleString("ru-RU"), style: { color: cur.profit >= 0 ? "#34d399" : "#f87171" } })]),
-          el("td", { text: "$" + Math.round(cur.paid).toLocaleString("ru-RU") }),
+          el("td", { text: money(cur.rev) }),
+          el("td", {}, [el("strong", { text: money(cur.profit), style: { color: cur.profit >= 0 ? "#34d399" : "#f87171" } })]),
+          el("td", { text: money(cur.paid) }),
           el("td", {}, [delta == null
             ? el("span.muted", { text: "—" })
             : el("span" + (delta >= 0 ? ".delta-up" : ".delta-down"), { text: (delta >= 0 ? "▲ " : "▼ ") + Math.abs(delta).toFixed(0) + "%" })]),
@@ -346,11 +365,20 @@ export default async function render(page, ctx) {
       wrap.append(el("div", { style: { overflowX: "auto", marginBottom: "16px" } }, [el("table.tbl", {}, [
         el("thead", {}, [el("tr", {}, ["Месяц", "Оборот", "Прибыль", "Оплачено", "К прошлому"].map(h => el("th", { text: h })))]), mtb,
       ])]));
+      wrap.append(el("div.hint", { text: "Суммы показаны " + CUR_IN[curView] + " — валюту переключайте выше, курс задаётся в Настройках.", style: { marginTop: "-10px" } }));
+    }
+
+    // ---------- ОТДЕЛЬНЫЕ КАРТОЧКИ ГРУПП (иглы, ножи, …) ----------
+    // Их оборот НЕ входит в карточки «% прибыли» ниже — у каждой группы свой расчёт.
+    const groups = ruleGroups(rules);
+    if (groups.length) {
+      wrap.append(el("div.section-h", { text: "Прибыль по группам товаров (значение можно менять прямо здесь)" }));
+      wrap.append(el("div.stat-grid", {}, groups.map(g => groupCard(g, agg.byGroup[g.group]))));
     }
 
     // оборот и прибыль по валютам (% задаёт владелец)
-    wrap.append(el("div.section-h", { text: "Оборот и прибыль по валютам (% впишите сами)" }));
-    wrap.append(el("div.hint", { text: "Этот процент применяется к товарам БЕЗ своего правила. Правила для групп (иглы, ножи…) — в Настройках → «Прибыль по группам товаров».", style: { marginTop: "-4px" } }));
+    wrap.append(el("div.section-h", { text: "Остальные товары — оборот и прибыль по валютам (% впишите сами)" }));
+    wrap.append(el("div.hint", { text: "Здесь только товары БЕЗ своего правила: оборот игл и ножей сюда не входит — у них карточки выше со своим расчётом.", style: { marginTop: "-4px" } }));
     wrap.append(el("div.stat-grid", {}, [
       profitCard("som", turnByCur.som, profitByCur.som),
       profitCard("usd", turnByCur.usd, profitByCur.usd),
@@ -402,9 +430,10 @@ export default async function render(page, ctx) {
   function bigCard(label, usd, ic, grad, series, sub) {
     const v = el("div.st-value");
     const c = el("div" + (grad ? ".stat-card.grad.reveal" : ".stat-card.reveal"), {}, [
-      el("div.st-ic", {}, [icon(ic, { size: 22 })]), el("div.st-label", { text: label }), v, el("div.st-sub", { text: sub || "в долларах · 14 дней" }),
+      el("div.st-ic", {}, [icon(ic, { size: 22 })]), el("div.st-label", { text: label }), v,
+      el("div.st-sub", { text: sub || (CUR_IN[curView] + " · 14 дней") }),
     ]);
-    animateCount(v, usd, n => "$" + Math.round(n).toLocaleString("ru-RU"));
+    animateCount(v, convert(usd, "usd", curView), n => fmt(n, curView));
     if (series && series.some(x => x > 0)) {
       const sw = el("div", { style: { marginTop: "12px" } });
       sw.innerHTML = sparkline(series, { color: grad ? "rgba(255,255,255,.85)" : "#a78bfa", height: 50 });
@@ -424,6 +453,36 @@ export default async function render(page, ctx) {
       pv,
     ]);
     animateCount(v, turn, n => fmt(n, cur));
+    return c;
+  }
+  // Карточка группы товаров со своим правилом (Иглы, Ножи, …).
+  // Оборот этой группы НЕ входит в карточки «% прибыли» по валютам.
+  // Меняем число прямо здесь → оно сохраняется во ВСЕ правила группы.
+  function groupCard(g, data) {
+    const d = data || { rev: 0, profit: 0, qty: 0 };
+    const isFixed = g.mode === "fixed_usd";
+    const v = el("div.st-value");
+    const pv = el("div", { style: { marginTop: "8px", fontWeight: "700", color: "var(--ok)" }, text: "Прибыль: " + money(d.profit) });
+    const inp = input({
+      type: "number", step: isFixed ? "0.5" : "0.1", min: "0", value: g.value,
+      style: { width: "92px", padding: "8px 10px", textAlign: "center" },
+    });
+    inp.addEventListener("change", async () => {
+      const val = +inp.value || 0;
+      rules = rules.map(r => (r.group === g.group ? { ...r, value: val } : r));
+      const res = await saveRules(ctx, rules);
+      toast(res.ok ? `${g.group}: ${isFixed ? "$" + val + " за штуку" : val + "% от выручки"}` : "Сохранили в браузере; в облако не ушло: " + res.error, res.ok ? "ok" : "err");
+      compute();
+    });
+    const c = el("div.stat-card.reveal", { style: { borderColor: "rgba(217,180,90,.35)" } }, [
+      el("div.st-label", { text: g.group + " · оборот" }), v,
+      el("div.st-sub", { text: isFixed ? `продано ${d.qty} шт · ${g.keys.length} товар(ов)` : `${g.keys.join(", ")}` }),
+      el("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginTop: "12px" } }, [
+        inp, el("span.muted", { text: isFixed ? "$ чистой прибыли за штуку" : "% прибыли" }),
+      ]),
+      pv,
+    ]);
+    animateCount(v, convert(d.rev, "usd", curView), n => fmt(n, curView));
     return c;
   }
   function curCard(label, amount, cur) {

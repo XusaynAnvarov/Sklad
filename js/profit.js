@@ -7,17 +7,19 @@
 //  Правила задаёт владелец в Настройках → «Прибыль по группам товаров».
 //  Хранятся в settings.profit_rules, резерв — localStorage.
 // ========================================================================
-import { toUSD } from "./fx.js?v=20260802b";
+import { toUSD } from "./fx.js?v=20260802c";
 
 const LS_KEY = "gm_profit_rules";
 
-// Базовые правила — подставляются, когда владелец ещё ничего не настроил
+// Базовые правила — подставляются, когда владелец ещё ничего не настроил.
+// group — под каким названием группа показывается отдельной карточкой на Дашборде.
+// Правки числа в этой карточке меняют value у ВСЕХ правил группы.
 export const DEFAULT_RULES = [
-  { id: "r_needles", kind: "category", key: "Нинала", mode: "pct", value: 10, note: "Иглы" },
-  { id: "r_knife70", kind: "name", key: "Нож-70", mode: "fixed_usd", value: 5, note: "" },
-  { id: "r_knife90", kind: "name", key: "Нож-90", mode: "fixed_usd", value: 5, note: "" },
-  { id: "r_knife100", kind: "name", key: "Нож-100", mode: "fixed_usd", value: 5, note: "" },
-  { id: "r_knife125", kind: "name", key: "Нож-125", mode: "fixed_usd", value: 5, note: "" },
+  { id: "r_needles", kind: "category", key: "Нинала", mode: "pct", value: 10, group: "Иглы", note: "" },
+  { id: "r_knife70", kind: "name", key: "Нож-70", mode: "fixed_usd", value: 5, group: "Ножи", note: "" },
+  { id: "r_knife90", kind: "name", key: "Нож-90", mode: "fixed_usd", value: 5, group: "Ножи", note: "" },
+  { id: "r_knife100", kind: "name", key: "Нож-100", mode: "fixed_usd", value: 5, group: "Ножи", note: "" },
+  { id: "r_knife125", kind: "name", key: "Нож-125", mode: "fixed_usd", value: 5, group: "Ножи", note: "" },
 ];
 
 export const KIND_LABEL = { category: "Категория", name: "Название товара", contains: "Содержит в названии" };
@@ -31,7 +33,9 @@ function normRule(r, i) {
   const key = String(r.key || "").trim();
   const value = Number(r.value) || 0;
   if (!key) return null;
-  return { id: String(r.id || "r" + i + "_" + key), kind, key, mode, value, note: String(r.note || "") };
+  // группа не задана — правило само себе группа (отдельная карточка с этим названием)
+  const group = String(r.group || "").trim() || key;
+  return { id: String(r.id || "r" + i + "_" + key), kind, key, mode, value, group, note: String(r.note || "") };
 }
 
 // правила из настроек (облако) с резервом в localStorage; пусто → базовые
@@ -102,12 +106,29 @@ export function ruleText(rule) {
   return rule.mode === "fixed_usd" ? `$${rule.value}/шт` : `${rule.value}%`;
 }
 
+// Группы правил: [{ group, mode, value, keys[] }] — по одной карточке на группу.
+// Если внутри группы правила разной величины, берём величину первого (карточка её и правит).
+export function ruleGroups(rules) {
+  const out = [];
+  (rules || []).forEach(r => {
+    let g = out.find(x => x.group === r.group);
+    if (!g) { g = { group: r.group, mode: r.mode, value: r.value, keys: [] }; out.push(g); }
+    g.keys.push(r.key);
+  });
+  return out;
+}
+
 // Пройти по всем продажам одним махом: возвращает итоги и разбивку по товарам.
 // Один общий цикл, чтобы Дашборд и Отчёты не считали каждый по-своему.
 export function aggregate(sales, pmap, rules, pct) {
   const total = { rev: 0, profit: 0, real: 0, qty: 0 };
   const byProduct = {};   // product_id → { qty, rev, profit, real }
   const byCategory = {};  // категория  → { qty, rev, profit, real }
+  const byGroup = {};     // группа правил → { qty, rev, profit, real, revCur{} }
+  // товары БЕЗ своего правила — оборот в родной валюте (для карточек «% прибыли»)
+  const noRuleByCur = { som: 0, usd: 0, yuan: 0 };
+  const noRule = { rev: 0, profit: 0, qty: 0 };
+
   (sales || []).forEach(s => (s.items || []).forEach(it => {
     const p = pmap[it.product_id];
     const rev = itemRevenueUSD(it, s);
@@ -115,11 +136,24 @@ export function aggregate(sales, pmap, rules, pct) {
     const real = itemRealProfitUSD(it, s, p);
     const qty = Number(it.qty) || 0;
     total.rev += rev; total.profit += prof; total.real += real; total.qty += qty;
+
     const a = byProduct[it.product_id] = byProduct[it.product_id] || { qty: 0, rev: 0, profit: 0, real: 0 };
     a.qty += qty; a.rev += rev; a.profit += prof; a.real += real;
+
     const cat = (p && p.category) || "Без категории";
     const c = byCategory[cat] = byCategory[cat] || { qty: 0, rev: 0, profit: 0, real: 0 };
     c.qty += qty; c.rev += rev; c.profit += prof; c.real += real;
+
+    const rule = ruleFor(p, rules);
+    const cur = (it.currency) || s.currency || "som";
+    if (rule) {
+      const g = byGroup[rule.group] = byGroup[rule.group] || { qty: 0, rev: 0, profit: 0, real: 0, mode: rule.mode, value: rule.value, revCur: { som: 0, usd: 0, yuan: 0 } };
+      g.qty += qty; g.rev += rev; g.profit += prof; g.real += real;
+      if (g.revCur[cur] !== undefined) g.revCur[cur] += (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
+    } else {
+      noRule.rev += rev; noRule.profit += prof; noRule.qty += qty;
+      if (noRuleByCur[cur] !== undefined) noRuleByCur[cur] += (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
+    }
   }));
-  return { total, byProduct, byCategory };
+  return { total, byProduct, byCategory, byGroup, noRule, noRuleByCur };
 }
