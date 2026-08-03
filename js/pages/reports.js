@@ -2,14 +2,14 @@
 //  ОТЧЁТЫ: итоги, диаграммы (месяцы · категории · сезоны · топ-полосы),
 //  сезонность товаров, советы, топ товаров/клиентов, долги и оборот.
 // ========================================================================
-import { el, modal, select } from "../ui.js?v=20260802c";
-import { curStr, toUSD } from "../fx.js?v=20260802c";
-import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260802c";
-import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText } from "../profit.js?v=20260802c";
-import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260802c";
-import { buildAdvice } from "../advice.js?v=20260802c";
-import { placeholder } from "./products.js?v=20260802c";
-import { icon } from "../icons.js?v=20260802c";
+import { el, modal, select } from "../ui.js?v=20260803b";
+import { curStr, toUSD } from "../fx.js?v=20260803b";
+import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260803b";
+import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260803b";
+import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260803b";
+import { buildAdvice } from "../advice.js?v=20260803b";
+import { placeholder } from "./products.js?v=20260803b";
+import { icon } from "../icons.js?v=20260803b";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
@@ -37,6 +37,12 @@ export default async function render(page, ctx) {
 
   // советы считаются по всей истории — они про «сейчас», а не про выбранный месяц
   const advice = buildAdvice(products, sales, rules, pct);
+
+  // подпись под «Прибыль (по правилам)» — из реальных правил, а не зашитая в код,
+  // иначе после смены значения на Дашборде текст врал бы («иглы 10%», когда там уже 15%)
+  const rulesSummary = ruleGroups(rules).length
+    ? ruleGroups(rules).map(g => `${g.group} ${g.mode === "fixed_usd" ? "$" + g.value + "/шт" : g.value + "%"}`).join(" · ") + " · остальное — общий %"
+    : "общий % по валютам";
 
   function table(headers, rows) {
     return el("div", { style: { overflowX: "auto", marginBottom: "10px" } }, [el("table.tbl", {}, [
@@ -90,7 +96,7 @@ export default async function render(page, ctx) {
     wrap.append(el("div.section-h", { text: "Итоги — " + periodLabel() + " (в $ по курсу)" }));
     wrap.append(el("div.stat-grid", {}, [
       miniCard("Выручка", agg.total.rev),
-      miniCard("Прибыль (по правилам)", agg.total.profit, agg.total.profit >= 0 ? "#34d399" : "#f87171", null, "иглы 10% · ножи $5/шт · остальное — общий %"),
+      miniCard("Прибыль (по правилам)", agg.total.profit, agg.total.profit >= 0 ? "#34d399" : "#f87171", null, rulesSummary),
       miniCard("Реальная (по себест.)", agg.total.real, agg.total.real >= 0 ? "#34d399" : "#f87171", null, "для сверки, если себестоимость заполнена"),
       miniCard("Маржа", margin, agg.total.profit >= 0 ? "#34d399" : "#f87171", margin.toFixed(1) + "%"),
     ]));

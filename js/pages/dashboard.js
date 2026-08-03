@@ -1,16 +1,16 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260802c";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260802c";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260802c";
-import { ensureBatches, sumQty } from "../inventory.js?v=20260802c";
-import { sparkline } from "../charts.js?v=20260802c";
-import { icon } from "../icons.js?v=20260802c";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260802c";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260802c";
-import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260802c";
-import { buildAdvice } from "../advice.js?v=20260802c";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260803b";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260803b";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260803b";
+import { ensureBatches, sumQty } from "../inventory.js?v=20260803b";
+import { sparkline } from "../charts.js?v=20260803b";
+import { icon } from "../icons.js?v=20260803b";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260803b";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260803b";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260803b";
+import { buildAdvice } from "../advice.js?v=20260803b";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
@@ -124,24 +124,27 @@ export default async function render(page, ctx) {
   // правила прибыли по группам товаров (иглы 10%, ножи $5/шт и т.д.)
   let rules = loadRules(settings);
 
-  // Валюта отображения итогов и таблицы месяцев. Внутри всё считается в долларах,
-  // здесь только пересчёт для показа — по курсу из Настроек.
-  let curView = "usd";
+  // Валюта отображения итогов, таблицы месяцев и карточек групп.
+  // Внутри всё считается в долларах, здесь только пересчёт для показа — по курсу из Настроек.
+  // По умолчанию — сум: владелец ведёт дела в сумах.
+  let curView = "som";
   try { const v = localStorage.getItem("gm_dash_cur"); if (v && CUR[v]) curView = v; } catch { }
   const money = (usdAmount) => fmt(convert(usdAmount, "usd", curView), curView);
-  const curTabs = el("div.pill-tabs", {}, [
-    curTab("Сум", "som"), curTab("Доллар $", "usd"), curTab("Юань ¥", "yuan"),
-  ]);
-  function curTab(label, val) {
-    const b = el("button", { text: label, onclick: () => {
-      curView = val;
-      try { localStorage.setItem("gm_dash_cur", val); } catch { }
-      [...curTabs.children].forEach(c => c.classList.toggle("active", c.dataset.cur === val));
-      compute();
-    } });
-    b.dataset.cur = val;
-    if (val === curView) b.classList.add("active");
-    return b;
+  // Переключатель нужен в нескольких местах страницы, поэтому создаём каждый раз новый
+  // элемент — все они меняют один и тот же curView и перерисовывают дашборд.
+  function makeCurTabs() {
+    const tabs = el("div.pill-tabs", {});
+    [["Сум", "som"], ["Доллар $", "usd"], ["Юань ¥", "yuan"]].forEach(([label, val]) => {
+      const b = el("button", { text: label, onclick: () => {
+        curView = val;
+        try { localStorage.setItem("gm_dash_cur", val); } catch { }
+        compute();
+      } });
+      b.dataset.cur = val;
+      if (val === curView) b.classList.add("active");
+      tabs.append(b);
+    });
+    return tabs;
   }
   // советы считаются по всей истории — они про «сейчас», а не про выбранный период
   const advice = buildAdvice(products, sales, rules, pct);
@@ -334,7 +337,7 @@ export default async function render(page, ctx) {
     // оборот + прибыль (всего) — в выбранной валюте
     wrap.append(el("div", { style: { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", margin: "28px 0 14px" } }, [
       el("div.section-h", { text: "Оборот и прибыль " + perLabel, style: { margin: 0 } }),
-      curTabs,
+      makeCurTabs(),
     ]));
     wrap.append(el("div.stat-grid", {}, [
       bigCard("Оборот всего", salesUSD, "wallet", true, salesSeries),
@@ -372,17 +375,27 @@ export default async function render(page, ctx) {
     // Их оборот НЕ входит в карточки «% прибыли» ниже — у каждой группы свой расчёт.
     const groups = ruleGroups(rules);
     if (groups.length) {
-      wrap.append(el("div.section-h", { text: "Прибыль по группам товаров (значение можно менять прямо здесь)" }));
+      wrap.append(el("div", { style: { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", margin: "28px 0 14px" } }, [
+        el("div.section-h", { text: "Прибыль по группам товаров " + perLabel, style: { margin: 0 } }),
+        makeCurTabs(),
+      ]));
+      wrap.append(el("div.hint", { text: "Значение (% или $ за штуку) можно менять прямо в карточке — оно сразу применится ко всем товарам группы.", style: { marginTop: "-4px" } }));
       wrap.append(el("div.stat-grid", {}, groups.map(g => groupCard(g, agg.byGroup[g.group]))));
     }
 
     // оборот и прибыль по валютам (% задаёт владелец)
+    const excluded = groups.map(g => g.group);
     wrap.append(el("div.section-h", { text: "Остальные товары — оборот и прибыль по валютам (% впишите сами)" }));
-    wrap.append(el("div.hint", { text: "Здесь только товары БЕЗ своего правила: оборот игл и ножей сюда не входит — у них карточки выше со своим расчётом.", style: { marginTop: "-4px" } }));
+    wrap.append(el("div.hint", {
+      text: excluded.length
+        ? `Здесь только товары БЕЗ своего правила. Суммы этих групп сюда НЕ входят: ${excluded.join(", ")} — у них карточки выше со своим расчётом.`
+        : "Здесь товары, у которых нет своего правила прибыли.",
+      style: { marginTop: "-4px" },
+    }));
     wrap.append(el("div.stat-grid", {}, [
-      profitCard("som", turnByCur.som, profitByCur.som),
-      profitCard("usd", turnByCur.usd, profitByCur.usd),
-      profitCard("yuan", turnByCur.yuan, profitByCur.yuan),
+      profitCard("som", turnByCur.som, profitByCur.som, excluded),
+      profitCard("usd", turnByCur.usd, profitByCur.usd, excluded),
+      profitCard("yuan", turnByCur.yuan, profitByCur.yuan, excluded),
     ]));
 
     // долги клиентов (по валютам, текущие)
@@ -441,17 +454,20 @@ export default async function render(page, ctx) {
     }
     return c;
   }
-  // карточка валюты: оборот (нативно) + поле «%» + прибыль
-  function profitCard(cur, turn, profit) {
+  // карточка валюты: оборот (нативно) + поле «%» + прибыль.
+  // excluded — названия групп, чьи товары сюда НЕ входят (иглы, ножи…): пишем прямо
+  // в карточке, чтобы было видно, что их суммы отсюда убраны.
+  function profitCard(cur, turn, profit, excluded) {
     const v = el("div.st-value");
     const pv = el("div", { style: { marginTop: "8px", fontWeight: "700", color: "var(--ok)" }, text: "Прибыль: " + fmt(profit, cur) });
     const inp = input({ type: "number", step: "0.1", value: pct[cur] || "", placeholder: "0", style: { width: "92px", padding: "8px 10px", textAlign: "center" } });
     inp.addEventListener("change", async () => { pct[cur] = +inp.value || 0; await savePct(ctx, pct); compute(); });
     const c = el("div.stat-card.reveal", {}, [
       el("div.st-label", { text: "Оборот · " + CUR[cur].label }), v,
+      excluded && excluded.length ? el("div.st-sub", { text: "без: " + excluded.join(", ") }) : null,
       el("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginTop: "12px" } }, [inp, el("span.muted", { text: "% прибыли" })]),
       pv,
-    ]);
+    ].filter(Boolean));
     animateCount(v, turn, n => fmt(n, cur));
     return c;
   }

@@ -272,6 +272,8 @@ select.inp{appearance:none;cursor:pointer;}
   /* поиск и фильтр категорий всегда выше карточек — чтобы тап попадал по ним */
   .toolbar { position: relative; z-index: 5; }
   .toolbar .inp, .toolbar .cselect { min-height: 46px; }
+  /* вкладки периода и валюты — под палец */
+  .pill-tabs button { min-height: 42px; padding: 8px 14px; }
   /* На телефоне карточки показываем сразу. Раньше они стартовали невидимыми
      (.reveal{opacity:0}) и проявлялись по очереди — при 866 товарах последние
      появлялись только через ~26 секунд, и казалось, что фото не грузятся. */
