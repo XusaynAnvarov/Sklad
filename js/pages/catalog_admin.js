@@ -1,10 +1,11 @@
 // ========================================================================
 //  «КАТАЛОГ» в админке — предпросмотр, ссылка, отправка клиенту через бота
 // ========================================================================
-import { el, toast, field, input } from "../ui.js?v=20260803b";
-import { sendToClient } from "../telegram.js?v=20260803b";
-import { statusOf, placeholder } from "./products.js?v=20260803b";
-import { icon } from "../icons.js?v=20260803b";
+import { el, toast, field, input } from "../ui.js?v=20260803e";
+import { sendToClient } from "../telegram.js?v=20260803e";
+import { statusOf, placeholder } from "./products.js?v=20260803e";
+import { icon } from "../icons.js?v=20260803e";
+import { thumb } from "../img.js?v=20260803e";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -49,7 +50,7 @@ export default async function render(page, ctx) {
   products.forEach(p => {
     const s = statusOf(p);
     grid.append(el("div.prod", {}, [
-      el("img.ph", { src: p.photo_url || placeholder(p.name), loading: "lazy", onerror: function(){ this.src = placeholder(p.name); } }),
+      el("img.ph", { src: p.photo_url ? thumb(p.photo_url, 200) : placeholder(p.name), loading: "lazy", decoding: "async", onerror: function(){ this.src = placeholder(p.name); } }),
       el("div.body", {}, [
         el("div.nm", { text: p.name }),
         el("div.cat", { text: p.category || "" }),

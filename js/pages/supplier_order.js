@@ -3,14 +3,15 @@
 //  себестоимость) и выгрузить в PDF (с реальными фото) или Excel (с фото),
 //  чтобы отправить поставщику. Можно сохранить как «приход (в дороге)».
 // ========================================================================
-import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260803b";
-import { fmt, CUR, convert } from "../fx.js?v=20260803b";
-import { placeholder } from "./products.js?v=20260803b";
-import { icon } from "../icons.js?v=20260803b";
-import { authHeaders } from "../db.js?v=20260803b";
-import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20260803b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260803b";
-import { showNotFound } from "./purchases.js?v=20260803b";
+import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260803e";
+import { fmt, CUR, convert } from "../fx.js?v=20260803e";
+import { placeholder } from "./products.js?v=20260803e";
+import { icon } from "../icons.js?v=20260803e";
+import { authHeaders } from "../db.js?v=20260803e";
+import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20260803e";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260803e";
+import { showNotFound } from "./purchases.js?v=20260803e";
+import { thumb } from "../img.js?v=20260803e";
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 
@@ -91,7 +92,7 @@ export default async function render(page, ctx) {
       qty.addEventListener("input", () => { it.qty = +qty.value || 0; lt.textContent = fmt(it.qty * it.cost, it.currency || state.currency); recalc(); });
       cost.addEventListener("input", () => { it.cost = +cost.value || 0; lt.textContent = fmt(it.qty * it.cost, it.currency || state.currency); recalc(); });
       itemsBox.append(el("div.card", { style: { padding: "12px", marginBottom: "10px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" } }, [
-        el("img.thumb", { src: p.photo_url || placeholder(p.name), style: { cursor: "zoom-in" }, onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
+        el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", style: { cursor: "zoom-in" }, onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
         el("div", { style: { flex: "1", minWidth: "140px", fontWeight: "600" }, text: p.name }),
         el("div", {}, [el("div.field-label", { text: "Кол-во" }), qty]),
         el("div", {}, [el("div.field-label", { text: "Себест. " + (CUR[it.currency || state.currency]?.sign || "") }), cost]),
@@ -121,7 +122,7 @@ export default async function render(page, ctx) {
       const sold = sold30[p.id] || 0, tr = transitQty[String(p.id)] || 0;
       const info = [sold > 0 ? "продано за 30 дн: " + sold : null, tr > 0 ? "в пути: " + tr : null].filter(Boolean).join(" · ") || "нет продаж за 30 дн";
       oosBox.append(el("div.card", { style: { padding: "8px 10px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } }, [
-        el("img.thumb", { src: p.photo_url || placeholder(p.name), style: { width: "42px", height: "42px", cursor: "zoom-in" }, onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
+        el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", style: { width: "42px", height: "42px", cursor: "zoom-in" }, onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
         el("div", { style: { flex: "1", minWidth: "140px" } }, [el("div", { style: { fontWeight: "600" }, text: p.name }), el("div.muted", { style: { fontSize: "11px" }, text: info })]),
         el("button" + (inCart ? ".btn.btn-outline.btn-sm" : ".btn.btn-ok.btn-sm"), { disabled: inCart, onclick: () => { addProduct(p); drawOOS(); } }, [inCart ? "✓ в заказе" : "＋ в заказ"]),
       ]));

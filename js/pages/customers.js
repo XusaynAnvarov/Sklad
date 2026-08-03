@@ -1,14 +1,15 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260803b";
-import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260803b";
-import { openEditor, buildText, deleteSale } from "./sales.js?v=20260803b";
-import { exportCustomerInvoice } from "../xlsx-export.js?v=20260803b";
-import { placeholder as placeholderImg } from "./products.js?v=20260803b";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260803b";
-import { authHeaders } from "../db.js?v=20260803b";
-import { icon } from "../icons.js?v=20260803b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260803e";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260803e";
+import { openEditor, buildText, deleteSale } from "./sales.js?v=20260803e";
+import { exportCustomerInvoice } from "../xlsx-export.js?v=20260803e";
+import { placeholder as placeholderImg } from "./products.js?v=20260803e";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260803e";
+import { authHeaders } from "../db.js?v=20260803e";
+import { icon } from "../icons.js?v=20260803e";
+import { thumb } from "../img.js?v=20260803e";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
 const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);
@@ -309,7 +310,7 @@ async function renderCard(page, ctx, id) {
       const p = pmap[pid] || { name: "?", photo_url: "" };
       tb.append(el("tr", {}, [
         el("td", {}, [el("div", { style: { display: "flex", alignItems: "center", gap: "10px" } }, [
-          el("img.thumb", { src: p.photo_url || placeholderImg(p.name), style: { width: "38px", height: "38px" }, onerror: function () { this.src = placeholderImg(p.name); } }),
+          el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 38) : placeholderImg(p.name), loading: "lazy", decoding: "async", style: { width: "38px", height: "38px" }, onerror: function () { this.src = placeholderImg(p.name); } }),
           el("strong", { text: p.name }),
         ])]),
         el("td", {}, [el("strong", { text: a.qty })]),
@@ -355,7 +356,7 @@ function buildItemsTable(s, pmap) {
     tb.append(el("tr", {}, [
       el("td", { text: (n + 1) }),
       el("td", {}, [el("div", { style: { display: "flex", alignItems: "center", gap: "8px" } }, [
-        el("img.thumb", { src: p.photo_url || placeholderImg(p.name), style: { width: "36px", height: "36px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholderImg(p.name); } }),
+        el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 38) : placeholderImg(p.name), loading: "lazy", decoding: "async", style: { width: "36px", height: "36px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholderImg(p.name); } }),
         el("span", { text: p.name }),
       ])]),
       el("td", { text: it.qty }),

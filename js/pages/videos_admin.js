@@ -4,9 +4,10 @@
 //  Смотрят только вошедшие клиенты на сайте, по временной ссылке.
 //  Видео можно привязать к товару (видно фото+имя) и переименовать.
 // ========================================================================
-import { el, toast, confirmDialog, modal, input, inputList, showLoader, hideLoader } from "../ui.js?v=20260803b";
-import { placeholder } from "./products.js?v=20260803b";
-import { icon } from "../icons.js?v=20260803b";
+import { el, toast, confirmDialog, modal, input, inputList, showLoader, hideLoader } from "../ui.js?v=20260803e";
+import { placeholder } from "./products.js?v=20260803e";
+import { icon } from "../icons.js?v=20260803e";
+import { thumb } from "../img.js?v=20260803e";
 
 export default async function renderVideosAdmin(page, ctx) {
   page.append(el("div.topbar", {}, [el("div", {}, [el("h1", { text: "Видео" }), el("div.sub", { text: "Видео запчастей — на сайте их видят только вошедшие клиенты" })])]));
@@ -53,7 +54,7 @@ export default async function renderVideosAdmin(page, ctx) {
     const prod = v.product_id ? pmap[v.product_id] : null;
     const prodCell = prod
       ? el("div", { style: { display: "flex", alignItems: "center", gap: "8px" } }, [
-          el("img.thumb", { src: prod.photo_url || placeholder(prod.name), style: { width: "34px", height: "34px" }, onerror: function () { this.src = placeholder(prod.name); } }),
+          el("img.thumb", { src: prod.photo_url ? thumb(prod.photo_url, 34) : placeholder(prod.name), loading: "lazy", decoding: "async", style: { width: "34px", height: "34px" }, onerror: function () { this.src = placeholder(prod.name); } }),
           el("span", { text: prod.name }),
         ])
       : el("span.muted", { text: "—" });

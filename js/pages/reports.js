@@ -2,14 +2,15 @@
 //  ОТЧЁТЫ: итоги, диаграммы (месяцы · категории · сезоны · топ-полосы),
 //  сезонность товаров, советы, топ товаров/клиентов, долги и оборот.
 // ========================================================================
-import { el, modal, select } from "../ui.js?v=20260803b";
-import { curStr, toUSD } from "../fx.js?v=20260803b";
-import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260803b";
-import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260803b";
-import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260803b";
-import { buildAdvice } from "../advice.js?v=20260803b";
-import { placeholder } from "./products.js?v=20260803b";
-import { icon } from "../icons.js?v=20260803b";
+import { el, modal, select } from "../ui.js?v=20260803e";
+import { curStr, toUSD } from "../fx.js?v=20260803e";
+import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260803e";
+import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260803e";
+import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260803e";
+import { buildAdvice } from "../advice.js?v=20260803e";
+import { placeholder } from "./products.js?v=20260803e";
+import { icon } from "../icons.js?v=20260803e";
+import { thumb } from "../img.js?v=20260803e";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
@@ -71,7 +72,7 @@ export default async function render(page, ctx) {
   function adviceModal(adv) {
     const box = el("div");
     (adv.items || []).forEach(x => box.append(el("div.card", { style: { padding: "10px 12px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } }, [
-      el("img.thumb", { src: x.p.photo_url || placeholder(x.p.name), style: { width: "42px", height: "42px" }, onerror: function () { this.src = placeholder(x.p.name); } }),
+      el("img.thumb", { src: x.p.photo_url ? thumb(x.p.photo_url, 42) : placeholder(x.p.name), loading: "lazy", decoding: "async", style: { width: "42px", height: "42px" }, onerror: function () { this.src = placeholder(x.p.name); } }),
       el("div", { style: { flex: "1", minWidth: "150px" } }, [
         el("div", { style: { fontWeight: "600" }, text: x.p.name }),
         el("div.muted", { style: { fontSize: "12px" }, text: x.sub || "" }),

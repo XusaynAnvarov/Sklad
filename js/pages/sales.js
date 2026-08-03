@@ -1,16 +1,17 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260803b";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260803b";
-import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient, requestOrderConfirm } from "../telegram.js?v=20260803b";
-import { placeholder } from "./products.js?v=20260803b";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260803b";
-import { icon } from "../icons.js?v=20260803b";
-import { showLoader, hideLoader } from "../ui.js?v=20260803b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260803b";
-import { exportInvoice } from "../xlsx-export.js?v=20260803b";
-import { showNotFound } from "./purchases.js?v=20260803b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260803e";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260803e";
+import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient, requestOrderConfirm } from "../telegram.js?v=20260803e";
+import { placeholder } from "./products.js?v=20260803e";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260803e";
+import { icon } from "../icons.js?v=20260803e";
+import { showLoader, hideLoader } from "../ui.js?v=20260803e";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260803e";
+import { exportInvoice } from "../xlsx-export.js?v=20260803e";
+import { showNotFound } from "./purchases.js?v=20260803e";
+import { thumb } from "../img.js?v=20260803e";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -215,7 +216,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       pr.addEventListener("input", () => { it.unit_price = +pr.value || 0; it.price_yuan_norm = round(convert(it.unit_price, it.currency, "yuan")); upd(); });
       fCur.addEventListener("change", () => { it.currency = fCur.value; it.price_yuan_norm = round(convert(it.unit_price, it.currency, "yuan")); upd(); });
       itemsBox.append(el("div.card.sale-item", { style: { padding: "10px 12px", marginBottom: "9px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } }, [
-        el("img.thumb", { src: p.photo_url || placeholder(p.name), style: { cursor: "zoom-in" }, onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
+        el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", style: { cursor: "zoom-in" }, onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
         el("div", { style: { flex: "1", minWidth: "130px" } }, [el("div", { text: p.name, style: { fontWeight: "600" } }), stockEl, infoEl]),
         el("div", {}, [el("div.field-label", { text: "Кол-во" }), q]),
         el("div", {}, [el("div.field-label", { text: "Цена" }), pr]),

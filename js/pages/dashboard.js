@@ -1,16 +1,17 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260803b";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260803b";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260803b";
-import { ensureBatches, sumQty } from "../inventory.js?v=20260803b";
-import { sparkline } from "../charts.js?v=20260803b";
-import { icon } from "../icons.js?v=20260803b";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260803b";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260803b";
-import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260803b";
-import { buildAdvice } from "../advice.js?v=20260803b";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260803e";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260803e";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260803e";
+import { ensureBatches, sumQty } from "../inventory.js?v=20260803e";
+import { sparkline } from "../charts.js?v=20260803e";
+import { icon } from "../icons.js?v=20260803e";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260803e";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260803e";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260803e";
+import { buildAdvice } from "../advice.js?v=20260803e";
+import { thumb } from "../img.js?v=20260803e";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
@@ -24,7 +25,7 @@ function productListModal(title, list, onPick, onZero, badgeText) {
     const f = list.filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
     if (!f.length) { box.append(el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Ничего нет" })])); return; }
     f.forEach(p => box.append(el("div.card", { style: { padding: "10px 12px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center", cursor: onPick ? "pointer" : "default" }, title: onPick ? "Открыть и изменить" : "", onclick: onPick ? () => { m && m.close(); onPick(p); } : null }, [
-      el("img.thumb", { src: p.photo_url || placeholder(p.name), style: { width: "38px", height: "38px" }, onerror: function () { this.src = placeholder(p.name); } }),
+      el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 38) : placeholder(p.name), loading: "lazy", decoding: "async", style: { width: "38px", height: "38px" }, onerror: function () { this.src = placeholder(p.name); } }),
       el("div", { style: { flex: "1" } }, [el("div", { style: { fontWeight: "600" }, text: p.name }), onPick ? el("div.muted", { style: { fontSize: "11px" }, text: "нажмите, чтобы изменить" }) : null]),
       badgeText ? el("span.badge.transit", { text: badgeText(p) }) : el("span" + (Number(p.stock_qty) > 0 ? ".badge.ok" : ".badge.order"), { text: "ост: " + (Number(p.stock_qty) || 0) }),
       ...(onZero ? [el("button.btn.btn-danger.btn-sm", { title: "Нет в наличии — обнулить остаток", onclick: async (e) => { e.stopPropagation(); try { await onZero(p); const i = list.indexOf(p); if (i >= 0) list.splice(i, 1); draw(search.value); toast("Остаток обнулён", "ok"); } catch (err) { toast("Ошибка: " + (err.message || err), "err"); } } }, ["→ 0"])] : []),

@@ -1,9 +1,10 @@
 // ========================================================================
 //  ПУБЛИЧНЫЙ КАТАЛОГ — только фото, название, категория и статус (без цен)
 // ========================================================================
-import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20260803b";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260803b";
-import { iconSvg } from "./icons.js?v=20260803b";
+import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20260803e";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260803e";
+import { iconSvg } from "./icons.js?v=20260803e";
+import { thumb } from "./img.js?v=20260803e";
 
 // увеличение фото по клику (повторный клик — закрыть)
 function openLightbox(src) {
@@ -126,7 +127,7 @@ function cardHtml(p, i) {
   const mainPhoto = (p.photos && p.photos.length) ? p.photos[0] : p.photo_url;
   return `<div class="prod reveal" data-id="${id}" style="animation-delay:${(i % 12) * 0.03}s">
       <div style="position:relative">
-        <img class="ph" loading="lazy" style="cursor:zoom-in" src="${escapeHtml(mainPhoto || placeholder(p.name))}" data-ph="${escapeHtml(placeholder(p.name))}" onerror="this.src=this.dataset.ph" />
+        <img class="ph" loading="lazy" decoding="async" style="cursor:zoom-in" src="${escapeHtml(mainPhoto ? thumb(mainPhoto, 320) : placeholder(p.name))}" data-full="${escapeHtml(mainPhoto || "")}" data-ph="${escapeHtml(placeholder(p.name))}" onerror="if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full}else{this.src=this.dataset.ph}" />
         ${np >= 1 ? `<span style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;pointer-events:none">📷 ${np}</span>` : ""}
         ${p.is_new ? `<span style="position:absolute;right:8px;top:8px;background:var(--accent,#4f7cf0);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">Новый</span>` : ""}
       </div>
@@ -221,7 +222,7 @@ function wirePdfButton() {
     if (!items.length) return;
     btn.disabled = true;
     try {
-      const m = await import("./catalog-pdf.js?v=20260803b");
+      const m = await import("./catalog-pdf.js?v=20260803e");
       await m.downloadCatalogPDF(groupByCategory(items), (done, total) => {   // PDF — всегда все товары
         btn.textContent = `Готовим PDF… ${done}/${total}`;
       });
@@ -329,7 +330,7 @@ function renderOrderView() {
     const p = byId(id) || { name: "?", photo_url: "" };
     const oos = p.status && p.status !== "in_stock";
     const row = document.createElement("div"); row.className = "ov-row" + (oos ? " oos" : ""); row.setAttribute("data-id", id);
-    row.innerHTML = `<img class="ov-ph" src="${escapeHtml(p.photo_url || placeholder(p.name))}" data-ph="${escapeHtml(placeholder(p.name))}" onerror="this.src=this.dataset.ph"/>
+    row.innerHTML = `<img class="ov-ph" loading="lazy" decoding="async" src="${escapeHtml(p.photo_url ? thumb(p.photo_url, 160) : placeholder(p.name))}" data-full="${escapeHtml(p.photo_url || "")}" data-ph="${escapeHtml(placeholder(p.name))}" onerror="if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full}else{this.src=this.dataset.ph}"/>
       <div class="ov-nm">${escapeHtml(p.name)}${oos ? `<span class="ov-oos">${iconSvg("x", { size: 11 })} нет в наличии</span>` : ""}</div>
       <div class="qrow"><button class="qbtn minus" type="button">−</button><input class="qinp" type="number" inputmode="numeric" min="0" value="${qty}"><button class="qbtn plus" type="button">＋</button></div>
       <button class="qbtn del" type="button" title="Удалить">${iconSvg("trash", { size: 16 })}</button>`;
@@ -340,7 +341,7 @@ function renderOrderView() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=93", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=96", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();

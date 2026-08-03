@@ -1,12 +1,13 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260803b";
-import { icon } from "../icons.js?v=20260803b";
-import { fmt, convert } from "../fx.js?v=20260803b";
-import { consumeFIFO, ensureBatches, sumQty, currentCost } from "../inventory.js?v=20260803b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260803b";
-import { openEditor } from "./sales.js?v=20260803b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260803e";
+import { icon } from "../icons.js?v=20260803e";
+import { fmt, convert } from "../fx.js?v=20260803e";
+import { consumeFIFO, ensureBatches, sumQty, currentCost } from "../inventory.js?v=20260803e";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260803e";
+import { openEditor } from "./sales.js?v=20260803e";
+import { thumbAttrs } from "../img.js?v=20260803e";
 
 // себестоимость в той валюте, в которой её ввели (cost_cur). По умолчанию — юань.
 function costShow(cy, cu, ccur) {
@@ -39,6 +40,9 @@ export function statusBadge(p) {
 }
 
 const WAREHOUSE_NEW_DAYS = 7;
+// догрузчик текущего показа списка — сюда пишет render(), а единственный
+// слушатель прокрутки только вызывает его (см. ниже)
+let loadMore = null;
 const freshness = p => Math.max(
   p.created_at ? +new Date(p.created_at) : 0,
   p.last_arrival_at ? +new Date(p.last_arrival_at) : 0
@@ -142,11 +146,19 @@ export default async function render(page, ctx) {
     if (io) { io.unobserve(sentinel); if (shown < drawList.length) io.observe(sentinel); else { sentinel.remove(); sentinel = null; } }
   }
 
-  // страховка: если IntersectionObserver не сработал — догружаем по прокрутке
-  window.addEventListener("scroll", () => {
+  // Страховка: если IntersectionObserver не сработал — догружаем по прокрутке.
+  // Слушатель на window вешаем ОДИН раз за всё время жизни вкладки: раньше он
+  // добавлялся при каждом заходе в «Товары» и никогда не снимался — после
+  // нескольких переходов на каждое движение пальца работали десятки копий,
+  // и телефон вставал колом.
+  loadMore = () => {
     if (!drawList.length || shown >= drawList.length) return;
     if (document.documentElement.scrollHeight - (window.scrollY + window.innerHeight) < 700) appendChunk();
-  }, { passive: true });
+  };
+  if (!window.__gmProdScrollBound) {
+    window.__gmProdScrollBound = true;
+    window.addEventListener("scroll", () => { if (loadMore) loadMore(); }, { passive: true });
+  }
 
   function renderCards(list) {
     list.forEach(p => {
@@ -160,9 +172,10 @@ export default async function render(page, ctx) {
         text: "🚚 В дороге: " + tr.qty + " шт" + (tr.suppliers.size ? " · " + [...tr.suppliers].join(", ") : ""),
       }) : null;
       const card = el("div.prod.reveal", { onclick: () => openForm(ctx, p, cats) }, [
-        el("img.ph", { src: p.photo_url || placeholder(p.name), alt: p.name, loading: "lazy", title: "Нажмите для увеличения",
-          onclick: (e) => { const ph = (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []); if (ph.length) { e.stopPropagation(); lightbox(ph); } },
-          onerror: function () { this.src = placeholder(p.name); } }),
+        // в списке — миниатюра (иначе сотни полноразмерных фото вешают телефон);
+        // при увеличении открываются оригиналы
+        el("img.ph", { ...thumbAttrs(p.photo_url, placeholder(p.name), 320), alt: p.name, title: "Нажмите для увеличения",
+          onclick: (e) => { const ph = (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []); if (ph.length) { e.stopPropagation(); lightbox(ph); } } }),
         el("div.body", {}, [
           el("div.nm", { text: p.name }),
           el("div.cat", { text: p.category || "—" }),

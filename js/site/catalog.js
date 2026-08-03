@@ -1,7 +1,8 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20260803b";
-import { t } from "./app.js?v=20260803b";
-import { openLogin } from "./auth.js?v=20260803b";
+import { api, isLoggedIn } from "./api.js?v=20260803e";
+import { t } from "./app.js?v=20260803e";
+import { openLogin } from "./auth.js?v=20260803e";
+import { thumb } from "../img.js?v=20260803e";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
@@ -204,9 +205,14 @@ function buildCard(p) {
   const imgWrap = mkEl("div", "product-card-img");
   if (photos.length) {
     const img = document.createElement("img");
-    img.src = photos[0]; img.alt = p.name;
-    img.loading = "lazy"; img.style.cursor = "zoom-in";
-    img.onerror = () => { imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`; };
+    // в сетке — миниатюра: сотни полноразмерных фото занимают в памяти телефона
+    // гигабайты и браузер зависает. В галерее по клику открываются оригиналы.
+    img.src = thumb(photos[0], 320); img.alt = p.name;
+    img.loading = "lazy"; img.decoding = "async"; img.style.cursor = "zoom-in";
+    img.onerror = () => {
+      if (img.src !== photos[0]) { img.src = photos[0]; return; }   // миниатюра не вышла — берём оригинал
+      imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`;
+    };
     img.addEventListener("click", (e) => { e.stopPropagation(); openGallery(photos, 0, p.name); });
     imgWrap.append(img);
     {

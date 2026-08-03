@@ -1,14 +1,15 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260803b";
-import { fmt, CUR, convert } from "../fx.js?v=20260803b";
-import { placeholder } from "./products.js?v=20260803b";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260803b";
-import { icon } from "../icons.js?v=20260803b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260803b";
-import { notifyOwner } from "../telegram.js?v=20260803b";
-import { authHeaders } from "../db.js?v=20260803b";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260803e";
+import { fmt, CUR, convert } from "../fx.js?v=20260803e";
+import { placeholder } from "./products.js?v=20260803e";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260803e";
+import { icon } from "../icons.js?v=20260803e";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260803e";
+import { notifyOwner } from "../telegram.js?v=20260803e";
+import { authHeaders } from "../db.js?v=20260803e";
+import { thumb } from "../img.js?v=20260803e";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
@@ -45,7 +46,7 @@ function showPurchaseItems(s, products) {
   const rows = (s.items || []).map(it => {
     const p = pmap[it.product_id] || { name: "?" };
     return el("div.card", { style: { padding: "8px 10px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center" } }, [
-      el("img.thumb", { src: p.photo_url || placeholder(p.name), style: { width: "60px", height: "60px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
+      el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", style: { width: "60px", height: "60px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
       el("div", { style: { flex: "1", minWidth: "0", fontWeight: "600" }, text: p.name }),
       el("div", { style: { fontWeight: "700", whiteSpace: "nowrap", fontSize: "15px" }, text: "× " + it.qty }),
     ]);
@@ -235,7 +236,7 @@ function openEditor(ctx, purchase, products, suppliers = []) {
       qty.addEventListener("input", () => { it.qty = +qty.value || 0; lt.textContent = fmt(it.qty * it.unit_cost, state.currency); recalc(); });
       cost.addEventListener("input", () => { it.unit_cost = +cost.value || 0; it.currency = state.currency; lt.textContent = fmt(it.qty * it.unit_cost, state.currency); recalc(); });
       itemsBox.append(el("div.card", { style: { padding: "12px", marginBottom: "10px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" } }, [
-        el("img.thumb", { src: p.photo_url || placeholder(p.name), onerror: function(){ this.src = placeholder(p.name); } }),
+        el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", onerror: function(){ this.src = placeholder(p.name); } }),
         el("div", { style: { flex: "1", minWidth: "140px", fontWeight: "600" }, text: p.name }),
         el("div", {}, [el("div.field-label", { text: "Кол-во" }), qty]),
         el("div", {}, [el("div.field-label", { text: "Себест. " + CUR[state.currency].sign }), cost]),

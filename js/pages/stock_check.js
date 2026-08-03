@@ -6,11 +6,12 @@
 //  C. Товары в минусе (+ быстрый ввод прихода)
 //  D. Заказы не оформлены (склад ещё не трогали — это норма)
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260803b";
-import { icon } from "../icons.js?v=20260803b";
-import { ensureBatches, sumQty, costAfter, returnToStock, currentCost } from "../inventory.js?v=20260803b";
-import { placeholder } from "./products.js?v=20260803b";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260803b";
+import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260803e";
+import { icon } from "../icons.js?v=20260803e";
+import { ensureBatches, sumQty, costAfter, returnToStock, currentCost } from "../inventory.js?v=20260803e";
+import { placeholder } from "./products.js?v=20260803e";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260803e";
+import { thumb } from "../img.js?v=20260803e";
 
 export default async function render(page, ctx) {
   const [products, sales] = await Promise.all([ctx.db.products.list(), ctx.db.sales.list()]);
@@ -101,7 +102,7 @@ export default async function render(page, ctx) {
         finally { hideLoader(); }
       });
       negBox.append(el("div.card", { style: { padding: "10px 12px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } }, [
-        el("img.thumb", { src: p.photo_url || placeholder(p.name), style: { width: "40px", height: "40px" }, onerror: function () { this.src = placeholder(p.name); } }),
+        el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 40) : placeholder(p.name), loading: "lazy", decoding: "async", style: { width: "40px", height: "40px" }, onerror: function () { this.src = placeholder(p.name); } }),
         el("div", { style: { flex: "1", minWidth: "140px" } }, [
           el("div", { style: { fontWeight: "600" }, text: p.name }),
           el("div", { style: { fontSize: "12px", color: "var(--danger,#f87171)", fontWeight: "700" }, text: "не хватает: " + need }),

@@ -5,9 +5,9 @@
 //  Три группы: сезон · деньги · склад.
 //  Используют и Отчёты (полный список), и Дашборд (топ-3).
 // ========================================================================
-import { seasonOf, nextSeason, SEASON_LABEL, SEASON_ICON } from "./period.js?v=20260803b";
-import { itemRevenueUSD, itemProfitUSD, ruleFor } from "./profit.js?v=20260803b";
-import { ensureBatches } from "./inventory.js?v=20260803b";
+import { seasonOf, nextSeason, SEASON_LABEL, SEASON_ICON } from "./period.js?v=20260803e";
+import { itemRevenueUSD, itemProfitUSD, ruleFor } from "./profit.js?v=20260803e";
+import { ensureBatches } from "./inventory.js?v=20260803e";
 
 const DAY = 86400000;
 const LOW_STOCK = 5;          // «заканчивается»
