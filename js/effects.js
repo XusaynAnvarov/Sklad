@@ -3,7 +3,7 @@
 //  Используется и в админке, и в каталоге.
 // ========================================================================
 
-import { iconSvg } from "./icons.js?v=20260803e";
+import { iconSvg } from "./icons.js?v=20260803f";
 
 const THEME_KEY = "sklad_theme";
 
@@ -29,6 +29,13 @@ export function initCursorGlow() {
 export function initStarfield() {
   if (document.querySelector(".bg-stars")) return;
   if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  // НЕ запускаем на телефонах и планшетах. Каждый кадр рисуется до 90 кругов
+  // со свечением (shadowBlur) — это самая тяжёлая операция canvas, и 60 раз в
+  // секунду она съедает весь процессор: страница с товарами намертво зависала.
+  // На узких экранах фон и так скрыт стилями — а раньше он оставался невидимым,
+  // но продолжал рисоваться.
+  if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return;
+  if (window.innerWidth <= 860) return;
   const canvas = document.createElement("canvas");
   canvas.className = "bg-stars";
   document.body.appendChild(canvas);
@@ -70,8 +77,9 @@ export function initStarfield() {
   }
 
   function frame() {
+    // вкладка скрыта — полностью останавливаем цикл, а не крутим его вхолостую
+    if (document.hidden) { raf = 0; return; }
     raf = requestAnimationFrame(frame);
-    if (document.hidden) return;
     if ((document.documentElement.getAttribute("data-theme") || "light") !== "dark") { ctx.clearRect(0, 0, w, h); return; } // частицы только на тёмной
     ctx.clearRect(0, 0, w, h);
     for (const s of stars) {
@@ -91,6 +99,8 @@ export function initStarfield() {
   }
 
   addEventListener("resize", resize, { passive: true });
+  // вернулись на вкладку — запускаем цикл заново
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && !raf) frame(); });
   resize();
   frame();
 }
