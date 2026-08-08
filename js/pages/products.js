@@ -1,13 +1,13 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260803f";
-import { icon } from "../icons.js?v=20260803f";
-import { fmt, convert } from "../fx.js?v=20260803f";
-import { consumeFIFO, ensureBatches, sumQty, currentCost } from "../inventory.js?v=20260803f";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260803f";
-import { openEditor } from "./sales.js?v=20260803f";
-import { thumbAttrs } from "../img.js?v=20260803f";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260808a";
+import { icon } from "../icons.js?v=20260808a";
+import { fmt, convert } from "../fx.js?v=20260808a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260808a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260808a";
+import { openEditor } from "./sales.js?v=20260808a";
+import { thumbAttrs } from "../img.js?v=20260808a";
 
 // себестоимость в той валюте, в которой её ввели (cost_cur). По умолчанию — юань.
 function costShow(cy, cu, ccur) {
@@ -17,15 +17,35 @@ function costShow(cy, cu, ccur) {
   return fmt(cy, "yuan");
 }
 
+// Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
+// а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
+// когда приход сразу перезаписывал цену. Если склад пуст — берём сохранённое.
+function costLine(p) {
+  const o = costOutlook(ensureBatches(p));
+  const cy = o ? o.cost_yuan : (Number(p.cost_yuan) || 0);
+  const cu = o ? o.cost_usd : (Number(p.cost_usd) || 0);
+  let note = "";
+  if (o && o.next) {
+    const up = (Number(o.next.cost_yuan) || 0) > cy;
+    note = `  · ещё ${o.qty} шт, дальше ${costShow(o.next.cost_yuan, o.next.cost_usd, p.cost_cur)}${up ? " ↑" : " ↓"}`;
+  }
+  return { text: "себест: " + costShow(cy, cu, p.cost_cur), note };
+}
+
 // список партий товара (FIFO) для карточки
 function batchesView(p) {
   const bs = (Array.isArray(p.batches) ? p.batches : []).filter(b => Number(b.qty) > 0);
   if (!bs.length) return el("div");
+  const o = costOutlook(bs);
   return el("div", { style: { margin: "4px 0 12px" } }, [
     el("div.field-label", { text: "Партии на складе (сначала продаётся верхняя):" }),
     el("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" } },
       bs.map(b => el("span.last-price", { text: `${b.qty} × ${costShow(b.cost_yuan, b.cost_usd, p.cost_cur)} · ${(b.date || "").slice(0, 10)}` }))),
-  ]);
+    (o && o.next) ? el("div.hint", {
+      text: `Сейчас продаётся по ${costShow(o.cost_yuan, o.cost_usd, p.cost_cur)} — осталось ${o.qty} шт. Дальше себестоимость станет ${costShow(o.next.cost_yuan, o.next.cost_usd, p.cost_cur)}.`,
+      style: { marginTop: "8px", marginBottom: 0 },
+    }) : null,
+  ].filter(Boolean));
 }
 
 export function statusOf(p) {
@@ -193,9 +213,10 @@ export default async function render(page, ctx) {
               style: (Number(p.stock_qty) || 0) < 0 ? { color: "var(--danger,#f87171)", fontWeight: "700" } : {},
             }),
           ]),
-          el("div.pr", {}, ["себест: " + costShow(p.cost_yuan, p.cost_usd, p.cost_cur),
-            (p.cost_prev && Number(p.cost_prev.cost_yuan) > 0 && Math.abs(Number(p.cost_prev.cost_yuan) - Number(p.cost_yuan)) > 0.001)
-              ? el("span.muted", { text: "  (было " + costShow(p.cost_prev.cost_yuan, p.cost_prev.cost_usd, p.cost_cur) + ")", style: { fontSize: "11px" } }) : null]),
+          // себестоимость = цена партии, которая продаётся сейчас; если следом лежит
+          // партия с другой ценой — сразу видно, сколько осталось и почём будет дальше
+          (() => { const c = costLine(p); return el("div.pr", {}, [c.text,
+            c.note ? el("span.muted", { text: c.note, style: { fontSize: "11px", fontWeight: "500" } }) : null]); })(),
         ]),
       ]);
       grid.append(card);

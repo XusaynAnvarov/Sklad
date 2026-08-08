@@ -12,6 +12,22 @@ export function currentCost(batches) {
   const b = (batches || []).find(x => (Number(x.qty) || 0) > 0) || (batches || [])[0];
   return b ? { cost_yuan: Number(b.cost_yuan) || 0, cost_usd: Number(b.cost_usd) || 0 } : { cost_yuan: 0, cost_usd: 0 };
 }
+// Что с ценой прямо сейчас и что будет дальше.
+// Пока не распродана старая (дешёвая) партия, себестоимость держится на ней;
+// когда она кончится, в дело идёт следующая — уже по новой цене.
+// Возвращает { cost_yuan, cost_usd, qty, next } или null, если на складе пусто.
+//   qty  — сколько ещё продадим по текущей цене (партии подряд с одинаковой ценой складываем)
+//   next — цена следующей партии или null, если других цен нет
+export function costOutlook(batches) {
+  const list = (batches || []).filter(b => (Number(b.qty) || 0) > 0);
+  if (!list.length) return null;
+  const cy = Number(list[0].cost_yuan) || 0, cu = Number(list[0].cost_usd) || 0;
+  const same = (b) => Math.abs((Number(b.cost_yuan) || 0) - cy) < 0.001 && Math.abs((Number(b.cost_usd) || 0) - cu) < 0.001;
+  let qty = 0, i = 0;
+  for (; i < list.length && same(list[i]); i++) qty += Number(list[i].qty) || 0;
+  const nb = list[i];
+  return { cost_yuan: cy, cost_usd: cu, qty, next: nb ? { cost_yuan: Number(nb.cost_yuan) || 0, cost_usd: Number(nb.cost_usd) || 0 } : null };
+}
 // себестоимость для сохранения: из партий, а если склад пуст — СОХРАНЯЕМ прежнюю цену (не обнуляем)
 export function costAfter(batches, prev) {
   if ((batches || []).some(b => (Number(b.qty) || 0) > 0)) return currentCost(batches);

@@ -1,15 +1,15 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260803f";
-import { fmt, CUR, convert } from "../fx.js?v=20260803f";
-import { placeholder } from "./products.js?v=20260803f";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260803f";
-import { icon } from "../icons.js?v=20260803f";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260803f";
-import { notifyOwner } from "../telegram.js?v=20260803f";
-import { authHeaders } from "../db.js?v=20260803f";
-import { thumb } from "../img.js?v=20260803f";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260808a";
+import { fmt, CUR, convert } from "../fx.js?v=20260808a";
+import { placeholder } from "./products.js?v=20260808a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260808a";
+import { icon } from "../icons.js?v=20260808a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260808a";
+import { notifyOwner } from "../telegram.js?v=20260808a";
+import { authHeaders } from "../db.js?v=20260808a";
+import { thumb } from "../img.js?v=20260808a";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
@@ -139,7 +139,9 @@ async function arrive(ctx, s, products) {
   });
 }
 
-// добавить количества на склад + обновить себестоимость на цену нового прихода (прошлую запомнить)
+// Добавить количества на склад. Себестоимость НЕ перескакивает на цену нового
+// прихода: пока лежит старая партия, она и продаётся, значит и цена показывается её.
+// Новая цена вступит в силу сама, когда FIFO доест старую партию (costAfter в продажах).
 async function applyArrival(ctx, s, products) {
   for (const it of s.items || []) {
     const p = products.find(x => x.id === it.product_id);
@@ -147,19 +149,17 @@ async function applyArrival(ctx, s, products) {
     const cur = it.currency || s.currency;
     const cy = Math.round(convert(it.unit_cost, cur, "yuan") * 100) / 100;
     const cu = Math.round(convert(it.unit_cost, cur, "usd") * 100) / 100;
-    const prev = { cost_yuan: Number(p.cost_yuan) || 0, cost_usd: Number(p.cost_usd) || 0 }; // себестоимость ДО прихода
-    // FIFO: добавляем новую партию (старые партии не трогаем — продаются первыми)
+    // FIFO: добавляем новую партию в конец (старые партии не трогаем — продаются первыми)
     const batches = ensureBatches(p);
     batches.push({ qty: Number(it.qty) || 0, cost_yuan: cy, cost_usd: cu, date: s.date || new Date().toISOString() });
     p.batches = batches;
-    // текущая себестоимость = цена нового прихода; прошлую запоминаем, если изменилась
-    const changed = (prev.cost_yuan || prev.cost_usd) && (Math.abs(prev.cost_yuan - cy) > 0.001 || Math.abs(prev.cost_usd - cu) > 0.001);
-    const cost_prev = changed ? prev : (p.cost_prev || null);
-    p.cost_yuan = cy; p.cost_usd = cu; if (cost_prev) p.cost_prev = cost_prev;
-    const base = { id: p.id, stock_qty: sumQty(batches), cost_yuan: cy, cost_usd: cu, last_arrival_at: new Date().toISOString() };
-    const ext = { ...base, batches, ...(cost_prev ? { cost_prev } : {}) };
-    try { await ctx.db.products.upsert(ext); }
-    catch (e) { try { await ctx.db.products.upsert({ ...base, batches }); } catch (e2) { await ctx.db.products.upsert(base); } }
+    // текущая себестоимость = цена СТАРЕЙШЕЙ непустой партии.
+    // Если склада не было (или был минус) — это и будет цена нового прихода.
+    const cc = costAfter(batches, { cost_yuan: cy, cost_usd: cu });
+    p.cost_yuan = cc.cost_yuan; p.cost_usd = cc.cost_usd;
+    const base = { id: p.id, stock_qty: sumQty(batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, last_arrival_at: new Date().toISOString() };
+    try { await ctx.db.products.upsert({ ...base, batches }); }
+    catch (e) { await ctx.db.products.upsert(base); }
   }
 }
 

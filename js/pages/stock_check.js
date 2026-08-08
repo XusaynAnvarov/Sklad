@@ -4,14 +4,17 @@
 //  A. Накладные оформлены, но товар не списан
 //  B. Остаток не сходится с партиями
 //  C. Товары в минусе (+ быстрый ввод прихода)
-//  D. Заказы не оформлены (склад ещё не трогали — это норма)
+//  D. Себестоимость не совпадает с партиями (её перезаписывал приход)
+//  E. Новый приход дороже цены продажи
+//  F. Заказы не оформлены (склад ещё не трогали — это норма)
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260803f";
-import { icon } from "../icons.js?v=20260803f";
-import { ensureBatches, sumQty, costAfter, returnToStock, currentCost } from "../inventory.js?v=20260803f";
-import { placeholder } from "./products.js?v=20260803f";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260803f";
-import { thumb } from "../img.js?v=20260803f";
+import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260808a";
+import { icon } from "../icons.js?v=20260808a";
+import { fmt } from "../fx.js?v=20260808a";
+import { ensureBatches, sumQty, costAfter, returnToStock, currentCost, costOutlook } from "../inventory.js?v=20260808a";
+import { placeholder } from "./products.js?v=20260808a";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260808a";
+import { thumb } from "../img.js?v=20260808a";
 
 export default async function render(page, ctx) {
   const [products, sales] = await Promise.all([ctx.db.products.list(), ctx.db.sales.list()]);
@@ -31,7 +34,28 @@ export default async function render(page, ctx) {
     .sort((a, b) => (Number(a.stock_qty) || 0) - (Number(b.stock_qty) || 0));
   const pending = sales.filter(s => ["order", "pending_confirm", "confirmed"].includes(s.status));
 
-  const allGood = !unapplied.length && !mismatch.length && !negative.length;
+  // себестоимость товара разошлась с ценой старейшей партии.
+  // Так осталось от старого поведения: приход сразу перезаписывал цену на новую,
+  // хотя старая (дешёвая) партия ещё лежала на складе.
+  const costOff = products.map(p => {
+    const bs = ensureBatches(p);
+    if (!bs.some(b => (Number(b.qty) || 0) > 0)) return null;      // склад пуст — цену не трогаем
+    const cc = currentCost(bs);
+    const off = Math.abs((Number(p.cost_yuan) || 0) - cc.cost_yuan) > 0.001
+             || Math.abs((Number(p.cost_usd) || 0) - cc.cost_usd) > 0.001;
+    return off ? { p, was: { cost_yuan: Number(p.cost_yuan) || 0, cost_usd: Number(p.cost_usd) || 0 }, now: cc, batches: bs } : null;
+  }).filter(Boolean);
+
+  // новый приход дороже цены продажи: пока продаём старый товар — всё хорошо,
+  // но как только он кончится, начнём торговать в убыток
+  const nextTooPricey = products.map(p => {
+    const price = Number(p.price_yuan) || 0; if (price <= 0) return null;
+    const o = costOutlook(ensureBatches(p));
+    if (!o || !o.next || o.next.cost_yuan <= price) return null;
+    return { p, o, price };
+  }).filter(Boolean).sort((a, b) => (b.o.next.cost_yuan - b.price) - (a.o.next.cost_yuan - a.price));
+
+  const allGood = !unapplied.length && !mismatch.length && !negative.length && !costOff.length && !nextTooPricey.length;
   if (allGood) {
     page.append(el("div.card", { style: { padding: "18px", marginBottom: "16px", borderColor: "rgba(52,211,153,.4)", background: "rgba(52,211,153,.06)" } }, [
       el("div", { style: { display: "flex", alignItems: "center", gap: "10px" } }, [
@@ -118,7 +142,50 @@ export default async function render(page, ctx) {
     body: negative.length ? negBox : null,
   });
 
-  // ---------- D. Заказы не оформлены ----------
+  // ---------- D. Себестоимость разошлась с партиями ----------
+  block(page, {
+    ic: "tag", danger: costOff.length > 0,
+    title: `Себестоимость не совпадает с партиями: ${costOff.length}`,
+    text: "Раньше приход сразу ставил новую цену, даже если старый (дешёвый) товар ещё лежал на складе. Пересчёт вернёт цену той партии, которая продаётся сейчас.",
+    list: costOff.slice(0, 50).map(x => ({
+      p: x.p,
+      right: `${fmt(x.was.cost_yuan, "yuan")} → ${fmt(x.now.cost_yuan, "yuan")}`,
+    })),
+    actions: costOff.length ? [
+      { label: "Пересчитать по партиям", kind: "btn-primary", onClick: () => confirmDialog(`Вернуть себестоимость по партиям у ${costOff.length} товаров?`, async () => {
+        showLoader("Пересчитываем…");
+        try {
+          for (const x of costOff) {
+            const base = { id: x.p.id, cost_yuan: x.now.cost_yuan, cost_usd: x.now.cost_usd };
+            try { await ctx.db.products.upsert({ ...base, batches: x.batches }); } catch { await ctx.db.products.upsert(base); }
+          }
+          toast("Себестоимость пересчитана", "ok"); ctx.refresh();
+        } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
+        finally { hideLoader(); }
+      }) },
+    ] : [],
+  });
+
+  // ---------- E. Новый приход дороже цены продажи ----------
+  const priceyBox = el("div");
+  nextTooPricey.forEach(x => {
+    priceyBox.append(el("div.card", { style: { padding: "10px 12px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } }, [
+      el("img.thumb", { src: x.p.photo_url ? thumb(x.p.photo_url, 40) : placeholder(x.p.name), loading: "lazy", decoding: "async", style: { width: "40px", height: "40px" }, onerror: function () { this.src = placeholder(x.p.name); } }),
+      el("div", { style: { flex: "1", minWidth: "150px" } }, [
+        el("div", { style: { fontWeight: "600" }, text: x.p.name }),
+        el("div.muted", { style: { fontSize: "12px" }, text: `сейчас ${fmt(x.o.cost_yuan, "yuan")} · осталось ${x.o.qty} шт · цена продажи ${fmt(x.price, "yuan")}` }),
+      ]),
+      el("span.badge.order", { text: "дальше " + fmt(x.o.next.cost_yuan, "yuan") }),
+    ]));
+  });
+  block(page, {
+    ic: "alert", danger: nextTooPricey.length > 0,
+    title: `Новый приход дороже цены продажи: ${nextTooPricey.length}`,
+    text: "Сейчас продаётся старый товар и всё в порядке. Но когда он закончится, себестоимость станет выше цены продажи — поднимите цену заранее.",
+    body: nextTooPricey.length ? priceyBox : null,
+  });
+
+  // ---------- F. Заказы не оформлены ----------
   block(page, {
     ic: "cart", danger: false,
     title: `Заказы не оформлены: ${pending.length}`,

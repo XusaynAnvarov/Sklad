@@ -1,17 +1,17 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260803f";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260803f";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260803f";
-import { ensureBatches, sumQty } from "../inventory.js?v=20260803f";
-import { sparkline } from "../charts.js?v=20260803f";
-import { icon } from "../icons.js?v=20260803f";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260803f";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260803f";
-import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260803f";
-import { buildAdvice } from "../advice.js?v=20260803f";
-import { thumb } from "../img.js?v=20260803f";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260808a";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260808a";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260808a";
+import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20260808a";
+import { sparkline } from "../charts.js?v=20260808a";
+import { icon } from "../icons.js?v=20260808a";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260808a";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260808a";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260808a";
+import { buildAdvice } from "../advice.js?v=20260808a";
+import { thumb } from "../img.js?v=20260808a";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
@@ -199,8 +199,18 @@ export default async function render(page, ctx) {
     // предупреждения по данным
     const noPrice = products.filter(p => (Number(p.cost_yuan) || 0) <= 0 && (Number(p.cost_usd) || 0) <= 0);
     const ack = costAck();
-    // «битая» себестоимость, исключая отмеченные как проверенные (локально gm_cost_ack ИЛИ в базе cost_ack_yuan)
-    const badCost = products.filter(p => Number(p.price_yuan) > 0 && Number(p.cost_yuan) > Number(p.price_yuan) && Number(ack[p.id]) !== Number(p.cost_yuan) && Number(p.cost_ack_yuan) !== Number(p.cost_yuan));
+    // «битая» себестоимость: сравниваем цену ТОЙ партии, что продаётся сейчас (FIFO),
+    // а не цену последнего прихода — иначе ругались на товар, который пока идёт
+    // по старой дешёвой цене. Отмеченные как проверенные исключаем.
+    const fifoCost = (p) => { const o = costOutlook(ensureBatches(p)); return o ? o.cost_yuan : (Number(p.cost_yuan) || 0); };
+    const badCost = products.filter(p => Number(p.price_yuan) > 0 && fifoCost(p) > Number(p.price_yuan) && Number(ack[p.id]) !== Number(p.cost_yuan) && Number(p.cost_ack_yuan) !== Number(p.cost_yuan));
+    // новый приход дороже цены продажи — старый товар ещё продаётся нормально,
+    // но после него пойдёт убыток, если не поднять цену
+    const nextTooPricey = products.map(p => {
+      const price = Number(p.price_yuan) || 0; if (price <= 0) return null;
+      const o = costOutlook(ensureBatches(p));
+      return (o && o.next && o.next.cost_yuan > price) ? p : null;
+    }).filter(Boolean);
 
     // --- один общий проход: итоги, разбивка по группам правил и «без правила» ---
     const pmap = Object.fromEntries(products.map(p => [p.id, p]));
@@ -282,6 +292,8 @@ export default async function render(page, ctx) {
 
     // предупреждения
     if (badCost.length) wrap.append(warnCard("alert", `Проверьте себестоимость: ${badCost.length} товаров`, "Себестоимость выше цены продажи — искажает прибыль. Нажмите, чтобы посмотреть.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => costWarnModal(badCost, editProduct, ctx)));
+    if (nextTooPricey.length) wrap.append(warnCard("truck", `Новый приход дороже цены продажи: ${nextTooPricey.length} товаров`, "Пока продаётся старый (дешёвый) товар — всё в порядке. Но когда он закончится, пойдёт убыток: поднимите цену заранее. Нажмите — список.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
+      () => { location.hash = "#stock_check"; }));
     if (noPrice.length) wrap.append(warnCard("tag", `Товары без цены (себестоимости): ${noPrice.length}`, "Нажмите, чтобы открыть список и вписать себестоимость.", "rgba(245,197,66,.6)", "rgba(245,197,66,.10)", () => productListModal("Товары без себестоимости", noPrice, editProduct)));
     if (lowStock.length) wrap.append(warnCard("box", `Заканчивается на складе: ${lowStock.length} товаров`, `Остаток ≤ ${LOW_STOCK}. «→ 0» — если товара физически нет (обнулить). Или нажмите на товар, чтобы изменить.`, "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => productListModal(`Заканчивается на складе (остаток ≤ ${LOW_STOCK})`, lowStock.slice(), editProduct, async (p) => {
       p.stock_qty = 0; p.batches = [];
