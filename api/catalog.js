@@ -11,7 +11,8 @@ export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   res.setHeader("Access-Control-Allow-Origin", "*");
-  // артикул (sku) видит только владелец → его ответ НЕ кэшируем (иначе утечёт в общий кэш CDN)
+  // Ответ владельцу НЕ кэшируем: в нём есть остаток и продажи за неделю,
+  // которые клиентам видеть нельзя (артикул теперь общий — его показываем всем).
   const isOwner = !!getSiteAdmin(req);
   if (isOwner) { res.setHeader("Cache-Control", "private, no-store"); res.setHeader("Vary", "Authorization"); }
   else res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
@@ -82,8 +83,10 @@ export default async function handler(req, res) {
 
         return {
           id: p.id,
-          // клиенту — имя без артикула; владельцу — полное
+          // Имя без артикула внутри: артикул отдаём отдельным полем и показываем
+          // строкой «Арт.: …», чтобы он не дублировался прямо в названии.
           name: isOwner ? p.name : clientName(p.name, p.sku),
+          sku: p.sku || "",
           category: p.category || "",
           photo_url: p.photo_url || null,
           // все фото товара (для галереи у клиента); если колонки photos нет — из photo_url
@@ -92,10 +95,9 @@ export default async function handler(req, res) {
           is_new: ageDays <= NEW_DAYS,
           // ХИТ недели — только признак (да/нет). Само число продаж клиенту не отдаём.
           hit: (weekMap[p.id] || 0) > 0,
-          // Числа (остаток, продажи за неделю) и артикул — ТОЛЬКО владельцу.
+          // Числа (остаток, продажи за неделю) — ТОЛЬКО владельцу.
           // Клиент видит лишь «есть / нет / скоро» — ни количества, ни цен.
           ...(isOwner ? {
-            sku: p.sku || "",
             stock: Number(p.stock_qty) || 0,
             week_sold: weekMap[p.id] || 0,
           } : {}),

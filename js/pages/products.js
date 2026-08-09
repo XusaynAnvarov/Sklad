@@ -1,13 +1,13 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260808a";
-import { icon } from "../icons.js?v=20260808a";
-import { fmt, convert } from "../fx.js?v=20260808a";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260808a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260808a";
-import { openEditor } from "./sales.js?v=20260808a";
-import { thumbAttrs } from "../img.js?v=20260808a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260809a";
+import { icon } from "../icons.js?v=20260809a";
+import { fmt, convert } from "../fx.js?v=20260809a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260809a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260809a";
+import { openEditor } from "./sales.js?v=20260809a";
+import { thumbAttrs } from "../img.js?v=20260809a";
 
 // себестоимость в той валюте, в которой её ввели (cost_cur). По умолчанию — юань.
 function costShow(cy, cu, ccur) {
@@ -240,7 +240,7 @@ export function openForm(ctx, p, cats = []) {
 
   const fName = input({ value: p.name, placeholder: "Название" });
   const fCat = inputList(cats, { value: p.category || "", placeholder: "Категория (выбор или ввод)" });
-  const fSku = input({ value: p.sku || "", placeholder: "Артикул (виден только вам)" });
+  const fSku = input({ value: p.sku || "", placeholder: "Артикул (виден клиентам)" });
   // несколько фото; первое — главное (показывается в списке и каталоге)
   let photos = (Array.isArray(p.photos) && p.photos.length) ? [...p.photos] : (p.photo_url ? [p.photo_url] : []);
   const thumbsBox = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "8px", minHeight: "20px" } });
@@ -300,7 +300,7 @@ export function openForm(ctx, p, cats = []) {
 
   const body = el("div", {}, [
     field("Название", fName),
-    el("div.row2", {}, [field("Категория", fCat), field("Артикул (виден только вам)", fSku)]),
+    el("div.row2", {}, [field("Категория", fCat), field("Артикул (виден клиентам)", fSku)]),
     el("div.section-h", { text: "Фотографии (можно несколько)" }),
     thumbsBox,
     field("Загрузить файлы (можно выбрать сразу несколько)", fFile),

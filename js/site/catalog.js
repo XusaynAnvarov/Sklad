@@ -1,8 +1,8 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20260808a";
-import { t } from "./app.js?v=20260808a";
-import { openLogin } from "./auth.js?v=20260808a";
-import { thumb } from "../img.js?v=20260808a";
+import { api, isLoggedIn } from "./api.js?v=20260809a";
+import { t } from "./app.js?v=20260809a";
+import { openLogin } from "./auth.js?v=20260809a";
+import { thumb } from "../img.js?v=20260809a";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
@@ -50,7 +50,7 @@ export async function renderCatalog(container) {
   const searchWrap = mkEl("div", "search-input-wrap");
   searchWrap.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
   const searchInput = document.createElement("input");
-  searchInput.className = "search-input"; searchInput.placeholder = "Поиск товаров…"; searchInput.type = "search";
+  searchInput.className = "search-input"; searchInput.placeholder = "Поиск по названию или артикулу…"; searchInput.type = "search";
   searchWrap.append(searchInput);
   const filterChips = mkEl("div", "filter-chips");
   toolbar.append(searchWrap, filterChips);
@@ -178,7 +178,10 @@ export async function renderCatalog(container) {
     if (io) { io.disconnect(); io = null; }
     filteredList = products.filter(p => {
       const matchCat = activeCategory === "Все" || p.category === activeCategory;
-      const matchQ = !searchQuery || (p.name || "").toLowerCase().includes(searchQuery);
+      // ищем и по названию, и по артикулу — клиент часто знает именно артикул
+      const matchQ = !searchQuery
+        || (p.name || "").toLowerCase().includes(searchQuery)
+        || (p.sku || "").toLowerCase().includes(searchQuery);
       return matchCat && matchQ;
     });
     // хиты недели — вверх (только признак, без чисел: количество клиенту не показываем)
@@ -244,7 +247,7 @@ function buildCard(p) {
   const body = mkEl("div", "product-card-body");
   const name = mkEl("div", "product-name"); name.textContent = p.name;
   const cat  = mkEl("div", "product-category"); cat.textContent = p.category || "";
-  // артикул — приходит с сервера ТОЛЬКО владельцу (клиентам поле не отдаётся)
+  // артикул виден всем клиентам: по нему они находят нужную деталь и называют её в заказе
   let skuEl = null;
   if (p.sku) { skuEl = mkEl("div", "product-category"); skuEl.style.cssText = "font-size:11px;opacity:.8"; skuEl.textContent = "Арт.: " + p.sku; }
   // хит недели — сколько куплено за 7 дней
