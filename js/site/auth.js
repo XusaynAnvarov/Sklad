@@ -1,15 +1,53 @@
 // Модуль авторизации: вход, регистрация, верификация через Telegram
-import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20260809a";
-import { sToast, openModal, closeModal } from "./app.js?v=20260809a";
+import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20260809b";
+import { sToast, openModal, closeModal } from "./app.js?v=20260809b";
 
 let onAuthChange = null;
 export function setAuthChangeCallback(fn) { onAuthChange = fn; }
 
 function notifyChange() { if (onAuthChange) onAuthChange(isLoggedIn()); }
 
+// ========================================================================
+//  НЕЗАКОНЧЕННЫЕ РЕГИСТРАЦИЯ / ВХОД
+//  Клиент уходит в Telegram (подтвердить номер или взять код) и возвращается —
+//  а телефон успел выгрузить вкладку, и всё начиналось сначала: шаг жил только
+//  в переменных этого модуля. Теперь шаг лежит в localStorage и переживает
+//  закрытие вкладки. Сроки совпадают с серверными: токен верификации живёт
+//  1 час, код входа — 5 минут; после этого продолжать всё равно нечего.
+// ========================================================================
+const REG_KEY = "gm_reg_pending";     // { token, phone, at }
+const LOGIN_KEY = "gm_login_pending"; // { phone, at }
+const REG_TTL = 60 * 60 * 1000;
+const LOGIN_TTL = 5 * 60 * 1000;
+
+function saveState(key, data) { try { localStorage.setItem(key, JSON.stringify({ ...data, at: Date.now() })); } catch { } }
+function readState(key, ttl) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || "null");
+    if (v && v.at && Date.now() - v.at < ttl) return v;
+  } catch { }
+  clearState(key);
+  return null;
+}
+function clearState(key) { try { localStorage.removeItem(key); } catch { } }
+export function clearPendingAuth() { clearState(REG_KEY); clearState(LOGIN_KEY); }
+
+// Есть ли что продолжать (для автооткрытия окна при загрузке сайта).
+// Регистрация важнее: там клиент уже подтвердил номер в Telegram.
+export function pendingAuth() {
+  const reg = readState(REG_KEY, REG_TTL);
+  if (reg && reg.token) return { mode: "verify", token: reg.token, phone: reg.phone || "" };
+  const log = readState(LOGIN_KEY, LOGIN_TTL);
+  if (log && log.phone) return { mode: "login", step: "code", phone: log.phone };
+  return null;
+}
+
 // ---- Вход ----
-export function openLogin() {
-  openModal("auth-modal", buildAuthModal());
+// start — с какого шага открыть окно:
+//   { mode:"verify", token }              — продолжить регистрацию (ждать/задать пароль)
+//   { mode:"login", step:"code", phone }  — вернуться к вводу кода из Telegram
+export function openLogin(start) {
+  openModal("auth-modal", buildAuthModal(start));
 }
 
 // Ссылка «Как зарегистрироваться?» → открывает видео-инструкцию (GIF, по языку сайта)
@@ -48,10 +86,10 @@ function guideLink() {
   return d;
 }
 
-function buildAuthModal() {
+function buildAuthModal(start) {
   const wrap = document.createElement("div");
-  let mode = "login"; // login | register | verify
-  let verifToken = null;
+  let mode = (start && start.mode) || "login"; // login | register | verify
+  let verifToken = (start && start.token) || null;
   let pollInterval = null;
 
   function stopPoll() { if (pollInterval) { clearInterval(pollInterval); pollInterval = null; } }
@@ -67,8 +105,8 @@ function buildAuthModal() {
 
   // 2 шага: 1) телефон → код в Telegram; 2) код + пароль → вход.
   // Администратору код не нужен (login-start вернёт code_required:false) → шаг «pass» (только пароль).
-  let loginStep = "phone"; // phone | code | pass
-  let loginPhone = "";
+  let loginStep = (start && start.mode === "login" && start.step) || "phone"; // phone | code | pass
+  let loginPhone = (start && start.phone) || "";
   let loginNeedsCode = true;
 
   function buildLogin() {
@@ -97,6 +135,8 @@ function buildAuthModal() {
           loginPhone = ph;
           loginNeedsCode = !(r && r.code_required === false);
           loginStep = loginNeedsCode ? "code" : "pass";
+          // код ушёл в Telegram — запоминаем шаг, чтобы уход за кодом не сбросил вход
+          if (loginNeedsCode) saveState(LOGIN_KEY, { phone: ph });
           render();
           if (loginNeedsCode) sToast("Код отправлен в Telegram", "ok");
         } catch (e) {
@@ -123,6 +163,7 @@ function buildAuthModal() {
         const res = await api.login(loginPhone, needCode ? code.value.trim() : "", pass.value);
         saveToken(res.token);
         loginStep = "phone";
+        clearPendingAuth();          // вошли — продолжать нечего
         closeModal("auth-modal");
         sToast("Вход выполнен", "ok");
         notifyChange();
@@ -159,6 +200,9 @@ function buildAuthModal() {
         verifToken = res.token;
         mode = "verify";
         window._gmVerifBotUrl = res.bot_url;
+        // клиент сейчас уйдёт в Telegram — запоминаем токен, чтобы возврат
+        // не сбросил регистрацию на самое начало
+        saveState(REG_KEY, { token: res.token, phone: phone.value.trim(), bot_url: res.bot_url });
         render();
       } catch (e) {
         err.textContent = e.message; err.style.display = "";
@@ -177,6 +221,13 @@ function buildAuthModal() {
     const s3 = verifyStep(3, "Задайте пароль на сайте", "После подтверждения — поле появится здесь");
     steps.append(s1, s2, s3);
 
+    // После перезагрузки страницы window._gmVerifBotUrl теряется — берём ссылку
+    // на бота из сохранённого состояния, иначе кнопка стала бы пустышкой.
+    if (!window._gmVerifBotUrl) {
+      const saved = readState(REG_KEY, REG_TTL);
+      if (saved && saved.bot_url) window._gmVerifBotUrl = saved.bot_url;
+      else if (verifToken) window._gmVerifBotUrl = "https://t.me/generalmodernbot?start=verify_" + verifToken;
+    }
     const openBot = button("Открыть Telegram-бот", "btn-primary", { style: "width:100%" });
     openBot.addEventListener("click", () => { if (window._gmVerifBotUrl) window.open(window._gmVerifBotUrl, "_blank"); });
 
@@ -196,6 +247,7 @@ function buildAuthModal() {
       try {
         const res = await api.register(verifToken, pass.value);
         saveToken(res.token);
+        clearPendingAuth();          // зарегистрировались — продолжать нечего
         closeModal("auth-modal");
         sToast("Регистрация завершена! Добро пожаловать.", "ok");
         notifyChange();
@@ -205,17 +257,41 @@ function buildAuthModal() {
       }
     });
 
+    // перейти к полям пароля (номер уже подтверждён в боте)
+    function showPassword() {
+      stopPoll();
+      s2.classList.remove("active"); s2.classList.add("done");
+      s3.classList.add("active");
+      openBot.style.display = "none";
+      passWrap.style.display = "";
+      setTimeout(() => pass.focus(), 50);
+    }
+
+    // Сразу спрашиваем статус: если клиент уже подтвердил номер в Telegram и
+    // вернулся (сам или по кнопке из бота) — не заставляем его ждать и жать заново.
+    (async () => {
+      if (!verifToken) return;
+      try {
+        const res = await api.verifyStatus(verifToken);
+        if (res.verified) showPassword();
+      } catch (e) {
+        // токен истёк или не найден — продолжать нечего, начинаем заново
+        stopPoll();
+        clearState(REG_KEY);
+        err.textContent = "Ссылка устарела. Начните регистрацию заново.";
+        err.style.display = "";
+        openBot.style.display = "none";
+        const again = button("Начать заново", "btn-primary", { style: "width:100%;margin-top:10px" });
+        again.addEventListener("click", () => { verifToken = null; mode = "register"; render(); });
+        f.append(again);
+      }
+    })();
+
     // опрашиваем статус верификации каждые 2 секунды
     pollInterval = setInterval(async () => {
       try {
         const res = await api.verifyStatus(verifToken);
-        if (res.verified) {
-          stopPoll();
-          s2.classList.replace("active", "done");
-          s3.classList.add("active");
-          openBot.style.display = "none";
-          passWrap.style.display = "";
-        }
+        if (res.verified) showPassword();
       } catch {}
     }, 2000);
 

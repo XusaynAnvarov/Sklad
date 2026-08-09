@@ -19,6 +19,21 @@ const SIGN = { yuan: "¥", usd: "$", som: "сум" };
 
 const api = (m) => `https://api.telegram.org/bot${TOKEN}/${m}`;
 const tg = (method, payload) => fetch(api(method), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(r => r.json());
+
+// Номер подтверждён — зовём клиента обратно на сайт КНОПКОЙ, сразу на шаг пароля.
+// Ссылка с токеном обязательна: встроенный браузер Telegram имеет своё хранилище,
+// и сохранённое в Safari/Chrome состояние регистрации там недоступно.
+// Токен тот же одноразовый (48 hex, живёт 1 час, сгорает после регистрации).
+// Двумя сообщениями: убрать клавиатуру «Поделиться номером» и показать инлайн-кнопку
+// в одном сообщении Telegram не позволяет.
+async function verifiedGoSetPassword(chatId, token) {
+  await tg("sendMessage", { chat_id: chatId, text: "✅ Номер подтверждён!", reply_markup: { remove_keyboard: true } });
+  await tg("sendMessage", {
+    chat_id: chatId,
+    text: "Осталось задать пароль — нажмите кнопку ниже, и сайт откроется сразу на этом шаге.",
+    reply_markup: { inline_keyboard: [[{ text: "🔐 Задать пароль на сайте", url: `${PUBLIC_URL}/?reg=${encodeURIComponent(token)}` }]] },
+  });
+}
 async function notifyAdmin(text) {
   if (!ADMIN_TOKEN || !ADMIN_CHAT) return;
   try { await fetch(`https://api.telegram.org/bot${ADMIN_TOKEN}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: ADMIN_CHAT, text }) }); } catch {}
@@ -362,7 +377,7 @@ export default async function handler(req, res) {
         const vrows = await sget(`site_verifications?token=eq.${encodeURIComponent(token)}&select=phone,verified,expires_at`);
         const v = vrows[0];
         if (!v || new Date(v.expires_at) < new Date()) { await tg("sendMessage", { chat_id: chatId, text: "Ссылка недействительна или истекла. Вернитесь на сайт и начните регистрацию заново." }); return res.status(200).send("ok"); }
-        if (v.verified) { await tg("sendMessage", { chat_id: chatId, text: "Этот номер уже подтверждён. Вернитесь на сайт и задайте пароль." }); return res.status(200).send("ok"); }
+        if (v.verified) { await verifiedGoSetPassword(chatId, token); return res.status(200).send("ok"); }
         try { await supsert("bot_sessions", { chat_id: String(chatId), state: { verify_token: token }, updated_at: new Date().toISOString() }); } catch {}
         await tg("sendMessage", { chat_id: chatId, text: "Для подтверждения регистрации на generalmodern.uz нажмите кнопку ниже и поделитесь номером телефона.", reply_markup: { keyboard: [[{ text: "Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
         return res.status(200).send("ok");
@@ -381,7 +396,7 @@ export default async function handler(req, res) {
           if (norm(u.message.contact.phone_number) === norm(v.phone)) {
             await spatch(`site_verifications?token=eq.${encodeURIComponent(pendingVerifyToken)}`, { verified: true, chat_id: String(chatId), tg_username: u.message.from?.username || null });
             try { await supsert("bot_sessions", { chat_id: String(chatId), state: {}, updated_at: new Date().toISOString() }); } catch {}
-            await tg("sendMessage", { chat_id: chatId, text: "Номер подтверждён! Вернитесь на сайт и задайте пароль — регистрация будет завершена.", reply_markup: { remove_keyboard: true } });
+            await verifiedGoSetPassword(chatId, pendingVerifyToken);
           } else {
             await tg("sendMessage", { chat_id: chatId, text: "Номер не совпадает с тем, что вы указали при регистрации. Попробуйте снова.", reply_markup: { remove_keyboard: true } });
           }
@@ -424,7 +439,7 @@ export default async function handler(req, res) {
               if (ph && ph === norm(v.phone)) {
                 await spatch(`site_verifications?token=eq.${encodeURIComponent(verifyToken)}`, { verified: true, chat_id: String(chatId), tg_username: u.message.from?.username || null });
                 try { await supsert("bot_sessions", { chat_id: String(chatId), state: {}, updated_at: new Date().toISOString() }); } catch {}
-                await tg("sendMessage", { chat_id: chatId, text: "Номер подтверждён! Вернитесь на сайт и задайте пароль — регистрация будет завершена.", reply_markup: { remove_keyboard: true } });
+                await verifiedGoSetPassword(chatId, verifyToken);
                 verifiedSite = true;
               } else {
                 await tg("sendMessage", { chat_id: chatId, text: "Номер не совпадает с тем, что вы указали при регистрации. Попробуйте снова.", reply_markup: { remove_keyboard: true } });
@@ -466,7 +481,7 @@ export default async function handler(req, res) {
           return res.status(200).send("ok");
         }
         if (v.verified) {
-          await tg("sendMessage", { chat_id: chatId, text: "Этот номер уже подтверждён. Вернитесь на сайт и задайте пароль." });
+          await verifiedGoSetPassword(chatId, token);
           return res.status(200).send("ok");
         }
         try { await supsert("bot_sessions", { chat_id: String(chatId), state: { verify_token: token }, updated_at: new Date().toISOString() }); } catch {}

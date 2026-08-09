@@ -6,7 +6,6 @@ import fontkit from "@pdf-lib/fontkit";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { clientName } from "./name.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SIGN = { yuan: "¥", usd: "$", som: "сум" };
@@ -105,7 +104,7 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
     if (i % 2 === 1) pg.drawRectangle({ x: tableX, y: cy - rowH, width: tableR - tableX, height: rowH, color: ZEBRA });
     const base = cy - 15;
     PT(i + 1, cx.l + 8, base, 10, reg);
-    let nm = clientName(p.name, p.sku) || "?"; if (nm.length > 42) nm = nm.slice(0, 41) + "…"; // клиент не видит артикул в имени
+    let nm = p.name || "?"; if (nm.length > 42) nm = nm.slice(0, 41) + "…"; // название целиком, вместе с артикулом
     PT(nm, cx.name + 8, base, 10, reg);
     PRT(it.qty, cx.price - padR, base, 10, reg);
     PRT(money(it.unit_price, cur), cx.sum - padR, base, 10, reg);

@@ -1,11 +1,11 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20260809a";
-import { renderCatalog } from "./catalog.js?v=20260809a";
-import { renderVideos } from "./videos.js?v=20260809a";
-import { renderCabinet } from "./cabinet.js?v=20260809a";
-import { renderAdminPanel } from "./admin-panel.js?v=20260809a";
-import { renderOrder } from "./order.js?v=20260809a";
-import { setAuthChangeCallback, openLogin, logout as _logout } from "./auth.js?v=20260809a";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20260809b";
+import { renderCatalog } from "./catalog.js?v=20260809b";
+import { renderVideos } from "./videos.js?v=20260809b";
+import { renderCabinet } from "./cabinet.js?v=20260809b";
+import { renderAdminPanel } from "./admin-panel.js?v=20260809b";
+import { renderOrder } from "./order.js?v=20260809b";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20260809b";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -209,7 +209,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20260809a");
+        const { api: siteApi } = await import("./api.js?v=20260809b");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -462,6 +462,26 @@ async function route(main) {
   restoreScrollFor(r);        // вернуть клиента туда, где он остановился
 }
 
+// Продолжить незаконченную регистрацию/вход.
+// Два пути возврата клиента:
+//  1) кнопка из Telegram-бота — ссылка «/?reg=ТОКЕН». Она нужна именно потому, что
+//     встроенный браузер Telegram имеет СВОЁ хранилище: сохранённое в Safari/Chrome
+//     состояние там недоступно, и продолжение приходится передавать прямо в ссылке;
+//  2) клиент сам вернулся в свою вкладку — берём шаг из localStorage.
+function resumeRegistration() {
+  if (isLoggedIn()) { clearPendingAuth(); return; }
+  let token = "";
+  try { token = new URLSearchParams(location.search).get("reg") || ""; } catch {}
+  if (token) {
+    // убираем токен из адреса, чтобы он не оставался в истории браузера
+    try { const u = new URL(location.href); u.searchParams.delete("reg"); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch {}
+    openLogin({ mode: "verify", token });
+    return;
+  }
+  const pending = pendingAuth();
+  if (pending) openLogin(pending);
+}
+
 // ---- Boot ----
 export async function boot() {
   // Применяем сохранённую тему сразу
@@ -492,7 +512,8 @@ export async function boot() {
   rebuild();
   window.addEventListener("hashchange", () => route(document.getElementById("site-main") || document.createElement("div")));
 
-  initRipple();   // волна от точки нажатия на кнопках
+  resumeRegistration();   // продолжить незаконченную регистрацию/вход
+  initRipple();           // волна от точки нажатия на кнопках
 
   // сами управляем позицией прокрутки: браузер не должен сбрасывать её наверх
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
@@ -551,7 +572,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=100", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=101", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
