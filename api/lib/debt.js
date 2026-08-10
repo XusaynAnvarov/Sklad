@@ -44,8 +44,12 @@ export function invoiceDebtSummary(saleId, custSales, payments, openingDebt) {
 }
 
 // Разложить оплаты по накладным (та же логика, что и в статусе: старые гасятся первыми,
-// перед ними — «старый долг» opening_debt). Возвращает Map: saleId → { total, covered, remaining }
-// в валюте накладной. Используется в кабинете клиента («оплачено» / «долг» по накладным).
+// перед ними — «старый долг» opening_debt).
+// Возвращает Map: saleId → { totals, covereds, remainings } — КАЖДОЕ по валютам {som,usd,yuan}.
+// Раньше суммы разных валют складывались в одно число: долг в долларах попадал
+// в сумовую строку и превращался в бессмыслицу. Теперь каждая валюта отдельно.
+// Скалярные total/covered/remaining оставлены для совместимости — это сумма
+// в валюте накладной (s.currency), без смешивания.
 export function allocatePayments(custSales, payments, openingDebt) {
   const CURS = ["som", "usd", "yuan"];
   const pool = { som: 0, usd: 0, yuan: 0 };
@@ -53,26 +57,29 @@ export function allocatePayments(custSales, payments, openingDebt) {
   const od = openingDebt || {};
   CURS.forEach(c => { pool[c] -= Math.max(0, Number(od[c]) || 0); if (pool[c] < 0) pool[c] = 0; });
 
+  const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
   const out = new Map();
   const asc = [...(custSales || [])].filter(s => !s.status || s.status === "final")
     .sort((a, b) => new Date(a.date) - new Date(b.date));
   for (const s of asc) {
-    const need = { som: 0, usd: 0, yuan: 0 };
+    const totals = { som: 0, usd: 0, yuan: 0 };
     (s.items || []).forEach(it => {
       const c = it.currency || s.currency;
-      if (need[c] !== undefined) need[c] += (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
+      if (totals[c] !== undefined) totals[c] += (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
     });
-    let total = 0, covered = 0;
+    const covereds = { som: 0, usd: 0, yuan: 0 }, remainings = { som: 0, usd: 0, yuan: 0 };
     CURS.forEach(c => {
-      if (need[c] <= 0.0001) return;
-      total += need[c];
-      const take = Math.min(pool[c], need[c]);
-      pool[c] -= take; covered += take;
+      if (totals[c] <= 0.0001) return;
+      const take = Math.min(pool[c], totals[c]);
+      pool[c] -= take;
+      covereds[c] = r2(take);
+      remainings[c] = r2(Math.max(0, totals[c] - take));
+      totals[c] = r2(totals[c]);
     });
+    const main = s.currency || "som";
     out.set(String(s.id), {
-      total: Math.round(total * 100) / 100,
-      covered: Math.round(covered * 100) / 100,
-      remaining: Math.round(Math.max(0, total - covered) * 100) / 100,
+      totals, covereds, remainings,
+      total: totals[main] || 0, covered: covereds[main] || 0, remaining: remainings[main] || 0,
     });
   }
   return out;

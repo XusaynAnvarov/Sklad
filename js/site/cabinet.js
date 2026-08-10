@@ -1,6 +1,6 @@
 // Личный кабинет клиента: профиль, заказы, накладные, оплаты, экспорт
-import { api } from "./api.js?v=20260809b";
-import { sToast } from "./app.js?v=20260809b";
+import { api } from "./api.js?v=20260810a";
+import { sToast } from "./app.js?v=20260810a";
 
 const CURRENCIES = { som: "сум", usd: "$", yuan: "¥" };
 const STATUS_LABEL = { order: "Новый", pending_confirm: "Ждёт подтверждения", confirmed: "Подтверждён", final: "Оформлен" };
@@ -163,10 +163,11 @@ const inPeriod = (d, p) => {
   if (p === "year") return dt.getFullYear() === now.getFullYear();
   return true;
 };
-// суммы по валютам → строка «1 000 сум + ¥250»
+const CURS = ["som", "usd", "yuan"];
+// суммы по валютам → строка «1 000 сум + $250»
 function byCurStr(map) {
   const parts = [];
-  ["som", "usd", "yuan"].forEach(c => { if (Math.abs(map[c] || 0) >= (c === "som" ? 1 : 0.01)) parts.push(fmt(map[c], c)); });
+  CURS.forEach(c => { if (Math.abs((map && map[c]) || 0) >= (c === "som" ? 1 : 0.01)) parts.push(fmt(map[c], c)); });
   return parts.length ? parts.join("  +  ") : "0";
 }
 
@@ -177,14 +178,22 @@ function renderDashboard(box, invoices, me) {
   function draw() {
     box.innerHTML = "";
     const list = invoices.filter(i => inPeriod(i.date, period));
+    // Считаем КАЖДУЮ валюту отдельно. Раньше всё сваливалось в валюту накладной,
+    // и долг в долларах показывался как сумовый — клиент не видел долларового долга.
     const turn = { som: 0, usd: 0, yuan: 0 }, paid = { som: 0, usd: 0, yuan: 0 }, debt = { som: 0, usd: 0, yuan: 0 };
+    const add = (dst, inv, byCur, scalarKey) => {
+      if (byCur && typeof byCur === "object") { CURS.forEach(c => { dst[c] += Number(byCur[c]) || 0; }); return; }
+      const c = inv.currency || "som";           // старый ответ сервера — кладём в валюту накладной
+      if (dst[c] !== undefined) dst[c] += Number(inv[scalarKey]) || 0;
+    };
     list.forEach(i => {
-      const c = i.currency || "som";
-      if (turn[c] === undefined) return;
-      turn[c] += Number(i.total) || 0;
-      paid[c] += Number(i.covered) || 0;
-      debt[c] += Number(i.remaining) || 0;
+      add(turn, i, i.totals, "total");
+      add(paid, i, i.covereds, "covered");
+      add(debt, i, i.remainings, "remaining");
     });
+    // За всё время долг берём с сервера: он единственный учитывает «старый долг»
+    // (opening_debt), которого нет ни в одной накладной.
+    if (period === "all" && me && me.debt) CURS.forEach(c => { debt[c] = Number(me.debt[c]) || 0; });
 
     // заголовок + период
     const head = mkEl("div", "");
@@ -240,9 +249,14 @@ function renderDashboard(box, invoices, me) {
   function buildDetails(kind, list) {
     const wrap = mkEl("div", "");
     wrap.style.cssText = "margin-top:14px;border-top:1px solid var(--border);padding-top:12px";
+    // «есть ли что-то» проверяем по ВСЕМ валютам: у накладной в долларах
+    // сумовое поле пустое, и она пропадала из списка
+    const anyCur = (inv, byCur, scalarKey) => (byCur && typeof byCur === "object")
+      ? CURS.some(c => (Number(byCur[c]) || 0) > 0.001)
+      : (Number(inv[scalarKey]) || 0) > 0.001;
     const rows = kind === "turn" ? list
-      : kind === "paid" ? list.filter(i => (Number(i.covered) || 0) > 0.001)
-        : list.filter(i => (Number(i.remaining) || 0) > 0.001);
+      : kind === "paid" ? list.filter(i => anyCur(i, i.covereds, "covered"))
+        : list.filter(i => anyCur(i, i.remainings, "remaining"));
     const title = kind === "turn" ? "Накладные периода" : kind === "paid" ? "По каким накладным прошла оплата" : "За какие накладные есть долг";
     wrap.append(el("div", { text: title, style: "font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px" }));
     if (!rows.length) { wrap.append(el("div", { text: "Здесь пока пусто", style: "color:var(--muted);font-size:13px;padding:8px 0" })); return wrap; }
@@ -251,9 +265,11 @@ function renderDashboard(box, invoices, me) {
       const cur = inv.currency || "som";
       const line = mkEl("div", "");
       line.style.cssText = "border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:border-color .2s";
-      const right = kind === "paid" ? `оплачено ${fmt(inv.covered, cur)} из ${fmt(inv.total, cur)}`
-        : kind === "debt" ? `осталось ${fmt(inv.remaining, cur)} из ${fmt(inv.total, cur)}`
-          : fmt(inv.total, cur);
+      // суммы — по валютам накладной (в одной накладной их может быть несколько)
+      const money = (byCur, scalarKey) => (byCur && typeof byCur === "object") ? byCurStr(byCur) : fmt(inv[scalarKey], cur);
+      const right = kind === "paid" ? `оплачено ${money(inv.covereds, "covered")} из ${money(inv.totals, "total")}`
+        : kind === "debt" ? `осталось ${money(inv.remainings, "remaining")} из ${money(inv.totals, "total")}`
+          : money(inv.totals, "total");
       const headRow = mkEl("div", "");
       headRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap";
       headRow.append(
@@ -368,9 +384,12 @@ async function renderInvoices(container) {
     const headLeft = mkEl("div", "");
     headLeft.style.cssText = "display:flex;align-items:center;gap:10px;flex:1;min-width:0";
     const headInfo = mkEl("div", "");
+    // сумма по всем валютам накладной: у долларовой накладной сумовое поле пустое
+    const totalStr = (inv.totals && typeof inv.totals === "object") ? byCurStr(inv.totals) : fmt(inv.total, inv.currency);
+    const debtStr = (inv.remainings && typeof inv.remainings === "object") ? byCurStr(inv.remainings) : "0";
     headInfo.innerHTML = `
-      <div style="font-size:15px;font-weight:700;color:var(--navy)">${fmt(inv.total, inv.currency)}</div>
-      <div style="font-size:13px;color:var(--muted);margin-top:2px">${date} · ${(inv.items || []).length} поз.</div>`;
+      <div style="font-size:15px;font-weight:700;color:var(--navy)">${escHtml(totalStr)}</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px">${date} · ${(inv.items || []).length} поз.${debtStr !== "0" ? ` · <span style="color:#dc2626;font-weight:600">долг ${escHtml(debtStr)}</span>` : ""}</div>`;
     headLeft.append(chevron, headInfo);
     const badge = mkEl("span", "debt-badge " + dCls);
     badge.textContent = DEBT_LABEL[inv.status] || "Долг";
@@ -423,7 +442,7 @@ async function renderInvoices(container) {
       const old = xlsBtn.innerHTML;
       xlsBtn.disabled = true; xlsBtn.innerHTML = '<span class="s-spinner"></span> Готовим…';
       try {
-        const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20260809b");
+        const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20260810a");
         await exportClientInvoiceExcel(inv, clientName);
         sToast("Excel файл сохранён", "ok");
       } catch (e) { sToast("Ошибка: " + (e.message || e), "err"); }

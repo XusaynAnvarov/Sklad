@@ -31,7 +31,8 @@ export default async function handler(req, res) {
     const invoices = sales.map(s => {
       const status = invoiceCoverageStatus(s.id, sales, payments, openDebt);
       const total = (s.items || []).reduce((acc, it) => acc + it.qty * it.unit_price, 0);
-      const a = alloc.get(String(s.id)) || { covered: 0, remaining: total };
+      const zero = { som: 0, usd: 0, yuan: 0 };
+      const a = alloc.get(String(s.id)) || { covered: 0, remaining: total, totals: zero, covereds: zero, remainings: zero };
       return {
         id: s.id,
         date: s.date,
@@ -39,6 +40,10 @@ export default async function handler(req, res) {
         total,
         covered: a.covered,      // оплачено по этой накладной
         remaining: a.remaining,  // остаток долга по ней
+        // то же самое, но по валютам — иначе долг в долларах терялся в сумовой сумме
+        totals: a.totals,
+        covereds: a.covereds,
+        remainings: a.remainings,
         status, // paid | partial | debt
         items: (s.items || []).map(it => ({
           product_name: prodMap[it.product_id]?.name || "—",
