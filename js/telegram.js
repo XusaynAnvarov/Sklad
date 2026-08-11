@@ -2,7 +2,7 @@
 //  КЛИЕНТ TELEGRAM (вызывает serverless-функцию /api/telegram).
 //  Токен бота на бэкенде (Vercel env), здесь его НЕТ.
 // ========================================================================
-import { authHeaders } from "./db.js?v=20260811a";
+import { authHeaders } from "./db.js?v=20260811b";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -14,14 +14,21 @@ async function call(payload) {
     body: JSON.stringify(payload),
   });
   if (!r.ok) {
-    let msg = "Telegram: ошибка " + r.status;
-    try { const j = await r.json(); if (j.error) msg = "Telegram: " + j.error; } catch {}
-    // «Bad Gateway» и подобное — временный сбой на стороне Telegram, а не ошибка данных.
-    // Сервер уже пробовал 3 раза; пишем по-человечески, чтобы было понятно, что делать.
-    if (/bad gateway|gateway time|временно недоступен|не удалось связаться|502|503|504/i.test(msg)) {
-      msg = "Telegram сейчас недоступен — попробуйте отправить ещё раз через минуту";
+    // Различаем два разных сбоя — иначе непонятно, где искать причину:
+    //  • наш сервер не ответил (nginx отдал HTML-страницу 502/504) — проблема у нас;
+    //  • сервер ответил JSON-ошибкой — значит до Telegram дошли, но он отказал.
+    let serverError = null;
+    try { const j = await r.json(); serverError = j && j.error ? String(j.error) : null; } catch { }
+    if (!serverError) {
+      throw new Error(r.status === 502 || r.status === 504
+        ? "Сервер не ответил вовремя (" + r.status + "). Накладная сохранена — попробуйте отправить ещё раз."
+        : "Ошибка сервера " + r.status);
     }
-    throw new Error(msg);
+    // временный сбой на стороне Telegram — сервер уже пробовал несколько раз
+    if (/bad gateway|gateway time|не ответил за|временно недоступен|не удалось связаться/i.test(serverError)) {
+      throw new Error("Telegram сейчас недоступен — попробуйте отправить ещё раз через минуту");
+    }
+    throw new Error("Telegram: " + serverError);
   }
   return r.json();
 }

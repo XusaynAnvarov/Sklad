@@ -69,18 +69,28 @@ export default async function handler(req, res) {
   // ------------------------------------------------------------------
   const RETRY_CODES = [429, 500, 502, 503, 504];
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  // ВАЖНО: у fetch в Node нет таймаута по умолчанию — запрос к Telegram мог висеть
+  // сколько угодно. Тогда наш сервер не успевал ответить, nginx рвал соединение и
+  // отдавал 502 — со стороны это выглядело как «Telegram недоступен».
+  // Ограничиваем каждую попытку и держим общий бюджет меньше таймаута nginx.
+  const BUDGET_MS = 40000;    // на все попытки вместе
   // makeInit — функция: тело запроса строим ЗАНОВО на каждую попытку
   // (FormData с файлом — одноразовый поток, повторно его отправить нельзя)
-  async function tgSend(url, makeInit, tries = 3) {
+  async function tgSend(url, makeInit, { tries = 3, attemptMs = 10000 } = {}) {
+    const ATTEMPT_MS = attemptMs;
+    const started = Date.now();
     let last = null;
     for (let i = 1; i <= tries; i++) {
       let j = null;
       try {
-        const r = await fetch(url, makeInit());
+        const r = await fetch(url, { ...makeInit(), signal: AbortSignal.timeout(ATTEMPT_MS) });
         // при перегрузке Telegram отдаёт HTML-страницу — тогда JSON не разберётся
         try { j = await r.json(); } catch { j = { ok: false, error_code: r.status, description: "Telegram временно недоступен (" + r.status + ")" }; }
       } catch (e) {
-        j = { ok: false, error_code: 503, description: "Не удалось связаться с Telegram: " + (e.message || e) };
+        const timedOut = e && (e.name === "TimeoutError" || e.name === "AbortError");
+        j = { ok: false, error_code: 503, description: timedOut
+          ? `Telegram не ответил за ${ATTEMPT_MS / 1000} сек`
+          : "Не удалось связаться с Telegram: " + (e.message || e) };
       }
       if (j && j.ok) return j;
       last = j;
@@ -88,16 +98,19 @@ export default async function handler(req, res) {
       if (!RETRY_CODES.includes(code) || i === tries) break;
       // Telegram сам говорит, сколько подождать при 429
       const wait = Number(j?.parameters?.retry_after) ? Number(j.parameters.retry_after) * 1000 : 400 * i;
+      if (Date.now() - started + wait + ATTEMPT_MS > BUDGET_MS) break;  // не успеем — не начинаем
       await sleep(Math.min(wait, 3000));
     }
     return last || { ok: false, description: "Telegram API error" };
   }
-  // тело запроса JSON — самый частый случай
-  const tgJson = (url, payload, tries) => tgSend(url, () => ({
+  // тело запроса JSON — самый частый случай, отвечает быстро
+  const tgJson = (url, payload) => tgSend(url, () => ({
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-  }), tries);
-  // тело запроса — файл (FormData создаём заново на каждую попытку: поток одноразовый)
-  const tgForm = (url, makeFd, tries) => tgSend(url, () => ({ method: "POST", body: makeFd() }), tries);
+  }), { tries: 3, attemptMs: 10000 });
+  // тело запроса — файл (FormData создаём заново на каждую попытку: поток одноразовый).
+  // PDF накладной ~0.5 МБ, на медленной связи заливается дольше → даём больше времени,
+  // а попыток меньше, чтобы уложиться в общий бюджет.
+  const tgForm = (url, makeFd) => tgSend(url, () => ({ method: "POST", body: makeFd() }), { tries: 2, attemptMs: 18000 });
 
   async function tg(method, payload) {
     const j = await tgJson(api(method), payload);
