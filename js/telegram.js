@@ -2,9 +2,28 @@
 //  КЛИЕНТ TELEGRAM (вызывает serverless-функцию /api/telegram).
 //  Токен бота на бэкенде (Vercel env), здесь его НЕТ.
 // ========================================================================
-import { authHeaders } from "./db.js?v=20260811b";
+import { authHeaders } from "./db.js?v=20260811c";
 
 const cfg = window.APP_CONFIG || {};
+
+// ------------------------------------------------------------------
+//  Канал для накладных — ОДНО место, где он определяется.
+//  Раньше со страницы «Продажи» канал не передавался вовсе, а в config.js он
+//  пустой → сервер отвечал «Не указан канал», хотя в Настройках канал вписан.
+//  Порядок: явно переданный → сохранённый из Настроек → значение из config.js.
+//  Значение из облака кладёт в localStorage загрузчик приложения (js/app.js).
+// ------------------------------------------------------------------
+export function tgChannel(explicit) {
+  const e = String(explicit || "").trim();
+  if (e) return e;
+  try { const v = (localStorage.getItem("gm_tg_channel") || "").trim(); if (v) return v; } catch { }
+  return String(cfg.TELEGRAM_CHANNEL || "").trim();
+}
+function requireChannel(explicit) {
+  const ch = tgChannel(explicit);
+  if (!ch) throw new Error("Не указан канал. Откройте Настройки → Telegram и впишите @канал или id вида -100…");
+  return ch;
+}
 
 async function call(payload) {
   const url = cfg.TELEGRAM_API || "/api/telegram";
@@ -35,12 +54,12 @@ async function call(payload) {
 
 // Отправка накладной в канал текстом (резерв)
 export function sendInvoice(text, photoUrl) {
-  return call({ action: "invoice", channel: cfg.TELEGRAM_CHANNEL || "", text, photo: photoUrl || null });
+  return call({ action: "invoice", channel: requireChannel(), text, photo: photoUrl || null });
 }
 
 // Отправка накладной в канал в виде PDF-файла (канал можно передать явно из настроек)
 export function sendInvoicePDF(saleId, channel) {
-  return call({ action: "invoice_pdf", channel: channel || cfg.TELEGRAM_CHANNEL || "", sale_id: saleId });
+  return call({ action: "invoice_pdf", channel: requireChannel(channel), sale_id: saleId });
 }
 
 // Акт сверки клиенту в его бот (PDF + кнопки накладных)
@@ -49,7 +68,7 @@ export function sendActToClient(customerId, chatId) {
 }
 // Акт сверки в канал
 export function sendActToChannel(customerId, channel) {
-  return call({ action: "act_pdf", customer_id: customerId, channel: channel || cfg.TELEGRAM_CHANNEL || "" });
+  return call({ action: "act_pdf", customer_id: customerId, channel: requireChannel(channel) });
 }
 
 // Отправка каталога/сообщения конкретному клиенту (chat_id)

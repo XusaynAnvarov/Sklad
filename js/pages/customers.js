@@ -1,15 +1,15 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260811b";
-import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260811b";
-import { openEditor, buildText, deleteSale } from "./sales.js?v=20260811b";
-import { exportCustomerInvoice } from "../xlsx-export.js?v=20260811b";
-import { placeholder as placeholderImg } from "./products.js?v=20260811b";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260811b";
-import { authHeaders } from "../db.js?v=20260811b";
-import { icon } from "../icons.js?v=20260811b";
-import { thumb } from "../img.js?v=20260811b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260811c";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260811c";
+import { openEditor, buildText, deleteSale } from "./sales.js?v=20260811c";
+import { exportCustomerInvoice } from "../xlsx-export.js?v=20260811c";
+import { placeholder as placeholderImg } from "./products.js?v=20260811c";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260811c";
+import { authHeaders } from "../db.js?v=20260811c";
+import { icon } from "../icons.js?v=20260811c";
+import { thumb } from "../img.js?v=20260811c";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
 const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);
@@ -459,12 +459,8 @@ async function sendInvToClient(ctx, s, c, products) {
 async function sendInvToChannel(ctx, s, c, products) {
   showLoader("Отправляем в канал…");
   try {
-    // канал: из настроек, иначе из локальной резервной копии (на случай если облако не вернуло)
-    let channel = "";
-    try { const st = await ctx.db.getSettings(); channel = (st && st.telegram_channel) || ""; } catch {}
-    if (!channel) { try { channel = localStorage.getItem("gm_tg_channel") || ""; } catch {} }
-    if (!channel) { hideLoader(); toast("Канал не указан. Откройте Настройки → Telegram и впишите @канал/-100…", "err"); return; }
-    await sendInvoicePDF(s.id, channel);
+    // канал определяет сам telegram.js (Настройки → localStorage → config)
+    await sendInvoicePDF(s.id);
     await ctx.db.sales.upsert({ id: s.id, telegram_sent: true });
     toast("Отправлено в канал (PDF)", "ok"); ctx.refresh();
   }
@@ -551,8 +547,7 @@ function openActSverki(ctx, c, sales, payments) {
       { label: "📢 В канал", kind: "btn-primary", onClick: async (close) => {
         showLoader("Отправляем в канал…");
         try {
-          let ch = ""; try { const st = await ctx.db.getSettings(); ch = (st && st.telegram_channel) || ""; } catch {}
-          await sendActToChannel(c.id, ch); toast("Акт отправлен в канал", "ok"); close();
+          await sendActToChannel(c.id); toast("Акт отправлен в канал", "ok"); close();
         } catch (e) { toast("Не отправлено: " + (e.message || e), "err"); } finally { hideLoader(); }
       } },
     ],

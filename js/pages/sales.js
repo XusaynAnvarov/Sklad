@@ -1,17 +1,17 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260811b";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260811b";
-import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient, requestOrderConfirm } from "../telegram.js?v=20260811b";
-import { placeholder } from "./products.js?v=20260811b";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260811b";
-import { icon } from "../icons.js?v=20260811b";
-import { showLoader, hideLoader } from "../ui.js?v=20260811b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260811b";
-import { exportInvoice } from "../xlsx-export.js?v=20260811b";
-import { showNotFound } from "./purchases.js?v=20260811b";
-import { thumb } from "../img.js?v=20260811b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260811c";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260811c";
+import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient, requestOrderConfirm } from "../telegram.js?v=20260811c";
+import { placeholder } from "./products.js?v=20260811c";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260811c";
+import { icon } from "../icons.js?v=20260811c";
+import { showLoader, hideLoader } from "../ui.js?v=20260811c";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260811c";
+import { exportInvoice } from "../xlsx-export.js?v=20260811c";
+import { showNotFound } from "./purchases.js?v=20260811c";
+import { thumb } from "../img.js?v=20260811c";
 
 const cfg = window.APP_CONFIG || {};
 
