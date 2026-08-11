@@ -17,9 +17,9 @@ const safeId = (v) => (/^[\w-]+$/.test(String(v || "")) ? String(v) : null);
 async function coverageFor(sale) {
   if (!sale || !sale.customer_id) return {};
   const [cs, pays, cust] = await Promise.all([
-    sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items,status`),
-    sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency,date`),
-    sget(`customers?id=eq.${sale.customer_id}&select=opening_debt`),
+    sget(`sales?customer_id=eq.${encodeURIComponent(sale.customer_id)}&select=id,date,currency,items,status`),
+    sget(`payments?customer_id=eq.${encodeURIComponent(sale.customer_id)}&select=amount,currency,date`),
+    sget(`customers?id=eq.${encodeURIComponent(sale.customer_id)}&select=opening_debt`),
   ]);
   const od = cust[0]?.opening_debt;
   return { status: invoiceCoverageStatus(sale.id, cs, pays, od), debt: invoiceDebtSummary(sale.id, cs, pays, od) };
@@ -49,8 +49,8 @@ export default async function handler(req, res) {
     const customer = (await sget(`customers?id=eq.${encodeURIComponent(custId)}&select=*`))[0];
     if (!customer) return null;
     const [sales, payments] = await Promise.all([
-      sget(`sales?customer_id=eq.${custId}&status=eq.final&select=id,date,currency,items&order=date.asc`),
-      sget(`payments?customer_id=eq.${custId}&select=amount,currency,date&order=date.asc`),
+      sget(`sales?customer_id=eq.${encodeURIComponent(custId)}&status=eq.final&select=id,date,currency,items&order=date.asc`),
+      sget(`payments?customer_id=eq.${encodeURIComponent(custId)}&select=amount,currency,date&order=date.asc`),
     ]);
     const bytes = await buildReconciliationPDF({ customer, sales, payments });
     return { customer, sales, bytes };
@@ -59,13 +59,48 @@ export default async function handler(req, res) {
   const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN; // отправка КЛИЕНТУ идёт через клиентского бота
   const api = (method) => `https://api.telegram.org/bot${TOKEN}/${method}`;
   const capi = (method) => `https://api.telegram.org/bot${CLIENT_TOKEN}/${method}`;
+
+  // ------------------------------------------------------------------
+  //  Отправка в Telegram с повтором.
+  //  Telegram сам иногда отвечает {ok:false, error_code:502, description:"Bad Gateway"}
+  //  или 429 «слишком часто» — это временные сбои на их стороне, и накладная
+  //  не уходила клиенту из-за случайной секунды. Повторяем до 3 раз.
+  //  Ошибки по делу («chat not found», «bot was blocked») НЕ повторяем — смысла нет.
+  // ------------------------------------------------------------------
+  const RETRY_CODES = [429, 500, 502, 503, 504];
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  // makeInit — функция: тело запроса строим ЗАНОВО на каждую попытку
+  // (FormData с файлом — одноразовый поток, повторно его отправить нельзя)
+  async function tgSend(url, makeInit, tries = 3) {
+    let last = null;
+    for (let i = 1; i <= tries; i++) {
+      let j = null;
+      try {
+        const r = await fetch(url, makeInit());
+        // при перегрузке Telegram отдаёт HTML-страницу — тогда JSON не разберётся
+        try { j = await r.json(); } catch { j = { ok: false, error_code: r.status, description: "Telegram временно недоступен (" + r.status + ")" }; }
+      } catch (e) {
+        j = { ok: false, error_code: 503, description: "Не удалось связаться с Telegram: " + (e.message || e) };
+      }
+      if (j && j.ok) return j;
+      last = j;
+      const code = Number(j && j.error_code) || 0;
+      if (!RETRY_CODES.includes(code) || i === tries) break;
+      // Telegram сам говорит, сколько подождать при 429
+      const wait = Number(j?.parameters?.retry_after) ? Number(j.parameters.retry_after) * 1000 : 400 * i;
+      await sleep(Math.min(wait, 3000));
+    }
+    return last || { ok: false, description: "Telegram API error" };
+  }
+  // тело запроса JSON — самый частый случай
+  const tgJson = (url, payload, tries) => tgSend(url, () => ({
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+  }), tries);
+  // тело запроса — файл (FormData создаём заново на каждую попытку: поток одноразовый)
+  const tgForm = (url, makeFd, tries) => tgSend(url, () => ({ method: "POST", body: makeFd() }), tries);
+
   async function tg(method, payload) {
-    const r = await fetch(api(method), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const j = await r.json();
+    const j = await tgJson(api(method), payload);
     if (!j.ok) throw new Error(j.description || "Telegram API error");
     return j;
   }
@@ -80,7 +115,7 @@ export default async function handler(req, res) {
       if (!sid) return res.status(400).json({ error: "Неверный sale_id" });
       const sale = (await sget(`sales?id=eq.${encodeURIComponent(sid)}&select=*`))[0];
       if (!sale) return res.status(404).json({ error: "Накладная не найдена" });
-      const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
+      const customer = sale.customer_id ? (await sget(`customers?id=eq.${encodeURIComponent(sale.customer_id)}&select=*`))[0] : { name: "—" };
       const products = await sget("products?select=id,name,sku");
       const cd = await coverageFor(sale);
       const bytes = await buildInvoicePDF({ sale, customer, products, status: cd.status, debt: cd.debt });
@@ -88,9 +123,8 @@ export default async function handler(req, res) {
       const fname = `nakladnaya-${new Date(sale.date).toISOString().slice(0, 10)}.pdf`;
       const makeFd = () => { const fd = new FormData(); fd.append("chat_id", String(target)); fd.append("caption", cap); fd.append("document", new Blob([bytes], { type: "application/pdf" }), fname); return fd; };
       // пробуем бота-владельца, затем клиентского бота — какой добавлен админом канала, тот и отправит
-      let r = await fetch(api("sendDocument"), { method: "POST", body: makeFd() });
-      let j = await r.json();
-      if (!j.ok && CLIENT_TOKEN) { r = await fetch(capi("sendDocument"), { method: "POST", body: makeFd() }); j = await r.json(); }
+      let j = await tgForm(api("sendDocument"), makeFd);
+      if (!j.ok && CLIENT_TOKEN) j = await tgForm(capi("sendDocument"), makeFd);
       if (!j.ok) {
         const hint = /not found|chat not found/i.test(j.description || "")
           ? " — проверьте: для приватного канала укажите id вида -100…, добавьте бота администратором канала."
@@ -110,8 +144,7 @@ export default async function handler(req, res) {
       fd.append("chat_id", String(target));
       fd.append("caption", `📋 Акт сверки — ${act.customer?.name || "—"}`);
       fd.append("document", new Blob([act.bytes], { type: "application/pdf" }), `akt-sverki.pdf`);
-      const r = await fetch(api("sendDocument"), { method: "POST", body: fd });
-      const j = await r.json();
+      const j = await tgForm(api("sendDocument"), () => fd);
       if (!j.ok) throw new Error(j.description || "sendDocument error");
       return res.status(200).json({ ok: true });
     }
@@ -131,8 +164,8 @@ export default async function handler(req, res) {
       fd.append("chat_id", String(target));
       fd.append("caption", "📋 Ваш акт сверки взаиморасчётов");
       fd.append("document", new Blob([act.bytes], { type: "application/pdf" }), `akt-sverki.pdf`);
-      const r = await fetch(capi("sendDocument"), { method: "POST", body: fd });
-      const j = await r.json(); if (!j.ok) throw new Error(j.description || "sendDocument error");
+      const j = await tgForm(capi("sendDocument"), () => fd);
+      if (!j.ok) throw new Error(j.description || "sendDocument error");
       // 2) кнопки накладных — нажатие обрабатывает хендлер inv: в боте → PDF накладной
       const sign = { yuan: "¥", usd: "$", som: "сум" };
       const rows = (act.sales || []).slice(-20).reverse().map(s => {
@@ -180,8 +213,8 @@ export default async function handler(req, res) {
     if (action === "client_message") {
       if (!CLIENT_TOKEN) return res.status(500).json({ error: "CLIENT_BOT_TOKEN не задан" });
       if (!chat_id) return res.status(400).json({ error: "Не указан chat_id" });
-      const r = await fetch(capi("sendMessage"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id, text }) });
-      const j = await r.json(); if (!j.ok) throw new Error(j.description || "sendMessage error");
+      const j = await tgJson(capi("sendMessage"), { chat_id, text });
+      if (!j.ok) throw new Error(j.description || "sendMessage error");
       return res.status(200).json({ ok: true });
     }
     if (action === "client_invoice_pdf") {
@@ -191,7 +224,7 @@ export default async function handler(req, res) {
       if (!sid) return res.status(400).json({ error: "Неверный sale_id" });
       const sale = (await sget(`sales?id=eq.${encodeURIComponent(sid)}&select=*`))[0];
       if (!sale) return res.status(404).json({ error: "Накладная не найдена" });
-      const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
+      const customer = sale.customer_id ? (await sget(`customers?id=eq.${encodeURIComponent(sale.customer_id)}&select=*`))[0] : { name: "—" };
       const products = await sget("products?select=id,name,sku");
       const cd = await coverageFor(sale);
       const bytes = await buildInvoicePDF({ sale, customer, products, status: cd.status, debt: cd.debt });
@@ -199,8 +232,8 @@ export default async function handler(req, res) {
       fd.append("chat_id", String(chat_id));
       fd.append("caption", text || `🧾 Ваша накладная · ${new Date(sale.date).toLocaleDateString("ru-RU")}`);
       fd.append("document", new Blob([bytes], { type: "application/pdf" }), `nakladnaya-${new Date(sale.date).toISOString().slice(0, 10)}.pdf`);
-      const r = await fetch(capi("sendDocument"), { method: "POST", body: fd });
-      const j = await r.json(); if (!j.ok) throw new Error(j.description || "sendDocument error");
+      const j = await tgForm(capi("sendDocument"), () => fd);
+      if (!j.ok) throw new Error(j.description || "sendDocument error");
       return res.status(200).json({ ok: true });
     }
     // --- запрос подтверждения заказа клиентом (список с ценами + кнопки) ---
@@ -223,14 +256,11 @@ export default async function handler(req, res) {
       items.forEach(it => { const c = it.currency || sale.currency; byCur[c] = (byCur[c] || 0) + it.qty * it.unit_price; });
       const totals = Object.entries(byCur).map(([c, v]) => `${v} ${sign[c] || c}`).join(" + ") || "—";
       const txt = `🧾 Ваш заказ готов к подтверждению:\n\n${lines.join("\n")}\n\n💰 Итого: ${totals}\n\nПодтвердите заказ:`;
-      const r = await fetch(capi("sendMessage"), {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id, text: txt, reply_markup: { inline_keyboard: [[
-          { text: "✅ Подтвердить", callback_data: "ocf:" + sid },
-          { text: "❌ Отказаться", callback_data: "ocd:" + sid },
-        ]] } }),
-      });
-      const j = await r.json(); if (!j.ok) throw new Error(j.description || "sendMessage error");
+      const j = await tgJson(capi("sendMessage"), { chat_id, text: txt, reply_markup: { inline_keyboard: [[
+        { text: "✅ Подтвердить", callback_data: "ocf:" + sid },
+        { text: "❌ Отказаться", callback_data: "ocd:" + sid },
+      ]] } });
+      if (!j.ok) throw new Error(j.description || "sendMessage error");
       return res.status(200).json({ ok: true });
     }
     return res.status(400).json({ error: "Неизвестное действие" });

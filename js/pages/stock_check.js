@@ -8,13 +8,13 @@
 //  E. Новый приход дороже цены продажи
 //  F. Заказы не оформлены (склад ещё не трогали — это норма)
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260810a";
-import { icon } from "../icons.js?v=20260810a";
-import { fmt } from "../fx.js?v=20260810a";
-import { ensureBatches, sumQty, costAfter, returnToStock, currentCost, costOutlook } from "../inventory.js?v=20260810a";
-import { placeholder } from "./products.js?v=20260810a";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260810a";
-import { thumb } from "../img.js?v=20260810a";
+import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260811a";
+import { icon } from "../icons.js?v=20260811a";
+import { fmt } from "../fx.js?v=20260811a";
+import { ensureBatches, sumQty, costAfter, returnToStock, currentCost, costOutlook } from "../inventory.js?v=20260811a";
+import { placeholder } from "./products.js?v=20260811a";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260811a";
+import { thumb } from "../img.js?v=20260811a";
 
 export default async function render(page, ctx) {
   const [products, sales] = await Promise.all([ctx.db.products.list(), ctx.db.sales.list()]);

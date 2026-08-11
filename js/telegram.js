@@ -2,7 +2,7 @@
 //  КЛИЕНТ TELEGRAM (вызывает serverless-функцию /api/telegram).
 //  Токен бота на бэкенде (Vercel env), здесь его НЕТ.
 // ========================================================================
-import { authHeaders } from "./db.js?v=20260810a";
+import { authHeaders } from "./db.js?v=20260811a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -16,6 +16,11 @@ async function call(payload) {
   if (!r.ok) {
     let msg = "Telegram: ошибка " + r.status;
     try { const j = await r.json(); if (j.error) msg = "Telegram: " + j.error; } catch {}
+    // «Bad Gateway» и подобное — временный сбой на стороне Telegram, а не ошибка данных.
+    // Сервер уже пробовал 3 раза; пишем по-человечески, чтобы было понятно, что делать.
+    if (/bad gateway|gateway time|временно недоступен|не удалось связаться|502|503|504/i.test(msg)) {
+      msg = "Telegram сейчас недоступен — попробуйте отправить ещё раз через минуту";
+    }
     throw new Error(msg);
   }
   return r.json();

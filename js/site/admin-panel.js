@@ -1,5 +1,5 @@
 // Панель администратора на публичном сайте
-import { req, saveToken } from "./api.js?v=20260810a";
+import { req, saveToken } from "./api.js?v=20260811a";
 
 function apToast(msg, type = "") {
   let wrap = document.querySelector(".s-toasts");
