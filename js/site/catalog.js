@@ -1,8 +1,8 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20260815a";
-import { t } from "./app.js?v=20260815a";
-import { openLogin } from "./auth.js?v=20260815a";
-import { thumb } from "../img.js?v=20260815a";
+import { api, isLoggedIn } from "./api.js?v=20260815c";
+import { t } from "./app.js?v=20260815c";
+import { openLogin } from "./auth.js?v=20260815c";
+import { thumb } from "../img.js?v=20260815c";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
@@ -44,6 +44,21 @@ let currentLoadMore = null;
 
 export async function renderCatalog(container) {
   container.innerHTML = "";
+
+  // ---- Витрина: первый экран для того, кто нас ещё не знает ----
+  // Как только клиент начал искать или выбрал категорию — он уже работает,
+  // и витрина убирается, чтобы не отодвигать товар вниз (см. renderCards).
+  const hero = mkEl("div", "site-hero");
+  const heroEyebrow = mkEl("div", "hero-eyebrow"); heroEyebrow.textContent = "General Modern";
+  const heroH1 = document.createElement("h1"); heroH1.textContent = t("heroTitle");
+  const heroP = document.createElement("p"); heroP.textContent = t("heroSub");
+  const heroBtns = mkEl("div", "hero-btns");
+  const heroBtn = document.createElement("button");
+  heroBtn.className = "btn-primary"; heroBtn.textContent = t("heroCta");
+  heroBtn.addEventListener("click", () => toolbar.scrollIntoView({ behavior: "smooth", block: "start" }));
+  heroBtns.append(heroBtn);
+  hero.append(heroEyebrow, heroH1, heroP, heroBtns);
+  container.append(hero);
 
   // Toolbar
   const toolbar = mkEl("div", "catalog-toolbar");
@@ -175,6 +190,8 @@ export async function renderCatalog(container) {
   function renderCards() {
     grid.innerHTML = "";
     shown = 0;
+    // клиент ищет или выбрал категорию — витрина уходит, товар поднимается вверх
+    hero.style.display = (searchQuery || activeCategory !== "Все") ? "none" : "";
     if (io) { io.disconnect(); io = null; }
     filteredList = products.filter(p => {
       const matchCat = activeCategory === "Все" || p.category === activeCategory;
@@ -249,7 +266,7 @@ function buildCard(p) {
   const cat  = mkEl("div", "product-category"); cat.textContent = p.category || "";
   // артикул виден всем клиентам: по нему они находят нужную деталь и называют её в заказе
   let skuEl = null;
-  if (p.sku) { skuEl = mkEl("div", "product-category"); skuEl.style.cssText = "font-size:11px;opacity:.8"; skuEl.textContent = "Арт.: " + p.sku; }
+  if (p.sku) { skuEl = mkEl("div", "product-sku"); skuEl.textContent = "Арт.: " + p.sku; }
   // хит недели — сколько куплено за 7 дней
   let weekEl = null;
   // «Хит» — без числа продаж: клиент не видит количеств

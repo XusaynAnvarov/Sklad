@@ -1,11 +1,11 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20260815a";
-import { renderCatalog } from "./catalog.js?v=20260815a";
-import { renderVideos } from "./videos.js?v=20260815a";
-import { renderCabinet } from "./cabinet.js?v=20260815a";
-import { renderAdminPanel } from "./admin-panel.js?v=20260815a";
-import { renderOrder } from "./order.js?v=20260815a";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20260815a";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20260815c";
+import { renderCatalog } from "./catalog.js?v=20260815c";
+import { renderVideos } from "./videos.js?v=20260815c";
+import { renderCabinet } from "./cabinet.js?v=20260815c";
+import { renderAdminPanel } from "./admin-panel.js?v=20260815c";
+import { renderOrder } from "./order.js?v=20260815c";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20260815c";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -20,6 +20,7 @@ const TRANSLATIONS = {
     inStockBadge: "В наличии", noStockBadge: "Нет в наличии", soonBadge: "Скоро", newBadge: "Новинка",
     heroTitle: "Оборудование для вашего бизнеса",
     heroSub: "Профессиональная техника General Modern. Широкий ассортимент по лучшим ценам.",
+    heroCta: "Смотреть каталог",
     authModal: "Войти / Зарегистрироваться", errorMsg: "Ошибка",
   },
   uz: {
@@ -33,6 +34,7 @@ const TRANSLATIONS = {
     inStockBadge: "Mavjud", noStockBadge: "Mavjud emas", soonBadge: "Tez kunda", newBadge: "Yangi",
     heroTitle: "Biznesingiz uchun uskunalar",
     heroSub: "General Modern'dan professional texnika. Keng assortiment, eng yaxshi narxlar.",
+    heroCta: "Katalogni ko'rish",
     authModal: "Kirish / Ro'yxatdan o'tish", errorMsg: "Xato",
   },
   en: {
@@ -46,6 +48,7 @@ const TRANSLATIONS = {
     inStockBadge: "In Stock", noStockBadge: "Out of Stock", soonBadge: "Coming Soon", newBadge: "New",
     heroTitle: "Equipment for Your Business",
     heroSub: "Professional equipment from General Modern. Wide range at the best prices.",
+    heroCta: "Browse catalog",
     authModal: "Sign In / Register", errorMsg: "Error",
   },
 };
@@ -209,7 +212,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20260815a");
+        const { api: siteApi } = await import("./api.js?v=20260815c");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -572,7 +575,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=106", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=108", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

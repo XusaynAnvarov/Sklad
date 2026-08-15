@@ -890,3 +890,91 @@ html, body { min-height: 100dvh; }
      движение — убираем. */
   body::before { animation: none; }
 }
+
+/* ================================================================
+   ВИТРИНА — направление, выбранное владельцем.
+   Развитие текущего navy+gold: товар подан крупно, золото работает
+   только на акцентах, заголовки — Georgia (та же гарнитура, что «GM»
+   в логотипе). Блок идёт последним в файле, поэтому переопределяет
+   правила выше порядком, а не повышением специфичности.
+   Все цвета взяты из токенов — тёмная тема (html[data-site-theme="dark"])
+   подхватывает их сама.
+   ================================================================ */
+
+/* ---------- Витрина: первый экран ---------- */
+/* Фон задаём ЯВНЫМИ цветами, а не токенами: в тёмной теме --navy-l превращается
+   в золото, и градиент навy→навy заливал бы весь экран золотом. */
+.site-hero {
+  background: linear-gradient(135deg, #141f33 0%, #243558 100%);
+  border-radius: 20px;
+  padding: 44px 36px 40px;
+  margin-bottom: 28px;
+}
+html[data-site-theme="dark"] .site-hero {
+  background: linear-gradient(135deg, #101014 0%, #1c1c23 100%);
+  border: 1px solid var(--border);
+}
+.hero-eyebrow {
+  font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--gold-l); margin-bottom: 14px; position: relative; z-index: 1;
+}
+.site-hero h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 700; letter-spacing: -.015em;
+  font-size: clamp(26px, 4.2vw, 42px); text-wrap: balance;
+  max-width: 18ch;
+}
+.site-hero p { opacity: .72; max-width: 46ch; }
+.site-hero .btn-primary { font-size: 15px; padding: 12px 26px; }
+
+/* ---------- Карточка: фото крупнее, воздуха больше ---------- */
+.product-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 22px; }
+
+.product-card {
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(28,43,74,.05);
+}
+.product-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--gold);
+  box-shadow: var(--shadow-lg);
+}
+.product-card:hover .product-card-img img { transform: scale(1.05); }
+/* витрина показывает товар шире, а не квадратом — так он выглядит товаром, а не иконкой */
+.product-card-img, .product-card-img-placeholder { aspect-ratio: 4 / 3; }
+
+.product-card-body { padding: 15px 16px 17px; gap: 2px; }
+.product-name { font-size: 15.5px; font-weight: 600; margin-bottom: 3px; }
+.product-category { font-size: 12px; margin-bottom: 0; }
+/* артикул — моноширинным: клиент диктует его менеджеру, цифры не должны сливаться */
+.product-sku {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11.5px; letter-spacing: .02em;
+  color: var(--muted); margin-top: 5px;
+}
+.product-card-footer { margin-top: auto; padding-top: 13px; }
+
+/* Бейджи: без backdrop-filter — именно он тормозил прокрутку на телефонах */
+.product-badge { backdrop-filter: none; border-radius: 7px; }
+.product-badge.in-stock  { background: #16a34a; }
+.product-badge.out-stock { background: #dc2626; }
+.product-badge.soon      { background: #d97706; }
+.product-badge.new-badge { background: var(--gold); color: var(--navy-d); }
+
+/* Кнопка заказа — единственное место, где золото звучит в полную силу */
+.btn-add-cart.available { background: var(--gold); color: var(--navy-d); font-weight: 700; }
+.btn-add-cart.available:hover {
+  background: var(--gold-l); color: var(--navy-d);
+  transform: translateY(-1px); box-shadow: 0 4px 14px rgba(201,168,76,.4);
+}
+
+@media (max-width: 768px) {
+  .site-hero { padding: 30px 20px 28px; border-radius: 16px; margin-bottom: 20px; }
+  .site-hero h1 { max-width: none; }
+  .product-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .product-card-body { padding: 11px 12px 13px; }
+  .product-name { font-size: 14px; }
+}
+@media (max-width: 480px) {
+  .product-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+}
