@@ -240,8 +240,110 @@ function adminMenu(chatId) {
     [{ text: "👥 Клиенты", callback_data: "a_clients" }],
     [{ text: "💸 Долги", callback_data: "a_debts" }],
     [{ text: "🔔 Напомнить должникам", callback_data: "a_remind" }],
+    [{ text: "💵 Оплаты клиентов", callback_data: "a_pays" }],
+    [{ text: "📦 Остатки и что заказать", callback_data: "a_stock" }],
+    [{ text: "📊 Итоги дня / месяца", callback_data: "a_totals" }],
     [{ text: "📋 Акты сверки", callback_data: "a_acts" }],
+    [{ text: "📘 Инструкция клиентам", callback_data: "a_guide" }],
   ] } });
+}
+
+// Способы оплаты — тот же список, что и в складе (js/payment.js)
+const PAY_METHODS = [
+  { value: "cash", label: "💵 Наличные" },
+  { value: "card_transfer", label: "📲 Перевод на карту" },
+  { value: "card", label: "💳 Пластиковая карта" },
+  { value: "transfer", label: "🏦 Перечисление" },
+];
+const methodText = (v) => (PAY_METHODS.find(m => m.value === v) || {}).label || "— не указан";
+
+// Последние оплаты клиентов: кто, сколько, когда и каким способом
+async function adminPayments(chatId) {
+  const [pays, cs] = await Promise.all([
+    sget("payments?select=customer_id,amount,currency,date,method&order=date.desc&limit=20"),
+    sget("customers?select=id,name"),
+  ]);
+  if (!pays.length) return tg("sendMessage", { chat_id: chatId, text: "Оплат пока нет." });
+  const nameOf = Object.fromEntries(cs.map(c => [c.id, c.name]));
+  const lines = pays.map(p => `${dt(p.date)} · *${nameOf[p.customer_id] || "—"}* — ${money(p.amount, p.currency)}\n   ${methodText(p.method)}`);
+  // сколько каким способом за эти оплаты
+  const by = {};
+  pays.forEach(p => { const k = p.method || ""; by[k] = by[k] || {}; by[k][p.currency] = (by[k][p.currency] || 0) + (Number(p.amount) || 0); });
+  const summary = Object.entries(by).map(([k, v]) => `${methodText(k)}: ${curStr(v)}`).join("\n");
+  return tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown",
+    text: `💵 *Последние оплаты*\n\n${lines.join("\n")}\n\n— — —\n${summary}` });
+}
+
+// Остатки: что в минусе и что заканчивается при живом спросе (правила как в js/advice.js)
+async function adminStock(chatId) {
+  const [products, sales] = await Promise.all([
+    sget("products?select=id,name,stock_qty"),
+    sget("sales?select=date,items,status&order=date.desc&limit=400"),
+  ]);
+  const since = Date.now() - 30 * 86400000;
+  const sold30 = {};
+  sales.forEach(s => {
+    if (s.status && s.status !== "final") return;
+    if (new Date(s.date).getTime() < since) return;
+    (s.items || []).forEach(it => { sold30[it.product_id] = (sold30[it.product_id] || 0) + (Number(it.qty) || 0); });
+  });
+  const neg = products.filter(p => (Number(p.stock_qty) || 0) < 0).sort((a, b) => a.stock_qty - b.stock_qty);
+  const low = products.filter(p => { const q = Number(p.stock_qty) || 0; return q >= 0 && q <= 5 && (sold30[p.id] || 0) > 0; })
+    .sort((a, b) => (sold30[b.id] || 0) - (sold30[a.id] || 0));
+  let text = "📦 *Склад*\n";
+  text += neg.length ? `\n🔴 *В минусе (${neg.length}):*\n` + neg.slice(0, 15).map(p => `• ${p.name} — ${p.stock_qty}`).join("\n") + "\n" : "\n✅ Минусов нет\n";
+  text += low.length ? `\n⚠️ *Заканчивается, но продаётся (${low.length}):*\n` + low.slice(0, 15).map(p => `• ${p.name} — ост. ${p.stock_qty}, продано ${sold30[p.id]} шт за 30 дн`).join("\n") : "\n✅ Ничего не заканчивается";
+  return tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown", text });
+}
+
+// Короткая сводка: сегодня и текущий месяц
+async function adminTotals(chatId) {
+  const [sales, pays] = await Promise.all([
+    sget("sales?status=eq.final&select=date,currency,items&order=date.desc&limit=800"),
+    sget("payments?select=date,amount,currency&order=date.desc&limit=800"),
+  ]);
+  const now = new Date();
+  const sameDay = (d) => { const x = new Date(d); return x.toDateString() === now.toDateString(); };
+  const sameMonth = (d) => { const x = new Date(d); return x.getMonth() === now.getMonth() && x.getFullYear() === now.getFullYear(); };
+  const turn = (list) => { const o = { som: 0, usd: 0, yuan: 0 };
+    list.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; if (o[c] !== undefined) o[c] += (Number(it.qty) || 0) * (Number(it.unit_price) || 0); })); return o; };
+  const paid = (list) => { const o = { som: 0, usd: 0, yuan: 0 };
+    list.forEach(p => { if (o[p.currency] !== undefined) o[p.currency] += Number(p.amount) || 0; }); return o; };
+  const dS = sales.filter(s => sameDay(s.date)), mS = sales.filter(s => sameMonth(s.date));
+  const dP = pays.filter(p => sameDay(p.date)), mP = pays.filter(p => sameMonth(p.date));
+  const text = `📊 *Итоги*\n\n*Сегодня*\nОборот: ${curStr(turn(dS))}\nОплаты: ${curStr(paid(dP))}\nНакладных: ${dS.length}\n\n*Этот месяц*\nОборот: ${curStr(turn(mS))}\nОплаты: ${curStr(paid(mP))}\nНакладных: ${mS.length}`;
+  return tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown", text });
+}
+
+// Видео-инструкция по регистрации: себе или всем клиентам
+function adminGuideMenu(chatId) {
+  return tg("sendMessage", { chat_id: chatId, text: "📘 Инструкция по регистрации — кому отправить?", reply_markup: { inline_keyboard: [
+    [{ text: "👀 Прислать мне (проверить)", callback_data: "guide:me:ru" }],
+    [{ text: "📢 Всем клиентам (рус)", callback_data: "guide:all:ru" }],
+    [{ text: "📢 Всем клиентам (o'zbek)", callback_data: "guide:all:uz" }],
+  ] } });
+}
+async function adminSendGuide(chatId, who, lang) {
+  const url = `${PUBLIC_URL}/guide/guide-${lang === "uz" ? "uz" : "ru"}.gif`;
+  const caption = lang === "uz"
+    ? "📘 Saytda va Telegram-botda qanday ro'yxatdan o'tish"
+    : "📘 Как зарегистрироваться на сайте и в Telegram-боте";
+  if (who === "me") {
+    await tg("sendAnimation", { chat_id: chatId, animation: url, caption });
+    return;
+  }
+  const cs = await sget("customers?select=id,name,tg_chat_id");
+  const targets = cs.filter(c => c.tg_chat_id);
+  await tg("sendMessage", { chat_id: chatId, text: `Отправляю инструкцию ${targets.length} клиентам…` });
+  let sent = 0, failed = 0;
+  for (const c of targets) {
+    try {
+      const r = await fetch(api("sendAnimation"), { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: c.tg_chat_id, animation: url, caption }) });
+      const j = await r.json(); j.ok ? sent++ : failed++;
+    } catch { failed++; }
+  }
+  await tg("sendMessage", { chat_id: chatId, text: `📘 Инструкция отправлена: ${sent}` + (failed ? ` · не дошло: ${failed}` : "") });
 }
 // Разослать должникам напоминание об оплате в их Telegram (через клиентского бота)
 async function adminRemindDebtors(chatId) {
@@ -322,7 +424,7 @@ async function tryAdminPayment(chatId, raw) {
   // 2) иначе — частичное (имя содержится)
   if (!matches.length) matches = all.filter(x => (x.name || "").toLowerCase().includes(nLow));
   if (!matches.length) { await tg("sendMessage", { chat_id: chatId, text: `❌ Клиент «${name}» не найден.` }); return true; }
-  if (matches.length === 1) { await recordPayment(chatId, matches[0], amount, currency); return true; }
+  if (matches.length === 1) { await askPayMethod(chatId, matches[0], amount, currency); return true; }
   // 3) несколько подходящих → спрашиваем, кому записать (оплату запоминаем во временном состоянии)
   try { await supsert("bot_sessions", { chat_id: String(chatId), state: { pending_payment: { amount, currency } }, updated_at: new Date().toISOString() }); } catch {}
   const kb = matches.slice(0, 16).map(c => [{ text: c.name, callback_data: "paysel:" + c.id }]);
@@ -331,8 +433,22 @@ async function tryAdminPayment(chatId, raw) {
 }
 
 // записать оплату конкретному клиенту + показать новый долг
-async function recordPayment(chatId, c, amount, currency) {
-  await supsert("payments", { customer_id: c.id, amount, currency, date: new Date().toISOString(), note: "Оплата (из бота)" });
+// Спросить способ оплаты кнопками. Сумму и клиента держим в сессии бота,
+// чтобы после нажатия кнопки записать оплату уже со способом.
+async function askPayMethod(chatId, c, amount, currency) {
+  try {
+    await supsert("bot_sessions", { chat_id: String(chatId), state: { pending_payment: { cust_id: c.id, amount, currency } }, updated_at: new Date().toISOString() });
+  } catch { }
+  return tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown",
+    text: `Оплата *${money(amount, currency)}* от *${c.name}*.\nКаким способом пришли деньги?`,
+    reply_markup: { inline_keyboard: PAY_METHODS.map(m => [{ text: m.label, callback_data: "paym:" + m.value }]) } });
+}
+
+async function recordPayment(chatId, c, amount, currency, method) {
+  const row = { customer_id: c.id, amount, currency, date: new Date().toISOString(), note: "Оплата (из бота)" };
+  // колонки method может ещё не быть в базе — тогда пишем без неё
+  try { await supsert("payments", { ...row, method: method || null }); }
+  catch { await supsert("payments", row); }
   const [sales, pays] = await Promise.all([clientSales(c.id), sget(`payments?customer_id=eq.${c.id}&select=*`)]);
   const { debt } = debtAndTurnover(sales, pays, c);
   await tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown", text: `✅ Оплата *${money(amount, currency)}* записана клиенту *${c.name}*.\nТекущий долг: *${curStr(debt)}*` });
@@ -544,6 +660,29 @@ export default async function handler(req, res) {
         else if (data === "a_clients") await adminClients(chatId);
         else if (data === "a_debts") await adminDebts(chatId);
         else if (data === "a_remind") { adminRemindDebtors(chatId); } // рассылка — без await, чтобы вебхук не таймаутил
+        else if (data.startsWith("paym:")) {
+          // выбран способ оплаты → теперь записываем саму оплату
+          const method = data.slice(5);
+          const sess = await sget(`bot_sessions?chat_id=eq.${chatId}&select=state`);
+          const pp = sess[0]?.state?.pending_payment;
+          if (!pp || !(Number(pp.amount) > 0) || !pp.cust_id) {
+            await tg("sendMessage", { chat_id: chatId, text: "Оплата устарела — введите заново «Имя сумма»." });
+            return res.status(200).send("ok");
+          }
+          const cust = (await sget(`customers?id=eq.${encodeURIComponent(pp.cust_id)}&select=id,name,opening_debt`))[0];
+          if (!cust) { await tg("sendMessage", { chat_id: chatId, text: "Клиент не найден." }); return res.status(200).send("ok"); }
+          await recordPayment(chatId, cust, Number(pp.amount), pp.currency || "som", method);
+          try { await supsert("bot_sessions", { chat_id: String(chatId), state: {}, updated_at: new Date().toISOString() }); } catch {}
+        }
+        else if (data === "a_pays") await adminPayments(chatId);
+        else if (data === "a_stock") await adminStock(chatId);
+        else if (data === "a_totals") await adminTotals(chatId);
+        else if (data === "a_guide") await adminGuideMenu(chatId);
+        else if (data.startsWith("guide:")) {
+          const [, who, lang] = data.split(":");
+          if (who === "all") adminSendGuide(chatId, who, lang);   // рассылка — без await
+          else await adminSendGuide(chatId, who, lang);
+        }
         else if (data === "a_acts") await adminActs(chatId);
         else if (data === "act_all") { adminActAll(chatId); } // длинная рассылка — без await, чтобы вебхук не таймаутил
         else if (data.startsWith("act:")) await sendActTo(chatId, data.slice(4));
@@ -557,8 +696,7 @@ export default async function handler(req, res) {
           if (!pp || !(Number(pp.amount) > 0)) { await tg("sendMessage", { chat_id: chatId, text: "Оплата устарела — введите заново «Имя сумма»." }); return res.status(200).send("ok"); }
           const cust = (await sget(`customers?id=eq.${encodeURIComponent(custId)}&select=id,name,opening_debt`))[0];
           if (!cust) { await tg("sendMessage", { chat_id: chatId, text: "Клиент не найден." }); return res.status(200).send("ok"); }
-          await recordPayment(chatId, cust, Number(pp.amount), pp.currency || "som");
-          try { await supsert("bot_sessions", { chat_id: String(chatId), state: {}, updated_at: new Date().toISOString() }); } catch {}
+          await askPayMethod(chatId, cust, Number(pp.amount), pp.currency || "som");
         }
         return res.status(200).send("ok");
       }

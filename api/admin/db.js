@@ -15,6 +15,13 @@ function sbHeaders(extra = {}) {
   return { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY, "Content-Type": "application/json", ...extra };
 }
 
+// Белый список таблиц. Запросы идут с сервисным ключом (RLS не действует),
+// поэтому имя таблицы нельзя брать из запроса как есть — иначе через эту ручку
+// достанут любую таблицу базы, включая учётные записи клиентов.
+const TABLES = new Set(["products", "customers", "sales", "purchases", "payments", "videos", "trash", "settings"]);
+// id у нас — uuid или короткий слаг; ничего другого в фильтр не пускаем
+const okId = (v) => /^[\w-]{1,64}$/.test(String(v || ""));
+
 async function sbGet(path) {
   const r = await fetch(SB_URL + "/rest/v1/" + path, { headers: sbHeaders() });
   if (!r.ok) throw new Error("DB GET " + r.status + ": " + (await r.text()).slice(0, 300));
@@ -56,10 +63,24 @@ export default async function handler(req, res) {
       const table = req.query?.table;
       const id    = req.query?.id;
       if (!table) return res.status(400).json({ error: "table required" });
+      if (!TABLES.has(table)) return res.status(400).json({ error: "Неизвестная таблица" });
 
       if (id) {
+        if (!okId(id)) return res.status(400).json({ error: "Неверный id" });
         const rows = await sbGet(`${table}?id=eq.${encodeURIComponent(id)}&limit=1`);
         return res.json((rows && rows[0]) || null);
+      }
+      // ПАКЕТНОЕ чтение: ?ids=a,b,c — одним запросом вместо N.
+      // Ради этого и сделано: при сохранении накладной на 50 позиций браузер
+      // раньше слал по 3 запроса на товар и упирался в лимит соединений.
+      const idsRaw = req.query?.ids;
+      if (idsRaw) {
+        const ids = String(idsRaw).split(",").map(s => s.trim()).filter(Boolean);
+        if (!ids.length) return res.json([]);
+        if (ids.length > 500) return res.status(400).json({ error: "слишком много id (максимум 500)" });
+        if (!ids.every(okId)) return res.status(400).json({ error: "Неверный id в списке" });
+        const rows = await sbGet(`${table}?id=in.(${encodeURIComponent(ids.join(","))})`);
+        return res.json(rows || []);
       }
       if (table === "settings") {
         const rows = await sbGet("settings?limit=1");
@@ -79,9 +100,29 @@ export default async function handler(req, res) {
       if (typeof body === "string") try { body = JSON.parse(body); } catch { body = {}; }
       const { table, op, data, id } = body || {};
       if (!table) return res.status(400).json({ error: "table required" });
+      if (!TABLES.has(table)) return res.status(400).json({ error: "Неизвестная таблица" });
+
+      // ПАКЕТНАЯ запись: data — массив записей, один запрос вместо N.
+      // PostgREST сам делает upsert по первичному ключу при resolution=merge-duplicates.
+      if (op === "upsert_many") {
+        if (!Array.isArray(data)) return res.status(400).json({ error: "data должен быть массивом" });
+        const rows = data.filter(r => r && typeof r === "object");
+        if (!rows.length) return res.json([]);
+        if (rows.length > 500) return res.status(400).json({ error: "слишком много записей (максимум 500)" });
+        if (!rows.every(r => okId(r.id))) return res.status(400).json({ error: "у каждой записи должен быть корректный id" });
+        const r = await fetch(SB_URL + "/rest/v1/" + table, {
+          method: "POST",
+          headers: sbHeaders({ Prefer: "resolution=merge-duplicates,return=representation" }),
+          body: JSON.stringify(rows),
+        });
+        if (!r.ok) throw new Error("DB UPSERT_MANY " + r.status + ": " + (await r.text()).slice(0, 300));
+        const txt = await r.text();
+        return res.json(txt ? JSON.parse(txt) : rows);
+      }
 
       if (op === "delete" || op === "remove") {
         if (!id) return res.status(400).json({ error: "id required for delete" });
+        if (!okId(id)) return res.status(400).json({ error: "Неверный id" });
         await sbDelete(`${table}?id=eq.${encodeURIComponent(id)}`);
         return res.json({ ok: true });
       }
@@ -101,6 +142,7 @@ export default async function handler(req, res) {
       if (!data) return res.status(400).json({ error: "data required" });
 
       if (data.id) {
+        if (!okId(data.id)) return res.status(400).json({ error: "Неверный id" });
         // обновление существующей записи; если её НЕТ (напр. восстановление из корзины) — вставляем заново с тем же id
         const rows = await sbPatch(`${table}?id=eq.${encodeURIComponent(data.id)}`, data);
         if (rows && rows.length) return res.json(rows[0]);

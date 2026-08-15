@@ -1,15 +1,16 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260811c";
-import { fmt, CUR, convert } from "../fx.js?v=20260811c";
-import { placeholder } from "./products.js?v=20260811c";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260811c";
-import { icon } from "../icons.js?v=20260811c";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260811c";
-import { notifyOwner } from "../telegram.js?v=20260811c";
-import { authHeaders } from "../db.js?v=20260811c";
-import { thumb } from "../img.js?v=20260811c";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260815a";
+import { fmt, CUR, convert } from "../fx.js?v=20260815a";
+import { placeholder } from "./products.js?v=20260815a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260815a";
+import { icon } from "../icons.js?v=20260815a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260815a";
+import { notifyOwner } from "../telegram.js?v=20260815a";
+import { authHeaders } from "../db.js?v=20260815a";
+import { thumb } from "../img.js?v=20260815a";
+import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260815a";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
@@ -78,12 +79,20 @@ export default async function render(page, ctx) {
 
   if (!purchases.length) { page.append(el("div.empty", {}, [el("div.em-ic", {}, [icon("truck", { size: 40 })]), el("p", { text: "Поступлений пока нет" })])); return; }
 
+  const fFilter = select([{ value: "", label: "Все приходы" }, ...kindOptions()], "");
+  fFilter.style.maxWidth = "220px";
+  fFilter.addEventListener("change", draw);
+  page.append(el("div", { style: { margin: "0 0 12px" } }, [fFilter]));
+
   const tbody = el("tbody");
-  purchases.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(s => {
+  function draw() {
+  tbody.textContent = "";
+  purchases.filter(s => !fFilter.value || purchaseKind(s) === fFilter.value)
+    .sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(s => {
     const total = (s.items || []).reduce((t, i) => t + i.qty * i.unit_cost, 0);
     tbody.append(el("tr", {}, [
       el("td", { text: new Date(s.date).toLocaleDateString("ru-RU") }),
-      el("td", {}, [el("strong", { text: s.supplier || "—" })]),
+      el("td", {}, [el("strong", { text: s.supplier || "—" }), isShop(s) && el("div", { style: { fontSize: "12px", color: "var(--muted)" }, text: kindText(s.kind) })].filter(Boolean)),
       el("td", {}, [el("span.badge.cur", { text: CUR[s.currency].label })]),
       el("td", { text: (s.items || []).length + " поз." }),
       el("td", {}, [el("strong", { text: fmt(total, s.currency) })]),
@@ -102,8 +111,10 @@ export default async function render(page, ctx) {
       ].filter(Boolean))]),
     ]));
   });
+  }
+  draw();
   page.append(el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
-    el("thead", {}, [el("tr", {}, ["Дата", "Поставщик", "Валюта", "Позиции", "Сумма", "Статус", ""].map(h => el("th", { text: h })))]),
+    el("thead", {}, [el("tr", {}, ["Дата", "Поставщик / магазин", "Валюта", "Позиции", "Сумма", "Статус", ""].map(h => el("th", { text: h })))]),
     tbody,
   ])]));
 }
@@ -130,7 +141,7 @@ async function arrive(ctx, s, products) {
     await ctx.db.purchases.upsert({ id: s.id, status: "arrived" });
     const pmap2 = Object.fromEntries(products.map(p => [p.id, p]));
     const lines = (s.items || []).map(it => `• ${pmap2[it.product_id]?.name || "?"} × ${it.qty}`);
-    try { await notifyOwner(`Новый приход на склад\nПоставщик: ${s.supplier || "—"}\n\n${lines.join("\n")}`); } catch {}
+    try { await notifyOwner(`Новый приход на склад\n${kindWho(s.kind)}: ${s.supplier || "—"}\n\n${lines.join("\n")}`); } catch {}
     toast("Оприходовано, остатки обновлены", "ok");
     // авто-оповещение клиентов о новинках
     const productIds = [...new Set((s.items || []).map(it => it.product_id).filter(Boolean))];
@@ -143,14 +154,17 @@ async function arrive(ctx, s, products) {
 // прихода: пока лежит старая партия, она и продаётся, значит и цена показывается её.
 // Новая цена вступит в силу сама, когда FIFO доест старую партию (costAfter в продажах).
 async function applyArrival(ctx, s, products) {
+  const shop = isShop(s);
   for (const it of s.items || []) {
     const p = products.find(x => x.id === it.product_id);
     if (!p) continue;
     const cur = it.currency || s.currency;
-    const cy = Math.round(convert(it.unit_cost, cur, "yuan") * 100) / 100;
-    const cu = Math.round(convert(it.unit_cost, cur, "usd") * 100) / 100;
     // FIFO: добавляем новую партию в конец (старые партии не трогаем — продаются первыми)
     const batches = ensureBatches(p);
+    const own = currentCost(batches);
+    // из магазина — цена наша складская, чтобы себестоимость и прибыль не поехали
+    const cy = shop ? own.cost_yuan : Math.round(convert(it.unit_cost, cur, "yuan") * 100) / 100;
+    const cu = shop ? own.cost_usd : Math.round(convert(it.unit_cost, cur, "usd") * 100) / 100;
     batches.push({ qty: Number(it.qty) || 0, cost_yuan: cy, cost_usd: cu, date: s.date || new Date().toISOString() });
     p.batches = batches;
     // текущая себестоимость = цена СТАРЕЙШЕЙ непустой партии.
@@ -167,10 +181,14 @@ function openEditor(ctx, purchase, products, suppliers = []) {
   const isNew = !purchase;
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
   const state = purchase
-    ? { supplier: purchase.supplier, currency: purchase.currency, status: purchase.status, date: purchase.date, items: JSON.parse(JSON.stringify(purchase.items || [])) }
-    : { supplier: "", currency: "yuan", status: "in_transit", date: new Date().toISOString(), items: [] };
+    ? { supplier: purchase.supplier, currency: purchase.currency, status: purchase.status, date: purchase.date, kind: purchaseKind(purchase), items: JSON.parse(JSON.stringify(purchase.items || [])) }
+    : { supplier: "", currency: "yuan", status: "in_transit", date: new Date().toISOString(), kind: "supplier", items: [] };
 
+  const fKind = select(kindOptions(), state.kind);
   const fSupplier = inputList(suppliers, { value: state.supplier || "", placeholder: "Поставщик (выбор или ввод)" });
+  const supplierField = field(kindWho(state.kind), fSupplier);
+  const shopHint = el("div", { style: { fontSize: "13px", margin: "-4px 0 6px", color: "var(--muted)", display: state.kind === KIND_SHOP ? "" : "none" },
+    text: "Товар из магазина приходует по НАШЕЙ складской цене — себестоимость менять не нужно." });
   const fCurrency = select(PCUR, state.currency);
   const fStatus = select([{ value: "in_transit", label: "В дороге" }, { value: "arrived", label: "Уже пришёл" }], state.status);
   const itemsBox = el("div");
@@ -189,12 +207,24 @@ function openEditor(ctx, purchase, products, suppliers = []) {
     const p = pmap[selId()];
     if (!p) { preview.style.display = "none"; costHint.textContent = ""; return; }
     preview.src = p.photo_url || placeholder(p.name); preview.style.display = ""; preview.onclick = () => p.photo_url && lightbox(p.photo_url);
-    const def = state.currency === "usd" ? p.cost_usd : state.currency === "yuan" ? p.cost_yuan : Math.round(convert(p.cost_yuan, "yuan", "som"));
-    if (!fCost.value) fCost.value = def || "";
-    costHint.textContent = "Текущая себестоимость: " + fmt(p.cost_yuan, "yuan");
+    // цена по FIFO-партиям — то, во что товар обходится нам прямо сейчас
+    const own = currentCost(ensureBatches(p));
+    const def = state.currency === "usd" ? own.cost_usd : state.currency === "yuan" ? own.cost_yuan : Math.round(convert(own.cost_yuan, "yuan", "som"));
+    // из магазина — цена всегда наша, поле только для справки
+    if (state.kind === KIND_SHOP) { fCost.value = def || 0; fCost.disabled = true; fCost.title = "Из магазина товар приходует по нашей складской цене"; }
+    else { fCost.disabled = false; fCost.title = ""; if (!fCost.value) fCost.value = def || ""; }
+    costHint.textContent = "Текущая себестоимость: " + fmt(own.cost_yuan, "yuan");
   }
   fProduct.addEventListener("input", refreshAdd);
   fCurrency.addEventListener("change", () => { state.currency = fCurrency.value; refreshAdd(); drawItems(); });
+  fKind.addEventListener("change", () => {
+    state.kind = fKind.value;
+    const who = kindWho(state.kind);
+    supplierField.querySelector(".field-label").textContent = who;
+    fSupplier.placeholder = who + " (выбор или ввод)";
+    shopHint.style.display = state.kind === KIND_SHOP ? "" : "none";
+    fCost.value = ""; refreshAdd();
+  });
 
   function addToCart() {
     const id = selId(); if (!id) { toast("Выберите товар из списка", "err"); return; }
@@ -253,7 +283,8 @@ function openEditor(ctx, purchase, products, suppliers = []) {
   drawItems();
 
   const body = el("div", {}, [
-    el("div.row2", {}, [field("Поставщик", fSupplier), field("Валюта", fCurrency)]),
+    el("div.row2", {}, [field("Тип прихода", fKind), field("Валюта", fCurrency)]),
+    supplierField, shopHint,
     field("Статус", fStatus),
     el("div.hint", { text: "При статусе «Уже пришёл» товары автоматически добавятся на склад." }),
     el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", marginTop: "8px" } }, [
@@ -287,13 +318,16 @@ function openEditor(ctx, purchase, products, suppliers = []) {
         try {
           const wasArrived = purchase?.status === "arrived";
           const obj = { ...(purchase ? { id: purchase.id } : {}), supplier: fSupplier.value.trim(), currency: state.currency, status: fStatus.value, date: state.date, items: state.items };
-          const saved = await ctx.db.purchases.upsert(obj);
+          // колонка kind могла ещё не появиться в базе — тогда сохраняем без неё
+          let saved;
+          try { saved = await ctx.db.purchases.upsert({ ...obj, kind: state.kind }); obj.kind = state.kind; }
+          catch { saved = await ctx.db.purchases.upsert(obj); }
           // если только что отметили «пришёл» — добавить на склад
           if (fStatus.value === "arrived" && !wasArrived) {
             await applyArrival(ctx, saved || obj, products);
             const pmap3 = Object.fromEntries(products.map(p => [p.id, p]));
             const lines3 = (state.items || []).map(it => `• ${pmap3[it.product_id]?.name || "?"} × ${it.qty}`);
-            try { await notifyOwner(`Новый приход на склад\nПоставщик: ${fSupplier.value.trim() || "—"}\n\n${lines3.join("\n")}`); } catch {}
+            try { await notifyOwner(`Новый приход на склад\n${kindWho(state.kind)}: ${fSupplier.value.trim() || "—"}\n\n${lines3.join("\n")}`); } catch {}
           } else if (wasArrived && fStatus.value !== "arrived") {
             // сняли «пришёл» → списываем товары со склада (по прежним позициям), чтобы повторное оприходование не задвоило остаток
             const pmap4 = Object.fromEntries(products.map(p => [p.id, p]));

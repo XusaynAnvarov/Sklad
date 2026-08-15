@@ -1,15 +1,16 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260811c";
-import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260811c";
-import { openEditor, buildText, deleteSale } from "./sales.js?v=20260811c";
-import { exportCustomerInvoice } from "../xlsx-export.js?v=20260811c";
-import { placeholder as placeholderImg } from "./products.js?v=20260811c";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260811c";
-import { authHeaders } from "../db.js?v=20260811c";
-import { icon } from "../icons.js?v=20260811c";
-import { thumb } from "../img.js?v=20260811c";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260815a";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260815a";
+import { openEditor, buildText, deleteSale } from "./sales.js?v=20260815a";
+import { exportCustomerInvoice } from "../xlsx-export.js?v=20260815a";
+import { placeholder as placeholderImg } from "./products.js?v=20260815a";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260815a";
+import { authHeaders } from "../db.js?v=20260815a";
+import { icon } from "../icons.js?v=20260815a";
+import { thumb } from "../img.js?v=20260815a";
+import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20260815a";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
 const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);
@@ -218,6 +219,7 @@ async function renderCard(page, ctx, id) {
           el("td", { text: new Date(p.date).toLocaleDateString("ru-RU") }),
           el("td", {}, [el("strong", { text: fmt(p.amount, p.currency) })]),
           el("td", {}, [el("span.badge.cur", { text: CUR[p.currency].label })]),
+          el("td", { text: methodText(p.method) }),
           el("td", { text: p.note || "—" }),
           el("td.right", {}, [el("div.row-actions", {}, [
             el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Изменить оплату", onclick: () => openPayment(ctx, c, p) }, [icon("edit", { size: 15 })]),
@@ -226,7 +228,7 @@ async function renderCard(page, ctx, id) {
         ]));
       });
       payContent = el("div", { style: { overflowX: "auto" } }, [el("table.tbl", {}, [
-        el("thead", {}, [el("tr", {}, ["Дата", "Сумма", "Валюта", "Комментарий", ""].map(h => el("th", { text: h })))]),
+        el("thead", {}, [el("tr", {}, ["Дата", "Сумма", "Валюта", "Способ", "Комментарий", ""].map(h => el("th", { text: h })))]),
         tbp,
       ])]);
     }
@@ -562,11 +564,14 @@ function openPayment(ctx, c, pay) {
   const fCur = select(Object.values(CUR).map(x => ({ value: x.code, label: x.label })), isEdit ? pay.currency : "yuan");
   const fDate = input({ type: "date", value: (isEdit && pay.date ? pay.date : new Date().toISOString()).slice(0, 10) });
   const fNote = input({ placeholder: "Комментарий (необязательно)", value: isEdit ? (pay.note || "") : "" });
+  // способ оплаты — чтобы было видно, откуда пришли деньги
+  const fMethod = select(methodOptions(), (isEdit && pay.method) || DEFAULT_METHOD);
   modal({
     title: (isEdit ? "Изменить оплату — " : "Новая оплата — ") + c.name,
     body: el("div", {}, [
       el("div.row2", {}, [field("Сумма", fAmount), field("Валюта", fCur)]),
-      el("div.row2", {}, [field("Дата", fDate), field("Комментарий", fNote)]),
+      el("div.row2", {}, [field("Способ оплаты", fMethod), field("Дата", fDate)]),
+      field("Комментарий", fNote),
     ]),
     actions: [
       { label: "Отмена", kind: "btn-outline", onClick: x => x() },
@@ -574,7 +579,10 @@ function openPayment(ctx, c, pay) {
         if (!(+fAmount.value > 0)) { toast("Введите сумму", "err"); return; }
         const amount = +fAmount.value, currency = fCur.value;
         const date = fDate.value ? new Date(fDate.value).toISOString() : (isEdit ? pay.date : new Date().toISOString());
-        await ctx.db.payments.upsert({ ...(isEdit ? { id: pay.id } : {}), customer_id: c.id, amount, currency, date, note: fNote.value.trim() });
+        const base = { ...(isEdit ? { id: pay.id } : {}), customer_id: c.id, amount, currency, date, note: fNote.value.trim() };
+        // колонки method может ещё не быть в базе — тогда сохраняем без неё
+        try { await ctx.db.payments.upsert({ ...base, method: fMethod.value }); }
+        catch (e) { await ctx.db.payments.upsert(base); }
         close(); toast(isEdit ? "Оплата изменена, долг обновлён" : "Оплата добавлена, долг обновлён", "ok"); ctx.refresh();
       } },
     ],

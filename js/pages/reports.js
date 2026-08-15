@@ -2,22 +2,25 @@
 //  ОТЧЁТЫ: итоги, диаграммы (месяцы · категории · сезоны · топ-полосы),
 //  сезонность товаров, советы, топ товаров/клиентов, долги и оборот.
 // ========================================================================
-import { el, modal, select } from "../ui.js?v=20260811c";
-import { curStr, toUSD } from "../fx.js?v=20260811c";
-import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260811c";
-import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260811c";
-import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260811c";
-import { buildAdvice } from "../advice.js?v=20260811c";
-import { placeholder } from "./products.js?v=20260811c";
-import { icon } from "../icons.js?v=20260811c";
-import { thumb } from "../img.js?v=20260811c";
+import { el, modal, select } from "../ui.js?v=20260815a";
+import { curStr, toUSD } from "../fx.js?v=20260815a";
+import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260815a";
+import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260815a";
+import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260815a";
+import { buildAdvice } from "../advice.js?v=20260815a";
+import { placeholder } from "./products.js?v=20260815a";
+import { icon } from "../icons.js?v=20260815a";
+import { thumb } from "../img.js?v=20260815a";
+import { byMethod, methodText } from "../payment.js?v=20260815a";
+import { isShop } from "../purchase.js?v=20260815a";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
 export default async function render(page, ctx) {
-  const [products, sales, customers, payments, settings] = await Promise.all([
+  const [products, sales, customers, payments, settings, purchases] = await Promise.all([
     ctx.db.products.list(), ctx.db.sales.list(), ctx.db.customers.list(), ctx.db.payments.list(),
     ctx.db.getSettings().catch(() => ({})),
+    ctx.db.purchases.list().catch(() => []),
   ]);
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
   const cmap = Object.fromEntries(customers.map(c => [c.id, c.name]));
@@ -291,6 +294,50 @@ export default async function render(page, ctx) {
       return { c, turn, paid, debt, turnUSD };
     }).filter(r => r.turnUSD > 0 || curStr(r.debt) !== "0" || curStr(r.paid) !== "0")
       .sort((a, b) => b.turnUSD - a.turnUSD);
+
+    // ---------- КАК ПРИХОДЯТ ДЕНЬГИ (по способам оплаты) ----------
+    const methods = byMethod(fPays);
+    const methodRows = Object.entries(methods);
+    if (methodRows.length) {
+      wrap.append(el("div.section-h", { text: "Как приходят деньги — " + periodLabel() }));
+      wrap.append(el("div.hint", { text: "Способ указывается при внесении оплаты. Оплаты, внесённые раньше, показаны как «не указан».", style: { marginTop: "-4px" } }));
+      wrap.append(table(["Способ", "Сумма", "Оплат"], methodRows.map(([m, a]) => el("tr", {}, [
+        el("td", {}, [el("strong", { text: methodText(m) })]),
+        el("td", {}, [el("strong", { text: curStr(a) })]),
+        el("td", { text: a.count }),
+      ]))));
+    }
+
+    // ---------- ПРИХОД ИЗ МАГАЗИНОВ (в какие числа что пришло) ----------
+    const shopArr = (purchases || []).filter(p => isShop(p) && p.status === "arrived" && matchPeriod(p.date, period));
+    if (shopArr.length) {
+      const byShop = {};                       // магазин → сколько штук и сколько поступлений
+      const lines = [];                        // строки «дата · магазин · товар · количество»
+      shopArr.slice().sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(p => {
+        const shop = p.supplier || "—";
+        const b = byShop[shop] || (byShop[shop] = { qty: 0, times: 0 });
+        b.times++;
+        (p.items || []).forEach(it => {
+          const q = Number(it.qty) || 0;
+          b.qty += q;
+          lines.push({ date: p.date, shop, name: (pmap[it.product_id] || {}).name || "—", qty: q });
+        });
+      });
+      wrap.append(el("div.section-h", { text: "Приход из магазинов — " + periodLabel() }));
+      wrap.append(el("div.hint", { text: "Товар от других магазинов приходуется по нашей складской цене, долг перед магазином здесь не считается.", style: { marginTop: "-4px" } }));
+      wrap.append(table(["Магазин", "Поступлений", "Всего штук"], Object.entries(byShop)
+        .sort((a, b) => b[1].qty - a[1].qty).map(([shop, b]) => el("tr", {}, [
+          el("td", {}, [el("strong", { text: shop })]),
+          el("td", { text: b.times }),
+          el("td", {}, [el("strong", { text: b.qty + " шт" })]),
+        ]))));
+      wrap.append(table(["Дата", "Магазин", "Товар", "Количество"], lines.map(l => el("tr", {}, [
+        el("td", { text: new Date(l.date).toLocaleDateString("ru-RU") }),
+        el("td", { text: l.shop }),
+        el("td", {}, [el("strong", { text: l.name })]),
+        el("td", { text: l.qty + " шт" }),
+      ]))));
+    }
 
     wrap.append(el("div.section-h", { text: "Оборот, оплачено и долг по клиентам" }));
     wrap.append(rows.length ? table(["Клиент", "Оборот", "Оплачено", "Долг"], rows.map(r => el("tr", {}, [

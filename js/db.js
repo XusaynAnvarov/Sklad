@@ -111,6 +111,9 @@ function localCollection(name) {
   return {
     async list() { return [...store[name]]; },
     async get(id) { return store[name].find(x => x.id === id) || null; },
+    // те же пакетные методы, что и у облачного режима — чтобы страницы не различали режимы
+    async getMany(ids) { const s = new Set((ids || []).filter(Boolean)); return store[name].filter(x => s.has(x.id)); },
+    async upsertMany(rows) { for (const r of (rows || [])) await this.upsert(r); return rows || []; },
     async upsert(obj) {
       if (!obj.id) { obj.id = uid(); obj.created_at = obj.created_at || todayISO(); store[name].push(obj); }
       else {
@@ -134,6 +137,16 @@ function handleAuthError() {
   location.reload();
 }
 
+// пакетное чтение: одним запросом вместо N (при сохранении накладной их были сотни)
+async function adminGetMany(table, ids) {
+  const list = (ids || []).filter(Boolean);
+  if (!list.length) return [];
+  const r = await fetch(`/api/admin/db?table=${table}&ids=${encodeURIComponent(list.join(","))}`, { headers: adminHeaders() });
+  const j = await r.json();
+  if (r.status === 401) { handleAuthError(); throw new Error("Сессия истекла"); }
+  if (!r.ok) throw new Error(j.error || r.status);
+  return Array.isArray(j) ? j : [];
+}
 async function adminGet(table, id) {
   const q = id ? `?table=${table}&id=${encodeURIComponent(id)}` : `?table=${table}`;
   const r = await fetch("/api/admin/db" + q, { headers: adminHeaders() });
@@ -159,6 +172,18 @@ function sbTable(name) {
     async get(id) {
       if (!adminToken()) throw new Error("Требуется авторизация");
       return adminGet(name, id);
+    },
+    // Пакетные операции — ради скорости сохранения накладной: раньше на каждый
+    // товар уходило по 3 запроса, теперь на всю накладную хватает трёх.
+    async getMany(ids) {
+      if (!adminToken()) throw new Error("Требуется авторизация");
+      return adminGetMany(name, ids);
+    },
+    async upsertMany(rows) {
+      if (!adminToken()) throw new Error("Требуется авторизация");
+      const list = (rows || []).filter(Boolean);
+      if (!list.length) return [];
+      return adminPost(name, "upsert_many", list);
     },
     async upsert(obj) {
       if (!adminToken()) throw new Error("Требуется авторизация");

@@ -1,17 +1,17 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260811c";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260811c";
-import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient, requestOrderConfirm } from "../telegram.js?v=20260811c";
-import { placeholder } from "./products.js?v=20260811c";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260811c";
-import { icon } from "../icons.js?v=20260811c";
-import { showLoader, hideLoader } from "../ui.js?v=20260811c";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260811c";
-import { exportInvoice } from "../xlsx-export.js?v=20260811c";
-import { showNotFound } from "./purchases.js?v=20260811c";
-import { thumb } from "../img.js?v=20260811c";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260815a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260815a";
+import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient, requestOrderConfirm } from "../telegram.js?v=20260815a";
+import { placeholder } from "./products.js?v=20260815a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260815a";
+import { icon } from "../icons.js?v=20260815a";
+import { showLoader, hideLoader } from "../ui.js?v=20260815a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260815a";
+import { exportInvoice } from "../xlsx-export.js?v=20260815a";
+import { showNotFound } from "./purchases.js?v=20260815a";
+import { thumb } from "../img.js?v=20260815a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -299,6 +299,67 @@ async function sendForConfirm(ctx, sale, state, close, customers) {
   finally { hideLoader(); }
 }
 
+// ========================================================================
+//  Работа со складом при сохранении накладной — ПАКЕТАМИ.
+//  Раньше на каждый товар уходило по три запроса (прочитать → записать →
+//  проверить). Браузер держит ~6 соединений к домену, поэтому накладная на
+//  50 позиций (150 запросов) сохранялась минутами. Теперь на всю накладную
+//  уходит три запроса.
+//  Если сервер пакетный режим не понял (старая версия) — тихо откатываемся
+//  на прежний поштучный путь: сохранение важнее скорости.
+// ========================================================================
+async function readFresh(ctx, ids, out) {
+  if (!ids.length) return;
+  if (typeof ctx.db.products.getMany === "function") {
+    try {
+      const list = await ctx.db.products.getMany(ids);
+      if (Array.isArray(list)) { list.forEach(p => { if (p && p.id) out[p.id] = p; }); return; }
+    } catch (e) { console.warn("getMany, читаем по одному:", e.message); }
+  }
+  await Promise.all(ids.map(async (pid) => {
+    try { const p = await ctx.db.products.get(pid); if (p && p.id) out[pid] = p; } catch { }
+  }));
+}
+
+async function writeStock(ctx, rows) {
+  if (!rows.length) return;
+  const noBatches = () => rows.map(({ batches, ...r }) => r);   // колонки batches может не быть
+  if (typeof ctx.db.products.upsertMany === "function") {
+    try { await ctx.db.products.upsertMany(rows); return; }
+    catch (e) {
+      try { await ctx.db.products.upsertMany(noBatches()); return; }
+      catch (e2) { console.warn("upsertMany, пишем по одному:", e2.message); }
+    }
+  }
+  await Promise.all(rows.map(async (r) => {
+    const { batches, ...base } = r;
+    try { await ctx.db.products.upsert(r); } catch { await ctx.db.products.upsert(base); }
+  }));
+}
+
+// вернуть названия товаров, у которых остаток так и не записался
+async function verifyStock(ctx, expected, nameOf) {
+  const ids = Object.keys(expected);
+  if (!ids.length) return [];
+  const read = async () => { const o = {}; await readFresh(ctx, ids, o); return o; };
+  let now = {};
+  try { now = await read(); } catch { return ids.map(id => nameOf(id)?.name || id); }
+  const off = ids.filter(id => {
+    const p = now[id];
+    return !p || Math.abs((Number(p.stock_qty) || 0) - expected[id]) > 0.001;
+  });
+  if (!off.length) return [];
+  // повторная попытка — одним пакетом
+  try {
+    await writeStock(ctx, off.map(id => ({ id, stock_qty: expected[id] })));
+    const again = await read();
+    return off.filter(id => {
+      const p = again[id];
+      return !p || Math.abs((Number(p.stock_qty) || 0) - expected[id]) > 0.001;
+    }).map(id => nameOf(id)?.name || id);
+  } catch { return off.map(id => nameOf(id)?.name || id); }
+}
+
 async function save(ctx, sale, state, status, close, customers, products, doSend, toClient, noStock) {
   if (!state.customer_id) { toast("Выберите клиента", "err"); return; }
   if (!state.items.length) { toast("Добавьте товары", "err"); return; }
@@ -326,10 +387,10 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
       const touched = new Set([...((sale && sale.items) || []).map(i => i.product_id), ...state.items.map(i => i.product_id)].filter(Boolean));
       // ВАЖНО: берём КАРТОЧКИ ТОВАРОВ СВЕЖИМИ с сервера. Список в памяти мог устареть
       // (страницу открыли давно / правили с другого устройства) — тогда остаток записывался неверно.
+      // Читаем ОДНИМ запросом: раньше на каждый товар уходил свой, и накладная
+      // на 50 позиций упиралась в лимит соединений браузера — отсюда долгое сохранение.
       const fresh = {};
-      await Promise.all([...touched].map(async (pid) => {
-        try { const p = await ctx.db.products.get(pid); if (p && p.id) fresh[pid] = p; } catch {}
-      }));
+      await readFresh(ctx, [...touched], fresh);
       const P = (id) => fresh[id] || products.find(x => x.id === id);
 
       // для заказа из бота старые позиции НЕ возвращаем — их со склада ещё не списывали
@@ -346,33 +407,24 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
         it.applied = true;      // отметка «со склада списано» — по ней ищем непроведённые накладные
       });
 
-      // пишем все затронутые товары ПАРАЛЛЕЛЬНО (раньше — по очереди, отсюда долгое сохранение)
+      // пишем все затронутые товары ОДНИМ пакетом
       const expected = {};
       const notFound = [];
-      await Promise.all([...touched].map(async (pid) => {
+      const rows = [];
+      [...touched].forEach((pid) => {
         const p = P(pid);
         if (!p) { notFound.push(pid); return; }
         // склад распродан → сохраняем прежнюю себестоимость (не обнуляем)
         const cc = costAfter(p.batches || [], p);
         const qty = sumQty(p.batches || []);
         expected[pid] = qty;
-        const base = { id: p.id, stock_qty: qty, cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
-        try { await ctx.db.products.upsert({ ...base, batches: p.batches }); }
-        catch (e) { await ctx.db.products.upsert(base); } // если колонки batches ещё нет
-      }));
+        rows.push({ id: p.id, stock_qty: qty, cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: p.batches });
+      });
+      await writeStock(ctx, rows);
 
-      // ПРОВЕРКА: остаток действительно изменился на сервере (раньше сбой проходил незаметно)
-      const bad = [];
-      await Promise.all(Object.keys(expected).map(async (pid) => {
-        try {
-          const now = await ctx.db.products.get(pid);
-          if (!now || Math.abs((Number(now.stock_qty) || 0) - expected[pid]) > 0.001) {
-            await ctx.db.products.upsert({ id: pid, stock_qty: expected[pid] });   // повторная попытка
-            const again = await ctx.db.products.get(pid);
-            if (!again || Math.abs((Number(again.stock_qty) || 0) - expected[pid]) > 0.001) bad.push(P(pid)?.name || pid);
-          }
-        } catch { bad.push(P(pid)?.name || pid); }
-      }));
+      // ПРОВЕРКА: остаток действительно изменился на сервере (раньше сбой проходил незаметно).
+      // Тоже одним запросом; расходящиеся дописываем вторым пакетом и перечитываем.
+      const bad = await verifyStock(ctx, expected, P);
       if (notFound.length) toast("Товар не найден в базе (остаток не изменён): " + notFound.length + " поз.", "err");
       if (bad.length) toast("⚠ Остаток НЕ записался: " + bad.slice(0, 3).join(", ") + (bad.length > 3 ? " и ещё " + (bad.length - 3) : "") + ". Проверьте связь и повторите.", "err");
     }
