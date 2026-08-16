@@ -138,7 +138,7 @@ html[data-theme="light"] .bg-stars{opacity:.45;}
    и рисует мусорные «мини-скриншоты» поверх карточки (баг композитора на iOS/Android) */
 .prod{border-radius:var(--radius);overflow:hidden;background:var(--panel);border:1px solid var(--border);
   transition:transform .3s,border-color .3s,box-shadow .3s;cursor:pointer;display:flex;flex-direction:column;}
-.prod:hover{transform:translateY(-2px);border-color:rgba(47,91,208,.35);box-shadow:0 6px 18px rgba(16,24,40,.08);}
+.prod:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 6px 18px rgba(16,24,40,.08);}
 .prod .ph{aspect-ratio:1/1;width:100%;object-fit:cover;background:#12122a;}
 .prod .body{padding:14px;flex:1;display:flex;flex-direction:column;gap:6px;}
 .prod .nm{font-weight:600;font-size:15px;line-height:1.3;}
@@ -392,11 +392,15 @@ html[data-theme="light"] .lang-switch.floating{background:rgba(255,255,255,.8);}
    (нейтральный серый фон #f5f6f8, сдержанный синий акцент, графит)
    =================================================================== */
 html[data-theme="light"]{
-  --bg:#f5f6f8; --panel:#ffffff; --card:#ffffff;
-  --border:#e4e7ec; --text:#16191f; --muted:#667085;
-  --accent:#2f5bd0; --accent2:#1f2937; --accent3:#3b6fe0;
-  --grad:linear-gradient(135deg,#1f2937,#111827);   /* графитовая кнопка = primary */
-  --grad2:linear-gradient(135deg,#3b6fe0,#2f5bd0);   /* строгий синий акцент */
+  /* «Светлый день»: белая бумага, чернила, латунь. Синий акцент убран —
+     он не имел отношения ни к логотипу, ни к тёмной теме склада. */
+  --bg:#f4f5f7; --panel:#ffffff; --card:#ffffff;
+  --border:#e2e6eb; --text:#14181e; --muted:#59626d;
+  --accent:#8f6720; --accent2:#14181e; --accent3:#a97c2a;
+  /* состояния тоже темнее: на белом жёлтый и салатовый из тёмной темы не читаются */
+  --ok:#1f7a5c; --warn:#a5691a; --danger:#b4472f;
+  --grad:linear-gradient(135deg,#14181e,#2b323b);   /* чернильная кнопка = primary */
+  --grad2:linear-gradient(135deg,#d8b26a,#8f6720);  /* латунь = акцент */
   --radius:10px; --shadow:0 6px 20px rgba(16,24,40,.06);
 }
 html[data-theme="light"] body{background:var(--bg);}
@@ -410,40 +414,40 @@ html[data-theme="light"] .sidebar{background:#ffffff;border-right:1px solid var(
 html[data-theme="light"] .card,html[data-theme="light"] .stat-card,html[data-theme="light"] .prod,html[data-theme="light"] .tbl{
   background:#ffffff;border-color:var(--border);box-shadow:0 1px 2px rgba(16,24,40,.04);}
 /* заметное наведение в СВЕТЛОЙ теме (иначе базовая светлая тень/рамка перебивает :hover) */
-html[data-theme="light"] .card:hover{border-color:var(--accent);box-shadow:0 8px 22px rgba(47,91,208,.18);}
-html[data-theme="light"] .stat-card:hover{border-color:var(--accent);box-shadow:0 12px 28px rgba(47,91,208,.22);}
-html[data-theme="light"] .prod:hover{border-color:var(--accent);box-shadow:0 12px 26px rgba(47,91,208,.20);}
+html[data-theme="light"] .card:hover{border-color:var(--accent);box-shadow:0 8px 22px rgba(143,103,32,.18);}
+html[data-theme="light"] .stat-card:hover{border-color:var(--accent);box-shadow:0 12px 28px rgba(143,103,32,.22);}
+html[data-theme="light"] .prod:hover{border-color:var(--accent);box-shadow:0 12px 26px rgba(143,103,32,.20);}
 html[data-theme="light"] .modal,html[data-theme="light"] .toast{background:#ffffff;}
 html[data-theme="light"] .inp{background:#fff;border-color:#d5d9e0;}
 html[data-theme="light"] .inp::placeholder{color:#98a2b3;}
-html[data-theme="light"] .inp:focus{box-shadow:0 0 0 3px rgba(47,91,208,.16);border-color:var(--accent);}
+html[data-theme="light"] .inp:focus{box-shadow:0 0 0 3px rgba(143,103,32,.16);border-color:var(--accent);}
 html[data-theme="light"] .tbl th{background:#f8f9fb;}
 html[data-theme="light"] .tbl td{border-bottom-color:#eef0f3;}
 html[data-theme="light"] .tbl tbody tr:hover{background:#f8f9fb;}
 
 /* навигация — активный пункт графитовая пилюля, иконка-акцент */
-html[data-theme="light"] .navitem{color:#475467;}
+html[data-theme="light"] .navitem{color:#59626d;}
 html[data-theme="light"] .navitem:hover{background:#f2f4f7;color:var(--text);}
-html[data-theme="light"] .navitem.active{background:#1f2937;color:#fff;}
+html[data-theme="light"] .navitem.active{background:#14181e;color:#fff;}
 html[data-theme="light"] .navitem.active::before{display:none;}
-html[data-theme="light"] .navitem.active .ic-svg{color:#8fb0ff;}
+html[data-theme="light"] .navitem.active .ic-svg{color:#d8b26a;}
 html[data-theme="light"] .profile-chip{background:#fff;}
-html[data-theme="light"] .profile-chip .avatar{background:#1f2937;color:#8fb0ff;box-shadow:0 2px 6px rgba(16,24,40,.12);}
+html[data-theme="light"] .profile-chip .avatar{background:#14181e;color:#d8b26a;box-shadow:0 2px 6px rgba(16,24,40,.12);}
 
 /* кнопки */
-html[data-theme="light"] .btn-primary{background:#1f2937;color:#fff;box-shadow:0 1px 2px rgba(16,24,40,.10);}
-html[data-theme="light"] .btn-primary:hover{background:#111827;box-shadow:0 4px 12px rgba(16,24,40,.16);}
+html[data-theme="light"] .btn-primary{background:#14181e;color:#fff;box-shadow:0 1px 2px rgba(16,24,40,.10);}
+html[data-theme="light"] .btn-primary:hover{background:#0d1116;box-shadow:0 4px 12px rgba(16,24,40,.16);}
 html[data-theme="light"] .btn-outline{background:#fff;border-color:#d5d9e0;color:var(--text);}
 html[data-theme="light"] .btn-outline:hover{background:#f8f9fb;}
 html[data-theme="light"] .theme-toggle,html[data-theme="light"] .lang-switch button{background:#fff;border-color:#d5d9e0;color:var(--muted);}
 html[data-theme="light"] .theme-toggle:hover{background:#f8f9fb;border-color:#d5d9e0;}
 html[data-theme="light"] .lang-switch button:hover{color:var(--text);}
-html[data-theme="light"] .lang-switch button.active{background:#1f2937;color:#fff;border-color:transparent;}
+html[data-theme="light"] .lang-switch button.active{background:#14181e;color:#fff;border-color:transparent;}
 html[data-theme="light"] .mode-tag{background:#f8f9fb;}
 
 /* пилюли-табы */
 html[data-theme="light"] .pill-tabs{background:#f2f4f7;border-color:var(--border);}
-html[data-theme="light"] .pill-tabs button.active{background:#1f2937;color:#fff;}
+html[data-theme="light"] .pill-tabs button.active{background:#14181e;color:#fff;}
 
 /* акцентная карта (Оборот всего) — строгий синий */
 html[data-theme="light"] .stat-card.grad{background:var(--grad2);border:none;color:#fff;}
@@ -453,7 +457,7 @@ html[data-theme="light"] .stat-card.grad .st-label,html[data-theme="light"] .sta
 /* combobox / select / бейджи / заглушки */
 html[data-theme="light"] .combo-panel{background:#fff;border-color:var(--border);box-shadow:0 12px 32px rgba(16,24,40,.12);}
 html[data-theme="light"] .combo-item:hover,html[data-theme="light"] .combo-item.hi{background:#f2f4f7;color:var(--text);transform:none;}
-html[data-theme="light"] .badge.cur{background:rgba(47,91,208,.10);color:#2f5bd0;border-color:rgba(47,91,208,.25);}
+html[data-theme="light"] .badge.cur{background:rgba(143,103,32,.10);color:#2f5bd0;border-color:rgba(143,103,32,.25);}
 html[data-theme="light"] .prod .ph,html[data-theme="light"] .thumb{background:#f2f4f7;}
 html[data-theme="light"] .modal-overlay{background:rgba(16,24,40,.45);}
 html[data-theme="light"] ::-webkit-scrollbar-thumb{background:#cbd2dc;}
@@ -619,4 +623,61 @@ tr.month-active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   .hbar-val em { display: inline; margin-left: 8px; }
   .season-grid { grid-template-columns: repeat(2, 1fr); }
   .season-bar-box { height: 84px; }
+}
+
+/* ================================================================
+   ПУЛЬТ · В РУКЕ — склад как приборная панель.
+   Направления, выбранные владельцем. Блок идёт последним в файле,
+   поэтому переопределяет правила выше порядком, а не специфичностью.
+   Все цвета — из токенов, обе темы подхватывают их сами.
+   ================================================================ */
+
+/* ---------- Цифры в колонку ---------- */
+/* Одинаковая ширина знаков: без неё суммы «пляшут» по строкам
+   и расхождение в отчёте не бросается в глаза. */
+.tbl, .stat-card .st-value, .hbar-val, .season-val, .last-price {
+  font-variant-numeric: tabular-nums;
+}
+.stat-card .st-value {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  letter-spacing: -.015em;
+}
+
+/* ---------- Плотнее строки ---------- */
+/* На экран влезает примерно вдвое больше товара.
+   Только для широкого экрана: ниже 760px таблица становится карточками
+   со своими отступами, и этот блок (он идёт последним в файле) их бы перебил. */
+@media (min-width: 761px) {
+  .tbl th { padding: 10px 14px; }
+  .tbl td { padding: 9px 14px; font-size: 13.5px; }
+}
+
+/* Размытие фона заставляло телефон перерисовывать таблицу при каждой прокрутке —
+   ровно тот эффект, из-за которого раньше подвисал список товаров. */
+.tbl { backdrop-filter: none; }
+
+/* ---------- Состояние — полоской слева ---------- */
+/* Видно на просмотр, не читая цифру: жёлтая — заканчивается, красная — минус. */
+.prod { position: relative; }
+.prod.low::before, .prod.neg::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; z-index: 2;
+}
+.prod.low::before { background: var(--warn); }
+.prod.neg::before { background: var(--danger); }
+
+/* ---------- В руке: телефон ---------- */
+/* Порог тот же, что у карточного вида таблиц выше, — чтобы всё переключалось разом. */
+@media (max-width: 760px) {
+  /* итоги в две колонки — иначе четыре карточки занимают весь экран */
+  .stat-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-card { padding: 14px; }
+  .stat-card .st-value { font-size: 22px; margin-top: 6px; }
+  .stat-card .st-ic { display: none; }
+
+  /* зоны нажатия под палец: кнопка в строке была 28–30 px, попасть на ходу трудно */
+  .row-actions .btn { min-height: 40px; }
+  .row-actions .btn-icon { width: 40px; height: 40px; }
+  .btn { min-height: 42px; }
+  .navitem { padding: 13px 14px; }
+  .inp, .cselect { min-height: 42px; }
 }

@@ -1,13 +1,14 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260816b";
-import { icon } from "../icons.js?v=20260816b";
-import { fmt, convert } from "../fx.js?v=20260816b";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260816b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260816b";
-import { openEditor } from "./sales.js?v=20260816b";
-import { thumbAttrs } from "../img.js?v=20260816b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260816c";
+import { icon } from "../icons.js?v=20260816c";
+import { fmt, convert } from "../fx.js?v=20260816c";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260816c";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260816c";
+import { openEditor } from "./sales.js?v=20260816c";
+import { thumbAttrs } from "../img.js?v=20260816c";
+import { LOW_STOCK } from "../advice.js?v=20260816c";
 
 // себестоимость в той валюте, в которой её ввели (cost_cur). По умолчанию — юань.
 function costShow(cy, cu, ccur) {
@@ -191,7 +192,11 @@ export default async function render(page, ctx) {
         style: { fontSize: "11px", fontWeight: "700", color: "#b45309", background: "rgba(245,158,11,.13)", border: "1px solid rgba(245,158,11,.35)", borderRadius: "6px", padding: "3px 7px", margin: "4px 0 2px", lineHeight: "1.3" },
         text: "🚚 В дороге: " + tr.qty + " шт" + (tr.suppliers.size ? " · " + [...tr.suppliers].join(", ") : ""),
       }) : null;
-      const card = el("div.prod.reveal", { onclick: () => openForm(ctx, p, cats) }, [
+      // Полоска состояния слева: видно на просмотр, не читая цифру остатка.
+      // Порог берём из советов, чтобы «заканчивается» означало одно и то же везде.
+      const qty = Number(p.stock_qty) || 0;
+      const stateCls = qty < 0 ? ".neg" : (qty <= LOW_STOCK ? ".low" : "");
+      const card = el("div.prod.reveal" + stateCls, { onclick: () => openForm(ctx, p, cats) }, [
         // в списке — миниатюра (иначе сотни полноразмерных фото вешают телефон);
         // при увеличении открываются оригиналы
         el("img.ph", { ...thumbAttrs(p.photo_url, placeholder(p.name), 320), alt: p.name, title: "Нажмите для увеличения",

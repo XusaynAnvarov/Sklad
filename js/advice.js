@@ -5,12 +5,12 @@
 //  Три группы: сезон · деньги · склад.
 //  Используют и Отчёты (полный список), и Дашборд (топ-3).
 // ========================================================================
-import { seasonOf, nextSeason, SEASON_LABEL, SEASON_ICON } from "./period.js?v=20260816b";
-import { itemRevenueUSD, itemProfitUSD, ruleFor } from "./profit.js?v=20260816b";
-import { ensureBatches } from "./inventory.js?v=20260816b";
+import { seasonOf, nextSeason, SEASON_LABEL, SEASON_ICON } from "./period.js?v=20260816c";
+import { itemRevenueUSD, itemProfitUSD, ruleFor } from "./profit.js?v=20260816c";
+import { ensureBatches } from "./inventory.js?v=20260816c";
 
 const DAY = 86400000;
-const LOW_STOCK = 5;          // «заканчивается»
+export const LOW_STOCK = 5;   // «заканчивается» — общий порог для советов и полоски на карточке
 const STALE_DAYS = 90;        // «залежалось»
 const SEASON_MIN_QTY = 6;     // меньше — статистика ничего не значит
 const SEASON_FACTOR = 1.6;    // в сезон продавалось хотя бы в 1.6 раза лучше среднего
