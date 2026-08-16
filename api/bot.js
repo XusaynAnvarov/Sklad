@@ -78,12 +78,12 @@ const langKb = { inline_keyboard: [[{ text: "🇷🇺 Русский", callback_
 
 async function getLang(chatId, customer) {
   if (customer?.tg_lang) return customer.tg_lang;
-  try { const s = await sget(`bot_sessions?chat_id=eq.${chatId}&select=lang`); if (s[0]?.lang) return s[0].lang; } catch {}
+  try { const s = await sget(`bot_sessions?chat_id=eq.${eid(chatId)}&select=lang`); if (s[0]?.lang) return s[0].lang; } catch {}
   return "ru";
 }
 async function setLang(chatId, lang, customer) {
   try { await supsert("bot_sessions", { chat_id: String(chatId), lang, updated_at: new Date().toISOString() }); } catch {}
-  if (customer) { try { await spatch(`customers?id=eq.${customer.id}`, { tg_lang: lang }); } catch {} }
+  if (customer) { try { await spatch(`customers?id=eq.${eid(customer.id)}`, { tg_lang: lang }); } catch {} }
 }
 
 // все номера клиента: основной contact + дополнительные phones[]
@@ -96,7 +96,13 @@ async function findByChat(chatId) {
   try { const byArr = (await sget(`customers?tg_chat_ids=cs.${encodeURIComponent(JSON.stringify([id]))}&select=*`))[0]; if (byArr) return byArr; } catch {}
   return null;
 }
-async function clientSales(custId) { return sget(`sales?customer_id=eq.${custId}&select=*&order=date.desc`); }
+// Идентификаторы уходят прямо в фильтр PostgREST — пропускаем только безопасные символы
+const okId = (v) => /^[\w-]{1,64}$/.test(String(v || ""));
+const eid = (v) => encodeURIComponent(String(v || ""));
+async function clientSales(custId) {
+  if (!okId(custId)) return [];
+  return sget(`sales?customer_id=eq.${eid(custId)}&select=*&order=date.desc`);
+}
 function debtAndTurnover(sales, payments, customer) {
   const debt = { som: 0, usd: 0, yuan: 0 }, turn = { som: 0, usd: 0, yuan: 0 };
   sales.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; if (turn[c] === undefined) return; turn[c] += it.qty * it.unit_price; debt[c] += it.qty * it.unit_price; }));
@@ -112,14 +118,16 @@ const curStr = (o) => { const a = []; ["som", "usd", "yuan"].forEach(c => { if (
 const stIcon = (st) => st === "paid" ? "✅" : st === "partial" ? "🟡" : "🔴";
 
 async function sendPDFto(chatId, saleId, cap) {
-  const sale = (await sget(`sales?id=eq.${saleId}&select=*`))[0];
+  if (!okId(saleId)) return;
+  const sale = (await sget(`sales?id=eq.${eid(saleId)}&select=*`))[0];
   if (!sale) return;
-  const customer = sale.customer_id ? (await sget(`customers?id=eq.${sale.customer_id}&select=*`))[0] : { name: "—" };
+  const custId = okId(sale.customer_id) ? sale.customer_id : null;
+  const customer = custId ? (await sget(`customers?id=eq.${eid(custId)}&select=*`))[0] : { name: "—" };
   const products = await sget("products?select=id,name,sku");
   await tg("sendChatAction", { chat_id: chatId, action: "upload_document" });
   let status, debt;
-  if (sale.customer_id) {
-    const [cs, pays] = await Promise.all([sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items,status`), sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency,date`)]);
+  if (custId) {
+    const [cs, pays] = await Promise.all([sget(`sales?customer_id=eq.${eid(custId)}&select=id,date,currency,items,status`), sget(`payments?customer_id=eq.${eid(custId)}&select=amount,currency,date`)]);
     status = invoiceCoverageStatus(sale.id, cs, pays, customer.opening_debt);
     debt = invoiceDebtSummary(sale.id, cs, pays, customer.opening_debt);
   }
@@ -134,11 +142,12 @@ async function sendPDFto(chatId, saleId, cap) {
 // ---------- Акт сверки (PDF) для владельца ----------
 // собрать PDF акта по клиенту: только оформленные накладные (final) + оплаты
 async function buildActBytes(custId) {
-  const customer = (await sget(`customers?id=eq.${encodeURIComponent(custId)}&select=*`))[0];
+  if (!okId(custId)) return null;
+  const customer = (await sget(`customers?id=eq.${eid(custId)}&select=*`))[0];
   if (!customer) return null;
   const [sales, payments] = await Promise.all([
-    sget(`sales?customer_id=eq.${custId}&status=eq.final&select=id,date,currency,items&order=date.asc`),
-    sget(`payments?customer_id=eq.${custId}&select=amount,currency,date&order=date.asc`),
+    sget(`sales?customer_id=eq.${eid(custId)}&status=eq.final&select=id,date,currency,items&order=date.asc`),
+    sget(`payments?customer_id=eq.${eid(custId)}&select=amount,currency,date&order=date.asc`),
   ]);
   const bytes = await buildReconciliationPDF({ customer, sales, payments });
   return { customer, bytes };
@@ -179,6 +188,30 @@ async function adminActAll(chatId) {
   } catch (e) { console.error("adminActAll error", e); await tg("sendMessage", { chat_id: chatId, text: "Не удалось сформировать акты. Попробуйте позже." }); }
 }
 
+// Одни и те же действия клиента: их вызывают и inline-кнопки, и нижняя клавиатура.
+const sendCatalogLink = (chatId, L) =>
+  tg("sendMessage", { chat_id: chatId, text: L.catMsg(PUBLIC_URL + "/catalog") });
+
+async function sendClientDebt(chatId, c, L) {
+  const [sales, pays] = await Promise.all([clientSales(c.id), sget(`payments?customer_id=eq.${eid(c.id)}&select=*`)]);
+  const { debt, turn, advance } = debtAndTurnover(sales, pays, c);
+  let txt = L.debtMsg(c.name, curStr(turn), curStr(debt));
+  // переплата — мы должны клиенту (🟢)
+  if (["som", "usd", "yuan"].some(k => advance[k] > (k === "som" ? 1 : 0.01))) txt += "\n\n" + L.advYou + "*" + curStr(advance) + "*";
+  return tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown", text: txt });
+}
+
+async function sendClientInvoices(chatId, c, L) {
+  const [sales, ipays] = await Promise.all([clientSales(c.id), sget(`payments?customer_id=eq.${eid(c.id)}&select=amount,currency`)]);
+  if (!sales.length) return tg("sendMessage", { chat_id: chatId, text: L.noInv });
+  const rows = sales.slice(0, 20).map(s => {
+    const t = (s.items || []).reduce((a, i) => a + i.qty * i.unit_price, 0);
+    const st = invoiceCoverageStatus(s.id, sales, ipays, c.opening_debt);
+    return [{ text: `${dt(s.date)} · ${money(t, s.currency)} ${stIcon(st)}`, callback_data: "inv:" + s.id }];
+  });
+  return tg("sendMessage", { chat_id: chatId, text: L.invList, reply_markup: { inline_keyboard: rows } });
+}
+
 function clientMenu(chatId, c, L) {
   return tg("sendMessage", { chat_id: chatId, text: L.menu(c.name), reply_markup: { inline_keyboard: [
     [{ text: L.bOrder, web_app: { url: PUBLIC_URL + "/catalog?order=1" } }],
@@ -208,7 +241,7 @@ async function linkByPhone(phone, chatId, fromUser, username) {
     // запоминаем, КАКОЙ номер привязал ЭТОТ Telegram → потом владелец выбирает получателя по телефону
     if (!accs.some(a => String(a.chat_id) === cid)) patch.tg_accounts = [...accs, { phone: String(phone), chat_id: cid, name: fromUser || "" }];
     if (Object.keys(patch).length) {
-      const tryPatch = async (obj) => { try { await spatch(`customers?id=eq.${c.id}`, obj); return true; } catch { return false; } };
+      const tryPatch = async (obj) => { try { await spatch(`customers?id=eq.${eid(c.id)}`, obj); return true; } catch { return false; } };
       // полный патч → без tg_accounts → только tg_chat_id (фолбэк, если новых колонок ещё нет)
       if (!(await tryPatch(patch))) {
         const { tg_accounts, ...noAcc } = patch;
@@ -231,6 +264,39 @@ async function linkByPhone(phone, chatId, fromUser, username) {
   await notifyAdmin(`🔔 Клиент пишет боту, номер не найден:\nТел: ${phone}\nchat_id: ${chatId}\nTG: ${fromUser || "—"}`);
   return null;
 }
+
+// ---------- постоянные клавиатуры внизу экрана ----------
+// Обычные (reply) кнопки, а не inline: они висят под полем ввода всё время,
+// не теряются в переписке и нажимаются в одно касание. Нажатие присылает
+// боту ровно тот текст, что написан на кнопке — поэтому тексты сведены
+// в константы и разбираются в обработчике до всего остального.
+const AK = {
+  pay:    "💰 Оплата клиента",
+  debts:  "📉 Долги клиентов",
+  clients:"👥 Клиенты",
+  stock:  "📦 Остатки",
+  totals: "📊 Итоги",
+  more:   "🛠 Ещё",
+};
+const adminKb = {
+  keyboard: [
+    [{ text: AK.pay }, { text: AK.debts }],
+    [{ text: AK.clients }, { text: AK.stock }],
+    [{ text: AK.totals }, { text: AK.more }],
+  ],
+  resize_keyboard: true, is_persistent: true,
+};
+const CK = { cat: "🌐 Каталог", debt: "💰 Мой долг", inv: "🧾 Накладные", lang: "🌐 Язык" };
+const clientKb = (L) => ({
+  keyboard: [
+    [{ text: L.bCat }, { text: L.bDebt }],
+    [{ text: L.bInv }, { text: CK.lang }],
+  ],
+  resize_keyboard: true, is_persistent: true,
+});
+// показать клавиатуру владельцу (одним коротким сообщением)
+const showAdminKb = (chatId) =>
+  tg("sendMessage", { chat_id: chatId, text: "Кнопки внизу — самое частое под рукой.", reply_markup: adminKb });
 
 // ---------- админ-панель (русский) ----------
 function adminMenu(chatId) {
@@ -372,9 +438,10 @@ async function adminClients(chatId) {
   return tg("sendMessage", { chat_id: chatId, text: "👥 Клиенты:", reply_markup: { inline_keyboard: cs.map(c => [{ text: c.name, callback_data: "cust:" + c.id }]) } });
 }
 async function adminClientCard(chatId, custId) {
-  const c = (await sget(`customers?id=eq.${custId}&select=*`))[0];
+  if (!okId(custId)) return;
+  const c = (await sget(`customers?id=eq.${eid(custId)}&select=*`))[0];
   if (!c) return;
-  const [sales, pays] = await Promise.all([clientSales(custId), sget(`payments?customer_id=eq.${custId}&select=*`)]);
+  const [sales, pays] = await Promise.all([clientSales(custId), sget(`payments?customer_id=eq.${eid(custId)}&select=*`)]);
   const { debt, turn, advance } = debtAndTurnover(sales, pays, c);
   const inv = sales.slice(0, 20).map(s => { const t = (s.items || []).reduce((a, i) => a + i.qty * i.unit_price, 0); const st = invoiceCoverageStatus(s.id, sales, pays, c.opening_debt); return [{ text: `${dt(s.date)} · ${money(t, s.currency)} ${stIcon(st)}`, callback_data: "ainv:" + s.id }]; });
   const hasAdv = ["som", "usd", "yuan"].some(k => advance[k] > (k === "som" ? 1 : 0.01));
@@ -449,7 +516,7 @@ async function recordPayment(chatId, c, amount, currency, method) {
   // колонки method может ещё не быть в базе — тогда пишем без неё
   try { await supsert("payments", { ...row, method: method || null }); }
   catch { await supsert("payments", row); }
-  const [sales, pays] = await Promise.all([clientSales(c.id), sget(`payments?customer_id=eq.${c.id}&select=*`)]);
+  const [sales, pays] = await Promise.all([clientSales(c.id), sget(`payments?customer_id=eq.${eid(c.id)}&select=*`)]);
   const { debt } = debtAndTurnover(sales, pays, c);
   await tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown", text: `✅ Оплата *${money(amount, currency)}* записана клиенту *${c.name}*.\nТекущий долг: *${curStr(debt)}*` });
 }
@@ -485,7 +552,7 @@ export default async function handler(req, res) {
       const verifyStartMatch = rawMsg0.match(/^\/start verify_([a-f0-9]{48})$/i);
       let pendingVerifyToken = null;
       if (verifyStartMatch || (u.message.contact && u.message.contact.phone_number)) {
-        try { const s = await sget(`bot_sessions?chat_id=eq.${chatId}&select=state`); pendingVerifyToken = s[0]?.state?.verify_token || null; } catch {}
+        try { const s = await sget(`bot_sessions?chat_id=eq.${eid(chatId)}&select=state`); pendingVerifyToken = s[0]?.state?.verify_token || null; } catch {}
       }
       // 1) /start verify_TOKEN — начать верификацию (даже для админа/владельца)
       if (verifyStartMatch) {
@@ -523,12 +590,24 @@ export default async function handler(req, res) {
       if (isAdmin(chatId)) {
         const raw = (u.message.text || "").trim();
         const t = raw.toLowerCase();
-        if (t === "/clients") await adminClients(chatId);
+        // Кнопки нижней клавиатуры приходят как обычный текст — разбираем их
+        // ПЕРЕД разбором «Имя сумма», иначе «💰 Оплата клиента» уйдёт в оплату.
+        if (raw === AK.pay) {
+          await tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown",
+            text: "💰 Напишите одним сообщением: *имя клиента и сумма*.\nНапример: `Азиз 500000` или `Азиз 200$`.\nПотом бот спросит способ оплаты." });
+        }
+        else if (raw === AK.debts) await adminDebts(chatId);
+        else if (raw === AK.clients) await adminClients(chatId);
+        else if (raw === AK.stock) await adminStock(chatId);
+        else if (raw === AK.totals) await adminTotals(chatId);
+        else if (raw === AK.more) await adminMenu(chatId);
+        else if (t === "/clients") await adminClients(chatId);
         else if (t === "/debts") await adminDebts(chatId);
         else if (t === "/akt" || t === "/act" || t === "/sverka") await adminActs(chatId);
         else if (t === "/remind" || t === "/dolg") await adminRemindDebtors(chatId);
         else if (t === "/catalog") await tg("sendMessage", { chat_id: chatId, text: `🌐 ${PUBLIC_URL}/catalog` });
-        else if (t === "/start" || t === "/menu") await adminMenu(chatId);
+        else if (t === "/start" || t === "/menu") { await showAdminKb(chatId); await adminMenu(chatId); }
+        else if (t === "/kb") await showAdminKb(chatId);
         else { const handled = await tryAdminPayment(chatId, raw); if (!handled) await adminMenu(chatId); }
         return res.status(200).send("ok");
       }
@@ -538,7 +617,7 @@ export default async function handler(req, res) {
         const phone = u.message.contact.phone_number;
         let verifiedSite = false;
         try {
-          const sess = await sget(`bot_sessions?chat_id=eq.${chatId}&select=state`);
+          const sess = await sget(`bot_sessions?chat_id=eq.${eid(chatId)}&select=state`);
           const verifyToken = sess[0]?.state?.verify_token;
           if (verifyToken) {
             const ph = norm(phone);
@@ -577,7 +656,8 @@ export default async function handler(req, res) {
           try { await supsert("bot_sessions", { chat_id: String(chatId), phone: String(phone), tg_name: fromName || "", tg_username: u.message.from?.username || "", updated_at: new Date().toISOString() }); } catch {}
           const c = await linkByPhone(phone, chatId, fromName, u.message.from?.username);
           const L = T[await getLang(chatId, c)] || T.ru;
-          if (c) { await setLang(chatId, await getLang(chatId, null), c); await tg("sendMessage", { chat_id: chatId, text: L.found(c.name), reply_markup: { remove_keyboard: true } }); await clientMenu(chatId, c, L); }
+          // клавиатуру «Поделиться номером» заменяем на постоянные кнопки клиента
+          if (c) { await setLang(chatId, await getLang(chatId, null), c); await tg("sendMessage", { chat_id: chatId, text: L.found(c.name), reply_markup: clientKb(L) }); await clientMenu(chatId, c, L); }
           else await tg("sendMessage", { chat_id: chatId, text: L.notFound, reply_markup: { remove_keyboard: true } });
         }
         return res.status(200).send("ok");
@@ -610,6 +690,11 @@ export default async function handler(req, res) {
         return res.status(200).send("ok");
       }
       const L = T[await getLang(chatId, existing)] || T.ru;
+      // нажатия нижней клавиатуры приходят обычным текстом — сверяем с подписями кнопок
+      if (raw === L.bCat) { await sendCatalogLink(chatId, L); return res.status(200).send("ok"); }
+      if (raw === L.bDebt) { await sendClientDebt(chatId, existing, L); return res.status(200).send("ok"); }
+      if (raw === L.bInv) { await sendClientInvoices(chatId, existing, L); return res.status(200).send("ok"); }
+      if (raw === CK.lang) { await askLang(chatId); return res.status(200).send("ok"); }
       await clientMenu(chatId, existing, L);
       return res.status(200).send("ok");
     }
@@ -621,11 +706,16 @@ export default async function handler(req, res) {
 
       // выбор языка
       if (data.startsWith("lang:")) {
-        const lang = data.slice(5);
+        // язык берём только из известного списка — значение приходит из callback_data
+        const lang = T[data.slice(5)] ? data.slice(5) : "ru";
         const c = await findByChat(chatId);
         await setLang(chatId, lang, c);
-        const L = T[lang] || T.ru;
-        if (c) await clientMenu(chatId, c, L); else await askContact(chatId, L);
+        const L = T[lang];
+        if (c) {
+          // постоянные кнопки внизу — на выбранном языке
+          await tg("sendMessage", { chat_id: chatId, text: L.menu(c.name), reply_markup: clientKb(L) });
+          await clientMenu(chatId, c, L);
+        } else await askContact(chatId, L);
         return res.status(200).send("ok");
       }
 
@@ -637,7 +727,7 @@ export default async function handler(req, res) {
         let owns = String(sale.order_from?.chat_id || "") === String(chatId);
         // подтвердить может ЛЮБОЙ привязанный к клиенту Telegram-аккаунт (несколько номеров клиента)
         if (!owns && sale.customer_id) {
-          const cu = (await sget(`customers?id=eq.${sale.customer_id}&select=tg_chat_id,tg_chat_ids`))[0];
+          const cu = (await sget(`customers?id=eq.${eid(sale.customer_id)}&select=tg_chat_id,tg_chat_ids`))[0];
           const ids = Array.isArray(cu?.tg_chat_ids) ? cu.tg_chat_ids.map(String) : [];
           owns = String(cu?.tg_chat_id || "") === String(chatId) || ids.includes(String(chatId));
         }
@@ -646,7 +736,7 @@ export default async function handler(req, res) {
         await spatch(`sales?id=eq.${encodeURIComponent(sid)}`, { status: confirm ? "confirmed" : "order" });
         await tg("sendMessage", { chat_id: chatId, text: confirm ? "✅ Спасибо! Заказ подтверждён — мы готовим накладную." : "❌ Заказ отклонён. Мы свяжемся с вами." });
         // владельцу — КТО и КАКОЙ клиент подтвердил/отменил
-        const custName = sale.customer_id ? ((await sget(`customers?id=eq.${sale.customer_id}&select=name`))[0]?.name || "Клиент") : (sale.order_from?.name || "Клиент");
+        const custName = sale.customer_id ? ((await sget(`customers?id=eq.${eid(sale.customer_id)}&select=name`))[0]?.name || "Клиент") : (sale.order_from?.name || "Клиент");
         const who = ([cq.from?.first_name, cq.from?.last_name].filter(Boolean).join(" ") || "—") + (cq.from?.username ? " (@" + cq.from.username + ")" : "");
         const nPos = (sale.items || []).length;
         await notifyAdmin(confirm
@@ -661,9 +751,11 @@ export default async function handler(req, res) {
         else if (data === "a_debts") await adminDebts(chatId);
         else if (data === "a_remind") { adminRemindDebtors(chatId); } // рассылка — без await, чтобы вебхук не таймаутил
         else if (data.startsWith("paym:")) {
-          // выбран способ оплаты → теперь записываем саму оплату
-          const method = data.slice(5);
-          const sess = await sget(`bot_sessions?chat_id=eq.${chatId}&select=state`);
+          // выбран способ оплаты → теперь записываем саму оплату.
+          // Способ берём только из известного списка: значение приходит из callback_data.
+          const raw = data.slice(5);
+          const method = PAY_METHODS.some(m => m.value === raw) ? raw : null;
+          const sess = await sget(`bot_sessions?chat_id=eq.${encodeURIComponent(chatId)}&select=state`);
           const pp = sess[0]?.state?.pending_payment;
           if (!pp || !(Number(pp.amount) > 0) || !pp.cust_id) {
             await tg("sendMessage", { chat_id: chatId, text: "Оплата устарела — введите заново «Имя сумма»." });
@@ -691,7 +783,7 @@ export default async function handler(req, res) {
         else if (data.startsWith("paysel:")) {
           // выбор клиента для оплаты, когда имя подходило нескольким
           const custId = data.slice(7);
-          const sess = await sget(`bot_sessions?chat_id=eq.${chatId}&select=state`);
+          const sess = await sget(`bot_sessions?chat_id=eq.${eid(chatId)}&select=state`);
           const pp = sess[0]?.state?.pending_payment;
           if (!pp || !(Number(pp.amount) > 0)) { await tg("sendMessage", { chat_id: chatId, text: "Оплата устарела — введите заново «Имя сумма»." }); return res.status(200).send("ok"); }
           const cust = (await sget(`customers?id=eq.${encodeURIComponent(custId)}&select=id,name,opening_debt`))[0];
@@ -704,20 +796,13 @@ export default async function handler(req, res) {
       const c = await findByChat(chatId);
       const L = T[await getLang(chatId, c)] || T.ru;
       if (!c) { await askLang(chatId); return res.status(200).send("ok"); }
-      if (data === "cat") await tg("sendMessage", { chat_id: chatId, text: L.catMsg(PUBLIC_URL + "/catalog") });
-      else if (data === "debt") {
-        const [sales, pays] = await Promise.all([clientSales(c.id), sget(`payments?customer_id=eq.${c.id}&select=*`)]);
-        const { debt, turn, advance } = debtAndTurnover(sales, pays, c);
-        let txt = L.debtMsg(c.name, curStr(turn), curStr(debt));
-        if (["som", "usd", "yuan"].some(k => advance[k] > (k === "som" ? 1 : 0.01))) txt += "\n\n" + L.advYou + "*" + curStr(advance) + "*"; // переплата — мы должны клиенту (🟢)
-        await tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown", text: txt });
-      } else if (data === "inv") {
-        const [sales, ipays] = await Promise.all([clientSales(c.id), sget(`payments?customer_id=eq.${c.id}&select=amount,currency`)]);
-        if (!sales.length) { await tg("sendMessage", { chat_id: chatId, text: L.noInv }); return res.status(200).send("ok"); }
-        const rows = sales.slice(0, 20).map(s => { const t = (s.items || []).reduce((a, i) => a + i.qty * i.unit_price, 0); const st = invoiceCoverageStatus(s.id, sales, ipays, c.opening_debt); return [{ text: `${dt(s.date)} · ${money(t, s.currency)} ${stIcon(st)}`, callback_data: "inv:" + s.id }]; });
-        await tg("sendMessage", { chat_id: chatId, text: L.invList, reply_markup: { inline_keyboard: rows } });
-      } else if (data.startsWith("inv:")) {
-        await sendPDFto(chatId, data.slice(4), L.invCap(dt((await sget(`sales?id=eq.${data.slice(4)}&select=date`))[0]?.date || Date.now())));
+      if (data === "cat") await sendCatalogLink(chatId, L);
+      else if (data === "debt") await sendClientDebt(chatId, c, L);
+      else if (data === "inv") await sendClientInvoices(chatId, c, L);
+      else if (data.startsWith("inv:")) {
+        const invId = data.slice(4);
+        if (!okId(invId)) return res.status(200).send("ok");
+        await sendPDFto(chatId, invId, L.invCap(dt((await sget(`sales?id=eq.${eid(invId)}&select=date`))[0]?.date || Date.now())));
       }
       return res.status(200).send("ok");
     }

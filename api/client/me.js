@@ -1,6 +1,6 @@
 // GET /api/client/me — профиль клиента + долг по валютам
 import { getValidClient } from "../lib/clientauth.js";
-import { sget } from "../lib/supa.js";
+import { sget , okId } from "../lib/supa.js";
 
 function debtAndTurnover(sales, payments, customer) {
   const debt = { som: 0, usd: 0, yuan: 0 };
@@ -31,9 +31,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ customer: null, debt: { som: 0, usd: 0, yuan: 0 }, turn: { som: 0, usd: 0, yuan: 0 }, advance: { som: 0, usd: 0, yuan: 0 } });
     }
     const [customers, sales, payments] = await Promise.all([
-      sget(`customers?id=eq.${client.customer_id}&select=id,name,contact,opening_debt`),
-      sget(`sales?customer_id=eq.${client.customer_id}&select=id,date,currency,items,status,source`),
-      sget(`payments?customer_id=eq.${client.customer_id}&select=amount,currency`),
+      sget(`customers?id=eq.${encodeURIComponent(client.customer_id)}&select=id,name,contact,opening_debt`),
+      sget(`sales?customer_id=eq.${encodeURIComponent(client.customer_id)}&select=id,date,currency,items,status,source`),
+      sget(`payments?customer_id=eq.${encodeURIComponent(client.customer_id)}&select=amount,currency`),
     ]);
     const customer = customers[0] || null;
     const { debt, turn, advance } = debtAndTurnover(sales, payments, customer);

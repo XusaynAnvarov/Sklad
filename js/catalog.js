@@ -1,10 +1,10 @@
 // ========================================================================
 //  ПУБЛИЧНЫЙ КАТАЛОГ — только фото, название, категория и статус (без цен)
 // ========================================================================
-import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20260815c";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260815c";
-import { iconSvg } from "./icons.js?v=20260815c";
-import { thumb } from "./img.js?v=20260815c";
+import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20260816a";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260816a";
+import { iconSvg } from "./icons.js?v=20260816a";
+import { thumb } from "./img.js?v=20260816a";
 
 // увеличение фото по клику (повторный клик — закрыть)
 function openLightbox(src) {
@@ -224,7 +224,7 @@ function wirePdfButton() {
     if (!items.length) return;
     btn.disabled = true;
     try {
-      const m = await import("./catalog-pdf.js?v=20260815c");
+      const m = await import("./catalog-pdf.js?v=20260816a");
       await m.downloadCatalogPDF(groupByCategory(items), (done, total) => {   // PDF — всегда все товары
         btn.textContent = `Готовим PDF… ${done}/${total}`;
       });
@@ -343,7 +343,7 @@ function renderOrderView() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=108", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=109", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();

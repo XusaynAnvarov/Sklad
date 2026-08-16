@@ -34,12 +34,12 @@ export default async function handler(req, res) {
       const conflict = existing.find(a => a.customer_id !== client.customer_id);
       if (conflict) return res.status(409).json({ error: "Этот номер уже привязан к другому аккаунту" });
 
-      await spatch(`site_accounts?customer_id=eq.${client.customer_id}`, { phone: newPhone });
+      await spatch(`site_accounts?customer_id=eq.${encodeURIComponent(client.customer_id)}`, { phone: newPhone });
       customerPatch.contact = phone.trim();
     }
 
     if (Object.keys(customerPatch).length) {
-      await spatch(`customers?id=eq.${client.customer_id}`, customerPatch);
+      await spatch(`customers?id=eq.${encodeURIComponent(client.customer_id)}`, customerPatch);
     }
 
     return res.status(200).json({ ok: true });
