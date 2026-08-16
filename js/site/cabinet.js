@@ -1,6 +1,6 @@
 // Личный кабинет клиента: профиль, заказы, накладные, оплаты, экспорт
-import { api } from "./api.js?v=20260816a";
-import { sToast, t } from "./app.js?v=20260816a";
+import { api } from "./api.js?v=20260816b";
+import { sToast, t } from "./app.js?v=20260816b";
 
 const CURRENCIES = { som: "сум", usd: "$", yuan: "¥" };
 const STATUS_LABEL = { order: "Новый", pending_confirm: "Ждёт подтверждения", confirmed: "Подтверждён", final: "Оформлен" };
@@ -290,9 +290,10 @@ function renderDashboard(box, invoices, me) {
           r.append(im);
         }
         r.append(el("span", { text: it.product_name, style: "flex:1;min-width:0" }));
-        // цену товара клиенту не показываем — только количество (см. renderInvoices, renderOrders)
+        // Свою цену клиент видит: это условие его сделки. В каталоге цены нет ни у кого.
+        const c2 = it.currency || cur;
         r.append(el("span", {
-          text: `${it.qty} шт`,
+          text: `${it.qty} × ${fmt(it.unit_price, c2)} = ${fmt(it.qty * it.unit_price, c2)}`,
           style: "color:var(--muted);white-space:nowrap",
         }));
         items.append(r);
@@ -332,22 +333,38 @@ async function renderOrders(container) {
       </div>
       <span class="order-badge ${cls}">${lbl}</span>`;
     const items = mkEl("div", "");
+    const totals = { som: 0, usd: 0, yuan: 0 };
+    let allPriced = true;                      // цена проставлена у ВСЕХ позиций заказа?
     (o.items || []).forEach(it => {
       const row = mkEl("div", "");
       row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px";
-      // в заказе показываем только количество — цену называет менеджер (t("priceNote"))
+      const cur = it.currency || o.currency || "som";
+      const price = Number(it.unit_price) || 0;
+      if (price > 0) { if (totals[cur] !== undefined) totals[cur] += it.qty * price; } else allPriced = false;
+      // цена появляется сразу, как владелец её проставил; до этого — «цена уточняется»
+      const right = price > 0
+        ? `× ${it.qty} · ${fmt(price, cur)} = ${fmt(it.qty * price, cur)}`
+        : `× ${it.qty} · цена уточняется`;
       row.append(
         el("span", { text: it.product_name, style: "flex:1;min-width:0" }),
-        el("span", { text: `× ${it.qty}`, style: "color:var(--muted);white-space:nowrap" }),
+        el("span", { text: right, style: "color:var(--muted);white-space:nowrap" }),
       );
       items.append(row);
     });
     card.append(head, items);
-    // итога по заказу нет: сумму называет менеджер, цены клиенту не показываем
-    card.append(el("div", {
-      text: t("priceNote"),
-      style: "margin-top:10px;text-align:right;font-size:13px;color:var(--muted)",
-    }));
+    // Итог показываем ТОЛЬКО когда цены есть у всех позиций: иначе клиент увидел бы
+    // сумму меньше настоящей и рассчитывал бы на неё.
+    if (allPriced && ["som", "usd", "yuan"].some(c => totals[c] > 0.001)) {
+      card.append(el("div", {
+        text: "Итого по заказу: " + byCurStr(totals),
+        style: "margin-top:10px;text-align:right;font-weight:700;font-size:15px;color:var(--navy)",
+      }));
+    } else {
+      card.append(el("div", {
+        text: t("priceNote"),
+        style: "margin-top:10px;text-align:right;font-size:13px;color:var(--muted)",
+      }));
+    }
     container.append(card);
   });
 }
@@ -408,8 +425,8 @@ async function renderInvoices(container) {
         row.append(im);
       }
       const nameEl = mkEl("span", ""); nameEl.style.cssText = "flex:1;min-width:0"; nameEl.textContent = it.product_name;
-      // только количество: цену товара клиент не видит
-      const qtyEl = mkEl("span", ""); qtyEl.style.cssText = "color:var(--muted);flex-shrink:0"; qtyEl.textContent = `${it.qty} шт`;
+      // цена из накладной — та, что владелец дал этому клиенту
+      const qtyEl = mkEl("span", ""); qtyEl.style.cssText = "color:var(--muted);flex-shrink:0"; qtyEl.textContent = `${it.qty} × ${fmt(it.unit_price, it.currency)}`;
       row.append(nameEl, qtyEl);
       items.append(row);
     });
@@ -434,7 +451,7 @@ async function renderInvoices(container) {
       const old = xlsBtn.innerHTML;
       xlsBtn.disabled = true; xlsBtn.innerHTML = '<span class="s-spinner"></span> Готовим…';
       try {
-        const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20260816a");
+        const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20260816b");
         await exportClientInvoiceExcel(inv, clientName);
         sToast("Excel файл сохранён", "ok");
       } catch (e) { sToast("Ошибка: " + (e.message || e), "err"); }

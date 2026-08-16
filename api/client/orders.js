@@ -26,13 +26,18 @@ export default async function handler(req, res) {
       currency: s.currency,
       status: s.status,
       source: s.source || "manual",
-      // Ни цены позиции, ни суммы заказа: заказ — это ещё не накладная,
-      // сумму называет менеджер. Цену не отдаём даже в ответе API.
+      // Цена отдаётся только по заказам самого клиента: запрос отфильтрован
+      // по customer_id из подписанного токена. В каталог цена не попадает никогда.
+      // Пока владелец не проставил цену, unit_price = 0 — кабинет показывает
+      // «цена уточняется» и не выводит итог по заказу.
       items: (s.items || []).map(it => ({
         product_id: it.product_id,
         product_name: prodMap[it.product_id] || "—",
         qty: it.qty,
+        unit_price: it.unit_price,
+        currency: it.currency || s.currency,
       })),
+      total: (s.items || []).reduce((acc, it) => acc + it.qty * it.unit_price, 0),
     }));
     return res.status(200).json({ orders });
   } catch (e) {

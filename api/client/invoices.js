@@ -46,13 +46,15 @@ export default async function handler(req, res) {
         covereds: a.covereds,
         remainings: a.remainings,
         status, // paid | partial | debt
-        // Цену товара клиенту не отдаём вовсе — иначе её видно в ответе API
-        // через инструменты разработчика, даже если на экране она скрыта.
-        // Итог и остаток долга по накладной остаются: клиент должен знать, сколько платить.
+        // Цена отдаётся только по документам самого клиента: запрос отфильтрован
+        // по customer_id из подписанного токена, чужих строк сюда не попадает.
+        // В каталог (/api/catalog) цена не попадает никогда — там её нет вовсе.
         items: (s.items || []).map(it => ({
           product_name: prodMap[it.product_id]?.name || "—",
           photo: prodMap[it.product_id]?.photo || null,
           qty: it.qty,
+          unit_price: it.unit_price,
+          currency: it.currency || s.currency,
         })),
       };
     });

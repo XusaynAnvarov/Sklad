@@ -4,10 +4,10 @@
 //  Смотрят только вошедшие клиенты на сайте, по временной ссылке.
 //  Видео можно привязать к товару (видно фото+имя) и переименовать.
 // ========================================================================
-import { el, toast, confirmDialog, modal, input, inputList, showLoader, hideLoader } from "../ui.js?v=20260816a";
-import { placeholder } from "./products.js?v=20260816a";
-import { icon } from "../icons.js?v=20260816a";
-import { thumb } from "../img.js?v=20260816a";
+import { el, toast, confirmDialog, modal, input, inputList, showLoader, hideLoader } from "../ui.js?v=20260816b";
+import { placeholder } from "./products.js?v=20260816b";
+import { icon } from "../icons.js?v=20260816b";
+import { thumb } from "../img.js?v=20260816b";
 
 export default async function renderVideosAdmin(page, ctx) {
   page.append(el("div.topbar", {}, [el("div", {}, [el("h1", { text: "Видео" }), el("div.sub", { text: "Видео запчастей — на сайте их видят только вошедшие клиенты" })])]));
