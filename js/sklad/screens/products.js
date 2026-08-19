@@ -1,12 +1,12 @@
 // Товары: поиск по названию и артикулу + сканер QR-наклейки.
 // Показываем ровно то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260819a";
-import { icon } from "../../icons.js?v=20260819a";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260819a";
-import { fmt } from "../../fx.js?v=20260819a";
-import { thumb } from "../../img.js?v=20260819a";
-import { LOW_STOCK } from "../../advice.js?v=20260819a";
-import { scanSku } from "../qr.js?v=20260819a";
+import { el, go } from "../app.js?v=20260819b";
+import { icon } from "../../icons.js?v=20260819b";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260819b";
+import { fmt } from "../../fx.js?v=20260819b";
+import { thumb } from "../../img.js?v=20260819b";
+import { LOW_STOCK } from "../../advice.js?v=20260819b";
+import { scanSku } from "../qr.js?v=20260819b";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 

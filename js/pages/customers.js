@@ -1,16 +1,16 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260819a";
-import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260819a";
-import { openEditor, buildText, deleteSale } from "./sales.js?v=20260819a";
-import { exportCustomerInvoice } from "../xlsx-export.js?v=20260819a";
-import { placeholder as placeholderImg } from "./products.js?v=20260819a";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260819a";
-import { authHeaders } from "../db.js?v=20260819a";
-import { icon } from "../icons.js?v=20260819a";
-import { thumb } from "../img.js?v=20260819a";
-import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20260819a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260819b";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260819b";
+import { openEditor, buildText, deleteSale } from "./sales.js?v=20260819b";
+import { exportCustomerInvoice } from "../xlsx-export.js?v=20260819b";
+import { placeholder as placeholderImg } from "./products.js?v=20260819b";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260819b";
+import { authHeaders } from "../db.js?v=20260819b";
+import { icon } from "../icons.js?v=20260819b";
+import { thumb } from "../img.js?v=20260819b";
+import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20260819b";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
 const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);

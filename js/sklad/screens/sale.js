@@ -1,12 +1,12 @@
 // Продажа: клиенту (пишется накладная) или быстрая (без клиента).
 // Цена товара подставляется из прошлой продажи — её же можно поменять.
-import { el, go } from "../app.js?v=20260819a";
-import { icon } from "../../icons.js?v=20260819a";
-import { toast, confirmDialog } from "../../ui.js?v=20260819a";
-import { fmt } from "../../fx.js?v=20260819a";
-import { LOW_STOCK } from "../../advice.js?v=20260819a";
-import { sellItems } from "../stock.js?v=20260819a";
-import { scanSku, canScan } from "../qr.js?v=20260819a";
+import { el, go } from "../app.js?v=20260819b";
+import { icon } from "../../icons.js?v=20260819b";
+import { toast, confirmDialog } from "../../ui.js?v=20260819b";
+import { fmt } from "../../fx.js?v=20260819b";
+import { LOW_STOCK } from "../../advice.js?v=20260819b";
+import { sellItems } from "../stock.js?v=20260819b";
+import { scanSku, canScan } from "../qr.js?v=20260819b";
 
 const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];
 const uid = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);

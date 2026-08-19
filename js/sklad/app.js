@@ -4,9 +4,9 @@
 //  тот же токен склада, что и вход по паролю. Дальше работает обычный
 //  js/db.js, поэтому база ОДНА: движение с телефона сразу видно на сайте.
 // ========================================================================
-import { db } from "../db.js?v=20260819a";
-import { icon } from "../icons.js?v=20260819a";
-import { toast } from "../ui.js?v=20260819a";
+import { db } from "../db.js?v=20260819b";
+import { icon } from "../icons.js?v=20260819b";
+import { toast } from "../ui.js?v=20260819b";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const TOKEN_KEY = "sklad_admin_token";
@@ -71,10 +71,11 @@ async function signIn() {
 
 // ---------- экраны ----------
 const SCREENS = {
-  home:     { title: "Склад",           mod: () => import("./screens/home.js?v=20260819a") },
-  products: { title: "Товары",          mod: () => import("./screens/products.js?v=20260819a") },
-  sale:     { title: "Продажа",         mod: () => import("./screens/sale.js?v=20260819a") },
-  report:   { title: "Отчёт",           mod: () => import("./screens/report.js?v=20260819a") },
+  home:     { title: "Склад",           mod: () => import("./screens/home.js?v=20260819b") },
+  products: { title: "Товары",          mod: () => import("./screens/products.js?v=20260819b") },
+  sale:     { title: "Продажа",         mod: () => import("./screens/sale.js?v=20260819b") },
+  report:   { title: "Отчёт",           mod: () => import("./screens/report.js?v=20260819b") },
+  labels:   { title: "Наклейки",        mod: () => import("./screens/labels.js?v=20260819b") },
 };
 const TABS = [
   { id: "home",     label: "Главная", ic: "dashboard" },
