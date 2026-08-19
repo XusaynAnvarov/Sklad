@@ -1,11 +1,11 @@
 // Клиенты: кто сколько должен, по каким ценам брал, приём оплаты и новый клиент.
 // Долг считается так же, как в складе на сайте: продано минус оплачено,
 // раздельно по валютам — иначе долг в долларах терялся бы в сумовой сумме.
-import { el } from "../app.js?v=20260819f";
-import { icon } from "../../icons.js?v=20260819f";
-import { toast, modal } from "../../ui.js?v=20260819f";
-import { fmt } from "../../fx.js?v=20260819f";
-import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260819f";
+import { el } from "../app.js?v=20260819g";
+import { icon } from "../../icons.js?v=20260819g";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20260819g";
+import { fmt } from "../../fx.js?v=20260819g";
+import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260819g";
 
 const CURS = ["som", "usd", "yuan"];
 const zero = () => ({ som: 0, usd: 0, yuan: 0 });
@@ -120,6 +120,44 @@ export default async function render(box, ctx) {
     });
   }
 
+  // ---------- правка клиента ----------
+  function openEditClient(c) {
+    const fName = el("input.inp", { type: "text", value: c.name || "", style: { width: "100%", minHeight: "46px", fontSize: "16px" } });
+    const fPhone = el("input.inp", { type: "tel", value: c.contact || "", placeholder: "+998…", style: { width: "100%", minHeight: "46px", fontSize: "16px" } });
+    const d = debtOf(c.id);
+    modal({
+      title: "Клиент — " + c.name,
+      body: el("div", { style: { display: "grid", gap: "10px" } }, [
+        el("label.field", {}, [el("span.field-label", { text: "Имя" }), fName]),
+        el("label.field", {}, [el("span.field-label", { text: "Телефон" }), fPhone]),
+        hasDebt(d) ? el("div.hint", { text: "У клиента долг " + curStr(d) + ". Удалять его нельзя — сначала закройте долг." }) : null,
+      ].filter(Boolean)),
+      actions: [
+        // удалять клиента с долгом опасно: пропадёт след того, кто должен деньги
+        !hasDebt(d) ? { label: "Удалить", kind: "btn-danger", onClick: (close) => {
+          confirmDialog("Удалить клиента «" + c.name + "»? Его накладные останутся, но будут без имени.", async () => {
+            try {
+              await ctx.db.customers.remove(c.id);
+              const idx = customers.findIndex(x => x.id === c.id);
+              if (idx >= 0) customers.splice(idx, 1);
+              close(); draw(); toast("Клиент удалён", "ok");
+            } catch (e) { toast("Не удалось: " + (e.message || e), "err"); }
+          });
+        } } : null,
+        { label: "Отмена", kind: "btn-outline", onClick: x => x() },
+        { label: "Сохранить", kind: "btn-primary", onClick: async (close) => {
+          const name = fName.value.trim();
+          if (!name) { toast("Впишите имя", "err"); return; }
+          try {
+            await ctx.db.customers.upsert({ id: c.id, name, contact: fPhone.value.trim() });
+            c.name = name; c.contact = fPhone.value.trim();
+            close(); draw(); toast("Сохранено", "ok");
+          } catch (e) { toast("Не удалось: " + (e.message || e), "err"); }
+        } },
+      ].filter(Boolean),
+    });
+  }
+
   // ---------- карточка клиента ----------
   async function openCard(c) {
     const d = debtOf(c.id), t = turn[c.id] || zero();
@@ -137,7 +175,7 @@ export default async function render(box, ctx) {
     modal({
       title: c.name, wide: true, body,
       actions: [
-        { label: "Закрыть", kind: "btn-outline", onClick: x => x() },
+        { label: "Изменить", kind: "btn-outline", onClick: (close) => { close(); openEditClient(c); } },
         { label: "Внести оплату", kind: "btn-primary", onClick: (close) => { close(); openPayment(c); } },
       ],
     });

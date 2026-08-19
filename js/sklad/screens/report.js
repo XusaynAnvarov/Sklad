@@ -1,11 +1,11 @@
 // Отчёт: что продаётся лучше всего, полный список и сколько денег пришло.
-import { el } from "../app.js?v=20260819f";
-import { icon } from "../../icons.js?v=20260819f";
-import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260819f";
-import { loadRules, aggregate } from "../../profit.js?v=20260819f";
-import { byMethod, methodLabel } from "../../payment.js?v=20260819f";
-import { isShop } from "../../purchase.js?v=20260819f";
-import { curStr, convert } from "../../fx.js?v=20260819f";
+import { el } from "../app.js?v=20260819g";
+import { icon } from "../../icons.js?v=20260819g";
+import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260819g";
+import { loadRules, aggregate } from "../../profit.js?v=20260819g";
+import { byMethod, methodLabel } from "../../payment.js?v=20260819g";
+import { isShop } from "../../purchase.js?v=20260819g";
+import { curStr, convert } from "../../fx.js?v=20260819g";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 

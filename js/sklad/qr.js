@@ -5,7 +5,7 @@
 //  там нет BarcodeDetector, а сторонние библиотеки блокирует CSP.
 //  В наклейке лежит артикул товара.
 // ========================================================================
-import { toast } from "../ui.js?v=20260819f";
+import { toast } from "../ui.js?v=20260819g";
 
 const TG = () => window.Telegram && window.Telegram.WebApp;
 
