@@ -176,9 +176,15 @@ export function qrMatrix(text) {
 }
 
 // Отрисовать QR как SVG-строку (без внешних файлов и шрифтов)
-export function qrSvg(text, { size = 120, quiet = 2, color = "#000", bg = "#fff" } = {}) {
+// quiet = 4 — столько пустых модулей вокруг кода требует стандарт QR.
+// С двумя сканеры не цепляются за код: именно на этом всё и ломалось.
+export function qrSvg(text, { size = 0, quiet = 4, color = "#000", bg = "#fff" } = {}) {
   const m = qrMatrix(text);
   const n = m.length + quiet * 2;
+  // округляем до целого числа пикселей на модуль: дробный масштаб мылит
+  // границы, и сканеру труднее различить чёрное и белое
+  const px = Math.max(3, Math.round((size || n * 5) / n));
+  size = px * n;
   let path = "";
   for (let r = 0; r < m.length; r++) {
     for (let c = 0; c < m.length; c++) {

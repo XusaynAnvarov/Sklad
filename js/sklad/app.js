@@ -4,9 +4,9 @@
 //  тот же токен склада, что и вход по паролю. Дальше работает обычный
 //  js/db.js, поэтому база ОДНА: движение с телефона сразу видно на сайте.
 // ========================================================================
-import { db } from "../db.js?v=20260819e";
-import { icon } from "../icons.js?v=20260819e";
-import { toast } from "../ui.js?v=20260819e";
+import { db } from "../db.js?v=20260819f";
+import { icon } from "../icons.js?v=20260819f";
+import { toast } from "../ui.js?v=20260819f";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const TOKEN_KEY = "sklad_admin_token";
@@ -71,13 +71,13 @@ async function signIn() {
 
 // ---------- экраны ----------
 const SCREENS = {
-  home:     { title: "Склад",           mod: () => import("./screens/home.js?v=20260819e") },
-  products: { title: "Товары",          mod: () => import("./screens/products.js?v=20260819e") },
-  sale:     { title: "Продажа",         mod: () => import("./screens/sale.js?v=20260819e") },
-  report:   { title: "Отчёт",           mod: () => import("./screens/report.js?v=20260819e") },
-  labels:   { title: "Наклейки",        mod: () => import("./screens/labels.js?v=20260819e") },
-  clients:  { title: "Клиенты",         mod: () => import("./screens/clients.js?v=20260819e") },
-  arrival:  { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260819e") },
+  home:     { title: "Склад",           mod: () => import("./screens/home.js?v=20260819f") },
+  products: { title: "Товары",          mod: () => import("./screens/products.js?v=20260819f") },
+  sale:     { title: "Продажа",         mod: () => import("./screens/sale.js?v=20260819f") },
+  report:   { title: "Отчёт",           mod: () => import("./screens/report.js?v=20260819f") },
+  labels:   { title: "Наклейки",        mod: () => import("./screens/labels.js?v=20260819f") },
+  clients:  { title: "Клиенты",         mod: () => import("./screens/clients.js?v=20260819f") },
+  arrival:  { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260819f") },
 };
 const TABS = [
   { id: "home",     label: "Главная", ic: "dashboard" },
@@ -126,6 +126,14 @@ async function draw() {
     head.append(el("button.mini-back", { title: "Назад", onclick: () => go("home") }, [icon("arrow-left", { size: 18 })]));
   }
   head.append(el("h1", { text: SCREENS[current].title }));
+
+  // «Развернуть» — только для компьютера (кнопка скрыта стилями ниже 900px)
+  // и только если версия Telegram это умеет. Не умеет — кнопки нет.
+  if (TG && typeof TG.requestFullscreen === "function") {
+    head.append(el("button.mini-full", { title: "Развернуть на весь экран", onclick: () => {
+      try { TG.isFullscreen ? TG.exitFullscreen() : TG.requestFullscreen(); } catch { }
+    } }, [icon("arrow-up-right", { size: 17 })]));
+  }
 
   [...bar.children].forEach((b, i) => b.classList.toggle("on", TABS[i].id === current));
 

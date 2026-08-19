@@ -5,7 +5,7 @@
 //  Пишем ПАКЕТОМ (upsertMany): на телефоне поштучная запись 20 позиций
 //  занимала бы минуту.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260819e";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260819f";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
@@ -19,15 +19,34 @@ async function readFresh(db, ids) {
   return out;
 }
 
-// Пакетная запись; если база не знает колонку batches — повторяем без неё
+// Пакетная запись; если база не знает колонку batches — повторяем без неё.
+// ВАЖНО: если не сработал ни один способ — бросаем ошибку. Раньше она
+// проглатывалась, и приложение бодро писало «Принято», хотя на складе
+// ничего не менялось.
 async function writeStock(db, rows) {
   if (!rows.length) return;
   const noBatches = () => rows.map(({ batches, ...rest }) => rest);
-  try { await db.products.upsertMany(rows); return; } catch { }
-  try { await db.products.upsertMany(noBatches()); return; } catch { }
+  let last;
+  try { await db.products.upsertMany(rows); return; } catch (e) { last = e; }
+  try { await db.products.upsertMany(noBatches()); return; } catch (e) { last = e; }
   for (const r of rows) {
-    try { await db.products.upsert(r); } catch { await db.products.upsert((({ batches, ...x }) => x)(r)); }
+    try { await db.products.upsert(r); }
+    catch { await db.products.upsert((({ batches, ...x }) => x)(r)); }
   }
+}
+
+// Перечитать товары и сверить остаток с ожидаемым. Запись могла не дойти
+// (нет сети, отказ базы) — молчать об этом нельзя, иначе склад разъедется.
+async function verifyStock(db, expected) {
+  const ids = Object.keys(expected);
+  if (!ids.length) return [];
+  let rows = [];
+  try { rows = await db.products.getMany(ids); }
+  catch {
+    for (const id of ids) { try { const p = await db.products.get(id); if (p) rows.push(p); } catch { } }
+  }
+  const now = Object.fromEntries((rows || []).map(p => [p.id, Number(p.stock_qty) || 0]));
+  return ids.filter(id => now[id] === undefined || Math.abs(now[id] - expected[id]) > 0.001);
 }
 
 // Списать позиции со склада и вернуть строки для записи.
@@ -56,6 +75,10 @@ export async function sellItems(db, items) {
   if (missing.length) throw new Error("Товар не найден на складе (" + missing.length + " поз.)");
   const rows = applySale(fresh, items);
   await writeStock(db, rows);
+  // сверяем: остаток должен стать ровно тем, что мы посчитали
+  const expected = Object.fromEntries(rows.map(r => [r.id, r.stock_qty]));
+  const bad = await verifyStock(db, expected);
+  if (bad.length) throw new Error("Остаток не записался (" + bad.length + " поз.) — проверьте связь и повторите");
   return { written: rows.length };
 }
 
@@ -94,6 +117,8 @@ export async function setStock(db, productId, want) {
     id: p.id, stock_qty: sumQty(next),
     cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: next,
   }]);
+  const bad = await verifyStock(db, { [p.id]: sumQty(next) });
+  if (bad.length) throw new Error("Остаток не записался — проверьте связь и повторите");
   return { changed: diff, stock: sumQty(next) };
 }
 
@@ -120,6 +145,10 @@ export async function receiveFromShop(db, items) {
     rows.push({ id: p.id, stock_qty: sumQty(next), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: next });
   }
   await writeStock(db, rows);
+  // сверяем: остаток должен вырасти ровно на принятое
+  const expected = Object.fromEntries(rows.map(r => [r.id, r.stock_qty]));
+  const bad = await verifyStock(db, expected);
+  if (bad.length) throw new Error("Остаток не записался (" + bad.length + " поз.) — проверьте связь и повторите");
   return { written: rows.length };
 }
 // Вернуть товары на склад (отмена продажи)

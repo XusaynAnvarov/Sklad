@@ -1,17 +1,19 @@
 // Отчёт: что продаётся лучше всего, полный список и сколько денег пришло.
-import { el } from "../app.js?v=20260819e";
-import { icon } from "../../icons.js?v=20260819e";
-import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260819e";
-import { loadRules, aggregate } from "../../profit.js?v=20260819e";
-import { byMethod, methodLabel } from "../../payment.js?v=20260819e";
-import { curStr, convert } from "../../fx.js?v=20260819e";
+import { el } from "../app.js?v=20260819f";
+import { icon } from "../../icons.js?v=20260819f";
+import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260819f";
+import { loadRules, aggregate } from "../../profit.js?v=20260819f";
+import { byMethod, methodLabel } from "../../payment.js?v=20260819f";
+import { isShop } from "../../purchase.js?v=20260819f";
+import { curStr, convert } from "../../fx.js?v=20260819f";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
 export default async function render(box, ctx) {
-  const [products, sales, payments, settings] = await Promise.all([
+  const [products, sales, payments, settings, purchases] = await Promise.all([
     ctx.db.products.list(), ctx.db.sales.list(),
     ctx.db.payments.list(), ctx.db.getSettings().catch(() => ({})),
+    ctx.db.purchases.list().catch(() => []),
   ]);
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
   const rules = loadRules(settings);
@@ -80,6 +82,45 @@ export default async function render(box, ctx) {
     if (!rows.length) {
       body.append(el("div.mini-empty", { text: "За этот период продаж не было" }));
       return;
+    }
+
+    // ---------- ПРИХОД ИЗ МАГАЗИНОВ ----------
+    // Что и от кого приехало за период. Считаем так же, как отчёт склада
+    // на сайте, чтобы цифры совпадали.
+    const shopArr = (purchases || []).filter(p => isShop(p) && p.status === "arrived" && matchPeriod(p.date, period));
+    if (shopArr.length) {
+      const byShop = {}, lines2 = [];
+      shopArr.slice().sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(p => {
+        const shop = p.supplier || "—";
+        const b = byShop[shop] || (byShop[shop] = { qty: 0, times: 0 });
+        b.times++;
+        (p.items || []).forEach(it => {
+          const q = Number(it.qty) || 0;
+          b.qty += q;
+          lines2.push({ date: p.date, shop, name: (pmap[it.product_id] || {}).name || "—", qty: q });
+        });
+      });
+      body.append(el("div.mini-sec", { text: "Приход из магазинов" }));
+      const sum = el("div.mini-list");
+      Object.entries(byShop).sort((a, b) => b[1].qty - a[1].qty).forEach(([shop, b]) => {
+        sum.append(el("div.mini-row", {}, [
+          el("div.info", {}, [
+            el("div.nm", { text: shop }),
+            el("div.sku", { text: b.times + " поступлений" }),
+          ]),
+          el("div.qty", { text: b.qty + " шт" }),
+        ]));
+      });
+      body.append(sum);
+      const det = el("div.mini-list", { style: { marginTop: "8px" } });
+      lines2.slice(0, 40).forEach(l => det.append(el("div.mini-row", {}, [
+        el("div.info", {}, [
+          el("div.nm", { text: l.name }),
+          el("div.sku", { text: new Date(l.date).toLocaleDateString("ru-RU") + " · " + l.shop }),
+        ]),
+        el("div.qty", { text: "+" + l.qty }),
+      ])));
+      body.append(det);
     }
 
     body.append(el("div.mini-sec", { text: "Что продавалось — " + rows.length + " товаров" }));

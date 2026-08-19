@@ -4,10 +4,10 @@
 // Печатаем СО СТРАНИЦЫ, а не через новое окно: Telegram новые окна блокирует
 // («Разрешите открытие окна»), поэтому лист собирается тут же и уходит на
 // принтер по window.print().
-import { el } from "../app.js?v=20260819e";
-import { icon } from "../../icons.js?v=20260819e";
-import { toast } from "../../ui.js?v=20260819e";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260819e";
+import { el } from "../app.js?v=20260819f";
+import { icon } from "../../icons.js?v=20260819f";
+import { toast } from "../../ui.js?v=20260819f";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260819f";
 
 const PAGE = 24;   // сразу рисовать сотни QR — телефон не потянет
 
@@ -59,7 +59,7 @@ export default async function render(box, ctx) {
     });
     // QR рисуем строкой — это наш собственный SVG, без внешних файлов
     const qr = el("div");
-    qr.innerHTML = qrSvg(skuPayload(p.id), { size: 132, quiet: 2 });
+    qr.innerHTML = qrSvg(skuPayload(p.id), { size: 150 });
     c.append(qr,
       el("div.nm", { text: p.name }),
       el("div.sku", { text: p.sku || "без артикула" }),
@@ -106,7 +106,7 @@ export default async function render(box, ctx) {
     items.forEach(p => {
       const c = el("div.qr-card");
       const qr = el("div");
-      qr.innerHTML = qrSvg(skuPayload(p.id), { size: 132, quiet: 2 });
+      qr.innerHTML = qrSvg(skuPayload(p.id), { size: 132 });
       c.append(qr, el("div.nm", { text: p.name }), el("div.sku", { text: p.sku || "" }));
       sheet.append(c);
     });

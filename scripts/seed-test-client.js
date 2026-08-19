@@ -4,8 +4,8 @@
 //  Требует .env с SUPABASE_URL и SUPABASE_SERVICE_KEY.
 // =====================================================================
 import "dotenv/config";
-import { sget, supsert } from "../api/lib/supa.js?v=20260819e";
-import { hashPassword, normPhone } from "../api/lib/clientauth.js?v=20260819e";
+import { sget, supsert } from "../api/lib/supa.js?v=20260819f";
+import { hashPassword, normPhone } from "../api/lib/clientauth.js?v=20260819f";
 
 const TEST_PHONE_RAW = "+998 90 000 11 22"; // изменить если нужен другой номер
 const TEST_PASSWORD  = "test1234";
