@@ -301,6 +301,7 @@ const showAdminKb = (chatId) =>
 // ---------- админ-панель (русский) ----------
 function adminMenu(chatId) {
   return tg("sendMessage", { chat_id: chatId, text: "🛠 Панель владельца:", reply_markup: { inline_keyboard: [
+    [{ text: "📦 Склад (мини-приложение)", web_app: { url: PUBLIC_URL + "/sklad" } }],
     [{ text: "🛒 Заказать (как клиент — для демо)", web_app: { url: PUBLIC_URL + "/catalog?order=1" } }],
     [{ text: "🌐 Каталог", callback_data: "a_cat" }],
     [{ text: "👥 Клиенты", callback_data: "a_clients" }],

@@ -326,6 +326,21 @@ export const db = {
 
   // Карта последних цен клиента по ВСЕМ товарам за один проход (для редактора заказа).
   // product_id → { price, currency, date }. Берём первую (самую свежую) продажу каждого товара.
+  // Последняя цена продажи товара КОМУ УГОДНО — для быстрой продажи без клиента.
+  // Берём самую свежую продажу, где этот товар встречался с проставленной ценой.
+  async lastPriceAny(productId) {
+    if (!productId) return null;
+    const sales = (await this.sales.list()).sort((a, b) => new Date(b.date) - new Date(a.date));
+    for (const s of sales) {
+      for (const it of (s.items || [])) {
+        if (String(it.product_id) !== String(productId)) continue;
+        const price = Number(it.unit_price) || 0;
+        if (price <= 0) continue;                       // нулевую цену не помним
+        return { price, currency: it.currency || s.currency || "som", date: s.date };
+      }
+    }
+    return null;
+  },
   async lastPricesForCustomer(customerId) {
     const map = new Map();
     if (!customerId) return map;

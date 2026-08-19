@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 
 const ROOT = process.cwd();
-const HTML = ["index.html", "admin.html", "catalog.html"];
+const HTML = ["index.html", "admin.html", "catalog.html", "sklad.html"];
 
 // --- следующая версия: 2026MMDD + буква (a..z) ---
 function nextVersion(cur) {

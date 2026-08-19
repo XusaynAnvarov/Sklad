@@ -3,7 +3,7 @@
 //  Используется и в админке, и в каталоге.
 // ========================================================================
 
-import { iconSvg } from "./icons.js?v=20260816c";
+import { iconSvg } from "./icons.js?v=20260819a";
 
 const THEME_KEY = "sklad_theme";
 

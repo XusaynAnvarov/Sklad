@@ -1,0 +1,116 @@
+// Отчёт: что продаётся лучше всего, полный список и сколько денег пришло.
+import { el } from "../app.js?v=20260819a";
+import { icon } from "../../icons.js?v=20260819a";
+import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260819a";
+import { loadRules, aggregate } from "../../profit.js?v=20260819a";
+import { byMethod, methodLabel } from "../../payment.js?v=20260819a";
+import { curStr } from "../../fx.js?v=20260819a";
+
+const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
+
+export default async function render(box, ctx) {
+  const [products, sales, payments, settings] = await Promise.all([
+    ctx.db.products.list(), ctx.db.sales.list(),
+    ctx.db.payments.list(), ctx.db.getSettings().catch(() => ({})),
+  ]);
+  const pmap = Object.fromEntries(products.map(p => [p.id, p]));
+  const rules = loadRules(settings);
+  let pct = (settings && settings.profit_pct) || null;
+  if (!pct) { try { pct = JSON.parse(localStorage.getItem("sklad_profit_pct") || "null"); } catch { } }
+  pct = pct || {};
+
+  let period = "this_month";
+  const opts = buildPeriodOptions(sales, payments);
+  const sel = el("select.inp", { style: { width: "100%", minHeight: "44px", fontSize: "16px", marginBottom: "12px" } });
+  opts.forEach(o => sel.append(el("option", { value: o.value, text: o.label })));
+  sel.value = period;
+  const body = el("div");
+  sel.addEventListener("change", () => { period = sel.value; draw(); });
+  box.append(sel, body);
+
+  function draw() {
+    body.innerHTML = "";
+    const fSales = sales.filter(s => matchPeriod(s.date, period));
+    const fPays = payments.filter(p => matchPeriod(p.date, period));
+    const agg = aggregate(fSales, pmap, rules, pct);
+
+    // ---------- три числа ----------
+    const paid = { som: 0, usd: 0, yuan: 0 };
+    fPays.forEach(p => { const c = p.currency; if (paid[c] !== undefined) paid[c] += Number(p.amount) || 0; });
+    body.append(el("div.mini-nums", {}, [
+      el("div.mini-num", {}, [el("div.l", { text: "Выручка" }), el("div.v", { text: usd(agg.total.rev) })]),
+      el("div.mini-num.good", {}, [el("div.l", { text: "Прибыль" }), el("div.v", { text: usd(agg.total.profit) })]),
+      el("div.mini-num", {}, [el("div.l", { text: "Пришло денег" }), el("div.v", { text: curStr(paid) })]),
+    ]));
+
+    // ---------- сколько денег пришло, по способам ----------
+    const methods = byMethod(fPays);
+    const mRows = Object.entries(methods);
+    if (mRows.length) {
+      body.append(el("div.mini-sec", { text: "Откуда пришли деньги" }));
+      const list = el("div.mini-list");
+      mRows.forEach(([m, a]) => list.append(el("div.mini-row", {}, [
+        el("div.info", {}, [
+          el("div.nm", { text: methodLabel(m) }),
+          el("div.sku", { text: a.count + " оплат" }),
+        ]),
+        el("div.qty", { text: curStr(a) }),
+      ])));
+      body.append(list);
+    }
+
+    // ---------- что продавалось: по штукам, сверху лучшие ----------
+    const byProd = {};
+    fSales.forEach(s => (s.items || []).forEach(it => {
+      const id = it.product_id; if (!id) return;
+      const a = byProd[id] = byProd[id] || { qty: 0, revUSD: 0, sales: 0 };
+      a.qty += Number(it.qty) || 0;
+      a.sales++;
+    }));
+    Object.entries(agg.byProduct || {}).forEach(([id, v]) => {
+      if (byProd[id]) byProd[id].revUSD = v.rev || 0;
+    });
+
+    const rows = Object.entries(byProd)
+      .map(([id, a]) => ({ id, name: (pmap[id] || {}).name || "—", sku: (pmap[id] || {}).sku || "", ...a }))
+      .sort((a, b) => b.qty - a.qty);
+
+    if (!rows.length) {
+      body.append(el("div.mini-empty", { text: "За этот период продаж не было" }));
+      return;
+    }
+
+    body.append(el("div.mini-sec", { text: "Что продавалось — " + rows.length + " товаров" }));
+    const list = el("div.mini-list");
+    let shown = 0;
+    const PAGE = 25;
+    const more = el("div");
+
+    function chunk() {
+      rows.slice(shown, shown + PAGE).forEach((r, i) => {
+        const place = shown + i + 1;
+        list.append(el("div.mini-row", {}, [
+          el("div.qty", { style: { color: place <= 3 ? "var(--accent)" : "var(--muted)", minWidth: "26px" }, text: String(place) }),
+          el("div.info", {}, [
+            el("div.nm", { text: r.name }),
+            el("div.sku", { text: [r.sku ? "Арт.: " + r.sku : null, r.revUSD ? usd(r.revUSD) : null].filter(Boolean).join(" · ") }),
+          ]),
+          el("div.qty", { text: r.qty + " шт" }),
+        ]));
+      });
+      shown += Math.min(PAGE, rows.length - shown);
+      more.innerHTML = "";
+      if (shown < rows.length) {
+        more.append(el("button.btn.btn-outline", {
+          style: { width: "100%", marginTop: "10px", minHeight: "44px", justifyContent: "center" },
+          text: "Показать ещё (" + (rows.length - shown) + ")",
+          onclick: chunk,
+        }));
+      }
+    }
+    chunk();
+    body.append(list, more);
+  }
+
+  draw();
+}

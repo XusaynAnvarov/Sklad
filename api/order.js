@@ -5,8 +5,8 @@
 //  (status='order'), пишет клиенту подтверждение и уведомляет владельца.
 //  ENV: CLIENT_BOT_TOKEN, TELEGRAM_BOT_TOKEN, ADMIN_CHAT_ID, SUPABASE_*
 // ========================================================================
-import crypto from "crypto";
 import { sget, supsert, spatch } from "./lib/supa.js";
+import { verifyInitData } from "./lib/tg.js";
 
 const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN;
 const ADMIN_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -18,23 +18,6 @@ const OK_MSG = {
   uz: "✅ Buyurtma qabul qilindi! U administratorga yuborildi va tekshirilmoqda. Nakladnoy tayyor bo‘lganda — xabar beramiz.",
   en: "✅ Order received! It has been sent to the administrator and is being reviewed. We will notify you when the invoice is ready.",
 };
-
-// Проверка подписи Telegram WebApp initData → возвращает user или null
-function verifyInitData(initData, token) {
-  if (!initData || !token) return null;
-  const params = new URLSearchParams(initData);
-  const hash = params.get("hash");
-  if (!hash) return null;
-  params.delete("hash");
-  const dataCheck = [...params.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => `${k}=${v}`).join("\n");
-  const secret = crypto.createHmac("sha256", "WebAppData").update(token).digest();
-  const calc = crypto.createHmac("sha256", secret).update(dataCheck).digest("hex");
-  if (calc !== hash) return null;
-  // свежесть (не старше 1 суток)
-  const authDate = Number(params.get("auth_date") || 0);
-  if (authDate && Date.now() / 1000 - authDate > 86400) return null;
-  try { const u = params.get("user"); return u ? JSON.parse(u) : null; } catch { return null; }
-}
 
 async function tgSend(token, chatId, text) {
   if (!token || !chatId) return;

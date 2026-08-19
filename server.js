@@ -49,6 +49,8 @@ const routes = [
   [["POST"],  "/api/client/login",             "./api/client/login.js"],
   // логин в склад (кастомный admin JWT)
   [["POST","OPTIONS"], "/api/admin-auth",           "./api/admin-auth.js"],
+  [["POST"],  "/api/tg-admin-auth",           "./api/tg-admin-auth.js"],
+  [["POST"],  "/api/admin/invoice-pdf",       "./api/admin/invoice-pdf.js"],
   [["POST","OPTIONS"], "/api/admin-change-password","./api/admin-change-password.js"],
   // кабинет
   [["GET"],   "/api/client/me",               "./api/client/me.js"],
@@ -125,6 +127,12 @@ for (const [methods, path, file] of routes) {
 app.use(express.static(__dirname, { index: "index.html" }));
 app.get("/admin", (req, res) => res.sendFile(join(__dirname, "admin.html")));
 app.get("/admin.html", (req, res) => res.sendFile(join(__dirname, "admin.html")));
+// Мини-приложение склада и каталог: без явных маршрутов они проваливались
+// в SPA-заглушку и отдавали index.html вместо своей страницы.
+app.get("/sklad", (req, res) => res.sendFile(join(__dirname, "sklad.html")));
+app.get("/sklad.html", (req, res) => res.sendFile(join(__dirname, "sklad.html")));
+app.get("/catalog", (req, res) => res.sendFile(join(__dirname, "catalog.html")));
+app.get("/catalog.html", (req, res) => res.sendFile(join(__dirname, "catalog.html")));
 // SPA fallback
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
