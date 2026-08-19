@@ -1,7 +1,6 @@
 // ========================================================================
-//  Печать из мини-приложения. Сам Telegram печатать не умеет, поэтому
-//  собираем готовый лист и открываем его во внешней вкладке — оттуда
-//  работает обычная печать телефона или компьютера.
+//  Печать из мини-приложения. Новые окна Telegram блокирует, поэтому
+//  лист собирается прямо на странице и уходит на принтер по window.print().
 // ========================================================================
 const esc = (s) => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -67,12 +66,22 @@ export function invoiceHtml({ who, date, items, totals }) {
 </body></html>`;
 }
 
-// Открыть готовый лист во внешней вкладке
+// Печатаем СО СТРАНИЦЫ, а не через новое окно: Telegram новые окна блокирует
+// («Разрешите открытие окна»). Лист кладём в скрытый блок и зовём принтер.
 export function openPrint(html) {
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const w = window.open(url, "_blank");
-  if (!w) { try { window.location.href = url; } catch { } }
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
-  return !!w;
+  const src = String(html);
+  const open = src.search(new RegExp("<body[^>]*>", "i"));
+  let inner = src;
+  if (open >= 0) {
+    inner = src.slice(src.indexOf(">", open) + 1);
+    const close = inner.toLowerCase().indexOf("</body>");
+    if (close >= 0) inner = inner.slice(0, close);
+  }
+  let area = document.getElementById("print-area");
+  if (!area) { area = document.createElement("div"); area.id = "print-area"; document.body.append(area); }
+  area.innerHTML = inner;
+  area.classList.add("print-doc");
+  area.querySelectorAll(".noprint").forEach(e => e.remove());   // кнопку на бумагу не пускаем
+  setTimeout(() => { try { window.print(); } catch { } }, 60);
+  return true;
 }
