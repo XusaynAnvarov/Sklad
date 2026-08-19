@@ -1,9 +1,9 @@
 // Главная: три числа, ради которых чаще всего заходят, и крупные действия.
-import { el, go } from "../app.js?v=20260819b";
-import { icon } from "../../icons.js?v=20260819b";
-import { matchPeriod } from "../../period.js?v=20260819b";
-import { loadRules, aggregate } from "../../profit.js?v=20260819b";
-import { curStr } from "../../fx.js?v=20260819b";
+import { el, go } from "../app.js?v=20260819c";
+import { icon } from "../../icons.js?v=20260819c";
+import { matchPeriod } from "../../period.js?v=20260819c";
+import { loadRules, aggregate } from "../../profit.js?v=20260819c";
+import { curStr } from "../../fx.js?v=20260819c";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 

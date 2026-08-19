@@ -1,11 +1,11 @@
 // Наклейки: лист QR для печати. Наклейка печатается ОДИН раз и живёт вечно —
 // внутри неизменный номер товара, а остаток и цена подтягиваются при сканировании.
 // Кнопка «Напечатать заново» даёт ту же наклейку: старые на коробках продолжают работать.
-import { el } from "../app.js?v=20260819b";
-import { icon } from "../../icons.js?v=20260819b";
-import { toast } from "../../ui.js?v=20260819b";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260819b";
-import { LOW_STOCK } from "../../advice.js?v=20260819b";
+import { el } from "../app.js?v=20260819c";
+import { icon } from "../../icons.js?v=20260819c";
+import { toast } from "../../ui.js?v=20260819c";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260819c";
+import { LOW_STOCK } from "../../advice.js?v=20260819c";
 
 const esc = (s) => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

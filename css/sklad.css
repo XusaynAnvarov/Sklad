@@ -131,3 +131,52 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 
 .mini-empty { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 14px; }
 .mini-sec { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 8px; }
+
+/* ================================================================
+   КОМПЬЮТЕР — от 900px. То же приложение, но шире: меню слева
+   вместо нижней панели, больше строк на экран. Телефонный вид
+   ниже 900px не меняется.
+   ================================================================ */
+@media (min-width: 900px) {
+  body.mini { padding-bottom: 24px; }
+
+  /* меню уезжает влево и становится колонкой */
+  .mini-bar {
+    position: fixed; top: 0; bottom: 0; left: 0; right: auto;
+    width: 210px; grid-template-columns: 1fr; align-content: start;
+    border-top: none; border-right: 1px solid var(--border);
+    padding: 18px 12px; gap: 4px;
+  }
+  .mini-tab {
+    flex-direction: row; justify-content: flex-start; gap: 11px;
+    padding: 12px 14px; border-radius: 9px; font-size: 14.5px; min-height: 46px;
+  }
+  .mini-tab.on { background: var(--brass-wash, rgba(143,103,32,.09)); }
+
+  /* содержимое сдвигается вправо и становится шире */
+  .mini-head { left: 210px; padding-left: 24px; padding-right: 24px; margin-left: 210px; }
+  .mini-wrap { max-width: 900px; margin-left: 210px; padding: 0 24px; }
+  .mini-cta {
+    left: 210px; bottom: 0; padding: 14px 24px;
+    max-width: 948px;
+  }
+  .mini-cta .btn { max-width: 320px; margin-left: auto; }
+
+  /* больше на экран */
+  .mini-nums { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .mini-num { padding: 15px 16px; }
+  .mini-num .v { font-size: 20px; }
+  .mini-acts { grid-template-columns: repeat(4, 1fr); }
+  .mini-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mini-row { padding: 13px 15px; }
+  .mini-search { max-width: 560px; }
+}
+
+/* кнопка «Развернуть» — только там, где Telegram это умеет */
+.mini-full {
+  margin-left: auto; flex: none;
+  width: 38px; height: 38px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  display: grid; place-items: center; cursor: pointer;
+}
+.mini-full:hover { color: var(--text); border-color: var(--accent); }
