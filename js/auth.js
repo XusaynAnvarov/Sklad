@@ -1,8 +1,8 @@
 // ========================================================================
 //  ДОСТУП К СКЛАДУ: простой логин + пароль (ADMIN_LOGIN / ADMIN_PASSWORD из .env)
 // ========================================================================
-import { el, toast } from "./ui.js?v=20260819c";
-import { icon } from "./icons.js?v=20260819c";
+import { el, toast } from "./ui.js?v=20260819d";
+import { icon } from "./icons.js?v=20260819d";
 
 // Возвращает Promise, который резолвится после успешного входа.
 export function ensureAccess(root) {

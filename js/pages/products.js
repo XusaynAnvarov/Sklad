@@ -1,14 +1,15 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260819c";
-import { icon } from "../icons.js?v=20260819c";
-import { fmt, convert } from "../fx.js?v=20260819c";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260819c";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260819c";
-import { openEditor } from "./sales.js?v=20260819c";
-import { thumbAttrs } from "../img.js?v=20260819c";
-import { LOW_STOCK } from "../advice.js?v=20260819c";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260819d";
+import { icon } from "../icons.js?v=20260819d";
+import { fmt, convert } from "../fx.js?v=20260819d";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260819d";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260819d";
+import { openEditor } from "./sales.js?v=20260819d";
+import { thumbAttrs } from "../img.js?v=20260819d";
+import { LOW_STOCK } from "../advice.js?v=20260819d";
+import { qrSvg, skuPayload } from "../qr.js?v=20260819d";
 
 // себестоимость в той валюте, в которой её ввели (cost_cur). По умолчанию — юань.
 function costShow(cy, cu, ccur) {
@@ -332,6 +333,21 @@ export function openForm(ctx, p, cats = []) {
     wide: true,
     body,
     actions: [
+      // Электронная наклейка: тот же код, что на бумажной — можно
+      // отсканировать прямо с экрана компьютера телефоном.
+      !isNew && { label: "Показать QR", kind: "btn-outline", onClick: () => {
+        const holder = el("div", { style: { textAlign: "center" } });
+        holder.innerHTML = qrSvg(skuPayload(p.id), { size: 240, quiet: 2 });
+        modal({
+          title: p.name,
+          body: el("div", {}, [
+            holder,
+            el("div.hint", { style: { textAlign: "center", marginTop: "10px" },
+              text: (p.sku ? "Арт.: " + p.sku + " · " : "") + "сканируйте с экрана или наклейте на коробку" }),
+          ]),
+          actions: [{ label: "Закрыть", kind: "btn-primary", onClick: (c) => c() }],
+        });
+      } },
       !isNew && { label: "Удалить", kind: "btn-danger", onClick: (close) => {
         confirmDialog("Удалить товар «" + p.name + "»?", async () => { await ctx.db.products.remove(p.id); close(); toast("Удалено", "ok"); ctx.refresh(); });
       } },

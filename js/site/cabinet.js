@@ -1,6 +1,6 @@
 // Личный кабинет клиента: профиль, заказы, накладные, оплаты, экспорт
-import { api } from "./api.js?v=20260819c";
-import { sToast, t } from "./app.js?v=20260819c";
+import { api } from "./api.js?v=20260819d";
+import { sToast, t } from "./app.js?v=20260819d";
 
 const CURRENCIES = { som: "сум", usd: "$", yuan: "¥" };
 const STATUS_LABEL = { order: "Новый", pending_confirm: "Ждёт подтверждения", confirmed: "Подтверждён", final: "Оформлен" };
@@ -451,7 +451,7 @@ async function renderInvoices(container) {
       const old = xlsBtn.innerHTML;
       xlsBtn.disabled = true; xlsBtn.innerHTML = '<span class="s-spinner"></span> Готовим…';
       try {
-        const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20260819c");
+        const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20260819d");
         await exportClientInvoiceExcel(inv, clientName);
         sToast("Excel файл сохранён", "ok");
       } catch (e) { sToast("Ошибка: " + (e.message || e), "err"); }

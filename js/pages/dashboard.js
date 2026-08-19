@@ -1,17 +1,17 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260819c";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260819c";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260819c";
-import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20260819c";
-import { sparkline } from "../charts.js?v=20260819c";
-import { icon } from "../icons.js?v=20260819c";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260819c";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260819c";
-import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260819c";
-import { buildAdvice } from "../advice.js?v=20260819c";
-import { thumb } from "../img.js?v=20260819c";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260819d";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260819d";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260819d";
+import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20260819d";
+import { sparkline } from "../charts.js?v=20260819d";
+import { icon } from "../icons.js?v=20260819d";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260819d";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260819d";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260819d";
+import { buildAdvice } from "../advice.js?v=20260819d";
+import { thumb } from "../img.js?v=20260819d";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.

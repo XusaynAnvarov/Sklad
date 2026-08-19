@@ -5,7 +5,7 @@
 //  Пишем ПАКЕТОМ (upsertMany): на телефоне поштучная запись 20 позиций
 //  занимала бы минуту.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter } from "../inventory.js?v=20260819c";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260819d";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
@@ -59,6 +59,69 @@ export async function sellItems(db, items) {
   return { written: rows.length };
 }
 
+// Поставить точный остаток «как на полке». Разница вниз списывается по FIFO,
+// разница вверх зачисляется по НЫНЕШНЕЙ складской цене — так решил владелец:
+// ничего вводить не нужно и прибыль не искажается. Выводит и из минуса.
+export async function setStock(db, productId, want) {
+  const target = Number(want);
+  if (!isFinite(target)) throw new Error("Остаток должен быть числом");
+  const fresh = await readFresh(db, [productId]);
+  const p = fresh[productId];
+  if (!p) throw new Error("Товар не найден");
+
+  const batches = ensureBatches(p);
+  const now = sumQty(batches);
+  const diff = target - now;
+  if (Math.abs(diff) < 0.0001) return { changed: 0, stock: now };
+
+  let next;
+  if (diff < 0) {
+    next = consumeFIFO(batches, -diff).batches;
+  } else {
+    // цена той партии, что продаётся сейчас; если склад пуст — сохранённая
+    const own = currentCost(batches);
+    const cy = own.cost_yuan || Number(p.cost_yuan) || 0;
+    const cu = own.cost_usd || Number(p.cost_usd) || 0;
+    // Долговые партии (минус) закрываем: остаток вписан «как на полке»,
+    // значит долга по товару больше нет. Иначе минус остался бы висеть внутри
+    // и всплыл бы при следующем списании по FIFO.
+    const positive = batches.filter(b => (Number(b.qty) || 0) > 0);
+    const have = sumQty(positive);
+    next = target > have ? returnToStock(positive, target - have, cy, cu) : positive;
+  }
+  const cc = costAfter(next, p);
+  await writeStock(db, [{
+    id: p.id, stock_qty: sumQty(next),
+    cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: next,
+  }]);
+  return { changed: diff, stock: sumQty(next) };
+}
+
+// Принять товар из магазина: зачисляем СРАЗУ и по НАШЕЙ складской цене.
+// Цена магазина нас не касается — иначе себестоимость и прибыль поехали бы.
+export async function receiveFromShop(db, items) {
+  const ids = [...new Set(items.map(i => i.product_id).filter(Boolean))];
+  if (!ids.length) return { written: 0 };
+  const fresh = await readFresh(db, ids);
+  const missing = ids.filter(id => !fresh[id]);
+  if (missing.length) throw new Error("Товар не найден на складе (" + missing.length + " поз.)");
+
+  const rows = [];
+  for (const it of items) {
+    const p = fresh[it.product_id];
+    const qty = Number(it.qty) || 0;
+    if (!p || qty <= 0) continue;
+    const batches = ensureBatches(p);
+    const own = currentCost(batches);
+    const cy = own.cost_yuan || Number(p.cost_yuan) || 0;
+    const cu = own.cost_usd || Number(p.cost_usd) || 0;
+    const next = returnToStock(batches, qty, cy, cu);
+    const cc = costAfter(next, p);
+    rows.push({ id: p.id, stock_qty: sumQty(next), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: next });
+  }
+  await writeStock(db, rows);
+  return { written: rows.length };
+}
 // Вернуть товары на склад (отмена продажи)
 export async function returnItems(db, items) {
   const ids = [...new Set(items.map(i => i.product_id).filter(Boolean))];

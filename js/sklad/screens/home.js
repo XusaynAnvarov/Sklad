@@ -1,9 +1,9 @@
 // Главная: три числа, ради которых чаще всего заходят, и крупные действия.
-import { el, go } from "../app.js?v=20260819c";
-import { icon } from "../../icons.js?v=20260819c";
-import { matchPeriod } from "../../period.js?v=20260819c";
-import { loadRules, aggregate } from "../../profit.js?v=20260819c";
-import { curStr } from "../../fx.js?v=20260819c";
+import { el, go } from "../app.js?v=20260819d";
+import { icon } from "../../icons.js?v=20260819d";
+import { matchPeriod } from "../../period.js?v=20260819d";
+import { loadRules, aggregate } from "../../profit.js?v=20260819d";
+import { curStr } from "../../fx.js?v=20260819d";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
@@ -47,6 +47,7 @@ export default async function render(box, ctx) {
     act("box", "Товары", products.length + " позиций", "products"),
     act("chart", "Отчёт", "что продаётся", "report"),
     act("tag", "Наклейки", "QR для сканера", "labels"),
+    act("truck", "Из магазина", "принять товар", "arrival"),
   ]));
 
   // сколько товаров требует внимания — цифра, а не украшение

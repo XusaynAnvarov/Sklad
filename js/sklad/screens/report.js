@@ -1,10 +1,10 @@
 // Отчёт: что продаётся лучше всего, полный список и сколько денег пришло.
-import { el } from "../app.js?v=20260819c";
-import { icon } from "../../icons.js?v=20260819c";
-import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260819c";
-import { loadRules, aggregate } from "../../profit.js?v=20260819c";
-import { byMethod, methodLabel } from "../../payment.js?v=20260819c";
-import { curStr } from "../../fx.js?v=20260819c";
+import { el } from "../app.js?v=20260819d";
+import { icon } from "../../icons.js?v=20260819d";
+import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260819d";
+import { loadRules, aggregate } from "../../profit.js?v=20260819d";
+import { byMethod, methodLabel } from "../../payment.js?v=20260819d";
+import { curStr, convert } from "../../fx.js?v=20260819d";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
@@ -63,17 +63,19 @@ export default async function render(box, ctx) {
     const byProd = {};
     fSales.forEach(s => (s.items || []).forEach(it => {
       const id = it.product_id; if (!id) return;
-      const a = byProd[id] = byProd[id] || { qty: 0, revUSD: 0, sales: 0 };
-      a.qty += Number(it.qty) || 0;
-      a.sales++;
+      const a = byProd[id] = byProd[id] || { qty: 0, som: 0 };
+      const qty = Number(it.qty) || 0;
+      const price = Number(it.unit_price) || 0;
+      const cur = it.currency || s.currency || "som";
+      a.qty += qty;
+      // оборот в сумах: доллары и юани переводим по курсу, чтобы в колонке
+      // было одно понятное число, а не три разных валюты
+      a.som += cur === "som" ? qty * price : convert(qty * price, cur, "som");
     }));
-    Object.entries(agg.byProduct || {}).forEach(([id, v]) => {
-      if (byProd[id]) byProd[id].revUSD = v.rev || 0;
-    });
 
     const rows = Object.entries(byProd)
       .map(([id, a]) => ({ id, name: (pmap[id] || {}).name || "—", sku: (pmap[id] || {}).sku || "", ...a }))
-      .sort((a, b) => b.qty - a.qty);
+      .sort((a, b) => b.som - a.som || b.qty - a.qty);
 
     if (!rows.length) {
       body.append(el("div.mini-empty", { text: "За этот период продаж не было" }));
@@ -93,9 +95,9 @@ export default async function render(box, ctx) {
           el("div.qty", { style: { color: place <= 3 ? "var(--accent)" : "var(--muted)", minWidth: "26px" }, text: String(place) }),
           el("div.info", {}, [
             el("div.nm", { text: r.name }),
-            el("div.sku", { text: [r.sku ? "Арт.: " + r.sku : null, r.revUSD ? usd(r.revUSD) : null].filter(Boolean).join(" · ") }),
+            el("div.sku", { text: r.qty + " шт" + (r.sku ? " · Арт.: " + r.sku : "") }),
           ]),
-          el("div.qty", { text: r.qty + " шт" }),
+          el("div.qty", { text: Math.round(r.som).toLocaleString("ru-RU") + " сум" }),
         ]));
       });
       shown += Math.min(PAGE, rows.length - shown);
