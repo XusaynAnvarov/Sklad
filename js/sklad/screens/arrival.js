@@ -2,15 +2,14 @@
 // в складе на сайте. Товар зачисляется СРАЗУ и по НАШЕЙ складской цене:
 // цена магазина нас не касается, иначе себестоимость и прибыль поехали бы.
 // Долг магазину не ведём — так решил владелец.
-import { el, go } from "../app.js?v=20260820d";
-import { icon } from "../../icons.js?v=20260820d";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260820d";
-import { fmt } from "../../fx.js?v=20260820d";
-import { ensureBatches, currentCost } from "../../inventory.js?v=20260820d";
-import { receiveFromShop } from "../stock.js?v=20260820d";
-import { scanSku, canScan } from "../qr.js?v=20260820d";
-import { parsePayload } from "../../qr.js?v=20260820d";
-import { KIND_SHOP } from "../../purchase.js?v=20260820d";
+import { el, go } from "../app.js?v=20260820e";
+import { icon } from "../../icons.js?v=20260820e";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260820e";
+import { fmt } from "../../fx.js?v=20260820e";
+import { ensureBatches, currentCost } from "../../inventory.js?v=20260820e";
+import { receiveFromShop } from "../stock.js?v=20260820e";
+import { scanSku, canScan, findByScan, scanFailText } from "../qr.js?v=20260820e";
+import { KIND_SHOP } from "../../purchase.js?v=20260820e";
 
 const uid = () => "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -92,9 +91,13 @@ export default async function render(box, ctx) {
   async function scanLoop() {
     const raw = await scanSku();
     if (!raw) return;
-    const id = parsePayload(raw);
-    const p = id ? pmap[id] : products.find(x => String(x.sku || "").toLowerCase() === String(raw).trim().toLowerCase());
-    if (!p) { toast("Это не наша наклейка", "err"); return; }
+    const p = findByScan(raw, products);
+    if (!p) {
+      pick.value = String(raw).trim();
+      search();
+      toast(scanFailText(raw), "err");
+      return;
+    }
     openCard(p, scanLoop);
   }
   scanBtn.addEventListener("click", scanLoop);

@@ -1,16 +1,16 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260820d";
-import { icon } from "../../icons.js?v=20260820d";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260820d";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260820d";
-import { fmt, convert } from "../../fx.js?v=20260820d";
-import { thumb } from "../../img.js?v=20260820d";
-import { LOW_STOCK } from "../../advice.js?v=20260820d";
-import { scanSku } from "../qr.js?v=20260820d";
-import { parsePayload, qrSvg, skuPayload } from "../../qr.js?v=20260820d";
-import { setStock } from "../stock.js?v=20260820d";
+import { el, go } from "../app.js?v=20260820e";
+import { icon } from "../../icons.js?v=20260820e";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260820e";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260820e";
+import { fmt, convert } from "../../fx.js?v=20260820e";
+import { thumb } from "../../img.js?v=20260820e";
+import { LOW_STOCK } from "../../advice.js?v=20260820e";
+import { scanSku, findByScan, scanFailText } from "../qr.js?v=20260820e";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260820e";
+import { setStock } from "../stock.js?v=20260820e";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -221,10 +221,11 @@ export default async function render(box, ctx) {
   scanBtn.addEventListener("click", async () => {
     const raw = await scanSku();
     if (!raw) return;
-    const id = parsePayload(raw);
-    const p = id ? products.find(x => x.id === id) : null;
+    const p = findByScan(raw, products);
     if (p) { openEdit(p); return; }
-    search.value = raw; query = String(raw).toLowerCase(); filter = ""; draw();
+    // не нашли — код остаётся в поиске, и видно, что именно прочиталось
+    search.value = String(raw).trim(); query = search.value.toLowerCase(); filter = ""; draw();
+    toast(scanFailText(raw), "err");
   });
   addBtn.addEventListener("click", () => openEdit(null));
 

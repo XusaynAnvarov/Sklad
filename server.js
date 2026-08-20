@@ -152,8 +152,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260820d");
-    const { sget } = await import("./api/lib/supa.js?v=20260820d");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260820e");
+    const { sget } = await import("./api/lib/supa.js?v=20260820e");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +

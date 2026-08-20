@@ -2,7 +2,7 @@
 //  КЛИЕНТ TELEGRAM (вызывает serverless-функцию /api/telegram).
 //  Токен бота на бэкенде (Vercel env), здесь его НЕТ.
 // ========================================================================
-import { authHeaders } from "./db.js?v=20260820d";
+import { authHeaders } from "./db.js?v=20260820e";
 
 const cfg = window.APP_CONFIG || {};
 

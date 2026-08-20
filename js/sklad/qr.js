@@ -12,7 +12,7 @@
 //  сканирование не работало вообще. Теперь закрытие ловим тем событием,
 //  которое для этого и предназначено: scanQrPopupClosed.
 // ========================================================================
-import { toast } from "../ui.js?v=20260820d";
+import { toast } from "../ui.js?v=20260820e";
 
 const TG = () => window.Telegram && window.Telegram.WebApp;
 
@@ -58,4 +58,41 @@ export function isDesktop() {
   const t = TG();
   const p = String((t && t.platform) || "").toLowerCase();
   return p === "tdesktop" || p === "macos" || p === "web" || p === "weba" || p === "webk";
+}
+
+// ========================================================================
+//  Что делать с тем, что прочитал сканер.
+//  Раньше приложение молча отвечало «это не наша наклейка» и не говорило,
+//  ЧТО именно оно прочитало — понять причину было невозможно.
+//  Теперь: сначала пробуем нашу наклейку, потом номер товара как есть,
+//  потом артикул. Если не нашли — показываем сам код.
+// ========================================================================
+import { parsePayload } from "../qr.js?v=20260820e";
+
+const clean = (v) => String(v == null ? "" : v).trim().toLowerCase();
+const tight = (v) => clean(v).split(" ").join("");
+
+export function findByScan(raw, products) {
+  const s = String(raw || "").trim();
+  if (!s || !Array.isArray(products)) return null;
+
+  const id = parsePayload(s);
+  if (id) {
+    const byId = products.find(p => String(p.id) === id);
+    if (byId) return byId;
+  }
+  const low = clean(s);
+  const flat = tight(s);
+  return products.find(p => clean(p.id) === low)
+      || products.find(p => clean(p.sku) === low)
+      || products.find(p => p.sku && tight(p.sku) === flat)
+      || null;
+}
+
+// Понятное объяснение вместо «это не наша наклейка»
+export function scanFailText(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "Сканер ничего не прочитал";
+  const short = s.length > 70 ? s.slice(0, 70) + "…" : s;
+  return "Товар не найден. Код: " + short;
 }
