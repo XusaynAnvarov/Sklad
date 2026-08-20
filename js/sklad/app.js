@@ -4,10 +4,10 @@
 //  тот же токен склада, что и вход по паролю. Дальше работает обычный
 //  js/db.js, поэтому база ОДНА: движение с телефона сразу видно на сайте.
 // ========================================================================
-import { db } from "../db.js?v=20260820c";
-import { icon } from "../icons.js?v=20260820c";
-import { toast } from "../ui.js?v=20260820c";
-import { isDesktop } from "./qr.js?v=20260820c";
+import { db } from "../db.js?v=20260820d";
+import { icon } from "../icons.js?v=20260820d";
+import { toast } from "../ui.js?v=20260820d";
+import { isDesktop } from "./qr.js?v=20260820d";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const TOKEN_KEY = "sklad_admin_token";
@@ -72,14 +72,14 @@ async function signIn() {
 
 // ---------- экраны ----------
 const SCREENS = {
-  home:     { title: "Склад",           mod: () => import("./screens/home.js?v=20260820c") },
-  products: { title: "Товары",          mod: () => import("./screens/products.js?v=20260820c") },
-  sale:     { title: "Продажа",         mod: () => import("./screens/sale.js?v=20260820c") },
-  report:   { title: "Отчёт",           mod: () => import("./screens/report.js?v=20260820c") },
-  labels:   { title: "Наклейки",        mod: () => import("./screens/labels.js?v=20260820c") },
-  clients:  { title: "Клиенты",         mod: () => import("./screens/clients.js?v=20260820c") },
-  arrival:  { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260820c") },
-  docs:     { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260820c") },
+  home:     { title: "Склад",           mod: () => import("./screens/home.js?v=20260820d") },
+  products: { title: "Товары",          mod: () => import("./screens/products.js?v=20260820d") },
+  sale:     { title: "Продажа",         mod: () => import("./screens/sale.js?v=20260820d") },
+  report:   { title: "Отчёт",           mod: () => import("./screens/report.js?v=20260820d") },
+  labels:   { title: "Наклейки",        mod: () => import("./screens/labels.js?v=20260820d") },
+  clients:  { title: "Клиенты",         mod: () => import("./screens/clients.js?v=20260820d") },
+  arrival:  { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260820d") },
+  docs:     { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260820d") },
 };
 const TABS = [
   { id: "home",     label: "Главная", ic: "dashboard" },

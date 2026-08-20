@@ -1,11 +1,11 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20260820c";
-import { renderCatalog } from "./catalog.js?v=20260820c";
-import { renderVideos } from "./videos.js?v=20260820c";
-import { renderCabinet } from "./cabinet.js?v=20260820c";
-import { renderAdminPanel } from "./admin-panel.js?v=20260820c";
-import { renderOrder } from "./order.js?v=20260820c";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20260820c";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20260820d";
+import { renderCatalog } from "./catalog.js?v=20260820d";
+import { renderVideos } from "./videos.js?v=20260820d";
+import { renderCabinet } from "./cabinet.js?v=20260820d";
+import { renderAdminPanel } from "./admin-panel.js?v=20260820d";
+import { renderOrder } from "./order.js?v=20260820d";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20260820d";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -212,7 +212,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20260820c");
+        const { api: siteApi } = await import("./api.js?v=20260820d");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -575,7 +575,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=121", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=122", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

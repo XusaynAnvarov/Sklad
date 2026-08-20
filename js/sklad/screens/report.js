@@ -2,11 +2,11 @@
 // Подробная аналитика с правилами прибыли живёт в складе на сайте — здесь
 // приложение для случая «ноутбука нет под рукой», дублировать её незачем.
 // Обороты считаем по фактическим ценам позиций и сводим в сумы.
-import { el } from "../app.js?v=20260820c";
-import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260820c";
-import { byMethod, methodLabel } from "../../payment.js?v=20260820c";
-import { isShop } from "../../purchase.js?v=20260820c";
-import { curStr, convert } from "../../fx.js?v=20260820c";
+import { el } from "../app.js?v=20260820d";
+import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260820d";
+import { byMethod, methodLabel } from "../../payment.js?v=20260820d";
+import { isShop } from "../../purchase.js?v=20260820d";
+import { curStr, convert } from "../../fx.js?v=20260820d";
 
 const som = (n) => Math.round(Number(n) || 0).toLocaleString("ru-RU") + " сум";
 
