@@ -8,11 +8,11 @@
 // ========================================================================
 
 // Сколько байт данных влезает в версию при коррекции M
-const CAP_M = { 1: 14, 2: 26, 3: 42, 4: 62 };
+const CAP_M = { 1: 14, 2: 26, 3: 42, 4: 62, 5: 84, 6: 106 };
 // Число кодовых слов данных и блоков (версия → [всего слов, блоков])
-const EC_M = { 1: [16, 1], 2: [28, 1], 3: [44, 1], 4: [64, 2] };
+const EC_M = { 1: [16, 1], 2: [28, 1], 3: [44, 1], 4: [64, 2], 5: [86, 2], 6: [108, 4] };
 // Слов коррекции на блок
-const ECC_PER_BLOCK_M = { 1: 10, 2: 16, 3: 26, 4: 18 };
+const ECC_PER_BLOCK_M = { 1: 10, 2: 16, 3: 26, 4: 18, 5: 24, 6: 16 };
 
 // ---------- арифметика Галуа GF(256) ----------
 const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
@@ -104,7 +104,7 @@ function placeFinder(M, r, c) {
     M.m[y][x] = on ? 1 : 0;
   }
 }
-const ALIGN = { 1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26] };
+const ALIGN = { 1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30], 6: [6, 34] };
 function placeAlign(M, version) {
   const pos = ALIGN[version];
   for (const r of pos) for (const c of pos) {
@@ -139,7 +139,7 @@ function placeFormat(M) {
 export function qrMatrix(text) {
   const bytes = new TextEncoder().encode(String(text || "")).length;
   let version = 0;
-  for (const v of [1, 2, 3, 4]) if (bytes <= CAP_M[v]) { version = v; break; }
+  for (const v of [1, 2, 3, 4, 5, 6]) if (bytes <= CAP_M[v]) { version = v; break; }
   if (!version) throw new Error("Слишком длинная строка для наклейки");
 
   const size = 17 + version * 4;
@@ -195,13 +195,31 @@ export function qrSvg(text, { size = 0, quiet = 4, color = "#000", bg = "#fff" }
 }
 
 // ---------- содержимое наклейки ----------
-const PREFIX = "gm:";
-export const skuPayload = (productId) => PREFIX + String(productId || "");
+// Внутри лежит НАСТОЯЩАЯ ССЫЛКА, а не просто текст. Это важно: обычная
+// камера телефона реагирует только на ссылки — на строку вида gm:p1 iPhone
+// не показывает ничего, и выглядит это как «QR не сканируется».
+// Ссылка открывает склад сразу на нужном товаре.
+const BASE = "https://generalmodern.uz/sklad?p=";
+const OLD_PREFIX = "gm:";                 // старые наклейки, напечатанные раньше
 
-// Разобрать отсканированное. Чужие QR из магазина игнорируем.
+export const skuPayload = (productId) => BASE + encodeURIComponent(String(productId || ""));
+
+// Разобрать отсканированное: понимаем и ссылку, и старый формат.
+// Чужие QR из магазина игнорируем.
 export function parsePayload(text) {
   const s = String(text || "").trim();
-  if (!s.startsWith(PREFIX)) return null;
-  const id = s.slice(PREFIX.length).trim();
+  if (!s) return null;
+  let id = "";
+  if (s.startsWith(OLD_PREFIX)) {
+    id = s.slice(OLD_PREFIX.length).trim();
+  } else {
+    // из ссылки берём параметр p — работает и для http, и для https
+    const m = s.match(/[?&]p=([^&#\s]+)/);
+    if (!m) return null;
+    try { id = decodeURIComponent(m[1]); } catch { id = m[1]; }
+    // ссылка должна вести на наш склад, а не куда попало
+    if (!/generalmodern\.uz/i.test(s)) return null;
+  }
+  id = id.trim();
   return /^[\w-]{1,64}$/.test(id) ? id : null;
 }

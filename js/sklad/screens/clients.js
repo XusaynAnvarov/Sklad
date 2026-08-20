@@ -1,11 +1,11 @@
 // Клиенты: кто сколько должен, по каким ценам брал, приём оплаты и новый клиент.
 // Долг считается так же, как в складе на сайте: продано минус оплачено,
 // раздельно по валютам — иначе долг в долларах терялся бы в сумовой сумме.
-import { el } from "../app.js?v=20260820a";
-import { icon } from "../../icons.js?v=20260820a";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20260820a";
-import { fmt } from "../../fx.js?v=20260820a";
-import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260820a";
+import { el } from "../app.js?v=20260820b";
+import { icon } from "../../icons.js?v=20260820b";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20260820b";
+import { fmt } from "../../fx.js?v=20260820b";
+import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260820b";
 
 const CURS = ["som", "usd", "yuan"];
 const zero = () => ({ som: 0, usd: 0, yuan: 0 });

@@ -1,16 +1,16 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260820a";
-import { icon } from "../../icons.js?v=20260820a";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260820a";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260820a";
-import { fmt, convert } from "../../fx.js?v=20260820a";
-import { thumb } from "../../img.js?v=20260820a";
-import { LOW_STOCK } from "../../advice.js?v=20260820a";
-import { scanSku } from "../qr.js?v=20260820a";
-import { parsePayload, qrSvg, skuPayload } from "../../qr.js?v=20260820a";
-import { setStock } from "../stock.js?v=20260820a";
+import { el, go } from "../app.js?v=20260820b";
+import { icon } from "../../icons.js?v=20260820b";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260820b";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260820b";
+import { fmt, convert } from "../../fx.js?v=20260820b";
+import { thumb } from "../../img.js?v=20260820b";
+import { LOW_STOCK } from "../../advice.js?v=20260820b";
+import { scanSku } from "../qr.js?v=20260820b";
+import { parsePayload, qrSvg, skuPayload } from "../../qr.js?v=20260820b";
+import { setStock } from "../stock.js?v=20260820b";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -229,4 +229,11 @@ export default async function render(box, ctx) {
   addBtn.addEventListener("click", () => openEdit(null));
 
   draw();
+
+  // Пришли по ссылке с наклейки — сразу открываем карточку этого товара.
+  const openId = ctx.params.open;
+  if (openId) {
+    const p = products.find(x => x.id === openId);
+    if (p) openEdit(p);
+  }
 }

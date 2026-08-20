@@ -4,10 +4,10 @@
 //  тот же токен склада, что и вход по паролю. Дальше работает обычный
 //  js/db.js, поэтому база ОДНА: движение с телефона сразу видно на сайте.
 // ========================================================================
-import { db } from "../db.js?v=20260820a";
-import { icon } from "../icons.js?v=20260820a";
-import { toast } from "../ui.js?v=20260820a";
-import { isDesktop } from "./qr.js?v=20260820a";
+import { db } from "../db.js?v=20260820b";
+import { icon } from "../icons.js?v=20260820b";
+import { toast } from "../ui.js?v=20260820b";
+import { isDesktop } from "./qr.js?v=20260820b";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const TOKEN_KEY = "sklad_admin_token";
@@ -72,14 +72,14 @@ async function signIn() {
 
 // ---------- экраны ----------
 const SCREENS = {
-  home:     { title: "Склад",           mod: () => import("./screens/home.js?v=20260820a") },
-  products: { title: "Товары",          mod: () => import("./screens/products.js?v=20260820a") },
-  sale:     { title: "Продажа",         mod: () => import("./screens/sale.js?v=20260820a") },
-  report:   { title: "Отчёт",           mod: () => import("./screens/report.js?v=20260820a") },
-  labels:   { title: "Наклейки",        mod: () => import("./screens/labels.js?v=20260820a") },
-  clients:  { title: "Клиенты",         mod: () => import("./screens/clients.js?v=20260820a") },
-  arrival:  { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260820a") },
-  docs:     { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260820a") },
+  home:     { title: "Склад",           mod: () => import("./screens/home.js?v=20260820b") },
+  products: { title: "Товары",          mod: () => import("./screens/products.js?v=20260820b") },
+  sale:     { title: "Продажа",         mod: () => import("./screens/sale.js?v=20260820b") },
+  report:   { title: "Отчёт",           mod: () => import("./screens/report.js?v=20260820b") },
+  labels:   { title: "Наклейки",        mod: () => import("./screens/labels.js?v=20260820b") },
+  clients:  { title: "Клиенты",         mod: () => import("./screens/clients.js?v=20260820b") },
+  arrival:  { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260820b") },
+  docs:     { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260820b") },
 };
 const TABS = [
   { id: "home",     label: "Главная", ic: "dashboard" },
@@ -159,6 +159,17 @@ export async function boot() {
   document.documentElement.setAttribute("data-theme", "light");   // мини-приложение всегда светлое
   if (!(await signIn())) return;
   shell();
+
+  // Наклейку отсканировали обычной камерой телефона — она открыла ссылку
+  // вида /sklad?p=<товар>. Показываем сразу этот товар.
+  // Telegram передаёт тот же параметр как start_param, когда открывают из чата.
+  const fromUrl = new URLSearchParams(location.search).get("p");
+  const fromTg = TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param;
+  const openId = String(fromUrl || fromTg || "").trim();
+  if (openId && /^[\w-]{1,64}$/.test(openId) && !location.hash) {
+    location.hash = "#products?q=" + encodeURIComponent(openId) + "&open=" + encodeURIComponent(openId);
+  }
+
   window.addEventListener("hashchange", draw);
   await draw();
 }
