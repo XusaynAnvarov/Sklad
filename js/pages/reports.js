@@ -2,17 +2,18 @@
 //  ОТЧЁТЫ: итоги, диаграммы (месяцы · категории · сезоны · топ-полосы),
 //  сезонность товаров, советы, топ товаров/клиентов, долги и оборот.
 // ========================================================================
-import { el, modal, select } from "../ui.js?v=20260820f";
-import { curStr, toUSD } from "../fx.js?v=20260820f";
-import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260820f";
-import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260820f";
-import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260820f";
-import { buildAdvice } from "../advice.js?v=20260820f";
-import { placeholder } from "./products.js?v=20260820f";
-import { icon } from "../icons.js?v=20260820f";
-import { thumb } from "../img.js?v=20260820f";
-import { byMethod, methodText } from "../payment.js?v=20260820f";
-import { isShop } from "../purchase.js?v=20260820f";
+import { el, modal, select } from "../ui.js?v=20260820g";
+import { curStr, toUSD } from "../fx.js?v=20260820g";
+import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260820g";
+import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260820g";
+import { debtByCur, onlyPositive } from "../debt.js?v=20260820g";
+import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260820g";
+import { buildAdvice } from "../advice.js?v=20260820g";
+import { placeholder } from "./products.js?v=20260820g";
+import { icon } from "../icons.js?v=20260820g";
+import { thumb } from "../img.js?v=20260820g";
+import { byMethod, methodText } from "../payment.js?v=20260820g";
+import { isShop } from "../purchase.js?v=20260820g";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
@@ -284,12 +285,12 @@ export default async function render(page, ctx) {
       cs.forEach(s => (s.items || []).forEach(it => { const cc = it.currency || s.currency; if (turn[cc] !== undefined) turn[cc] += it.qty * it.unit_price; }));
       const paid = { som: 0, usd: 0, yuan: 0 };
       fPays.filter(p => p.customer_id === c.id).forEach(p => { if (paid[p.currency] !== undefined) paid[p.currency] += p.amount; });
-      // текущий долг (всё время): неоплаченные позиции + старый долг − все оплаты
-      const debt = { som: 0, usd: 0, yuan: 0 };
-      sales.filter(s => s.customer_id === c.id).forEach(s => (s.items || []).forEach(it => { const cc = it.currency || s.currency; if (debt[cc] !== undefined) debt[cc] += it.qty * it.unit_price; }));
-      const od = c.opening_debt || {}; ["som", "usd", "yuan"].forEach(k => debt[k] += Number(od[k]) || 0);
-      payments.filter(p => p.customer_id === c.id).forEach(p => { if (debt[p.currency] !== undefined) debt[p.currency] -= Number(p.amount) || 0; });
-      ["som", "usd", "yuan"].forEach(k => debt[k] = Math.max(0, debt[k]));
+      // долг — общим расчётом, как на странице клиента и в телефоне
+      const debt = onlyPositive(debtByCur(
+        sales.filter(s => s.customer_id === c.id),
+        payments.filter(p => p.customer_id === c.id),
+        c,
+      ));
       const turnUSD = ["som", "usd", "yuan"].reduce((t, k) => t + toUSD(turn[k], k), 0);
       return { c, turn, paid, debt, turnUSD };
     }).filter(r => r.turnUSD > 0 || curStr(r.debt) !== "0" || curStr(r.paid) !== "0")

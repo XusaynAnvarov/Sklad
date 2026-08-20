@@ -1,16 +1,18 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260820f";
-import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260820f";
-import { openEditor, buildText, deleteSale } from "./sales.js?v=20260820f";
-import { exportCustomerInvoice } from "../xlsx-export.js?v=20260820f";
-import { placeholder as placeholderImg } from "./products.js?v=20260820f";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260820f";
-import { authHeaders } from "../db.js?v=20260820f";
-import { icon } from "../icons.js?v=20260820f";
-import { thumb } from "../img.js?v=20260820f";
-import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20260820f";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260820g";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260820g";
+import { openEditor, buildText, deleteSale } from "./sales.js?v=20260820g";
+import { exportCustomerInvoice } from "../xlsx-export.js?v=20260820g";
+import { placeholder as placeholderImg } from "./products.js?v=20260820g";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260820g";
+import { authHeaders } from "../db.js?v=20260820g";
+import { icon } from "../icons.js?v=20260820g";
+import { thumb } from "../img.js?v=20260820g";
+import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20260820g";
+// Расчёт долга общий со складом в телефоне — иначе цифры расходятся.
+import { debtByCur, openingDebt, onlyPositive, coverageMap, issuedOnly } from "../debt.js?v=20260820g";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
 const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);
@@ -24,47 +26,7 @@ function curStr(o) {
   ["som", "usd", "yuan"].forEach(c => { if (Math.abs(o[c]) >= (c === "som" ? 1 : 0.01)) a.push(fmt(o[c], c)); });
   return a.length ? a.join("  +  ") : "0";
 }
-// старый долг клиента по валютам
-function openingDebt(customer) {
-  const o = customer && customer.opening_debt || {};
-  return { som: Number(o.som) || 0, usd: Number(o.usd) || 0, yuan: Number(o.yuan) || 0 };
-}
-// долг по валютам клиента: ВСЕ накладные + старый долг − оплаты.
-// (оплата — единый источник истины; флаг «оплачено» на накладной не учитываем — статус по оплатам)
-function debtByCur(custSales, custPays, customer) {
-  const d = { som: 0, usd: 0, yuan: 0 };
-  custSales.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; if (d[c] !== undefined) d[c] += it.qty * it.unit_price; }));
-  const od = openingDebt(customer);
-  ["som", "usd", "yuan"].forEach(c => d[c] += od[c]);
-  (custPays || []).forEach(p => { if (d[p.currency] !== undefined) d[p.currency] -= Number(p.amount) || 0; });
-  return d;
-}
-const onlyPositive = (o) => ({ som: Math.max(0, o.som), usd: Math.max(0, o.usd), yuan: Math.max(0, o.yuan) });
 
-// статус каждой накладной по оплатам (оплаты гасят накладные старые-первыми, по валютам).
-// Флаг «оплачено» не учитываем → статус меняется автоматически при оплате. { saleId: 'paid'|'partial'|'debt' }
-function coverageMap(custSales, custPays, openDebt) {
-  const pool = { som: 0, usd: 0, yuan: 0 };
-  (custPays || []).forEach(p => { if (pool[p.currency] !== undefined) pool[p.currency] += Number(p.amount) || 0; });
-  // старый долг (до системы) гасится оплатами ПЕРВЫМ — он самый старый
-  const od = openDebt || {};
-  ["som", "usd", "yuan"].forEach(c => { pool[c] -= Math.max(0, Number(od[c]) || 0); if (pool[c] < 0) pool[c] = 0; });
-  const asc = [...custSales].sort((a, b) => new Date(a.date) - new Date(b.date));
-  const map = {};
-  for (const s of asc) {
-    const need = { som: 0, usd: 0, yuan: 0 };
-    (s.items || []).forEach(it => { const c = it.currency || s.currency; if (need[c] !== undefined) need[c] += it.qty * it.unit_price; });
-    let anyNeed = false, allMet = true, tookAny = false;
-    ["som", "usd", "yuan"].forEach(c => {
-      if (need[c] <= 0.0001) return; anyNeed = true;
-      const take = Math.min(pool[c], need[c]); pool[c] -= take;
-      if (take > 0.0001) tookAny = true;
-      if (take < need[c] - 0.01) allMet = false;
-    });
-    map[s.id] = !anyNeed ? "paid" : allMet ? "paid" : tookAny ? "partial" : "debt";
-  }
-  return map;
-}
 
 export default async function render(page, ctx) {
   const id = (location.hash.match(/[?&]id=([^&]+)/) || [])[1];
@@ -148,7 +110,9 @@ async function renderCard(page, ctx, id) {
 
   const sales = allSales.filter(s => s.customer_id === id).sort((a, b) => new Date(b.date) - new Date(a.date));
   const payments = allPay.filter(p => p.customer_id === id).sort((a, b) => new Date(b.date) - new Date(a.date));
-  const finals = sales; // считаем все накладные клиента
+  // заказы, по которым товар ещё не выдан, в оборот и долг не идут:
+  // склад по ним тоже не списан
+  const finals = issuedOnly(sales);
 
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
   // по валютам, без конвертации. Долг = неоплаченное − оплаты (не ниже 0);

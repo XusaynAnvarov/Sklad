@@ -1,14 +1,14 @@
 // Клиенты: кто сколько должен, по каким ценам брал, приём оплаты и новый клиент.
-// Долг считается так же, как в складе на сайте: продано минус оплачено,
-// раздельно по валютам — иначе долг в долларах терялся бы в сумовой сумме.
-import { el } from "../app.js?v=20260820f";
-import { icon } from "../../icons.js?v=20260820f";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20260820f";
-import { fmt } from "../../fx.js?v=20260820f";
-import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260820f";
+// Долг считает js/debt.js — то же самое место, что и склад на сайте.
+// Раньше здесь была своя копия расчёта, и она забывала старый долг клиента:
+// один и тот же человек показывал разные цифры в телефоне и на компьютере.
+import { el } from "../app.js?v=20260820g";
+import { icon } from "../../icons.js?v=20260820g";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20260820g";
+import { fmt } from "../../fx.js?v=20260820g";
+import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260820g";
+import { debtByCur, onlyPositive, turnoverByCur, hasDebt, CURS, zero } from "../../debt.js?v=20260820g";
 
-const CURS = ["som", "usd", "yuan"];
-const zero = () => ({ som: 0, usd: 0, yuan: 0 });
 const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const curStr = (m) => {
   const parts = CURS.filter(c => Math.abs(m[c] || 0) > (c === "som" ? 0.5 : 0.009)).map(c => fmt(m[c], c));
@@ -21,25 +21,17 @@ export default async function render(box, ctx) {
   ]);
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
 
-  // оборот и оплачено по каждому клиенту
-  const turn = {}, paid = {};
-  sales.filter(s => s.status === "final" && s.customer_id).forEach(s => {
-    const t = turn[s.customer_id] = turn[s.customer_id] || zero();
-    (s.items || []).forEach(it => {
-      const c = it.currency || s.currency;
-      if (t[c] !== undefined) t[c] += (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
-    });
-  });
-  payments.filter(p => p.customer_id).forEach(p => {
-    const t = paid[p.customer_id] = paid[p.customer_id] || zero();
-    if (t[p.currency] !== undefined) t[p.currency] += Number(p.amount) || 0;
-  });
-  const debtOf = (id) => {
-    const d = zero(), t = turn[id] || zero(), pd = paid[id] || zero();
-    CURS.forEach(c => { d[c] = Math.max(0, (t[c] || 0) - (pd[c] || 0)); });
-    return d;
-  };
-  const hasDebt = (d) => CURS.some(c => d[c] > (c === "som" ? 0.5 : 0.009));
+  // Раскладываем накладные и оплаты по клиентам один раз — списки длинные,
+  // а карточек на экране много.
+  const byClient = {}, paysOf = {};
+  sales.forEach(s => { if (s.customer_id) (byClient[s.customer_id] = byClient[s.customer_id] || []).push(s); });
+  payments.forEach(p => { if (p.customer_id) (paysOf[p.customer_id] = paysOf[p.customer_id] || []).push(p); });
+  const cmap = Object.fromEntries(customers.map(c => [c.id, c]));
+
+  const turn = {};
+  customers.forEach(c => { turn[c.id] = turnoverByCur(byClient[c.id] || []); });
+  // долг без минуса: аванс в списке только запутал бы
+  const debtOf = (id) => onlyPositive(debtByCur(byClient[id] || [], paysOf[id] || [], cmap[id]));
 
   // ---------- поиск и кнопка «добавить» ----------
   const search = el("input.inp", { type: "search", placeholder: "Имя или телефон…", style: { flex: "1", minHeight: "44px", fontSize: "16px" } });
@@ -109,8 +101,9 @@ export default async function render(box, ctx) {
               // колонки method может не быть в старой базе — тогда пишем без неё
               try { await ctx.db.payments.upsert({ ...base, method: fMethod.value }); }
               catch { await ctx.db.payments.upsert(base); }
-              const t = paid[c.id] = paid[c.id] || zero();
-              if (t[base.currency] !== undefined) t[base.currency] += amount;
+              // кладём оплату в тот же список, из которого считается долг,
+              // иначе на экране останется старая цифра до перезахода
+              (paysOf[c.id] = paysOf[c.id] || []).push(base);
               close(); draw();
               toast("Оплата записана", "ok");
             } catch (e) { toast("Не удалось: " + (e.message || e), "err"); }

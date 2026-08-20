@@ -2,23 +2,41 @@
 // Сканируем наклейку за наклейкой — каждая позиция ложится в общий список.
 // Цена подставляется из прошлой продажи этого товара, остаток показывается
 // живой: отсканировали ту же наклейку после продажи — увидели новый остаток.
-import { el, go } from "../app.js?v=20260820f";
-import { icon } from "../../icons.js?v=20260820f";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260820f";
-import { fmt } from "../../fx.js?v=20260820f";
-import { LOW_STOCK } from "../../advice.js?v=20260820f";
-import { sellItems } from "../stock.js?v=20260820f";
-import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260820f";
-import { invoiceHtml, openPrint } from "../print.js?v=20260820f";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260820f";
-import { setStock } from "../stock.js?v=20260820f";
+import { el, go } from "../app.js?v=20260820g";
+import { icon } from "../../icons.js?v=20260820g";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260820g";
+import { fmt, convert } from "../../fx.js?v=20260820g";
+import { LOW_STOCK } from "../../advice.js?v=20260820g";
+import { sellItems } from "../stock.js?v=20260820g";
+import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260820g";
+import { invoiceHtml, openPrint } from "../print.js?v=20260820g";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260820g";
+import { setStock } from "../stock.js?v=20260820g";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote, repriceItems } from "../../prices.js?v=20260820g";
 
 const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];
 const uid = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const round = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 export default async function render(box, ctx) {
-  const [products, customers] = await Promise.all([ctx.db.products.list(), ctx.db.customers.list()]);
+  const [products, customers, sales] = await Promise.all([
+    ctx.db.products.list(), ctx.db.customers.list(), ctx.db.sales.list(),
+  ]);
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
+
+  // Историю цен считаем ОДИН раз при входе. Раньше на каждый скан уходил
+  // запрос за всей историей продаж: десять наклеек — десять выкачек.
+  const sorted = freshFirst(sales);
+  const anyMap = lastAnyMap(sorted);
+  const ownCache = new Map();
+  const ownMapFor = (id) => {
+    if (!id) return null;
+    if (!ownCache.has(id)) ownCache.set(id, lastForCustomerMap(sorted, id));
+    return ownCache.get(id);
+  };
+  // Что подставить в цену товара при нынешнем выборе «кому продаём».
+  const hintFor = (productId) =>
+    suggestPrice(productId, { ownMap: quick ? null : ownMapFor(customerId), anyMap });
 
   let quick = ctx.params.mode !== "client";   // по умолчанию обычная продажа за прилавком
   let customerId = "";
@@ -52,8 +70,8 @@ export default async function render(box, ctx) {
   function drawMode() {
     modeBox.innerHTML = "";
     modeBox.append(
-      modeBtn(quick, "Обычная", "имя по желанию", () => { quick = true; drawMode(); drawWho(); }),
-      modeBtn(!quick, "Клиенту", "запишется в долг", () => { quick = false; drawMode(); drawWho(); }),
+      modeBtn(quick, "Обычная", "имя по желанию", () => { quick = true; drawMode(); drawWho(); repriceCart(); }),
+      modeBtn(!quick, "Клиенту", "запишется в долг", () => { quick = false; drawMode(); drawWho(); repriceCart(); }),
     );
   }
 
@@ -77,7 +95,7 @@ export default async function render(box, ctx) {
     customers.slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "ru"))
       .forEach(c => sel.append(el("option", { value: c.id, text: c.name })));
     sel.value = customerId;
-    sel.addEventListener("change", () => { customerId = sel.value; });
+    sel.addEventListener("change", () => { customerId = sel.value; repriceCart(); });
     whoBox.append(sel);
   }
 
@@ -91,17 +109,11 @@ export default async function render(box, ctx) {
     let fresh = p;
     try { fresh = (await ctx.db.products.get(p.id)) || p; } catch { }   // остаток читаем заново
     const st = Number(fresh.stock_qty) || 0;
-    let price = 0, cur = currency;
-    try {
-      // клиенту подставляем ЕГО цену — он привык покупать по ней;
-      // обычной продаже — последнюю цену этого товара кому угодно
-      if (!quick && customerId) {
-        const map = await ctx.db.lastPricesForCustomer(customerId);
-        const own = map && map.get(p.id);
-        if (own && own.price != null) { price = own.price; cur = own.currency; }
-      }
-      if (!price) { const last = await ctx.db.lastPriceAny(p.id); if (last) { price = last.price; cur = last.currency; } }
-    } catch { }
+    // клиенту подставляем ЕГО цену — он привык покупать по ней;
+    // обычной продаже — последнюю цену этого товара кому угодно
+    const hint = hintFor(p.id);
+    let price = hint ? hint.price : 0;
+    let cur = hint ? hint.currency : currency;
 
     const qtyInp = el("input.inp", { type: "number", inputmode: "numeric", value: "1", style: { width: "100%", minHeight: "46px", fontSize: "17px", textAlign: "center" } });
     const priceInp = el("input.inp", { type: "number", inputmode: "decimal", step: "0.01", value: String(price || ""), placeholder: "цена", style: { width: "100%", minHeight: "46px", fontSize: "17px" } });
@@ -123,7 +135,9 @@ export default async function render(box, ctx) {
           el("label.field", {}, [el("span.field-label", { text: "Цена" }), priceInp]),
           el("label.field", {}, [el("span.field-label", { text: "Валюта" }), curSel]),
         ]),
-        price ? null : el("div.hint", { style: { marginTop: "8px" }, text: "Этот товар ещё не продавали — впишите цену." }),
+        hint
+          ? el("div.hint", { style: { marginTop: "8px" }, text: priceNote(hint) + (hint.own ? "" : " — не его цена") })
+          : el("div.hint", { style: { marginTop: "8px" }, text: "Этот товар ещё не продавали — впишите цену." }),
         el("div", { style: { display: "flex", gap: "8px", marginTop: "12px" } }, [
           el("button.btn.btn-outline", { style: { flex: "1", justifyContent: "center", minHeight: "42px" },
             text: "Остаток на полке", onclick: () => askStock(fresh) }),
@@ -139,9 +153,12 @@ export default async function render(box, ctx) {
             const pr = Number(priceInp.value) || 0;
             if (q <= 0) { toast("Укажите количество", "err"); return; }
             if (pr <= 0) { toast("Укажите цену", "err"); return; }
+            // Цену правили руками — при смене клиента её не трогаем.
+            // Иначе набранная вручную скидка молча пропала бы.
+            const manual = !hint || pr !== hint.price || curSel.value !== hint.currency;
             const ex = cart.find(i => i.product_id === p.id && i.currency === curSel.value && i.unit_price === pr);
             if (ex) ex.qty += q;
-            else cart.push({ product_id: p.id, qty: q, unit_price: pr, currency: curSel.value });
+            else cart.push({ product_id: p.id, qty: q, unit_price: pr, currency: curSel.value, manual, hint });
             close(); drawCart();
             toast(fresh.name + " × " + q, "ok");
             if (afterAdd) afterAdd();
@@ -248,6 +265,18 @@ export default async function render(box, ctx) {
 
   const saveBtn = el("button.btn.btn-primary", { text: "Готово — накладная" });
 
+  // Имя клиента вписывают ПОСЛЕ того, как отсканировали товары — так удобнее
+  // за прилавком. Значит цены надо переставить на цены этого клиента задним
+  // числом, иначе в накладную уйдут чужие. Цены, набранные руками, не трогаем.
+  function repriceCart() {
+    const changed = repriceItems(cart, hintFor);
+    drawCart();
+    if (changed) {
+      const кому = quick ? "цены последней продажи" : "цены этого клиента";
+      toast("Подставил " + кому + ": позиций " + changed, "ok");
+    }
+  }
+
   function drawCart() {
     cartBox.innerHTML = "";
     if (!cart.length) {
@@ -263,6 +292,7 @@ export default async function render(box, ctx) {
         el("div.info", {}, [
           el("div.nm", { text: p.name }),
           el("div.sku", { text: `${it.qty} × ${fmt(it.unit_price, it.currency)}` }),
+          el("div.sku", { style: { opacity: ".75" }, text: it.manual ? "цена вписана вручную" : priceNote(it.hint) }),
         ]),
         el("div.qty", { text: fmt(it.qty * it.unit_price, it.currency) }),
         el("button.mini-icon-btn", { title: "Убрать", onclick: (e) => { e.stopPropagation(); cart.splice(idx, 1); drawCart(); } }, [icon("trash", { size: 16 })]),
@@ -280,7 +310,18 @@ export default async function render(box, ctx) {
       saveBtn.disabled = true; saveBtn.textContent = "Оформляем…";
       const saleId = uid();
       try {
-        await sellItems(ctx.db, cart.map(i => ({ product_id: i.product_id, qty: i.qty })));
+        const sold = await sellItems(ctx.db, cart.map(i => ({ product_id: i.product_id, qty: i.qty })));
+        // Себестоимость списанных партий — по товару. Если товар попал в
+        // накладную двумя строками, делим между ними по количеству.
+        const cogs = sold.cogs || {};
+        const qtyByProduct = {};
+        cart.forEach(i => { qtyByProduct[i.product_id] = (qtyByProduct[i.product_id] || 0) + (Number(i.qty) || 0); });
+        const shareOf = (i, key) => {
+          const c = cogs[i.product_id];
+          const total = qtyByProduct[i.product_id] || 0;
+          if (!c || !total) return null;
+          return round(c[key] * ((Number(i.qty) || 0) / total));
+        };
         const sale = {
           id: saleId,
           customer_id: quick ? null : customerId,
@@ -290,7 +331,21 @@ export default async function render(box, ctx) {
           source: quick ? "quick" : "mini",
           // имя-подпись: клиента в базе не заводим, долг никому не пишем
           order_from: quick && signName ? { name: signName } : null,
-          items: cart.map(i => ({ product_id: i.product_id, qty: i.qty, unit_price: i.unit_price, currency: i.currency, paid: !!quick })),
+          // price_yuan_norm — цена, приведённая к юаням. На ней считается вся
+          // прибыль в отчётах сайта. Без неё накладная с телефона попадала в
+          // базу, но в прибыль не входила: отчёт молча занижался.
+          items: cart.map(i => ({
+            product_id: i.product_id,
+            qty: i.qty,
+            unit_price: i.unit_price,
+            currency: i.currency,
+            price_yuan_norm: round(convert(i.unit_price, i.currency, "yuan")),
+            // себестоимость запоминаем в накладной — иначе прибыль по ней
+            // потом пересчитается по сегодняшней цене склада и соврёт
+            cogs_yuan: shareOf(i, "cogs_yuan"),
+            cogs_usd: shareOf(i, "cogs_usd"),
+            paid: !!quick,
+          })),
         };
         await ctx.db.sales.upsert(sale);
 

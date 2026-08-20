@@ -5,7 +5,7 @@
 //  Пишем ПАКЕТОМ (upsertMany): на телефоне поштучная запись 20 позиций
 //  занимала бы минуту.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260820f";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260820g";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
@@ -51,19 +51,33 @@ async function verifyStock(db, expected) {
 
 // Списать позиции со склада и вернуть строки для записи.
 // items: [{ product_id, qty }]
+// Возвращает и строки склада, и СПИСАННУЮ СЕБЕСТОИМОСТЬ по каждой позиции.
+// Себестоимость надо записать в саму накладную: склад живёт дальше, цены
+// меняются, и если её не запомнить, прибыль по старой накладной будет
+// пересчитываться по сегодняшней цене — то есть врать. На сайте она
+// записывается (js/pages/sales.js), в телефоне терялась.
 export function applySale(fresh, items) {
-  const rows = [];
+  // Один товар может попасть в накладную двумя строками — отсканировали
+  // дважды. Тогда списывать надо ПОДРЯД: вторая строка берёт то, что
+  // осталось после первой. Раньше каждая строка списывала от исходного
+  // остатка и в склад уходила только последняя — товар терялся, а
+  // себестоимость считалась по уже проданным партиям.
+  const left = {};                       // товар → партии по ходу списания
+  const cogs = {};
   for (const it of items) {
     const p = fresh[it.product_id];
     if (!p) continue;
-    const r = consumeFIFO(ensureBatches(p), Number(it.qty) || 0);
-    const cc = costAfter(r.batches, p);
-    rows.push({
-      id: p.id, stock_qty: sumQty(r.batches),
-      cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: r.batches,
-    });
+    const r = consumeFIFO(left[p.id] || ensureBatches(p), Number(it.qty) || 0);
+    left[p.id] = r.batches;
+    const prev = cogs[p.id] || { cogs_yuan: 0, cogs_usd: 0 };
+    cogs[p.id] = { cogs_yuan: prev.cogs_yuan + r.cogY, cogs_usd: prev.cogs_usd + r.cogU };
   }
-  return rows;
+  const rows = Object.keys(left).map(id => {
+    const batches = left[id];
+    const cc = costAfter(batches, fresh[id]);
+    return { id, stock_qty: sumQty(batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches };
+  });
+  return { rows, cogs };
 }
 
 // Провести продажу: прочитать свежее → списать → записать пакетом.
@@ -73,13 +87,13 @@ export async function sellItems(db, items) {
   const fresh = await readFresh(db, ids);
   const missing = ids.filter(id => !fresh[id]);
   if (missing.length) throw new Error("Товар не найден на складе (" + missing.length + " поз.)");
-  const rows = applySale(fresh, items);
+  const { rows, cogs } = applySale(fresh, items);
   await writeStock(db, rows);
   // сверяем: остаток должен стать ровно тем, что мы посчитали
   const expected = Object.fromEntries(rows.map(r => [r.id, r.stock_qty]));
   const bad = await verifyStock(db, expected);
   if (bad.length) throw new Error("Остаток не записался (" + bad.length + " поз.) — проверьте связь и повторите");
-  return { written: rows.length };
+  return { written: rows.length, cogs };
 }
 
 // Поставить точный остаток «как на полке». Разница вниз списывается по FIFO,

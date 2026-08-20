@@ -1,17 +1,18 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260820f";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260820f";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260820f";
-import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20260820f";
-import { sparkline } from "../charts.js?v=20260820f";
-import { icon } from "../icons.js?v=20260820f";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260820f";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260820f";
-import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260820f";
-import { buildAdvice } from "../advice.js?v=20260820f";
-import { thumb } from "../img.js?v=20260820f";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260820g";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260820g";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260820g";
+import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20260820g";
+import { sparkline } from "../charts.js?v=20260820g";
+import { debtByCur, onlyPositive } from "../debt.js?v=20260820g";
+import { icon } from "../icons.js?v=20260820g";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260820g";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260820g";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260820g";
+import { buildAdvice } from "../advice.js?v=20260820g";
+import { thumb } from "../img.js?v=20260820g";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
@@ -109,14 +110,17 @@ export default async function render(page, ctx) {
 
   // общий долг клиентов по валютам (без конвертации, текущий)
   const totalDebt = { som: 0, usd: 0, yuan: 0 };
-  customers.forEach(c => {
-    const d = { som: 0, usd: 0, yuan: 0 };
-    sales.forEach(s => { if (s.customer_id === c.id) (s.items || []).forEach(it => { const cc = it.currency || s.currency; if (d[cc] !== undefined) d[cc] += it.qty * it.unit_price; }); });
-    const od = c.opening_debt || {};
-    ["som", "usd", "yuan"].forEach(k => d[k] += Number(od[k]) || 0);
-    payments.forEach(p => { if (p.customer_id === c.id && d[p.currency] !== undefined) d[p.currency] -= Number(p.amount) || 0; });
-    ["som", "usd", "yuan"].forEach(k => { if (d[k] > 0) totalDebt[k] += d[k]; });
-  });
+  // Долг считает общий js/debt.js — тот же, что на странице клиента и в
+  // складе в телефоне. Раньше здесь была своя копия, и цифры расходились.
+  {
+    const salesOf = {}, paysOf = {};
+    sales.forEach(s => { if (s.customer_id) (salesOf[s.customer_id] = salesOf[s.customer_id] || []).push(s); });
+    payments.forEach(p => { if (p.customer_id) (paysOf[p.customer_id] = paysOf[p.customer_id] || []).push(p); });
+    customers.forEach(c => {
+      const d = onlyPositive(debtByCur(salesOf[c.id] || [], paysOf[c.id] || [], c));
+      ["som", "usd", "yuan"].forEach(k => { totalDebt[k] += d[k]; });
+    });
+  }
 
   // прибыль-% (по валютам): облако с резервом в localStorage
   const settings = await ctx.db.getSettings().catch(() => ({}));
