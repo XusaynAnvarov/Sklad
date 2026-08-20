@@ -2,17 +2,17 @@
 //  ОТЧЁТЫ: итоги, диаграммы (месяцы · категории · сезоны · топ-полосы),
 //  сезонность товаров, советы, топ товаров/клиентов, долги и оборот.
 // ========================================================================
-import { el, modal, select } from "../ui.js?v=20260820b";
-import { curStr, toUSD } from "../fx.js?v=20260820b";
-import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260820b";
-import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260820b";
-import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260820b";
-import { buildAdvice } from "../advice.js?v=20260820b";
-import { placeholder } from "./products.js?v=20260820b";
-import { icon } from "../icons.js?v=20260820b";
-import { thumb } from "../img.js?v=20260820b";
-import { byMethod, methodText } from "../payment.js?v=20260820b";
-import { isShop } from "../purchase.js?v=20260820b";
+import { el, modal, select } from "../ui.js?v=20260820c";
+import { curStr, toUSD } from "../fx.js?v=20260820c";
+import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260820c";
+import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260820c";
+import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260820c";
+import { buildAdvice } from "../advice.js?v=20260820c";
+import { placeholder } from "./products.js?v=20260820c";
+import { icon } from "../icons.js?v=20260820c";
+import { thumb } from "../img.js?v=20260820c";
+import { byMethod, methodText } from "../payment.js?v=20260820c";
+import { isShop } from "../purchase.js?v=20260820c";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
