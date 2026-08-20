@@ -12,7 +12,7 @@
 //  сканирование не работало вообще. Теперь закрытие ловим тем событием,
 //  которое для этого и предназначено: scanQrPopupClosed.
 // ========================================================================
-import { toast } from "../ui.js?v=20260820e";
+import { toast } from "../ui.js?v=20260820f";
 
 const TG = () => window.Telegram && window.Telegram.WebApp;
 
@@ -67,7 +67,7 @@ export function isDesktop() {
 //  Теперь: сначала пробуем нашу наклейку, потом номер товара как есть,
 //  потом артикул. Если не нашли — показываем сам код.
 // ========================================================================
-import { parsePayload } from "../qr.js?v=20260820e";
+import { parsePayload } from "../qr.js?v=20260820f";
 
 const clean = (v) => String(v == null ? "" : v).trim().toLowerCase();
 const tight = (v) => clean(v).split(" ").join("");
@@ -95,4 +95,23 @@ export function scanFailText(raw) {
   if (!s) return "Сканер ничего не прочитал";
   const short = s.length > 70 ? s.slice(0, 70) + "…" : s;
   return "Товар не найден. Код: " + short;
+}
+
+// Если товара нет в загруженном списке — спрашиваем базу напрямую по номеру.
+// Так наклейка срабатывает даже тогда, когда список пришёл неполным.
+export async function resolveScan(raw, products, db) {
+  const found = findByScan(raw, products);
+  if (found) return found;
+
+  const id = parsePayload(String(raw || "").trim());
+  if (!id || !db || !db.products || typeof db.products.get !== "function") return null;
+  try {
+    const one = await db.products.get(id);
+    if (one && one.id) {
+      // кладём в список, чтобы дальше всё работало как с обычным товаром
+      if (Array.isArray(products) && !products.some(p => p.id === one.id)) products.push(one);
+      return one;
+    }
+  } catch { }
+  return null;
 }

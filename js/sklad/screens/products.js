@@ -1,16 +1,16 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260820e";
-import { icon } from "../../icons.js?v=20260820e";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260820e";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260820e";
-import { fmt, convert } from "../../fx.js?v=20260820e";
-import { thumb } from "../../img.js?v=20260820e";
-import { LOW_STOCK } from "../../advice.js?v=20260820e";
-import { scanSku, findByScan, scanFailText } from "../qr.js?v=20260820e";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260820e";
-import { setStock } from "../stock.js?v=20260820e";
+import { el, go } from "../app.js?v=20260820f";
+import { icon } from "../../icons.js?v=20260820f";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260820f";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260820f";
+import { fmt, convert } from "../../fx.js?v=20260820f";
+import { thumb } from "../../img.js?v=20260820f";
+import { LOW_STOCK } from "../../advice.js?v=20260820f";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260820f";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260820f";
+import { setStock } from "../stock.js?v=20260820f";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -221,7 +221,7 @@ export default async function render(box, ctx) {
   scanBtn.addEventListener("click", async () => {
     const raw = await scanSku();
     if (!raw) return;
-    const p = findByScan(raw, products);
+    const p = await resolveScan(raw, products, ctx.db);
     if (p) { openEdit(p); return; }
     // не нашли — код остаётся в поиске, и видно, что именно прочиталось
     search.value = String(raw).trim(); query = search.value.toLowerCase(); filter = ""; draw();
@@ -232,9 +232,18 @@ export default async function render(box, ctx) {
   draw();
 
   // Пришли по ссылке с наклейки — сразу открываем карточку этого товара.
+  // Пришли по ссылке с наклейки. Товара может не оказаться в загруженном
+  // списке — тогда спрашиваем базу по номеру, иначе ссылка молча ничего не
+  // откроет, а выглядит это как «наклейка не работает».
   const openId = ctx.params.open;
   if (openId) {
     const p = products.find(x => x.id === openId);
     if (p) openEdit(p);
+    else {
+      ctx.db.products.get(openId).then(one => {
+        if (one && one.id) { products.push(one); draw(); openEdit(one); }
+        else toast("Товар по этой наклейке не найден: " + openId, "err");
+      }).catch(() => toast("Не удалось открыть товар с наклейки", "err"));
+    }
   }
 }

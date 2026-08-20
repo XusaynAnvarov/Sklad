@@ -2,16 +2,16 @@
 // Сканируем наклейку за наклейкой — каждая позиция ложится в общий список.
 // Цена подставляется из прошлой продажи этого товара, остаток показывается
 // живой: отсканировали ту же наклейку после продажи — увидели новый остаток.
-import { el, go } from "../app.js?v=20260820e";
-import { icon } from "../../icons.js?v=20260820e";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260820e";
-import { fmt } from "../../fx.js?v=20260820e";
-import { LOW_STOCK } from "../../advice.js?v=20260820e";
-import { sellItems } from "../stock.js?v=20260820e";
-import { scanSku, canScan, findByScan, scanFailText } from "../qr.js?v=20260820e";
-import { invoiceHtml, openPrint } from "../print.js?v=20260820e";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260820e";
-import { setStock } from "../stock.js?v=20260820e";
+import { el, go } from "../app.js?v=20260820f";
+import { icon } from "../../icons.js?v=20260820f";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260820f";
+import { fmt } from "../../fx.js?v=20260820f";
+import { LOW_STOCK } from "../../advice.js?v=20260820f";
+import { sellItems } from "../stock.js?v=20260820f";
+import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260820f";
+import { invoiceHtml, openPrint } from "../print.js?v=20260820f";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260820f";
+import { setStock } from "../stock.js?v=20260820f";
 
 const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];
 const uid = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -218,8 +218,8 @@ export default async function render(box, ctx) {
   async function scanLoop() {
     const raw = await scanSku();
     if (!raw) return;
-    const p = findByScan(raw, products);
-    if (p) { openCard(p, scanLoop); return; }
+    const p = await resolveScan(raw, products, ctx.db);
+    if (p) { pmap[p.id] = p; openCard(p, scanLoop); return; }
     // не нашли — показываем сам код и оставляем его в поиске,
     // чтобы можно было доискать товар руками
     pick.value = String(raw).trim();

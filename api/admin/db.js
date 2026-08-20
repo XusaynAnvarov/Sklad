@@ -46,6 +46,25 @@ async function sbDelete(path) {
   if (!r.ok) throw new Error("DB DELETE " + r.status + ": " + (await r.text()).slice(0, 300));
 }
 
+
+// Собрать таблицу целиком, страница за страницей.
+// База отдаёт не больше своей планки за раз, поэтому размер страницы берём
+// не на веру, а из первого же ответа: сколько строк реально пришло — столько
+// и считаем страницей. Иначе при планке меньше PAGE мы бы решили, что данные
+// кончились, и молча потеряли остальное.
+export async function listAll(table, order, get, { PAGE = 1000, MAX_PAGES = 200 } = {}) {
+  const all = [];
+  let step = 0;
+  for (let i = 0; i < MAX_PAGES; i++) {
+    const chunk = await get(`${table}?${order}&limit=${PAGE}&offset=${all.length}`);
+    if (!Array.isArray(chunk) || !chunk.length) break;
+    if (!step) step = chunk.length;
+    all.push(...chunk);
+    if (chunk.length < step) break;      // последняя, неполная страница
+  }
+  return all;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
@@ -86,12 +105,20 @@ export default async function handler(req, res) {
         const rows = await sbGet("settings?limit=1");
         return res.json((rows && rows[0]) || null);
       }
-      // пагинация для полной выгрузки (бэкап): ?limit=&offset=
+      // Явная порция — для выгрузки в бэкап: ?limit=&offset=
       const lim = req.query?.limit, off = req.query?.offset;
-      let q = `${table}?order=created_at.desc`;
-      if (lim !== undefined) q += `&limit=${encodeURIComponent(lim)}&offset=${encodeURIComponent(off || 0)}`;
-      const rows = await sbGet(q);
-      return res.json(rows || []);
+      const ORDER = "order=created_at.desc,id.asc";   // id — чтобы порядок был устойчив между страницами
+      if (lim !== undefined) {
+        const rows = await sbGet(`${table}?${ORDER}&limit=${encodeURIComponent(lim)}&offset=${encodeURIComponent(off || 0)}`);
+        return res.json(rows || []);
+      }
+      // Без limit отдаём ВСЁ, страница за страницей.
+      // Раньше здесь был один запрос без limit — и база молча обрезала ответ
+      // на своей планке (тысяча строк). Товар, заведённый раньше последней
+      // тысячи, до приложения просто не доезжал: наклейка читалась, номер
+      // разбирался, а товар «не находился». Тем же обрезанием тихо портились
+      // отчёты — в них не попадало ничего старше последней тысячи продаж.
+      return res.json(await listAll(table, ORDER, sbGet));
     }
 
     // ── POST: upsert / delete / save-settings ─────────────────────────────
