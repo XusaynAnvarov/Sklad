@@ -1,16 +1,16 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260819g";
-import { fmt, CUR, convert } from "../fx.js?v=20260819g";
-import { placeholder } from "./products.js?v=20260819g";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260819g";
-import { icon } from "../icons.js?v=20260819g";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260819g";
-import { notifyOwner } from "../telegram.js?v=20260819g";
-import { authHeaders } from "../db.js?v=20260819g";
-import { thumb } from "../img.js?v=20260819g";
-import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260819g";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260820a";
+import { fmt, CUR, convert } from "../fx.js?v=20260820a";
+import { placeholder } from "./products.js?v=20260820a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260820a";
+import { icon } from "../icons.js?v=20260820a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260820a";
+import { notifyOwner } from "../telegram.js?v=20260820a";
+import { authHeaders } from "../db.js?v=20260820a";
+import { thumb } from "../img.js?v=20260820a";
+import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260820a";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {

@@ -51,6 +51,7 @@ const routes = [
   [["POST","OPTIONS"], "/api/admin-auth",           "./api/admin-auth.js"],
   [["POST"],  "/api/tg-admin-auth",           "./api/tg-admin-auth.js"],
   [["POST"],  "/api/admin/invoice-pdf",       "./api/admin/invoice-pdf.js"],
+  [["POST"],  "/api/admin/day-report",        "./api/admin/day-report.js"],
   [["POST","OPTIONS"], "/api/admin-change-password","./api/admin-change-password.js"],
   // кабинет
   [["GET"],   "/api/client/me",               "./api/client/me.js"],
@@ -138,5 +139,38 @@ app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
   res.sendFile(join(__dirname, "index.html"));
 });
+
+// ---------- вечерние итоги дня в Telegram ----------
+// В 20:00 по Ташкенту бот сам присылает владельцу оборот за день.
+// Проверяем раз в минуту и запоминаем, за какой день уже отправили,
+// чтобы после перезапуска сервера не прислать второй раз.
+let lastDayReport = "";
+setInterval(async () => {
+  const now = new Date(Date.now() + 5 * 3600e3);            // Ташкент, UTC+5
+  if (now.getUTCHours() !== 20 || now.getUTCMinutes() !== 0) return;
+  const day = now.toISOString().slice(0, 10);
+  if (lastDayReport === day) return;
+  lastDayReport = day;
+  try {
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260820a");
+    const { sget } = await import("./api/lib/supa.js?v=20260820a");
+    const { from, to, label } = dayRange();
+    const [sales, products] = await Promise.all([
+      sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +
+           "&select=id,date,currency,status,source,customer_id,items"),
+      sget("products?select=id,name"),
+    ]);
+    const token = process.env.CLIENT_BOT_TOKEN, chat = process.env.ADMIN_CHAT_ID;
+    if (!token || !chat) return;
+    await fetch("https://api.telegram.org/bot" + token + "/sendMessage", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: String(chat),
+        text: formatMessage(buildSummary(sales, products, from, to), label),
+      }),
+    });
+    console.log("[GM] Итоги дня отправлены:", label);
+  } catch (e) { console.error("[GM] Итоги дня не ушли:", e.message); }
+}, 60000);
 
 app.listen(PORT, () => console.log(`[GM] Server running on port ${PORT}`));

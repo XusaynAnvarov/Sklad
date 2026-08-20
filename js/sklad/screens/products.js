@@ -1,16 +1,16 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260819g";
-import { icon } from "../../icons.js?v=20260819g";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20260819g";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260819g";
-import { fmt, convert } from "../../fx.js?v=20260819g";
-import { thumb } from "../../img.js?v=20260819g";
-import { LOW_STOCK } from "../../advice.js?v=20260819g";
-import { scanSku } from "../qr.js?v=20260819g";
-import { parsePayload, qrSvg, skuPayload } from "../../qr.js?v=20260819g";
-import { setStock } from "../stock.js?v=20260819g";
+import { el, go } from "../app.js?v=20260820a";
+import { icon } from "../../icons.js?v=20260820a";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260820a";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260820a";
+import { fmt, convert } from "../../fx.js?v=20260820a";
+import { thumb } from "../../img.js?v=20260820a";
+import { LOW_STOCK } from "../../advice.js?v=20260820a";
+import { scanSku } from "../qr.js?v=20260820a";
+import { parsePayload, qrSvg, skuPayload } from "../../qr.js?v=20260820a";
+import { setStock } from "../stock.js?v=20260820a";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -98,6 +98,12 @@ export default async function render(box, ctx) {
       title: isNew ? "Новый товар" : item.name,
       wide: true,
       body: el("div", { style: { display: "grid", gap: "10px" } }, [
+        // фото по нажатию раскрывается во весь экран, повторное нажатие возвращает
+        (!isNew && item.photo_url) ? el("img", {
+          src: thumb(item.photo_url, 480), alt: item.name, title: "Нажмите, чтобы увеличить",
+          style: { width: "100%", maxHeight: "220px", objectFit: "contain", borderRadius: "12px", background: "var(--bg2)", cursor: "zoom-in" },
+          onclick: () => lightbox((Array.isArray(item.photos) && item.photos.length) ? item.photos : [item.photo_url]),
+        }) : null,
         field("Название", fName),
         el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" } }, [
           field("Артикул", fSku), field("Категория", fCat),
@@ -176,7 +182,8 @@ export default async function render(box, ctx) {
       .filter(Boolean).join(" · ");
     return el("div.mini-row" + cls, { onclick: () => openEdit(p) }, [
       p.photo_url
-        ? el("img.ph", { src: thumb(p.photo_url, 84), loading: "lazy", decoding: "async", alt: "" })
+        ? el("img.ph", { src: thumb(p.photo_url, 84), loading: "lazy", decoding: "async", alt: "", style: { cursor: "zoom-in" },
+            onclick: (e) => { e.stopPropagation(); lightbox((Array.isArray(p.photos) && p.photos.length) ? p.photos : [p.photo_url]); } })
         : el("div.ph"),
       el("div.info", {}, [
         el("div.nm", { text: p.name }),

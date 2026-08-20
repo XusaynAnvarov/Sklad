@@ -1,9 +1,10 @@
 // Главная: три числа, ради которых чаще всего заходят, и крупные действия.
-import { el, go } from "../app.js?v=20260819g";
-import { icon } from "../../icons.js?v=20260819g";
-import { matchPeriod } from "../../period.js?v=20260819g";
-import { loadRules, aggregate } from "../../profit.js?v=20260819g";
-import { curStr } from "../../fx.js?v=20260819g";
+import { el, go } from "../app.js?v=20260820a";
+import { icon } from "../../icons.js?v=20260820a";
+import { matchPeriod } from "../../period.js?v=20260820a";
+import { loadRules, aggregate } from "../../profit.js?v=20260820a";
+import { curStr } from "../../fx.js?v=20260820a";
+import { toast } from "../../ui.js?v=20260820a";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
@@ -12,6 +13,29 @@ export default async function render(box, ctx) {
     ctx.db.products.list(), ctx.db.sales.list(), ctx.db.customers.list(),
     ctx.db.payments.list(), ctx.db.getSettings().catch(() => ({})),
   ]);
+
+  // Итоги дня приходят в бот — чтобы посмотреть их, не открывая приложение.
+  // Считает и отправляет сервер: там же лежит вечерняя автоотправка.
+  const dayReport = () => {
+    const b = el("button.mini-act.wide", {}, [
+      icon("send", { size: 22 }),
+      el("div", {}, [el("div", { text: "Отчёт за сегодня" }), el("div.sub", { text: "пришлём в бот" })]),
+    ]);
+    b.addEventListener("click", async () => {
+      b.disabled = true;
+      try {
+        const r = await fetch("/api/admin/day-report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + (localStorage.getItem("sklad_admin_token") || "") },
+          body: JSON.stringify({}),
+        });
+        if (r.ok) toast("Итоги дня отправлены в бот", "ok");
+        else { const j = await r.json().catch(() => ({})); toast(j.error || "Не удалось отправить", "err"); }
+      } catch (e) { toast("Нет связи с сервером", "err"); }
+      finally { b.disabled = false; }
+    });
+    return b;
+  };
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
   const rules = loadRules(settings);
   let pct = (settings && settings.profit_pct) || null;
@@ -48,7 +72,8 @@ export default async function render(box, ctx) {
     act("chart", "Отчёт", "что продаётся", "report"),
     act("tag", "Наклейки", "QR для сканера", "labels"),
     act("truck", "Из магазина", "принять товар", "arrival"),
-    act("receipt", "Документы", "накладные, оплаты", "docs", true),
+    act("receipt", "Документы", "накладные, оплаты", "docs"),
+    dayReport(),
   ]));
 
   // сколько товаров требует внимания — цифра, а не украшение

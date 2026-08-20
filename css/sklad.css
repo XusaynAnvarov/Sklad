@@ -226,7 +226,8 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
   border: 1px solid var(--border); background: var(--panel); color: var(--muted);
   place-items: center; cursor: pointer;
 }
-@media (min-width: 900px) { .mini-full { display: grid; } }
+/* показывать или нет — решает код по платформе Telegram (js/sklad/app.js) */
+.mini-full { display: grid; }
 .mini-full:hover { color: var(--text); border-color: var(--accent); }
 
 @media (min-width: 900px) {

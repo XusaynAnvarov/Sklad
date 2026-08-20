@@ -2,17 +2,17 @@
 // Сканируем наклейку за наклейкой — каждая позиция ложится в общий список.
 // Цена подставляется из прошлой продажи этого товара, остаток показывается
 // живой: отсканировали ту же наклейку после продажи — увидели новый остаток.
-import { el, go } from "../app.js?v=20260819g";
-import { icon } from "../../icons.js?v=20260819g";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260819g";
-import { fmt } from "../../fx.js?v=20260819g";
-import { LOW_STOCK } from "../../advice.js?v=20260819g";
-import { sellItems } from "../stock.js?v=20260819g";
-import { scanSku, canScan } from "../qr.js?v=20260819g";
-import { parsePayload } from "../../qr.js?v=20260819g";
-import { invoiceHtml, openPrint } from "../print.js?v=20260819g";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260819g";
-import { setStock } from "../stock.js?v=20260819g";
+import { el, go } from "../app.js?v=20260820a";
+import { icon } from "../../icons.js?v=20260820a";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260820a";
+import { fmt } from "../../fx.js?v=20260820a";
+import { LOW_STOCK } from "../../advice.js?v=20260820a";
+import { sellItems } from "../stock.js?v=20260820a";
+import { scanSku, canScan } from "../qr.js?v=20260820a";
+import { parsePayload } from "../../qr.js?v=20260820a";
+import { invoiceHtml, openPrint } from "../print.js?v=20260820a";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260820a";
+import { setStock } from "../stock.js?v=20260820a";
 
 const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];
 const uid = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -24,7 +24,7 @@ export default async function render(box, ctx) {
   let quick = ctx.params.mode !== "client";   // по умолчанию обычная продажа за прилавком
   let customerId = "";
   let signName = "";                          // имя-подпись, по желанию
-  const currency = "som";
+  let currency = "som";   // валюта продажи: её выбирают сверху экрана
   const cart = [];
 
   // ---------- режим ----------
@@ -35,6 +35,21 @@ export default async function render(box, ctx) {
     icon(on ? "check" : "dot", { size: 18 }),
     el("div", {}, [el("div", { text: label }), el("div.sub", { text: sub })]),
   ]);
+  // ---------- валюта продажи ----------
+  // Продаём в трёх валютах, поэтому выбор вынесен наверх: он задаёт валюту
+  // для добавляемых позиций. У каждой позиции её всё равно можно поменять.
+  const curBox = el("div", { style: { marginBottom: "12px" } });
+  function drawCur() {
+    curBox.innerHTML = "";
+    const row = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" } });
+    CURS.forEach(c => row.append(el("button.btn" + (currency === c.value ? ".btn-primary" : ".btn-outline"), {
+      style: { justifyContent: "center", minHeight: "44px", fontSize: "15px" },
+      text: c.label,
+      onclick: () => { currency = c.value; drawCur(); },
+    })));
+    curBox.append(el("div.field-label", { text: "Валюта продажи", style: { marginBottom: "6px" } }), row);
+  }
+
   function drawMode() {
     modeBox.innerHTML = "";
     modeBox.append(
@@ -338,9 +353,9 @@ export default async function render(box, ctx) {
     });
   });
 
-  drawMode(); drawWho(); drawCart();
+  drawMode(); drawCur(); drawWho(); drawCart();
   box.append(
-    modeBox, whoBox,
+    modeBox, curBox, whoBox,
     el("div.mini-search", {}, canScan() ? [pick, scanBtn] : [pick]),
     found,
     cartBox, totalBox,
