@@ -4,10 +4,10 @@
 //  тот же токен склада, что и вход по паролю. Дальше работает обычный
 //  js/db.js, поэтому база ОДНА: движение с телефона сразу видно на сайте.
 // ========================================================================
-import { db } from "../db.js?v=20260820g";
-import { icon } from "../icons.js?v=20260820g";
-import { toast } from "../ui.js?v=20260820g";
-import { isDesktop } from "./qr.js?v=20260820g";
+import { db } from "../db.js?v=20260820h";
+import { icon } from "../icons.js?v=20260820h";
+import { toast } from "../ui.js?v=20260820h";
+import { isDesktop } from "./qr.js?v=20260820h";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const TOKEN_KEY = "sklad_admin_token";
@@ -72,21 +72,29 @@ async function signIn() {
 
 // ---------- экраны ----------
 const SCREENS = {
-  home:     { title: "Склад",           mod: () => import("./screens/home.js?v=20260820g") },
-  products: { title: "Товары",          mod: () => import("./screens/products.js?v=20260820g") },
-  sale:     { title: "Продажа",         mod: () => import("./screens/sale.js?v=20260820g") },
-  report:   { title: "Отчёт",           mod: () => import("./screens/report.js?v=20260820g") },
-  labels:   { title: "Наклейки",        mod: () => import("./screens/labels.js?v=20260820g") },
-  clients:  { title: "Клиенты",         mod: () => import("./screens/clients.js?v=20260820g") },
-  arrival:  { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260820g") },
-  docs:     { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260820g") },
+  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20260820h") },
+  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20260820h") },
+  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20260820h") },
+  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20260820h") },
+  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20260820h") },
+  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20260820h") },
+  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260820h") },
+  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260820h") },
+  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20260820h") },
+  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20260820h") },
+  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20260820h") },
+  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20260820h") },
+  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20260820h") },
 };
+// Внизу помещается пять кнопок — то, за чем заходят каждый день.
+// Всё остальное живёт в «Ещё»: больше пяти в ряд на телефоне превращаются
+// в кашу, по которой не попасть пальцем.
 const TABS = [
   { id: "home",     label: "Главная", ic: "dashboard" },
   { id: "products", label: "Товары",  ic: "box" },
   { id: "sale",     label: "Продажа", ic: "cart" },
   { id: "clients",  label: "Клиенты", ic: "user" },
-  { id: "report",   label: "Отчёт",   ic: "chart" },
+  { id: "more",     label: "Ещё",     ic: "menu" },
 ];
 
 let current = "home";

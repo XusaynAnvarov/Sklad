@@ -1,17 +1,20 @@
 // Главная: три числа, ради которых чаще всего заходят, и крупные действия.
-import { el, go } from "../app.js?v=20260820g";
-import { icon } from "../../icons.js?v=20260820g";
-import { matchPeriod } from "../../period.js?v=20260820g";
-import { loadRules, aggregate } from "../../profit.js?v=20260820g";
-import { curStr } from "../../fx.js?v=20260820g";
-import { toast } from "../../ui.js?v=20260820g";
+import { el, go } from "../app.js?v=20260820h";
+import { icon } from "../../icons.js?v=20260820h";
+import { matchPeriod } from "../../period.js?v=20260820h";
+import { loadRules, aggregate } from "../../profit.js?v=20260820h";
+import { curStr } from "../../fx.js?v=20260820h";
+import { toast } from "../../ui.js?v=20260820h";
+import { debtByCur, onlyPositive } from "../../debt.js?v=20260820h";
+import { findProblems } from "../../stockcheck.js?v=20260820h";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
 export default async function render(box, ctx) {
-  const [products, sales, customers, payments, settings] = await Promise.all([
+  const [products, sales, customers, payments, settings, purchases] = await Promise.all([
     ctx.db.products.list(), ctx.db.sales.list(), ctx.db.customers.list(),
     ctx.db.payments.list(), ctx.db.getSettings().catch(() => ({})),
+    ctx.db.purchases.list().catch(() => []),
   ]);
 
   // Итоги дня приходят в бот — чтобы посмотреть их, не открывая приложение.
@@ -44,16 +47,16 @@ export default async function render(box, ctx) {
   const fSales = sales.filter(s => matchPeriod(s.date, "this_month"));
   const agg = aggregate(fSales, pmap, rules, pct || {});
 
-  // долг клиентов = продано минус оплачено, по всем валютам
+  // Долг — общим расчётом (js/debt.js), тем же, что на странице клиента и
+  // на сайте. Здесь была своя копия, и она забывала старый долг клиентов.
+  const salesOf = {}, paysOf = {};
+  sales.forEach(s => { if (s.customer_id) (salesOf[s.customer_id] = salesOf[s.customer_id] || []).push(s); });
+  payments.forEach(p => { if (p.customer_id) (paysOf[p.customer_id] = paysOf[p.customer_id] || []).push(p); });
   const debt = { som: 0, usd: 0, yuan: 0 };
-  sales.filter(s => s.status === "final").forEach(s => {
-    (s.items || []).forEach(it => {
-      const c = it.currency || s.currency;
-      if (debt[c] !== undefined) debt[c] += (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
-    });
+  customers.forEach(c => {
+    const d = onlyPositive(debtByCur(salesOf[c.id] || [], paysOf[c.id] || [], c));
+    ["som", "usd", "yuan"].forEach(k => { debt[k] += d[k]; });
   });
-  payments.forEach(p => { const c = p.currency; if (debt[c] !== undefined) debt[c] -= Number(p.amount) || 0; });
-  Object.keys(debt).forEach(k => { if (debt[k] < 0) debt[k] = 0; });
 
   box.append(el("div.mini-nums", {}, [
     el("div.mini-num", {}, [el("div.l", { text: "Выручка" }), el("div.v", { text: usd(agg.total.rev) })]),
@@ -69,19 +72,32 @@ export default async function render(box, ctx) {
   box.append(el("div.mini-acts", {}, [
     act("cart", "Продажа", "клиенту или быстро", "sale"),
     act("box", "Товары", products.length + " позиций", "products"),
-    act("chart", "Отчёт", "что продаётся", "report"),
-    act("tag", "Наклейки", "QR для сканера", "labels"),
-    act("truck", "Из магазина", "принять товар", "arrival"),
+    act("chart", "Отчёт", "обороты и прибыль", "report"),
+    act("truck", "Приход", "из магазина и из Китая", "purchases"),
     act("receipt", "Документы", "накладные, оплаты", "docs"),
+    act("tag", "Наклейки", "QR для сканера", "labels"),
     dayReport(),
   ]));
 
-  // сколько товаров требует внимания — цифра, а не украшение
+  // Что требует внимания — цифрой, а не украшением. Нажатие ведёт туда,
+  // где это чинится: смысл экрана в том, чтобы не искать разделы вручную.
   const low = products.filter(p => (Number(p.stock_qty) || 0) <= 5 && (Number(p.stock_qty) || 0) > 0).length;
   const neg = products.filter(p => (Number(p.stock_qty) || 0) < 0).length;
-  if (low || neg) {
+  const заказы = sales.filter(s => ["order", "pending_confirm", "confirmed"].includes(s.status)).length;
+  const вДороге = (purchases || []).filter(s => s.status !== "arrived").length;
+  const расхождения = findProblems(products, sales).total;
+
+  const строка = (cls, имя, подпись, число, куда) => el("div.mini-row" + cls, { onclick: () => go(куда) }, [
+    el("div.info", {}, [el("div.nm", { text: имя }), el("div.sku", { text: подпись })]),
+    el("div.qty" + cls, { text: String(число) }),
+  ]);
+
+  if (low || neg || заказы || вДороге || расхождения) {
     box.append(el("div.mini-sec", { text: "Требует внимания" }));
     box.append(el("div.mini-list", {}, [
+      заказы ? строка(".low", "Заказы ждут", "оформить и выдать", заказы, "orders") : null,
+      расхождения ? строка(".low", "Расхождения на складе", "остатки не сходятся", расхождения, "check") : null,
+      вДороге ? строка(".low", "В дороге", "приход ещё не оприходован", вДороге, "purchases") : null,
       neg ? el("div.mini-row.neg", { onclick: () => go("products", { f: "neg" }) }, [
         el("div.info", {}, [el("div.nm", { text: "Ушли в минус" }), el("div.sku", { text: "продано больше, чем было" })]),
         el("div.qty.neg", { text: String(neg) }),

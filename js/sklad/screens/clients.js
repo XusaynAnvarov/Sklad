@@ -2,12 +2,12 @@
 // Долг считает js/debt.js — то же самое место, что и склад на сайте.
 // Раньше здесь была своя копия расчёта, и она забывала старый долг клиента:
 // один и тот же человек показывал разные цифры в телефоне и на компьютере.
-import { el } from "../app.js?v=20260820g";
-import { icon } from "../../icons.js?v=20260820g";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20260820g";
-import { fmt } from "../../fx.js?v=20260820g";
-import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260820g";
-import { debtByCur, onlyPositive, turnoverByCur, hasDebt, CURS, zero } from "../../debt.js?v=20260820g";
+import { el } from "../app.js?v=20260820h";
+import { icon } from "../../icons.js?v=20260820h";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20260820h";
+import { fmt } from "../../fx.js?v=20260820h";
+import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260820h";
+import { debtByCur, onlyPositive, turnoverByCur, hasDebt, CURS, zero } from "../../debt.js?v=20260820h";
 
 const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const curStr = (m) => {

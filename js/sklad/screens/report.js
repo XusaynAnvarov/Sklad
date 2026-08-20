@@ -1,12 +1,15 @@
-// Отчёт мини-приложения: только ОБОРОТЫ, без прибыли.
-// Подробная аналитика с правилами прибыли живёт в складе на сайте — здесь
-// приложение для случая «ноутбука нет под рукой», дублировать её незачем.
+// Отчёт: обороты, прибыль и долги — числами.
+// Диаграммы и разбор по категориям остались на сайте: на телефоне они
+// мелкие и нечитаемые, а цифра нужна одна и сразу.
 // Обороты считаем по фактическим ценам позиций и сводим в сумы.
-import { el } from "../app.js?v=20260820g";
-import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260820g";
-import { byMethod, methodLabel } from "../../payment.js?v=20260820g";
-import { isShop } from "../../purchase.js?v=20260820g";
-import { curStr, convert } from "../../fx.js?v=20260820g";
+// Прибыль считает общий js/profit.js — тот же, что в отчётах сайта.
+import { el } from "../app.js?v=20260820h";
+import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20260820h";
+import { byMethod, methodLabel } from "../../payment.js?v=20260820h";
+import { isShop } from "../../purchase.js?v=20260820h";
+import { curStr, convert } from "../../fx.js?v=20260820h";
+import { loadRules, aggregate } from "../../profit.js?v=20260820h";
+import { debtByCur, onlyPositive } from "../../debt.js?v=20260820h";
 
 const som = (n) => Math.round(Number(n) || 0).toLocaleString("ru-RU") + " сум";
 
@@ -22,11 +25,29 @@ export function saleSom(s) {
 export const isQuick = (s) => s.source === "quick" || !s.customer_id;
 
 export default async function render(box, ctx) {
-  const [products, sales, payments, purchases] = await Promise.all([
+  const [products, sales, payments, purchases, customers, settings] = await Promise.all([
     ctx.db.products.list(), ctx.db.sales.list(),
     ctx.db.payments.list(), ctx.db.purchases.list().catch(() => []),
+    ctx.db.customers.list().catch(() => []), ctx.db.getSettings().catch(() => ({})),
   ]);
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
+
+  // Правила прибыли настроены на сайте — берём их как есть, чтобы цифра
+  // в телефоне и на компьютере была одна и та же.
+  const rules = loadRules(settings);
+  let pct = (settings && settings.profit_pct) || null;
+  if (!pct) { try { pct = JSON.parse(localStorage.getItem("sklad_profit_pct") || "null"); } catch { } }
+
+  // Долг клиентов — на весь срок, а не за период: это не оборот, это
+  // сколько людям сейчас за нами числится.
+  const salesOf = {}, paysOf = {};
+  sales.forEach(s => { if (s.customer_id) (salesOf[s.customer_id] = salesOf[s.customer_id] || []).push(s); });
+  payments.forEach(p => { if (p.customer_id) (paysOf[p.customer_id] = paysOf[p.customer_id] || []).push(p); });
+  const долг = { som: 0, usd: 0, yuan: 0 };
+  (customers || []).forEach(c => {
+    const d = onlyPositive(debtByCur(salesOf[c.id] || [], paysOf[c.id] || [], c));
+    ["som", "usd", "yuan"].forEach(k => { долг[k] += d[k]; });
+  });
 
   let period = "this_month";
   const opts = buildPeriodOptions(sales, payments);
@@ -51,10 +72,18 @@ export default async function render(box, ctx) {
       if (isQuick(s)) { quickSom += v; quickN++; } else { clientSom += v; clientN++; }
     });
 
+    const итог = aggregate(fSales, pmap, rules, pct || {});
+    const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
+
     body.append(el("div.mini-nums", {}, [
       el("div.mini-num", {}, [el("div.l", { text: "Оборот" }), el("div.v", { text: som(turnover) })]),
       el("div.mini-num", {}, [el("div.l", { text: "Продано" }), el("div.v", { text: pieces + " шт" })]),
       el("div.mini-num", {}, [el("div.l", { text: "Накладных" }), el("div.v", { text: String(fSales.length) })]),
+    ]));
+    body.append(el("div.mini-nums", {}, [
+      el("div.mini-num.good", {}, [el("div.l", { text: "Прибыль" }), el("div.v", { text: usd(итог.total.profit) })]),
+      el("div.mini-num", {}, [el("div.l", { text: "Выручка $" }), el("div.v", { text: usd(итог.total.rev) })]),
+      el("div.mini-num.warn", {}, [el("div.l", { text: "Долг клиентов" }), el("div.v", { text: curStr(долг) })]),
     ]));
 
     // ---------- две группы продаж ----------

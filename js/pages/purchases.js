@@ -1,16 +1,18 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260820g";
-import { fmt, CUR, convert } from "../fx.js?v=20260820g";
-import { placeholder } from "./products.js?v=20260820g";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260820g";
-import { icon } from "../icons.js?v=20260820g";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260820g";
-import { notifyOwner } from "../telegram.js?v=20260820g";
-import { authHeaders } from "../db.js?v=20260820g";
-import { thumb } from "../img.js?v=20260820g";
-import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260820g";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260820h";
+import { fmt, CUR, convert } from "../fx.js?v=20260820h";
+import { placeholder } from "./products.js?v=20260820h";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260820h";
+import { icon } from "../icons.js?v=20260820h";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260820h";
+import { notifyOwner } from "../telegram.js?v=20260820h";
+import { authHeaders } from "../db.js?v=20260820h";
+import { thumb } from "../img.js?v=20260820h";
+import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260820h";
+// Оприходование общее со складом в телефоне — иначе остатки разойдутся.
+import { applyArrival } from "../arrival.js?v=20260820h";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
@@ -137,7 +139,7 @@ async function unarriveOnce(ctx, s, products) {
 
 async function arrive(ctx, s, products) {
   confirmDialog("Оприходовать поступление? Товары добавятся на склад.", async () => {
-    await applyArrival(ctx, s, products);
+    await applyArrival(ctx.db, s, products);
     await ctx.db.purchases.upsert({ id: s.id, status: "arrived" });
     const pmap2 = Object.fromEntries(products.map(p => [p.id, p]));
     const lines = (s.items || []).map(it => `• ${pmap2[it.product_id]?.name || "?"} × ${it.qty}`);
@@ -153,36 +155,6 @@ async function arrive(ctx, s, products) {
   });
 }
 
-// Добавить количества на склад. Себестоимость НЕ перескакивает на цену нового
-// прихода: пока лежит старая партия, она и продаётся, значит и цена показывается её.
-// Новая цена вступит в силу сама, когда FIFO доест старую партию (costAfter в продажах).
-async function applyArrival(ctx, s, products) {
-  const shop = isShop(s);
-  for (const it of s.items || []) {
-    const p = products.find(x => x.id === it.product_id);
-    if (!p) continue;
-    const cur = it.currency || s.currency;
-    // FIFO: добавляем новую партию в конец (старые партии не трогаем — продаются первыми)
-    const batches = ensureBatches(p);
-    const own = currentCost(batches);
-    // из магазина — цена наша складская, чтобы себестоимость и прибыль не поехали
-    const cy = shop ? own.cost_yuan : Math.round(convert(it.unit_cost, cur, "yuan") * 100) / 100;
-    const cu = shop ? own.cost_usd : Math.round(convert(it.unit_cost, cur, "usd") * 100) / 100;
-    batches.push({ qty: Number(it.qty) || 0, cost_yuan: cy, cost_usd: cu, date: s.date || new Date().toISOString() });
-    p.batches = batches;
-    // текущая себестоимость = цена СТАРЕЙШЕЙ непустой партии.
-    // Если склада не было (или был минус) — это и будет цена нового прихода.
-    const cc = costAfter(batches, { cost_yuan: cy, cost_usd: cu });
-    p.cost_yuan = cc.cost_yuan; p.cost_usd = cc.cost_usd;
-    // last_arrival_at поднимает товар в начало каталога и помечает его новинкой.
-    // Приход из магазина — это пополнение, а не новинка, поэтому дату не трогаем:
-    // иначе давно продающийся товар всплывал бы наверх после каждой добавки.
-    const base = { id: p.id, stock_qty: sumQty(batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
-    if (!shop) base.last_arrival_at = new Date().toISOString();
-    try { await ctx.db.products.upsert({ ...base, batches }); }
-    catch (e) { await ctx.db.products.upsert(base); }
-  }
-}
 
 function openEditor(ctx, purchase, products, suppliers = []) {
   const isNew = !purchase;
@@ -333,7 +305,7 @@ function openEditor(ctx, purchase, products, suppliers = []) {
           if (fStatus.value === "arrived" && !wasArrived) {
             // тип передаём явно: если колонки kind ещё нет в базе, ответ придёт
             // без него, и приход из магазина ошибочно посчитался бы поставкой
-            await applyArrival(ctx, { ...(saved || obj), kind: state.kind }, products);
+            await applyArrival(ctx.db, { ...(saved || obj), kind: state.kind }, products);
             const pmap3 = Object.fromEntries(products.map(p => [p.id, p]));
             const lines3 = (state.items || []).map(it => `• ${pmap3[it.product_id]?.name || "?"} × ${it.qty}`);
             try { await notifyOwner(`Новый приход на склад\n${kindWho(state.kind)}: ${fSupplier.value.trim() || "—"}\n\n${lines3.join("\n")}`); } catch {}

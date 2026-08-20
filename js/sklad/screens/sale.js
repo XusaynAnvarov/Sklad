@@ -2,21 +2,19 @@
 // Сканируем наклейку за наклейкой — каждая позиция ложится в общий список.
 // Цена подставляется из прошлой продажи этого товара, остаток показывается
 // живой: отсканировали ту же наклейку после продажи — увидели новый остаток.
-import { el, go } from "../app.js?v=20260820g";
-import { icon } from "../../icons.js?v=20260820g";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260820g";
-import { fmt, convert } from "../../fx.js?v=20260820g";
-import { LOW_STOCK } from "../../advice.js?v=20260820g";
-import { sellItems } from "../stock.js?v=20260820g";
-import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260820g";
-import { invoiceHtml, openPrint } from "../print.js?v=20260820g";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260820g";
-import { setStock } from "../stock.js?v=20260820g";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote, repriceItems } from "../../prices.js?v=20260820g";
+import { el, go } from "../app.js?v=20260820h";
+import { icon } from "../../icons.js?v=20260820h";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260820h";
+import { fmt } from "../../fx.js?v=20260820h";
+import { LOW_STOCK } from "../../advice.js?v=20260820h";
+import { issueInvoice } from "../issue.js?v=20260820h";
+import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260820h";
+import { invoiceHtml, openPrint } from "../print.js?v=20260820h";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260820h";
+import { setStock } from "../stock.js?v=20260820h";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote, repriceItems } from "../../prices.js?v=20260820h";
 
 const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];
-const uid = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const round = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 export default async function render(box, ctx) {
   const [products, customers, sales] = await Promise.all([
@@ -308,67 +306,14 @@ export default async function render(box, ctx) {
 
     confirmDialog("Оформить накладную на " + totalStr() + "?", async () => {
       saveBtn.disabled = true; saveBtn.textContent = "Оформляем…";
-      const saleId = uid();
       try {
-        const sold = await sellItems(ctx.db, cart.map(i => ({ product_id: i.product_id, qty: i.qty })));
-        // Себестоимость списанных партий — по товару. Если товар попал в
-        // накладную двумя строками, делим между ними по количеству.
-        const cogs = sold.cogs || {};
-        const qtyByProduct = {};
-        cart.forEach(i => { qtyByProduct[i.product_id] = (qtyByProduct[i.product_id] || 0) + (Number(i.qty) || 0); });
-        const shareOf = (i, key) => {
-          const c = cogs[i.product_id];
-          const total = qtyByProduct[i.product_id] || 0;
-          if (!c || !total) return null;
-          return round(c[key] * ((Number(i.qty) || 0) / total));
-        };
-        const sale = {
-          id: saleId,
-          customer_id: quick ? null : customerId,
-          currency,
-          date: new Date().toISOString(),
-          status: "final",
-          source: quick ? "quick" : "mini",
-          // имя-подпись: клиента в базе не заводим, долг никому не пишем
-          order_from: quick && signName ? { name: signName } : null,
-          // price_yuan_norm — цена, приведённая к юаням. На ней считается вся
-          // прибыль в отчётах сайта. Без неё накладная с телефона попадала в
-          // базу, но в прибыль не входила: отчёт молча занижался.
-          items: cart.map(i => ({
-            product_id: i.product_id,
-            qty: i.qty,
-            unit_price: i.unit_price,
-            currency: i.currency,
-            price_yuan_norm: round(convert(i.unit_price, i.currency, "yuan")),
-            // себестоимость запоминаем в накладной — иначе прибыль по ней
-            // потом пересчитается по сегодняшней цене склада и соврёт
-            cogs_yuan: shareOf(i, "cogs_yuan"),
-            cogs_usd: shareOf(i, "cogs_usd"),
-            paid: !!quick,
-          })),
-        };
-        await ctx.db.sales.upsert(sale);
-
-        // Обычная продажа оплачивается на месте — записываем оплату наличными,
-        // чтобы деньги попали в кассу и в отчёт «Откуда пришли деньги».
-        // Разные валюты в одной накладной — разные записи.
-        if (quick) {
-          const byCur = {};
-          cart.forEach(i => {
-            const c = i.currency || "som";
-            byCur[c] = (byCur[c] || 0) + (Number(i.qty) || 0) * (Number(i.unit_price) || 0);
-          });
-          for (const [cur2, amount] of Object.entries(byCur)) {
-            if (!(amount > 0.001)) continue;
-            const pay = {
-              id: "y" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-              customer_id: null, amount, currency: cur2,
-              date: sale.date, note: "Продажа за наличные" + (signName ? " · " + signName : ""),
-            };
-            try { await ctx.db.payments.upsert({ ...pay, method: "cash" }); }
-            catch { await ctx.db.payments.upsert(pay); }
-          }
-        }
+        // Списание, себестоимость и оплата наличными — общим кодом
+        // (js/sklad/issue.js), тем же, каким оформляется принятый заказ.
+        const sale = await issueInvoice(ctx.db, {
+          quick, customerId, currency, signName,
+          items: cart.map(i => ({ product_id: i.product_id, qty: i.qty, unit_price: i.unit_price, currency: i.currency })),
+        });
+        const saleId = sale.id;
 
         // PDF уходит владельцу в бот — оттуда перешлёте покупателю
         let pdfOk = false;
