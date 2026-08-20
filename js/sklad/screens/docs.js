@@ -3,12 +3,13 @@
 // Осторожно с удалением накладной: товар из неё уже списан со склада,
 // поэтому при удалении его надо ВЕРНУТЬ обратно — иначе остатки разъедутся.
 // Возврат делает returnItems из js/sklad/stock.js, теми же партиями FIFO.
-import { el } from "../app.js?v=20260820h";
-import { icon } from "../../icons.js?v=20260820h";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20260820h";
-import { fmt } from "../../fx.js?v=20260820h";
-import { returnItems } from "../stock.js?v=20260820h";
-import { methodOptions, methodLabel, DEFAULT_METHOD } from "../../payment.js?v=20260820h";
+import { el } from "../app.js?v=20260820i";
+import { icon } from "../../icons.js?v=20260820i";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20260820i";
+import { fmt } from "../../fx.js?v=20260820i";
+import { returnItems } from "../stock.js?v=20260820i";
+import { applyQtyChange, applyPriceChange } from "../issue.js?v=20260820i";
+import { methodOptions, methodLabel, DEFAULT_METHOD } from "../../payment.js?v=20260820i";
 
 const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];
 const dt = (d) => new Date(d).toLocaleDateString("ru-RU");
@@ -50,21 +51,32 @@ export default async function render(box, ctx) {
 
   // ---------- накладная ----------
   function openSale(s) {
-    const rows = (s.items || []).map(it => el("div.mini-row", {}, [
-      el("div.info", {}, [
-        el("div.nm", { text: (pmap[it.product_id] || {}).name || "—" }),
-        el("div.sku", { text: `${it.qty} × ${fmt(it.unit_price, it.currency || s.currency)}` }),
-      ]),
-      el("div.qty", { text: fmt((Number(it.qty) || 0) * (Number(it.unit_price) || 0), it.currency || s.currency) }),
-    ]));
+    const список = el("div.mini-list");
+    const подпись = el("div.sku", { style: { marginBottom: "10px" } });
+
+    function drawItems() {
+      список.innerHTML = "";
+      if (!(s.items || []).length) { список.append(el("div.mini-empty", { text: "Позиций не осталось" })); }
+      (s.items || []).forEach((it, idx) => {
+        список.append(el("div.mini-row", { onclick: () => правкаПозиции(s, it, idx) }, [
+          el("div.info", {}, [
+            el("div.nm", { text: (pmap[it.product_id] || {}).name || "—" }),
+            el("div.sku", { text: it.qty + " × " + fmt(it.unit_price, it.currency || s.currency) }),
+          ]),
+          el("div.qty", { text: fmt((Number(it.qty) || 0) * (Number(it.unit_price) || 0), it.currency || s.currency) }),
+        ]));
+      });
+      подпись.textContent = whoOf(s) + " · " + total(s);
+    }
+    drawItems();
 
     modal({
       title: "Накладная от " + dt(s.date),
       wide: true,
       body: el("div", {}, [
-        el("div.sku", { style: { marginBottom: "10px" }, text: whoOf(s) + " · " + total(s) }),
-        el("div.mini-list", {}, rows),
-        el("div.hint", { style: { marginTop: "10px" }, text: "Позиции правятся в складе на сайте. Здесь можно удалить накладную целиком — товар вернётся на склад." }),
+        подпись,
+        список,
+        el("div.hint", { style: { marginTop: "10px" }, text: "Нажмите на позицию, чтобы поправить количество или цену — склад подвинется на разницу. Удаление накладной вернёт весь товар." }),
       ]),
       actions: [
         {
@@ -90,6 +102,68 @@ export default async function render(box, ctx) {
         { label: "Закрыть", kind: "btn-primary", onClick: c => c() },
       ],
     });
+  }
+
+  // Правка позиции в уже выданной накладной. Количество двигает склад на
+  // разницу, цена склада не касается. Считает общий js/sklad/issue.js.
+  function правкаПозиции(s, it, idx) {
+    const p = pmap[it.product_id] || {};
+    const fQty = el("input.inp", { type: "number", inputmode: "numeric", value: String(it.qty),
+      style: { width: "100%", minHeight: "46px", fontSize: "17px", textAlign: "center" } });
+    const fPrice = el("input.inp", { type: "number", inputmode: "decimal", step: "0.01", value: String(it.unit_price || ""),
+      style: { width: "100%", minHeight: "46px", fontSize: "17px" } });
+    const fCur = el("select.inp", { style: { width: "100%", minHeight: "46px", fontSize: "17px" } });
+    [["som", "сум"], ["usd", "$"], ["yuan", "¥"]].forEach(([v, l]) => fCur.append(el("option", { value: v, text: l })));
+    fCur.value = it.currency || s.currency || "som";
+
+    modal({
+      title: p.name || "Позиция",
+      body: el("div", {}, [
+        el("div.sku", { style: { marginBottom: "10px" }, text: "На складе сейчас: " + (Number(p.stock_qty) || 0) }),
+        el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1.4fr 0.9fr", gap: "8px" } }, [
+          el("label.field", {}, [el("span.field-label", { text: "Кол-во" }), fQty]),
+          el("label.field", {}, [el("span.field-label", { text: "Цена" }), fPrice]),
+          el("label.field", {}, [el("span.field-label", { text: "Валюта" }), fCur]),
+        ]),
+        el("div.hint", { style: { marginTop: "8px" }, text: "Увеличите количество — товар спишется со склада, уменьшите — вернётся." }),
+      ]),
+      actions: [
+        { label: "Убрать позицию", kind: "btn-outline", onClick: (close) => {
+          confirmDialog("Убрать «" + (p.name || "позицию") + "» из накладной? Товар вернётся на склад.", async () => {
+            try {
+              await applyQtyChange(ctx.db, it, 0);
+              s.items.splice(idx, 1);
+              await ctx.db.sales.upsert({ id: s.id, items: s.items });
+              await освежить(s);
+              close(); drawItems(); draw();
+              toast("Позиция убрана, товар возвращён", "ok");
+            } catch (e) { toast("Не удалось: " + (e.message || e), "err"); }
+          });
+        } },
+        { label: "Сохранить", kind: "btn-primary", onClick: async (close) => {
+          const q = Number(fQty.value) || 0;
+          const pr = Number(fPrice.value) || 0;
+          if (q <= 0) { toast("Количество должно быть больше нуля", "err"); return; }
+          try {
+            await applyQtyChange(ctx.db, it, q);
+            applyPriceChange(it, pr, fCur.value);
+            await ctx.db.sales.upsert({ id: s.id, items: s.items });
+            await освежить(s);
+            close(); drawItems(); draw();
+            toast("Накладная обновлена", "ok");
+          } catch (e) { toast("Не удалось: " + (e.message || e), "err"); }
+        } },
+      ],
+    });
+  }
+
+  // перечитываем задетые товары: остатки на экране должны быть настоящими
+  async function освежить(s) {
+    const ids = [...new Set((s.items || []).map(i => i.product_id).filter(Boolean))];
+    for (const id of ids) {
+      try { const свежий = await ctx.db.products.get(id); if (свежий && pmap[id]) Object.assign(pmap[id], свежий); }
+      catch { }
+    }
   }
 
   // ---------- оплата ----------

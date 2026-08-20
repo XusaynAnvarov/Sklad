@@ -1,8 +1,8 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20260820h";
-import { t } from "./app.js?v=20260820h";
-import { openLogin } from "./auth.js?v=20260820h";
-import { thumb } from "../img.js?v=20260820h";
+import { api, isLoggedIn } from "./api.js?v=20260820i";
+import { t } from "./app.js?v=20260820i";
+import { openLogin } from "./auth.js?v=20260820i";
+import { thumb } from "../img.js?v=20260820i";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 

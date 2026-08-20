@@ -12,7 +12,7 @@
 //  сканирование не работало вообще. Теперь закрытие ловим тем событием,
 //  которое для этого и предназначено: scanQrPopupClosed.
 // ========================================================================
-import { toast } from "../ui.js?v=20260820h";
+import { toast } from "../ui.js?v=20260820i";
 
 const TG = () => window.Telegram && window.Telegram.WebApp;
 
@@ -67,7 +67,7 @@ export function isDesktop() {
 //  Теперь: сначала пробуем нашу наклейку, потом номер товара как есть,
 //  потом артикул. Если не нашли — показываем сам код.
 // ========================================================================
-import { parsePayload } from "../qr.js?v=20260820h";
+import { parsePayload } from "../qr.js?v=20260820i";
 
 const clean = (v) => String(v == null ? "" : v).trim().toLowerCase();
 const tight = (v) => clean(v).split(" ").join("");

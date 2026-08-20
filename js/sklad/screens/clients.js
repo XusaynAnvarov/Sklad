@@ -2,12 +2,13 @@
 // Долг считает js/debt.js — то же самое место, что и склад на сайте.
 // Раньше здесь была своя копия расчёта, и она забывала старый долг клиента:
 // один и тот же человек показывал разные цифры в телефоне и на компьютере.
-import { el } from "../app.js?v=20260820h";
-import { icon } from "../../icons.js?v=20260820h";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20260820h";
-import { fmt } from "../../fx.js?v=20260820h";
-import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260820h";
-import { debtByCur, onlyPositive, turnoverByCur, hasDebt, CURS, zero } from "../../debt.js?v=20260820h";
+import { el } from "../app.js?v=20260820i";
+import { icon } from "../../icons.js?v=20260820i";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20260820i";
+import { fmt } from "../../fx.js?v=20260820i";
+import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260820i";
+import { debtByCur, onlyPositive, turnoverByCur, hasDebt, coverageMap, openingDebt, issuedOnly, CURS, zero } from "../../debt.js?v=20260820i";
+import { lastForCustomerMap, freshFirst } from "../../prices.js?v=20260820i";
 
 const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const curStr = (m) => {
@@ -154,6 +155,41 @@ export default async function render(box, ctx) {
   // ---------- карточка клиента ----------
   async function openCard(c) {
     const d = debtOf(c.id), t = turn[c.id] || zero();
+    const его = issuedOnly(byClient[c.id] || []).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const оплаты = (paysOf[c.id] || []).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+    const старый = openingDebt(c);
+    // какие накладные закрыты оплатами, а какие ещё нет
+    const покрытие = coverageMap(его, оплаты, старый);
+    const СОСТОЯНИЕ = { paid: "оплачена", partial: "оплачена частично", debt: "в долг" };
+
+    const суммаНакладной = (s) => (s.items || []).reduce((a, i) => a + (Number(i.qty) || 0) * (Number(i.unit_price) || 0), 0);
+    const датой = (x) => new Date(x).toLocaleDateString("ru-RU");
+
+    const накладные = el("div.mini-list");
+    if (!его.length) накладные.append(el("div.mini-empty", { text: "Накладных не было" }));
+    его.slice(0, 30).forEach(s => {
+      const сост = покрытие[s.id] || "debt";
+      накладные.append(el("div.mini-row" + (сост === "debt" ? ".low" : ""), {}, [
+        el("div.info", {}, [
+          el("div.nm", { text: "Накладная от " + датой(s.date) }),
+          el("div.sku", { text: (s.items || []).length + " поз. · " + (СОСТОЯНИЕ[сост] || сост) }),
+        ]),
+        el("div.qty", { text: fmt(суммаНакладной(s), s.currency || "som") }),
+      ]));
+    });
+
+    const оплатыСписок = el("div.mini-list");
+    if (!оплаты.length) оплатыСписок.append(el("div.mini-empty", { text: "Оплат не было" }));
+    оплаты.slice(0, 30).forEach(p => {
+      оплатыСписок.append(el("div.mini-row", {}, [
+        el("div.info", {}, [
+          el("div.nm", { text: датой(p.date) }),
+          el("div.sku", { text: p.note || "оплата" }),
+        ]),
+        el("div.qty", { text: fmt(Number(p.amount) || 0, p.currency) }),
+      ]));
+    });
+
     let priceRows = [el("div.sku", { text: "Загружаем цены…" })];
     const body = el("div", {}, [
       el("div.mini-nums", { style: { marginTop: 0 } }, [
@@ -161,6 +197,13 @@ export default async function render(box, ctx) {
         el("div.mini-num" + (hasDebt(d) ? ".warn" : ".good"), {}, [el("div.l", { text: "Долг" }), el("div.v", { text: curStr(d) })]),
       ]),
       c.contact ? el("div.sku", { style: { marginBottom: "10px" }, text: c.contact }) : null,
+      hasDebt(onlyPositive(старый))
+        ? el("div.hint", { style: { marginBottom: "10px" }, text: "Из них старый долг, до системы: " + curStr(onlyPositive(старый)) })
+        : null,
+      el("div.mini-sec", { text: "Накладные · " + его.length }),
+      накладные,
+      el("div.mini-sec", { text: "Оплаты · " + оплаты.length }),
+      оплатыСписок,
       el("div.mini-sec", { text: "Его последние цены" }),
       el("div", { id: "cl-prices" }, priceRows),
     ].filter(Boolean));
@@ -173,9 +216,11 @@ export default async function render(box, ctx) {
       ],
     });
 
-    // последние цены именно этого клиента — по ним он привык покупать
+    // последние цены именно этого клиента — по ним он привык покупать.
+    // Считаем из уже загруженных продаж: отдельный запрос выкачивал бы всю
+    // историю заново на каждое открытие карточки.
     try {
-      const map = await ctx.db.lastPricesForCustomer(c.id);
+      const map = lastForCustomerMap(freshFirst(sales), c.id);
       const holder = document.getElementById("cl-prices");
       if (!holder) return;
       holder.innerHTML = "";

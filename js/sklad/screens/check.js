@@ -1,13 +1,13 @@
 // Проверка склада: одно место, где видно всё, что разошлось с остатками.
 // Список расхождений считает общий js/stockcheck.js — тот же, что на сайте,
 // иначе получалось бы «на компьютере чисто, а в телефоне десять проблем».
-import { el } from "../app.js?v=20260820h";
+import { el } from "../app.js?v=20260820i";
 
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260820h";
-import { fmt } from "../../fx.js?v=20260820h";
-import { findProblems } from "../../stockcheck.js?v=20260820h";
-import { ensureBatches, sumQty, consumeFIFO, costAfter } from "../../inventory.js?v=20260820h";
-import { setStock } from "../stock.js?v=20260820h";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260820i";
+import { fmt } from "../../fx.js?v=20260820i";
+import { findProblems } from "../../stockcheck.js?v=20260820i";
+import { ensureBatches, sumQty, consumeFIFO, costAfter } from "../../inventory.js?v=20260820i";
+import { setStock } from "../stock.js?v=20260820i";
 
 const когда = (d) => { const t = new Date(d); return isFinite(t) ? t.toLocaleDateString("ru-RU") : "—"; };
 

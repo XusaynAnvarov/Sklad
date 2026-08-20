@@ -1,16 +1,16 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260820h";
-import { icon } from "../../icons.js?v=20260820h";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260820h";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260820h";
-import { fmt, convert } from "../../fx.js?v=20260820h";
-import { thumb } from "../../img.js?v=20260820h";
-import { LOW_STOCK } from "../../advice.js?v=20260820h";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260820h";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260820h";
-import { setStock } from "../stock.js?v=20260820h";
+import { el, go } from "../app.js?v=20260820i";
+import { icon } from "../../icons.js?v=20260820i";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260820i";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260820i";
+import { fmt, convert } from "../../fx.js?v=20260820i";
+import { thumb } from "../../img.js?v=20260820i";
+import { LOW_STOCK } from "../../advice.js?v=20260820i";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260820i";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260820i";
+import { setStock } from "../stock.js?v=20260820i";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -46,6 +46,50 @@ export default async function render(box, ctx) {
     const fPrice = inp({ type: "number", inputmode: "numeric", value: String(item.price_som || ""), placeholder: "0" });
     const fQty = isNew ? inp({ type: "number", inputmode: "numeric", value: "0" }) : null;
 
+    // Фото с телефона. Раньше карточка умела только показывать снимок —
+    // сделать его можно было лишь за компьютером, а товар в руках сейчас.
+    const фото = Array.isArray(item.photos) && item.photos.length
+      ? item.photos.slice()
+      : (item.photo_url ? [item.photo_url] : []);
+    const превью = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
+    const fFile = el("input", { type: "file", accept: "image/*", multiple: true, style: { display: "none" } });
+    const кнопкаФото = el("button.btn.btn-outline", {
+      style: { flex: "1", justifyContent: "center", minHeight: "42px" },
+      text: фото.length ? "Добавить фото" : "Снять или выбрать фото",
+      onclick: () => fFile.click(),
+    });
+    fFile.addEventListener("change", async () => {
+      const files = Array.from(fFile.files || []);
+      if (!files.length) return;
+      кнопкаФото.disabled = true;
+      кнопкаФото.textContent = "Загружаем…";
+      for (const file of files) {
+        try { фото.push(await ctx.db.uploadPhoto(file)); }
+        catch (e) { toast("Фото не загрузилось: " + (e.message || e), "err"); }
+      }
+      fFile.value = "";
+      кнопкаФото.disabled = false;
+      кнопкаФото.textContent = "Добавить фото";
+      drawФото();
+    });
+    function drawФото() {
+      превью.innerHTML = "";
+      фото.forEach((url, i) => {
+        превью.append(el("div", { style: { position: "relative" } }, [
+          el("img", { src: thumb(url, 160), alt: "",
+            style: { width: "72px", height: "72px", objectFit: "cover", borderRadius: "10px", background: "var(--bg2)", cursor: "zoom-in" },
+            onclick: () => lightbox(фото) }),
+          el("button.mini-icon-btn", {
+            title: "Убрать фото",
+            style: { position: "absolute", top: "-6px", right: "-6px", padding: "2px" },
+            onclick: (e) => { e.stopPropagation(); фото.splice(i, 1); drawФото(); },
+          }, [icon("x", { size: 13 })]),
+        ]));
+      });
+      кнопкаФото.textContent = фото.length ? "Добавить фото" : "Снять или выбрать фото";
+    }
+    drawФото();
+
     const actions = [
       { label: "Отмена", kind: "btn-outline", onClick: c => c() },
       {
@@ -58,6 +102,9 @@ export default async function render(box, ctx) {
             cost_yuan: cy,
             cost_usd: cy ? Math.round(convert(cy, "yuan", "usd") * 100) / 100 : 0,
             price_som: Number(fPrice.value) || 0,
+            // первое фото — главное: его показывают в списках и в каталоге
+            photos: фото,
+            photo_url: фото[0] || null,
           };
           try {
             if (isNew) {
@@ -98,12 +145,8 @@ export default async function render(box, ctx) {
       title: isNew ? "Новый товар" : item.name,
       wide: true,
       body: el("div", { style: { display: "grid", gap: "10px" } }, [
-        // фото по нажатию раскрывается во весь экран, повторное нажатие возвращает
-        (!isNew && item.photo_url) ? el("img", {
-          src: thumb(item.photo_url, 480), alt: item.name, title: "Нажмите, чтобы увеличить",
-          style: { width: "100%", maxHeight: "220px", objectFit: "contain", borderRadius: "12px", background: "var(--bg2)", cursor: "zoom-in" },
-          onclick: () => lightbox((Array.isArray(item.photos) && item.photos.length) ? item.photos : [item.photo_url]),
-        }) : null,
+        превью,
+        el("div", { style: { display: "flex", gap: "8px" } }, [кнопкаФото, fFile]),
         field("Название", fName),
         el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" } }, [
           field("Артикул", fSku), field("Категория", fCat),

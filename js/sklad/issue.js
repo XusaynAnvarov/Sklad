@@ -11,8 +11,8 @@
 //    • СЕБЕСТОИМОСТЬ списанных партий — иначе прибыль по этой накладной
 //      потом пересчитается по сегодняшней цене склада и соврёт.
 // ========================================================================
-import { convert } from "../fx.js?v=20260820h";
-import { sellItems } from "./stock.js?v=20260820h";
+import { convert } from "../fx.js?v=20260820i";
+import { sellItems, returnItems } from "./stock.js?v=20260820i";
 
 const round = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -101,4 +101,43 @@ export async function issueInvoice(db, {
     }
   }
   return sale;
+}
+
+// Поменять количество в уже выданной накладной.
+// Склад надо подвинуть на разницу, а не переписать заново: остальные позиции
+// и другие накладные к делу отношения не имеют. Себестоимость правим вместе
+// с количеством — иначе прибыль по накладной перестанет сходиться.
+export async function applyQtyChange(db, item, newQty) {
+  const было = Number(item.qty) || 0;
+  const стало = Number(newQty) || 0;
+  const разница = стало - было;
+  if (!разница) return item;
+
+  if (разница > 0) {
+    const sold = await sellItems(db, [{ product_id: item.product_id, qty: разница }]);
+    const c = (sold.cogs || {})[item.product_id];
+    if (c) {
+      item.cogs_yuan = round((Number(item.cogs_yuan) || 0) + c.cogs_yuan);
+      item.cogs_usd = round((Number(item.cogs_usd) || 0) + c.cogs_usd);
+    }
+  } else {
+    await returnItems(db, [{ product_id: item.product_id, qty: -разница }]);
+    // себестоимость уменьшаем в той же доле, в какой убавилось количество
+    if (было > 0) {
+      const доля = стало / было;
+      if (item.cogs_yuan != null) item.cogs_yuan = round(Number(item.cogs_yuan) * доля);
+      if (item.cogs_usd != null) item.cogs_usd = round(Number(item.cogs_usd) * доля);
+    }
+  }
+  item.qty = стало;
+  return item;
+}
+
+// Поменять цену или валюту позиции. Склада это не касается: сколько штук
+// ушло — столько и ушло, меняются только деньги.
+export function applyPriceChange(item, price, currency) {
+  item.unit_price = Number(price) || 0;
+  if (currency) item.currency = currency;
+  item.price_yuan_norm = round(convert(item.unit_price, item.currency, "yuan"));
+  return item;
 }
