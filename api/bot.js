@@ -9,11 +9,44 @@
 import { sget, spatch, supsert } from "./lib/supa.js";
 import { buildInvoicePDF, buildReconciliationPDF } from "./lib/pdf.js";
 import { invoiceCoverageStatus, invoiceDebtSummary } from "./lib/debt.js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const TOKEN = process.env.CLIENT_BOT_TOKEN;
 const ADMIN_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT = process.env.ADMIN_CHAT_ID;
 const PUBLIC_URL = process.env.PUBLIC_URL || "https://generalmodern.uz";
+
+// ------------------------------------------------------------------
+//  Адрес мини-приложения с меткой версии.
+//  Телефон держит страницу в своём кэше, а страницу отдаёт nginx — без
+//  Cache-Control, и браузер решает сам, сколько её хранить. Выкладка
+//  проходила, а на экране оставалось вчерашнее приложение.
+//  Метка версии делает адрес НОВЫМ при каждой выкладке: взять такой из
+//  кэша телефон уже не может. Версию читаем из sw.js — её ставит
+//  _tools/bump.mjs, значит она всегда совпадает с выложенным кодом.
+// ------------------------------------------------------------------
+let ВЕРСИЯ = null;
+function версияСклада() {
+  if (ВЕРСИЯ !== null) return ВЕРСИЯ;
+  ВЕРСИЯ = "";
+  try {
+    // ищем sw.js рядом с кодом, а не от текущей папки: сервер может быть
+    // запущен откуда угодно, и тогда файла бы просто не нашлось
+    const sw = readFileSync(fileURLToPath(new URL("../sw.js", import.meta.url)), "utf8");
+    const от = sw.indexOf('CACHE = "');
+    if (от >= 0) {
+      const начало = от + 'CACHE = "'.length;
+      const до = sw.indexOf('"', начало);
+      if (до > начало) ВЕРСИЯ = sw.slice(начало, до);
+    }
+  } catch { }
+  return ВЕРСИЯ;
+}
+const skladUrl = () => {
+  const v = версияСклада();
+  return PUBLIC_URL + "/sklad" + (v ? "?v=" + encodeURIComponent(v) : "");
+};
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const SIGN = { yuan: "¥", usd: "$", som: "сум" };
 
@@ -301,7 +334,7 @@ const showAdminKb = (chatId) =>
 // ---------- админ-панель (русский) ----------
 function adminMenu(chatId) {
   return tg("sendMessage", { chat_id: chatId, text: "🛠 Панель владельца:", reply_markup: { inline_keyboard: [
-    [{ text: "📦 Склад (мини-приложение)", web_app: { url: PUBLIC_URL + "/sklad" } }],
+    [{ text: "📦 Склад (мини-приложение)", web_app: { url: skladUrl() } }],
     [{ text: "🛒 Заказать (как клиент — для демо)", web_app: { url: PUBLIC_URL + "/catalog?order=1" } }],
     [{ text: "🌐 Каталог", callback_data: "a_cat" }],
     [{ text: "👥 Клиенты", callback_data: "a_clients" }],

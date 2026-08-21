@@ -2,13 +2,13 @@
 // Долг считает js/debt.js — то же самое место, что и склад на сайте.
 // Раньше здесь была своя копия расчёта, и она забывала старый долг клиента:
 // один и тот же человек показывал разные цифры в телефоне и на компьютере.
-import { el } from "../app.js?v=20260821a";
-import { icon } from "../../icons.js?v=20260821a";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20260821a";
-import { fmt } from "../../fx.js?v=20260821a";
-import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260821a";
-import { debtByCur, onlyPositive, turnoverByCur, hasDebt, coverageMap, openingDebt, issuedOnly, CURS, zero } from "../../debt.js?v=20260821a";
-import { lastForCustomerMap, freshFirst } from "../../prices.js?v=20260821a";
+import { el } from "../app.js?v=20260821b";
+import { icon } from "../../icons.js?v=20260821b";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20260821b";
+import { fmt } from "../../fx.js?v=20260821b";
+import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20260821b";
+import { debtByCur, onlyPositive, turnoverByCur, hasDebt, coverageMap, openingDebt, issuedOnly, CURS, zero } from "../../debt.js?v=20260821b";
+import { lastForCustomerMap, freshFirst } from "../../prices.js?v=20260821b";
 
 const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const curStr = (m) => {

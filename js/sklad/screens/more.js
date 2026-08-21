@@ -2,8 +2,8 @@
 // Внизу оставлено пять кнопок — то, за чем заходят каждый день. Остальное
 // здесь: больше пяти кнопок в ряд на телефоне превращаются в кашу, по
 // которой не попасть пальцем.
-import { el, go, VERSION } from "../app.js?v=20260821a";
-import { icon } from "../../icons.js?v=20260821a";
+import { el, go, VERSION } from "../app.js?v=20260821b";
+import { icon } from "../../icons.js?v=20260821b";
 
 const РАЗДЕЛЫ = [
   { id: "report",    ic: "chart",   title: "Отчёт",           sub: "обороты, прибыль, долги" },
