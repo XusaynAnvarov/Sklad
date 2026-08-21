@@ -144,15 +144,17 @@ app.use((req, res, next) => {
 });
 
 // ------------------------------------------------------------------
-//  ФОТО ТОВАРОВ через свой сервер: /img/<ширина>/<путь в хранилище>
+//  ФОТО ТОВАРОВ через свой сервер: /api/img/<ширина>/<путь в хранилище>
 //  Снимок скачивается из Supabase один раз и дальше раздаётся отсюда.
 //  Так исходящий трафик Supabase падает почти до нуля — именно он и
 //  вывел организацию за бесплатную квоту.
+//  Обязательно под /api/: nginx отдаёт Express только этот путь, а всё
+//  остальное считает файлом на диске и отвечает 404, не доходя до кода.
 //  Адрес кончается на .jpg, поэтому Cloudflare тоже берёт его к себе.
 // ------------------------------------------------------------------
-app.get("/img/:w/*", async (req, res) => {
+app.get("/api/img/:w/*", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20260821f");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20260821g");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -195,8 +197,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260821f");
-    const { sget } = await import("./api/lib/supa.js?v=20260821f");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260821g");
+    const { sget } = await import("./api/lib/supa.js?v=20260821g");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +

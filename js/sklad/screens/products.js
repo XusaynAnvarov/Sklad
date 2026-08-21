@@ -1,16 +1,16 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260821f";
-import { icon } from "../../icons.js?v=20260821f";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260821f";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260821f";
-import { fmt, convert } from "../../fx.js?v=20260821f";
-import { thumb } from "../../img.js?v=20260821f";
-import { LOW_STOCK } from "../../advice.js?v=20260821f";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260821f";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260821f";
-import { setStock } from "../stock.js?v=20260821f";
+import { el, go } from "../app.js?v=20260821g";
+import { icon } from "../../icons.js?v=20260821g";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260821g";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260821g";
+import { fmt, convert } from "../../fx.js?v=20260821g";
+import { thumb } from "../../img.js?v=20260821g";
+import { LOW_STOCK } from "../../advice.js?v=20260821g";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260821g";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260821g";
+import { setStock } from "../stock.js?v=20260821g";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
