@@ -1,15 +1,15 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260820i";
-import { icon } from "../icons.js?v=20260820i";
-import { fmt, convert } from "../fx.js?v=20260820i";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260820i";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260820i";
-import { openEditor } from "./sales.js?v=20260820i";
-import { thumbAttrs } from "../img.js?v=20260820i";
-import { LOW_STOCK } from "../advice.js?v=20260820i";
-import { qrSvg, skuPayload } from "../qr.js?v=20260820i";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260821a";
+import { icon } from "../icons.js?v=20260821a";
+import { fmt, convert } from "../fx.js?v=20260821a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260821a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260821a";
+import { openEditor } from "./sales.js?v=20260821a";
+import { thumbAttrs } from "../img.js?v=20260821a";
+import { LOW_STOCK } from "../advice.js?v=20260821a";
+import { qrSvg, skuPayload } from "../qr.js?v=20260821a";
 
 // себестоимость в той валюте, в которой её ввели (cost_cur). По умолчанию — юань.
 function costShow(cy, cu, ccur) {

@@ -124,8 +124,33 @@ for (const [methods, path, file] of routes) {
   }
 }
 
+// ------------------------------------------------------------------
+//  HTML-страницы НИКОГДА не кэшируем.
+//  Раньше они уходили вообще без Cache-Control, а в этом случае браузер
+//  решает сам: держит страницу у себя часами (обычно 10% времени с
+//  последней правки). Телефон продолжал грузить старую версию склада
+//  даже после выкладки — выглядело как «обновление не пришло».
+//  Файлы js/css кэшировать можно и нужно: у них в адресе ?v=, и при
+//  выкладке адрес меняется, то есть старый файл просто перестаёт
+//  запрашиваться.
+// ------------------------------------------------------------------
+const НЕ_КЭШИРОВАТЬ = "no-store, no-cache, must-revalidate";
+app.use((req, res, next) => {
+  // адрес без расширения — это страница (/sklad, /admin, /catalog, /)
+  const последний = String(req.path || "").split("/").pop();
+  if (!последний.includes(".")) res.setHeader("Cache-Control", НЕ_КЭШИРОВАТЬ);
+  next();
+});
+
 // статичные файлы (если Nginx не отдаёт — резервный вариант)
-app.use(express.static(__dirname, { index: "index.html" }));
+app.use(express.static(__dirname, {
+  index: "index.html",
+  setHeaders: (res, p) => {
+    if (p.endsWith(".html")) res.setHeader("Cache-Control", НЕ_КЭШИРОВАТЬ);
+    // service worker тоже: иначе новый код не сможет прийти на смену старому
+    if (p.endsWith("sw.js")) res.setHeader("Cache-Control", НЕ_КЭШИРОВАТЬ);
+  },
+}));
 app.get("/admin", (req, res) => res.sendFile(join(__dirname, "admin.html")));
 app.get("/admin.html", (req, res) => res.sendFile(join(__dirname, "admin.html")));
 // Мини-приложение склада и каталог: без явных маршрутов они проваливались
@@ -152,8 +177,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260820i");
-    const { sget } = await import("./api/lib/supa.js?v=20260820i");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260821a");
+    const { sget } = await import("./api/lib/supa.js?v=20260821a");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +

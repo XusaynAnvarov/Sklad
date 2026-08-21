@@ -2,8 +2,8 @@
 // Внизу оставлено пять кнопок — то, за чем заходят каждый день. Остальное
 // здесь: больше пяти кнопок в ряд на телефоне превращаются в кашу, по
 // которой не попасть пальцем.
-import { el, go } from "../app.js?v=20260820i";
-import { icon } from "../../icons.js?v=20260820i";
+import { el, go, VERSION } from "../app.js?v=20260821a";
+import { icon } from "../../icons.js?v=20260821a";
 
 const РАЗДЕЛЫ = [
   { id: "report",    ic: "chart",   title: "Отчёт",           sub: "обороты, прибыль, долги" },
@@ -35,4 +35,23 @@ export default async function render(box, ctx) {
         text: "Заказов ждёт оформления: " + ждут }));
     }
   } catch { }
+
+  // Версия и принудительное обновление. Телефон умеет держать страницу в
+  // своём кэше и после выкладки показывать вчерашнее приложение — по этой
+  // строке сразу видно, так ли это.
+  const обновить = el("button.btn.btn-outline", {
+    style: { width: "100%", justifyContent: "center", minHeight: "44px", marginTop: "16px" },
+    text: "Обновить приложение",
+    onclick: () => {
+      // адрес с новой меткой времени телефон не может взять из кэша
+      const u = new URL(location.href);
+      u.searchParams.set("r", Date.now().toString(36));
+      u.hash = "";
+      location.replace(u.toString());
+    },
+  });
+  box.append(обновить, el("div.hint", {
+    style: { textAlign: "center", marginTop: "8px" },
+    text: "Версия " + VERSION + ". Если разделов меньше, чем ждёте, — нажмите «Обновить приложение».",
+  }));
 }
