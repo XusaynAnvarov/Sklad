@@ -7,7 +7,7 @@
 //  «работает» и «браузер завис».
 //
 //  ОТКУДА БЕРЁМ. Не напрямую из Supabase, а со своего сервера:
-//      /api/img/<ширина>/product-photos/<файл>.jpg
+//      /api/img?w=<ширина>&p=product-photos/<файл>.jpg
 //  Сервер скачивает снимок из Supabase ОДИН раз, кладёт на диск и дальше
 //  раздаёт сам; Cloudflare забирает его к себе. Раньше каждый просмотр
 //  каталога тянул все снимки из Supabase заново — на бесплатном плане это
@@ -45,7 +45,7 @@ export function thumb(url, size = 300) {
   if (!u || u.startsWith("data:")) return u;
   const путь = путьХранилища(u);
   if (!путь) return u;                       // чужой адрес — не трогаем
-  return `/api/img/${ближайшаяШирина(size)}/${путь}`;
+  return `/api/img?w=${ближайшаяШирина(size)}&p=${encodeURIComponent(путь)}`;
 }
 
 // Полноразмерный снимок (для просмотра во весь экран) — тоже через себя,
@@ -54,7 +54,7 @@ export function full(url) {
   const u = String(url || "");
   if (!u || u.startsWith("data:")) return u;
   const путь = путьХранилища(u);
-  return путь ? `/api/img/1200/${путь}` : u;
+  return путь ? `/api/img?w=1200&p=${encodeURIComponent(путь)}` : u;
 }
 
 // Готовые атрибуты для <img>: миниатюра + откат на оригинал + на заглушку.
