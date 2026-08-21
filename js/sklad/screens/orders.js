@@ -2,12 +2,12 @@
 // клиент прислал список, надо проставить цены и выдать накладную.
 // С телефона делаем главное — открыть, поправить цены и оформить.
 // Отправку клиенту оставили сайту: с телефона накладные никуда не уходят.
-import { el } from "../app.js?v=20260821h";
-import { icon } from "../../icons.js?v=20260821h";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260821h";
-import { fmt } from "../../fx.js?v=20260821h";
-import { issueInvoice, totalsByCur } from "../issue.js?v=20260821h";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260821h";
+import { el } from "../app.js?v=20260821i";
+import { icon } from "../../icons.js?v=20260821i";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260821i";
+import { fmt } from "../../fx.js?v=20260821i";
+import { issueInvoice, totalsByCur } from "../issue.js?v=20260821i";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260821i";
 
 const ЖДУТ = ["order", "pending_confirm", "confirmed"];
 const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];

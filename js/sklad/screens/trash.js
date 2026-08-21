@@ -1,9 +1,9 @@
 // Корзина: удалённые товары, клиенты, накладные, приходы и оплаты.
 // Раз с телефона разрешено удалять — здесь всё это можно вернуть.
 // Удаление сначала кладёт копию сюда, поэтому промах пальцем не стоит данных.
-import { el } from "../app.js?v=20260821h";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260821h";
-import { fmt } from "../../fx.js?v=20260821h";
+import { el } from "../app.js?v=20260821i";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260821i";
+import { fmt } from "../../fx.js?v=20260821i";
 
 const ТИП = { products: "Товар", customers: "Клиент", sales: "Накладная", purchases: "Приход", payments: "Оплата" };
 const когда = (d) => { const t = new Date(d); return isFinite(t) ? t.toLocaleString("ru-RU") : "—"; };

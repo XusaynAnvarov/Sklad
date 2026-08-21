@@ -1,11 +1,13 @@
-// GET /api/video-url?id=… — временная (signed) ссылка на видео для ВОШЕДШЕГО клиента.
-// Ссылка живёт 5 минут → переслать бесполезно. Бакет приватный.
+// GET /api/video-url?id=… — временная ссылка на видео для ВОШЕДШЕГО клиента.
+// Ссылка живёт 10 минут → переслать бесполезно. Бакет остаётся приватным.
+//
+// Ведёт она теперь на НАШ сервер (/api/video), а не в Supabase. Раньше
+// каждый просмотр качал ролик прямо оттуда, и это главный расход трафика
+// — из-за него организация вышла за бесплатную квоту. Сервер скачивает
+// ролик один раз и дальше раздаёт с диска.
 import { getValidClient } from "./lib/clientauth.js";
 import { sget } from "./lib/supa.js";
-
-const SUPA_URL = process.env.SUPABASE_URL;
-const SERVICE = process.env.SUPABASE_SERVICE_KEY;
-const BUCKET = "product-videos";
+import { выписатьПропуск } from "./lib/videocache.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -13,19 +15,15 @@ export default async function handler(req, res) {
   if (!client) return res.status(401).json({ error: "Не авторизован" });
   const id = req.query?.id;
   if (!id) return res.status(400).json({ error: "id required" });
-  if (!SUPA_URL || !SERVICE) return res.status(500).json({ error: "Не заданы SUPABASE_URL/SERVICE_KEY" });
   try {
+    // проверяем, что такой ролик вообще есть — иначе выдадим пропуск в никуда
     const rows = await sget(`videos?id=eq.${encodeURIComponent(id)}&select=path`);
-    const path = rows[0]?.path;
-    if (!path) return res.status(404).json({ error: "Видео не найдено" });
-    const r = await fetch(`${SUPA_URL}/storage/v1/object/sign/${BUCKET}/${encodeURIComponent(path)}`, {
-      method: "POST",
-      headers: { apikey: SERVICE, Authorization: "Bearer " + SERVICE, "Content-Type": "application/json" },
-      body: JSON.stringify({ expiresIn: 300 }),
-    });
-    if (!r.ok) return res.status(500).json({ error: "sign: " + (await r.text()).slice(0, 150) });
-    const j = await r.json(); // { signedURL: "/object/sign/<bucket>/<path>?token=..." }
-    return res.status(200).json({ url: `${SUPA_URL}/storage/v1${j.signedURL}` });
+    if (!rows[0]?.path) return res.status(404).json({ error: "Видео не найдено" });
+
+    // Пропуск только на этот ролик и только на 10 минут. Токен сессии в
+    // адрес не кладём: он осел бы в логах сервера и в истории браузера.
+    const пропуск = выписатьПропуск(id, 600);
+    return res.status(200).json({ url: `/api/video?t=${encodeURIComponent(пропуск)}` });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }

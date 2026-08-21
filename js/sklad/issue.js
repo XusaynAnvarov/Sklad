@@ -11,8 +11,8 @@
 //    • СЕБЕСТОИМОСТЬ списанных партий — иначе прибыль по этой накладной
 //      потом пересчитается по сегодняшней цене склада и соврёт.
 // ========================================================================
-import { convert } from "../fx.js?v=20260821h";
-import { sellItems, returnItems } from "./stock.js?v=20260821h";
+import { convert } from "../fx.js?v=20260821i";
+import { sellItems, returnItems } from "./stock.js?v=20260821i";
 
 const round = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);

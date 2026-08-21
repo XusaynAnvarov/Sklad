@@ -79,6 +79,7 @@ const routes = [
   [["POST","OPTIONS"], "/api/supplier-order-pdf", "./api/supplier-order-pdf.js"],
   [["GET"],   "/api/videos",                  "./api/videos.js"],
   [["GET"],   "/api/video-url",               "./api/video-url.js"],
+  [["GET"],   "/api/video",                   "./api/video.js"],
   [["POST","DELETE"], "/api/admin/site-client-delete", "./api/admin/site-client-delete.js"],
   [["POST","DELETE"], "/api/admin/unblock",   "./api/admin/unblock.js"],
   // сайт-админ (JWT клиента с phone=837138321)
@@ -155,7 +156,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20260821h");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20260821i");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -198,8 +199,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260821h");
-    const { sget } = await import("./api/lib/supa.js?v=20260821h");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260821i");
+    const { sget } = await import("./api/lib/supa.js?v=20260821i");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +
