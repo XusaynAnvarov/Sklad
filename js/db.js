@@ -256,7 +256,15 @@ async function compressToDataUrl(file, maxChars = 650 * 1024) {
 // ====================================================================
 export const db = {
   mode: DB_MODE,
-  ready: (async () => { if (useSupabase) await initSupabase(); })(),
+  // Клиент Supabase грузится со стороннего адреса и нужен только сайту
+  // (вход, сессия). Мини-приложение ходит в базу через /api/admin/db со
+  // своим ключом, поэтому неудачная загрузка не должна ничего ломать:
+  // в Telegram внешние адреса бывают недоступны.
+  ready: (async () => {
+    if (!useSupabase) return;
+    try { await initSupabase(); }
+    catch (e) { console.warn("Клиент Supabase не загрузился — работаем через /api", e); }
+  })(),
 
   products: DB_MODE === "local" ? localCollection("products") : sbTable("products"),
   customers: DB_MODE === "local" ? localCollection("customers") : sbTable("customers"),
