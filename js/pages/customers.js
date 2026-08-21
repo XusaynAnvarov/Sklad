@@ -1,18 +1,18 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260821k";
-import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260821k";
-import { openEditor, buildText, deleteSale } from "./sales.js?v=20260821k";
-import { exportCustomerInvoice } from "../xlsx-export.js?v=20260821k";
-import { placeholder as placeholderImg } from "./products.js?v=20260821k";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260821k";
-import { authHeaders } from "../db.js?v=20260821k";
-import { icon } from "../icons.js?v=20260821k";
-import { thumb } from "../img.js?v=20260821k";
-import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20260821k";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260821l";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260821l";
+import { openEditor, buildText, deleteSale } from "./sales.js?v=20260821l";
+import { exportCustomerInvoice } from "../xlsx-export.js?v=20260821l";
+import { placeholder as placeholderImg } from "./products.js?v=20260821l";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260821l";
+import { authHeaders } from "../db.js?v=20260821l";
+import { icon } from "../icons.js?v=20260821l";
+import { thumb } from "../img.js?v=20260821l";
+import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20260821l";
 // Расчёт долга общий со складом в телефоне — иначе цифры расходятся.
-import { debtByCur, openingDebt, onlyPositive, coverageMap, issuedOnly } from "../debt.js?v=20260821k";
+import { debtByCur, openingDebt, onlyPositive, coverageMap, issuedOnly } from "../debt.js?v=20260821l";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
 const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);

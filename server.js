@@ -156,12 +156,23 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20260821k");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20260821l");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
     return res.status(500).send("Ошибка изображения");
   }
+});
+
+// ------------------------------------------------------------------
+//  Ниже раздаётся ВСЯ папка проекта, включая серверный код. Всё, что
+//  начинается с /api/ и не совпало ни с одним маршрутом выше, дальше
+//  пускать нельзя: иначе по адресу /api/bot.js скачивался исходник
+//  сервера. Проверено на боевом — скачивался.
+// ------------------------------------------------------------------
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
+  next();
 });
 
 // статичные файлы (если Nginx не отдаёт — резервный вариант)
@@ -199,8 +210,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260821k");
-    const { sget } = await import("./api/lib/supa.js?v=20260821k");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260821l");
+    const { sget } = await import("./api/lib/supa.js?v=20260821l");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +
