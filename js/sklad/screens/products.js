@@ -1,16 +1,20 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260821i";
-import { icon } from "../../icons.js?v=20260821i";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260821i";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260821i";
-import { fmt, convert } from "../../fx.js?v=20260821i";
-import { thumb } from "../../img.js?v=20260821i";
-import { LOW_STOCK } from "../../advice.js?v=20260821i";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260821i";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260821i";
-import { setStock } from "../stock.js?v=20260821i";
+import { el, go } from "../app.js?v=20260821j";
+import { icon } from "../../icons.js?v=20260821j";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260821j";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260821j";
+import { fmt, convert } from "../../fx.js?v=20260821j";
+import { thumb } from "../../img.js?v=20260821j";
+import { LOW_STOCK } from "../../advice.js?v=20260821j";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260821j";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260821j";
+import { setStock } from "../stock.js?v=20260821j";
+// Себестоимость показываем в той валюте, в которой её ввели. Расчёт общий
+// со складом на сайте: иначе один товар выглядит как «$33.87» на компьютере
+// и «241,94 ¥» в телефоне — цифра верная, а доверия к ней никакого.
+import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20260821j";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -42,7 +46,12 @@ export default async function render(box, ctx) {
     const fName = inp({ type: "text", value: item.name || "", placeholder: "Название" });
     const fSku = inp({ type: "text", value: item.sku || "", placeholder: "Артикул" });
     const fCat = inp({ type: "text", value: item.category || "", placeholder: "Категория" });
-    const fCost = inp({ type: "number", inputmode: "decimal", step: "0.01", value: String(own.cost_yuan || item.cost_yuan || ""), placeholder: "0" });
+    const костCur = isNew ? "yuan" : костВалюта(item);
+    const костЗнач = isNew ? 0 : костЧисло(own.cost_yuan || item.cost_yuan, item.cost_usd, костCur);
+    const fCost = inp({ type: "number", inputmode: "decimal", step: "0.01", value: String(костЗнач || ""), placeholder: "0" });
+    const fCostCur = el("select.inp", { style: { width: "100%", minHeight: "46px", fontSize: "16px" } });
+    ВАЛЮТЫ.forEach(v => fCostCur.append(el("option", { value: v.value, text: v.label })));
+    fCostCur.value = костCur;
     const fPrice = inp({ type: "number", inputmode: "numeric", value: String(item.price_som || ""), placeholder: "0" });
     const fQty = isNew ? inp({ type: "number", inputmode: "numeric", value: "0" }) : null;
 
@@ -79,6 +88,11 @@ export default async function render(box, ctx) {
         // гадать по названию. Первое фото — главное, оно же в каталоге.
         превью.append(el("img", {
           src: thumb(фото[0], 640), alt: "", loading: "lazy", title: "Нажмите, чтобы увеличить",
+          "data-full": фото[0],
+          onerror: function () {
+            const о = this.getAttribute("data-full");
+            if (о && this.src !== о) this.src = о; else this.style.display = "none";
+          },
           style: { width: "100%", maxHeight: "200px", objectFit: "contain", borderRadius: "12px",
             background: "var(--bg2)", cursor: "zoom-in", display: "block", marginBottom: "8px" },
           onclick: () => lightbox(фото),
@@ -87,7 +101,11 @@ export default async function render(box, ctx) {
       const ряд = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
       фото.forEach((url, i) => {
         ряд.append(el("div", { style: { position: "relative" } }, [
-          el("img", { src: thumb(url, 160), alt: "", loading: "lazy",
+          el("img", { src: thumb(url, 160), alt: "", loading: "lazy", "data-full": url,
+            onerror: function () {
+              const о = this.getAttribute("data-full");
+              if (о && this.src !== о) this.src = о;
+            },
             style: { width: "64px", height: "64px", objectFit: "cover", borderRadius: "10px",
               background: "var(--bg2)", cursor: "zoom-in",
               outline: i === 0 ? "2px solid var(--accent)" : "none", outlineOffset: "1px" },
@@ -111,11 +129,12 @@ export default async function render(box, ctx) {
         label: isNew ? "Добавить" : "Сохранить", kind: "btn-primary", onClick: async (close) => {
           const name = fName.value.trim();
           if (!name) { toast("Впишите название", "err"); return; }
-          const cy = Number(fCost.value) || 0;
+          const { cost_yuan: cy, cost_usd, cost_cur } = костПоля(fCost.value, fCostCur.value);
           const row = {
             id: item.id, name, sku: fSku.value.trim(), category: fCat.value.trim(),
             cost_yuan: cy,
-            cost_usd: cy ? Math.round(convert(cy, "yuan", "usd") * 100) / 100 : 0,
+            cost_usd,
+            cost_cur,
             price_som: Number(fPrice.value) || 0,
             // первое фото — главное: его показывают в списках и в каталоге
             photos: фото,
@@ -167,7 +186,10 @@ export default async function render(box, ctx) {
           field("Артикул", fSku), field("Категория", fCat),
         ]),
         el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" } }, [
-          field("Себестоимость ¥", fCost), field("Цена продажи, сум", fPrice),
+          field("Себестоимость", fCost), field("Валюта прихода", fCostCur),
+        ]),
+        el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" } }, [
+          field("Цена продажи, сум", fPrice), el("div"),
         ]),
         isNew ? field("Остаток сейчас", fQty) : null,
         !isNew ? el("div", { style: { display: "flex", gap: "8px", marginTop: "4px" } }, [
@@ -236,16 +258,26 @@ export default async function render(box, ctx) {
     const cls = q < 0 ? ".neg" : q <= LOW_STOCK ? ".low" : "";
     const own = currentCost(ensureBatches(p));
     const out = costOutlook(ensureBatches(p));
-    const sub = [p.sku ? "Арт.: " + p.sku : null, "себест: " + (own.cost_yuan ? fmt(own.cost_yuan, "yuan") : "—")]
+    const вал = костВалюта(p);
+    const себест = костЧисло(own.cost_yuan, own.cost_usd != null ? own.cost_usd : p.cost_usd, вал);
+    const sub = [p.sku ? "Арт.: " + p.sku : null, "себест: " + (себест ? костСтрока(own.cost_yuan, own.cost_usd != null ? own.cost_usd : p.cost_usd, вал) : "—")]
       .filter(Boolean).join(" · ");
     return el("div.mini-row" + cls, { onclick: () => openEdit(p) }, [
       p.photo_url
-        ? el("img.ph", { src: thumb(p.photo_url, 84), loading: "lazy", decoding: "async", alt: "", style: { cursor: "zoom-in" },
+        ? el("img.ph", { src: thumb(p.photo_url, 84), loading: "lazy", decoding: "async", alt: "",
+            style: { cursor: "zoom-in" }, "data-full": p.photo_url,
+            onerror: function () {
+              // сперва оригинал, потом просто пустая рамка — «битая картинка»
+              // выглядит как поломка приложения, хотя дело в снимке
+              const о = this.getAttribute("data-full");
+              if (о && this.src !== о) { this.src = о; return; }
+              this.replaceWith(el("div.ph"));
+            },
             onclick: (e) => { e.stopPropagation(); lightbox((Array.isArray(p.photos) && p.photos.length) ? p.photos : [p.photo_url]); } })
         : el("div.ph"),
       el("div.info", {}, [
         el("div.nm", { text: p.name }),
-        el("div.sku", { text: sub + (out && out.next ? ` · дальше ${fmt(out.next.cost_yuan, "yuan")}` : "") }),
+        el("div.sku", { text: sub + (out && out.next ? ` · дальше ${костСтрока(out.next.cost_yuan, out.next.cost_usd, вал)}` : "") }),
       ]),
       el("div.qty" + cls, { text: String(q) }),
     ]);

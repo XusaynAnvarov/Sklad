@@ -1,23 +1,18 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260821i";
-import { icon } from "../icons.js?v=20260821i";
-import { fmt, convert } from "../fx.js?v=20260821i";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260821i";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260821i";
-import { openEditor } from "./sales.js?v=20260821i";
-import { thumbAttrs, thumb } from "../img.js?v=20260821i";
-import { LOW_STOCK } from "../advice.js?v=20260821i";
-import { qrSvg, skuPayload } from "../qr.js?v=20260821i";
-
-// себестоимость в той валюте, в которой её ввели (cost_cur). По умолчанию — юань.
-function costShow(cy, cu, ccur) {
-  cy = Number(cy) || 0; cu = Number(cu) || 0;
-  if (ccur === "usd") return fmt(cu, "usd");
-  if (ccur === "som") return fmt(convert(cu > 0 ? cu : convert(cy, "yuan", "usd"), "usd", "som"), "som");
-  return fmt(cy, "yuan");
-}
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260821j";
+import { icon } from "../icons.js?v=20260821j";
+import { fmt, convert } from "../fx.js?v=20260821j";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260821j";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260821j";
+import { openEditor } from "./sales.js?v=20260821j";
+import { thumbAttrs, thumb } from "../img.js?v=20260821j";
+import { LOW_STOCK } from "../advice.js?v=20260821j";
+import { qrSvg, skuPayload } from "../qr.js?v=20260821j";
+// Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
+// в телефоне — иначе один товар показывает разные цифры на разных экранах.
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20260821j";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -29,9 +24,9 @@ function costLine(p) {
   let note = "";
   if (o && o.next) {
     const up = (Number(o.next.cost_yuan) || 0) > cy;
-    note = `  · ещё ${o.qty} шт, дальше ${costShow(o.next.cost_yuan, o.next.cost_usd, p.cost_cur)}${up ? " ↑" : " ↓"}`;
+    note = `  · ещё ${o.qty} шт, дальше ${costShow(o.next.cost_yuan, o.next.cost_usd, костВалюта(p))}${up ? " ↑" : " ↓"}`;
   }
-  return { text: "себест: " + costShow(cy, cu, p.cost_cur), note };
+  return { text: "себест: " + costShow(cy, cu, костВалюта(p)), note };
 }
 
 // список партий товара (FIFO) для карточки
@@ -42,9 +37,9 @@ function batchesView(p) {
   return el("div", { style: { margin: "4px 0 12px" } }, [
     el("div.field-label", { text: "Партии на складе (сначала продаётся верхняя):" }),
     el("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" } },
-      bs.map(b => el("span.last-price", { text: `${b.qty} × ${costShow(b.cost_yuan, b.cost_usd, p.cost_cur)} · ${(b.date || "").slice(0, 10)}` }))),
+      bs.map(b => el("span.last-price", { text: `${b.qty} × ${costShow(b.cost_yuan, b.cost_usd, костВалюта(p))} · ${(b.date || "").slice(0, 10)}` }))),
     (o && o.next) ? el("div.hint", {
-      text: `Сейчас продаётся по ${costShow(o.cost_yuan, o.cost_usd, p.cost_cur)} — осталось ${o.qty} шт. Дальше себестоимость станет ${costShow(o.next.cost_yuan, o.next.cost_usd, p.cost_cur)}.`,
+      text: `Сейчас продаётся по ${costShow(o.cost_yuan, o.cost_usd, костВалюта(p))} — осталось ${o.qty} шт. Дальше себестоимость станет ${costShow(o.next.cost_yuan, o.next.cost_usd, костВалюта(p))}.`,
       style: { marginTop: "8px", marginBottom: 0 },
     }) : null,
   ].filter(Boolean));
@@ -289,12 +284,12 @@ export function openForm(ctx, p, cats = []) {
   fStock.addEventListener("input", paintArrived);
   paintArrived();
   // себестоимость одной суммой + валюта прихода (показываем в той валюте, в которой ввели — cost_cur)
-  const costCur0 = p.cost_cur || ((Number(p.cost_usd) > 0 && !(Number(p.cost_yuan) > 0)) ? "usd" : "yuan");
+  const costCur0 = костВалюта(p);
   const costVal0 = costCur0 === "usd" ? p.cost_usd
     : costCur0 === "som" ? Math.round(convert((Number(p.cost_usd) > 0 ? Number(p.cost_usd) : convert(Number(p.cost_yuan) || 0, "yuan", "usd")), "usd", "som"))
     : p.cost_yuan;
   const fCost = input({ type: "number", step: "0.01", value: costVal0 || "", placeholder: "0" });
-  const fCostCur = select([{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }], costCur0);
+  const fCostCur = select(ВАЛЮТЫ.map(v => ({ value: v.value, label: v.label })), costCur0);
   const fStatus = select([
     { value: "", label: "Авто (по остатку)" },
     { value: "in_stock", label: "Есть" },
@@ -355,8 +350,7 @@ export function openForm(ctx, p, cats = []) {
       { label: "Сохранить", kind: "btn-primary", onClick: async (close) => {
         if (!fName.value.trim()) { toast("Введите название", "err"); return; }
         const amt = +fCost.value || 0, cur = fCostCur.value;
-        const cost_yuan = cur === "yuan" ? amt : Math.round(convert(amt, cur, "yuan") * 100) / 100;
-        const cost_usd = cur === "usd" ? amt : Math.round(convert(amt, cur, "usd") * 100) / 100;
+        const { cost_yuan, cost_usd } = костПоля(amt, cur);
         // «Пришло на склад» прибавляем к текущему остатку (в т.ч. гасим минус),
         // иначе берём то, что вписано в поле «Остаток».
         const arrived = Math.max(0, +fArrived.value || 0);
