@@ -1,16 +1,16 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260821c";
-import { icon } from "../../icons.js?v=20260821c";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260821c";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260821c";
-import { fmt, convert } from "../../fx.js?v=20260821c";
-import { thumb } from "../../img.js?v=20260821c";
-import { LOW_STOCK } from "../../advice.js?v=20260821c";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260821c";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260821c";
-import { setStock } from "../stock.js?v=20260821c";
+import { el, go } from "../app.js?v=20260821d";
+import { icon } from "../../icons.js?v=20260821d";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260821d";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260821d";
+import { fmt, convert } from "../../fx.js?v=20260821d";
+import { thumb } from "../../img.js?v=20260821d";
+import { LOW_STOCK } from "../../advice.js?v=20260821d";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260821d";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260821d";
+import { setStock } from "../stock.js?v=20260821d";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -51,7 +51,7 @@ export default async function render(box, ctx) {
     const фото = Array.isArray(item.photos) && item.photos.length
       ? item.photos.slice()
       : (item.photo_url ? [item.photo_url] : []);
-    const превью = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
+    const превью = el("div", { style: { marginBottom: "4px" } });
     const fFile = el("input", { type: "file", accept: "image/*", multiple: true, style: { display: "none" } });
     const кнопкаФото = el("button.btn.btn-outline", {
       style: { flex: "1", justifyContent: "center", minHeight: "42px" },
@@ -74,10 +74,24 @@ export default async function render(box, ctx) {
     });
     function drawФото() {
       превью.innerHTML = "";
+      if (фото.length) {
+        // Крупный снимок первым: правя карточку, надо видеть сам товар, а не
+        // гадать по названию. Первое фото — главное, оно же в каталоге.
+        превью.append(el("img", {
+          src: thumb(фото[0], 640), alt: "", loading: "lazy", title: "Нажмите, чтобы увеличить",
+          style: { width: "100%", maxHeight: "200px", objectFit: "contain", borderRadius: "12px",
+            background: "var(--bg2)", cursor: "zoom-in", display: "block", marginBottom: "8px" },
+          onclick: () => lightbox(фото),
+        }));
+      }
+      const ряд = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
       фото.forEach((url, i) => {
-        превью.append(el("div", { style: { position: "relative" } }, [
-          el("img", { src: thumb(url, 160), alt: "",
-            style: { width: "72px", height: "72px", objectFit: "cover", borderRadius: "10px", background: "var(--bg2)", cursor: "zoom-in" },
+        ряд.append(el("div", { style: { position: "relative" } }, [
+          el("img", { src: thumb(url, 160), alt: "", loading: "lazy",
+            style: { width: "64px", height: "64px", objectFit: "cover", borderRadius: "10px",
+              background: "var(--bg2)", cursor: "zoom-in",
+              outline: i === 0 ? "2px solid var(--accent)" : "none", outlineOffset: "1px" },
+            title: i === 0 ? "Главное фото" : "Нажмите, чтобы увеличить",
             onclick: () => lightbox(фото) }),
           el("button.mini-icon-btn", {
             title: "Убрать фото",
@@ -86,6 +100,7 @@ export default async function render(box, ctx) {
           }, [icon("x", { size: 13 })]),
         ]));
       });
+      if (фото.length) превью.append(ряд);
       кнопкаФото.textContent = фото.length ? "Добавить фото" : "Снять или выбрать фото";
     }
     drawФото();
