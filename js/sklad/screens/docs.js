@@ -3,13 +3,13 @@
 // Осторожно с удалением накладной: товар из неё уже списан со склада,
 // поэтому при удалении его надо ВЕРНУТЬ обратно — иначе остатки разъедутся.
 // Возврат делает returnItems из js/sklad/stock.js, теми же партиями FIFO.
-import { el } from "../app.js?v=20260821d";
-import { icon } from "../../icons.js?v=20260821d";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20260821d";
-import { fmt } from "../../fx.js?v=20260821d";
-import { returnItems } from "../stock.js?v=20260821d";
-import { applyQtyChange, applyPriceChange } from "../issue.js?v=20260821d";
-import { methodOptions, methodLabel, DEFAULT_METHOD } from "../../payment.js?v=20260821d";
+import { el } from "../app.js?v=20260821e";
+import { icon } from "../../icons.js?v=20260821e";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20260821e";
+import { fmt } from "../../fx.js?v=20260821e";
+import { returnItems } from "../stock.js?v=20260821e";
+import { applyQtyChange, applyPriceChange } from "../issue.js?v=20260821e";
+import { methodOptions, methodLabel, DEFAULT_METHOD } from "../../payment.js?v=20260821e";
 
 const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];
 const dt = (d) => new Date(d).toLocaleDateString("ru-RU");

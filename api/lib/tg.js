@@ -41,10 +41,18 @@ export function verifyInitData(initData, botToken, { maxAgeSec = MAX_AGE_SEC } =
 
 // Тот же токен склада, что выдаёт вход по паролю (api/admin-auth.js).
 // Один формат — значит /api/admin/db и остальные ручки работают без изменений.
-export function signAdminJWT(secret, days = 30) {
+// Токен с ролью и сроком жизни.
+// Ролей две: admin — полный доступ, guest — ТОЛЬКО ПРОСМОТР.
+// Гостевой нужен, чтобы дать человеку посмотреть склад и поискать ошибки,
+// не рискуя данными: сервер не пустит его ни на одну запись.
+export function signRoleJWT(secret, role, seconds) {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
-  const payload = Buffer.from(JSON.stringify({ role: "admin", iat: now, exp: now + days * 24 * 3600 })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ role, iat: now, exp: now + seconds })).toString("base64url");
   const sig = crypto.createHmac("sha256", secret).update(header + "." + payload).digest().toString("base64url");
   return `${header}.${payload}.${sig}`;
+}
+
+export function signAdminJWT(secret, days = 30) {
+  return signRoleJWT(secret, "admin", days * 24 * 3600);
 }

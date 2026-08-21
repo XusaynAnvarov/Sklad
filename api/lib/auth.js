@@ -9,28 +9,36 @@ import crypto from "crypto";
 const SUPA_URL = process.env.SUPABASE_URL;
 const KEY      = process.env.SUPABASE_SERVICE_KEY;
 
-function verifyAdminJWT(token) {
+// Разбирает наш токен и возвращает роль ("admin" | "guest") либо null.
+function verifyOurJWT(token) {
   try {
     const parts = token.split(".");
-    if (parts.length !== 3) return false;
+    if (parts.length !== 3) return null;
     const [header, payload, sig] = parts;
     const secret = process.env.SITE_JWT_SECRET || "dev-secret-change-in-production";
     const expected = crypto.createHmac("sha256", secret).update(header + "." + payload).digest().toString("base64url");
-    if (sig.length !== expected.length) return false;
-    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
+    if (sig.length !== expected.length) return null;
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
     const data = JSON.parse(Buffer.from(payload, "base64url").toString());
-    if (data.exp && data.exp < Math.floor(Date.now() / 1000)) return false;
-    return data.role === "admin";
-  } catch { return false; }
+    if (data.exp && data.exp < Math.floor(Date.now() / 1000)) return null;
+    if (data.role === "admin" || data.role === "guest") return data.role;
+    return null;
+  } catch { return null; }
 }
 
-export async function getUser(req) {
+// Гостевой токен даёт ТОЛЬКО просмотр и принимается лишь там, где это
+// разрешено явно: getUser(req, { allowGuest: true }). По умолчанию гость
+// не проходит нигде — иначе достаточно забыть одну проверку в одной ручке,
+// чтобы «посмотреть склад» превратилось в «поменять склад».
+export async function getUser(req, { allowGuest = false } = {}) {
   const h     = req.headers.authorization || req.headers.Authorization || "";
   const token = h.startsWith("Bearer ") ? h.slice(7) : "";
   if (!token) return null;
 
-  // Кастомный admin JWT (быстро, без сети)
-  if (verifyAdminJWT(token)) return { id: "admin", role: "admin" };
+  // Наш токен (быстро, без сети)
+  const role = verifyOurJWT(token);
+  if (role === "admin") return { id: "admin", role: "admin" };
+  if (role === "guest") return allowGuest ? { id: "guest", role: "guest" } : null;
 
   // Supabase Auth JWT (legacy)
   if (!SUPA_URL || !KEY) return null;

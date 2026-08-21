@@ -52,6 +52,7 @@ const routes = [
   [["POST"],  "/api/tg-admin-auth",           "./api/tg-admin-auth.js"],
   [["POST"],  "/api/admin/invoice-pdf",       "./api/admin/invoice-pdf.js"],
   [["POST"],  "/api/admin/day-report",        "./api/admin/day-report.js"],
+  [["POST"],  "/api/admin/guest-link",        "./api/admin/guest-link.js"],
   [["POST","OPTIONS"], "/api/admin-change-password","./api/admin-change-password.js"],
   // кабинет
   [["GET"],   "/api/client/me",               "./api/client/me.js"],
@@ -177,8 +178,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260821d");
-    const { sget } = await import("./api/lib/supa.js?v=20260821d");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260821e");
+    const { sget } = await import("./api/lib/supa.js?v=20260821e");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +

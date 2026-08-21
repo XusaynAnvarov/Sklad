@@ -71,8 +71,14 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const user = await getUser(req);
+  // Гостя пускаем — но дальше только на чтение (см. проверку метода ниже).
+  // Гостевая ссылка нужна, чтобы человек посмотрел склад и поискал ошибки;
+  // менять что-либо он не должен даже случайно.
+  const user = await getUser(req, { allowGuest: true });
   if (!user) return res.status(401).json({ error: "Не авторизован" });
+  if (user.role === "guest" && req.method !== "GET" && req.method !== "OPTIONS") {
+    return res.status(403).json({ error: "Гостевой доступ — только просмотр" });
+  }
 
   if (!SB_URL || !SB_KEY) return res.status(500).json({ error: "SUPABASE_URL / SUPABASE_SERVICE_KEY не заданы" });
 

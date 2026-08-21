@@ -4,14 +4,21 @@
 //  тот же токен склада, что и вход по паролю. Дальше работает обычный
 //  js/db.js, поэтому база ОДНА: движение с телефона сразу видно на сайте.
 // ========================================================================
-import { db } from "../db.js?v=20260821d";
-import { setRates } from "../fx.js?v=20260821d";
-import { icon } from "../icons.js?v=20260821d";
-import { toast } from "../ui.js?v=20260821d";
-import { isDesktop } from "./qr.js?v=20260821d";
+import { db } from "../db.js?v=20260821e";
+import { setRates } from "../fx.js?v=20260821e";
+import { icon } from "../icons.js?v=20260821e";
+import { toast } from "../ui.js?v=20260821e";
+import { isDesktop } from "./qr.js?v=20260821e";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const TOKEN_KEY = "sklad_admin_token";
+const GUEST_KEY = "sklad_guest";
+
+// Открыт ли склад по гостевой ссылке «посмотреть и поискать ошибки».
+// Гость видит всё, но ничего не меняет: сервер отклоняет любую запись.
+export const isGuest = () => {
+  try { return localStorage.getItem(GUEST_KEY) === "1"; } catch { return false; }
+};
 
 export const el = (tag, props = {}, children = []) => {
   const parts = String(tag).split(".");
@@ -44,8 +51,25 @@ function deny(title, sub) {
 
 // ---------- вход ----------
 async function signIn() {
+  // Гостевая ссылка: открывается в обычном браузере, без Telegram.
+  // Токен в адресе — забираем его и сразу убираем из строки адреса, чтобы
+  // не остался в истории и не уехал случайным скриншотом.
+  const гость = new URLSearchParams(location.search).get("guest");
+  if (гость) {
+    try {
+      localStorage.setItem(TOKEN_KEY, гость);
+      localStorage.setItem(GUEST_KEY, "1");
+      const u = new URL(location.href);
+      u.searchParams.delete("guest");
+      history.replaceState(null, "", u.toString());
+    } catch { }
+    return true;
+  }
+
   const initData = TG && TG.initData;
   if (!initData) {
+    // Уже заходили по гостевой ссылке — продолжаем как гость
+    if (isGuest()) return true;
     deny("Откройте склад через Telegram",
       "Эта страница работает только внутри Telegram — по кнопке «Склад» в боте. Так подтверждается, что открыли именно вы.");
     return false;
@@ -64,6 +88,8 @@ async function signIn() {
     }
     localStorage.setItem(TOKEN_KEY, j.token);
     localStorage.setItem("sklad_authed", "1");
+    // вошли как владелец — гостевую пометку снимаем
+    try { localStorage.removeItem(GUEST_KEY); } catch { }
     return true;
   } catch (e) {
     deny("Нет связи с сервером", "Проверьте интернет и откройте склад заново.");
@@ -79,19 +105,19 @@ export const VERSION = ((import.meta.url.split("?v=")[1] || "").split("&")[0]) |
 
 // ---------- экраны ----------
 const SCREENS = {
-  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20260821d") },
-  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20260821d") },
-  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20260821d") },
-  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20260821d") },
-  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20260821d") },
-  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20260821d") },
-  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260821d") },
-  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260821d") },
-  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20260821d") },
-  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20260821d") },
-  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20260821d") },
-  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20260821d") },
-  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20260821d") },
+  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20260821e") },
+  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20260821e") },
+  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20260821e") },
+  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20260821e") },
+  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20260821e") },
+  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20260821e") },
+  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260821e") },
+  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260821e") },
+  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20260821e") },
+  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20260821e") },
+  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20260821e") },
+  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20260821e") },
+  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20260821e") },
 };
 // Внизу помещается пять кнопок — то, за чем заходят каждый день.
 // Всё остальное живёт в «Ещё»: больше пяти в ряд на телефоне превращаются
@@ -122,6 +148,20 @@ function shell() {
       el("span", { text: t.label }),
     ]));
   });
+  // Гостю сразу и постоянно видно, что он смотрит чужой склад и менять
+  // ничего не может — иначе он будет жать кнопки и получать отказы,
+  // не понимая почему.
+  if (isGuest()) {
+    root().append(head, el("div", {
+      style: {
+        margin: "0 14px 10px", padding: "9px 12px", borderRadius: "10px",
+        background: "var(--bg2)", border: "1px solid var(--border)",
+        color: "var(--muted)", fontSize: "12.5px", textAlign: "center",
+      },
+      text: "Режим проверки: только просмотр. Изменения не сохранятся.",
+    }), body, bar);
+    return { head, body, bar };
+  }
   root().append(head, body, bar);
   return { head, body, bar };
 }
