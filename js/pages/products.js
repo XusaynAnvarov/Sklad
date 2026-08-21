@@ -1,15 +1,15 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260821e";
-import { icon } from "../icons.js?v=20260821e";
-import { fmt, convert } from "../fx.js?v=20260821e";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260821e";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260821e";
-import { openEditor } from "./sales.js?v=20260821e";
-import { thumbAttrs } from "../img.js?v=20260821e";
-import { LOW_STOCK } from "../advice.js?v=20260821e";
-import { qrSvg, skuPayload } from "../qr.js?v=20260821e";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260821f";
+import { icon } from "../icons.js?v=20260821f";
+import { fmt, convert } from "../fx.js?v=20260821f";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260821f";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260821f";
+import { openEditor } from "./sales.js?v=20260821f";
+import { thumbAttrs, thumb } from "../img.js?v=20260821f";
+import { LOW_STOCK } from "../advice.js?v=20260821f";
+import { qrSvg, skuPayload } from "../qr.js?v=20260821f";
 
 // себестоимость в той валюте, в которой её ввели (cost_cur). По умолчанию — юань.
 function costShow(cy, cu, ccur) {
@@ -255,7 +255,7 @@ export function openForm(ctx, p, cats = []) {
     if (!photos.length) { thumbsBox.append(el("div.muted", { text: "Фото нет — добавьте ниже", style: { fontSize: "13px" } })); return; }
     photos.forEach((url, idx) => {
       const wrap = el("div", { style: { position: "relative", width: "74px", height: "74px" } });
-      const img = el("img.thumb", { src: url, style: { width: "74px", height: "74px", objectFit: "cover", borderRadius: "8px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => lightbox(url), onerror: function () { this.src = placeholder(fName.value); } });
+      const img = el("img.thumb", { src: thumb(url, 160), loading: "lazy", decoding: "async", style: { width: "74px", height: "74px", objectFit: "cover", borderRadius: "8px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => lightbox(url), onerror: function () { this.src = placeholder(fName.value); } });
       const rm = el("button.btn.btn-danger.btn-sm", { title: "Удалить фото", style: { position: "absolute", top: "-7px", right: "-7px", padding: "0", width: "22px", height: "22px", minWidth: "22px", borderRadius: "50%", lineHeight: "1" }, onclick: (e) => { e.preventDefault(); photos.splice(idx, 1); renderThumbs(); } }, ["×"]);
       wrap.append(img, rm);
       if (idx === 0) wrap.append(el("span", { text: "главное", style: { position: "absolute", bottom: "2px", left: "2px", background: "rgba(0,0,0,.6)", color: "#fff", fontSize: "8px", padding: "1px 4px", borderRadius: "4px" } }));

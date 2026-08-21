@@ -1,6 +1,8 @@
 // ========================================================================
 //  UI-ХЕЛПЕРЫ: создание элементов, тосты, модалки, диалоги, анимации
 // ========================================================================
+// img.js ничего не импортирует, поэтому круга зависимостей не возникает.
+import { full } from "./img.js?v=20260821f";
 
 // Краткое создание элемента: el("div.card", {onclick}, [children])
 export function el(tag, props = {}, children = []) {
@@ -92,10 +94,19 @@ export function input(props = {}) { return el("input.inp", props); }
 // Просмотр фото в полном размере (зум по клику)
 // принимает один src ИЛИ массив фото (тогда — галерея со стрелками/свайпом)
 export function lightbox(src) {
-  const photos = Array.isArray(src) ? src.filter(Boolean) : (src ? [src] : []);
-  if (!photos.length) return;
+  const исходные = Array.isArray(src) ? src.filter(Boolean) : (src ? [src] : []);
+  if (!исходные.length) return;
+  // Полный снимок тоже идём брать через свой сервер: иначе открытие фото
+  // било бы прямо в Supabase, а именно этот трафик и вывел за квоту.
+  // Перехватываем здесь, в одном месте — вызовов по проекту два десятка.
+  const photos = исходные.map(u => full(u));
   let idx = 0;
-  const img = el("img", { src: photos[0], style: { maxWidth: "92vw", maxHeight: "84vh", borderRadius: "12px", boxShadow: "0 20px 60px rgba(0,0,0,.6)", objectFit: "contain" } });
+  const img = el("img", { src: photos[0], onerror: function () {
+    // не открылось через свой сервер — показываем оригинал
+    const i = photos.indexOf(this.src.replace(location.origin, ""));
+    const запас = исходные[i >= 0 ? i : 0];
+    if (запас && this.src !== запас) this.src = запас;
+  }, style: { maxWidth: "92vw", maxHeight: "84vh", borderRadius: "12px", boxShadow: "0 20px 60px rgba(0,0,0,.6)", objectFit: "contain" } });
   img.addEventListener("click", (e) => e.stopPropagation());
   const ov = el("div.modal-overlay.lb", { onclick: () => close() }, [img]);
   ov.style.cursor = "zoom-out";
