@@ -1,29 +1,30 @@
 // ========================================================================
 //  ТОЧКА ВХОДА АДМИНКИ: авторизация → каркас → роутер
 // ========================================================================
-import { el, $, reveal, showLoader, hideLoader } from "./ui.js?v=20260821j";
-import { icon } from "./icons.js?v=20260821j";
-import { db, rawClient } from "./db.js?v=20260821j";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20260821j";
-import { setRates } from "./fx.js?v=20260821j";
+import { el, $, reveal, showLoader, hideLoader, toast } from "./ui.js?v=20260821k";
+import { обновитьЕслиУстарело } from "./version.js?v=20260821k";
+import { icon } from "./icons.js?v=20260821k";
+import { db, rawClient } from "./db.js?v=20260821k";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20260821k";
+import { setRates } from "./fx.js?v=20260821k";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20260821j";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260821j";
+import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20260821k";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260821k";
 
-import dashboard from "./pages/dashboard.js?v=20260821j";
-import products from "./pages/products.js?v=20260821j";
-import sales from "./pages/sales.js?v=20260821j";
-import purchases from "./pages/purchases.js?v=20260821j";
-import customers from "./pages/customers.js?v=20260821j";
-import orders from "./pages/orders.js?v=20260821j";
-import reports from "./pages/reports.js?v=20260821j";
-import catalogPage from "./pages/catalog_admin.js?v=20260821j";
-import settings from "./pages/settings.js?v=20260821j";
-import siteClients from "./pages/site_clients.js?v=20260821j";
-import trash from "./pages/trash.js?v=20260821j";
-import videosAdmin from "./pages/videos_admin.js?v=20260821j";
-import supplierOrder from "./pages/supplier_order.js?v=20260821j";
-import stockCheck from "./pages/stock_check.js?v=20260821j";
+import dashboard from "./pages/dashboard.js?v=20260821k";
+import products from "./pages/products.js?v=20260821k";
+import sales from "./pages/sales.js?v=20260821k";
+import purchases from "./pages/purchases.js?v=20260821k";
+import customers from "./pages/customers.js?v=20260821k";
+import orders from "./pages/orders.js?v=20260821k";
+import reports from "./pages/reports.js?v=20260821k";
+import catalogPage from "./pages/catalog_admin.js?v=20260821k";
+import settings from "./pages/settings.js?v=20260821k";
+import siteClients from "./pages/site_clients.js?v=20260821k";
+import trash from "./pages/trash.js?v=20260821k";
+import videosAdmin from "./pages/videos_admin.js?v=20260821k";
+import supplierOrder from "./pages/supplier_order.js?v=20260821k";
+import stockCheck from "./pages/stock_check.js?v=20260821k";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -46,6 +47,13 @@ const root = document.getElementById("root");
 let ctx;
 
 async function boot() {
+  // Открыто вчерашнее? Страницы кэширует сам браузер, поэтому проверяем
+  // версию у сервера и один раз перезагружаемся. Иначе человек смотрит на
+  // старый экран и не понимает, почему правки «не пришли».
+  if (await обновитьЕслиУстарело({
+    onStale: (своя, сервер) => toast(`Открыта старая версия (${своя}), на сервере ${сервер}. Нажмите Ctrl+Shift+R.`, "err"),
+  })) return;
+
   initTheme();
   initCursorGlow();
   initStarfield();
@@ -195,7 +203,7 @@ setTimeout(() => { if (!document.querySelector(".app")) showBootError(new Error(
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=137", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=138", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

@@ -42,12 +42,19 @@ function jsFiles(dir, acc = []) {
 let sw = readFileSync(join(ROOT, "sw.js"), "utf8");
 const swNum = Number((sw.match(/sklad-v(\d+)/) || [])[1] || 0) + 1;
 sw = sw.replace(/sklad-v\d+/g, "sklad-v" + swNum);
-writeFileSync(join(ROOT, "sw.js"), sw);
 
 // 2) версия для html и импортов
 const idx = readFileSync(join(ROOT, "index.html"), "utf8");
 const curVer = (idx.match(/\?v=(\d{8}[a-z]\d*)/) || [])[1] || "";
 const VER = nextVersion(curVer);
+
+// Ту же версию пишем в sw.js отдельной строкой. По ней приложение узнаёт,
+// что открытое в браузере устарело: страницу браузер кэширует по своему
+// усмотрению (заголовка от nginx нет), а sw.js можно запросить в обход кэша.
+if (sw.includes("const BUILD =")) sw = sw.replace(/const BUILD = "[^"]*";/, `const BUILD = "${VER}";`);
+else sw = sw.replace(/(const CACHE = "[^"]*";)/, `$1
+const BUILD = "${VER}";   // версия кода: по ней ловим устаревшую страницу`);
+writeFileSync(join(ROOT, "sw.js"), sw);
 
 for (const f of HTML) {
   const p = join(ROOT, f);

@@ -1,18 +1,18 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260821j";
-import { fmt, CUR, convert } from "../fx.js?v=20260821j";
-import { placeholder } from "./products.js?v=20260821j";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260821j";
-import { icon } from "../icons.js?v=20260821j";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260821j";
-import { notifyOwner } from "../telegram.js?v=20260821j";
-import { authHeaders } from "../db.js?v=20260821j";
-import { thumb } from "../img.js?v=20260821j";
-import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260821j";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260821k";
+import { fmt, CUR, convert } from "../fx.js?v=20260821k";
+import { placeholder } from "./products.js?v=20260821k";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260821k";
+import { icon } from "../icons.js?v=20260821k";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260821k";
+import { notifyOwner } from "../telegram.js?v=20260821k";
+import { authHeaders } from "../db.js?v=20260821k";
+import { thumb } from "../img.js?v=20260821k";
+import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260821k";
 // Оприходование общее со складом в телефоне — иначе остатки разойдутся.
-import { applyArrival } from "../arrival.js?v=20260821j";
+import { applyArrival } from "../arrival.js?v=20260821k";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {

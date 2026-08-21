@@ -1,11 +1,11 @@
 // ========================================================================
 //  «КАТАЛОГ» в админке — предпросмотр, ссылка, отправка клиенту через бота
 // ========================================================================
-import { el, toast, field, input } from "../ui.js?v=20260821j";
-import { sendToClient } from "../telegram.js?v=20260821j";
-import { statusOf, placeholder } from "./products.js?v=20260821j";
-import { icon } from "../icons.js?v=20260821j";
-import { thumb } from "../img.js?v=20260821j";
+import { el, toast, field, input } from "../ui.js?v=20260821k";
+import { sendToClient } from "../telegram.js?v=20260821k";
+import { statusOf, placeholder } from "./products.js?v=20260821k";
+import { icon } from "../icons.js?v=20260821k";
+import { thumb } from "../img.js?v=20260821k";
 
 const cfg = window.APP_CONFIG || {};
 

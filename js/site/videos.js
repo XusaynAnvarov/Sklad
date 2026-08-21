@@ -3,9 +3,9 @@
 //  Воспроизведение по временной (signed) ссылке; деттеренты против
 //  скачивания/ПКМ/PiP. 100% запрет скриншота/записи в вебе невозможен.
 // ========================================================================
-import { api, isLoggedIn } from "./api.js?v=20260821j";
-import { openLogin } from "./auth.js?v=20260821j";
-import { t } from "./app.js?v=20260821j";
+import { api, isLoggedIn } from "./api.js?v=20260821k";
+import { openLogin } from "./auth.js?v=20260821k";
+import { t } from "./app.js?v=20260821k";
 
 export async function renderVideos(container) {
   container.innerHTML = "";
