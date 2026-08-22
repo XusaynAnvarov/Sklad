@@ -3,9 +3,9 @@
 //  со склада, показывает предпросмотр (было → станет) и списывает выбранные.
 //  Повторное списание невозможно: после проведения позиции помечаются applied.
 // ========================================================================
-import { el, toast, modal, confirmDialog, showLoader, hideLoader, input } from "../ui.js?v=20260822a";
-import { icon } from "../icons.js?v=20260822a";
-import { consumeFIFO, ensureBatches, sumQty, costAfter } from "../inventory.js?v=20260822a";
+import { el, toast, modal, confirmDialog, showLoader, hideLoader, input } from "../ui.js?v=20260822b";
+import { icon } from "../icons.js?v=20260822b";
+import { consumeFIFO, ensureBatches, sumQty, costAfter } from "../inventory.js?v=20260822b";
 
 // накладная считается непроведённой, если хотя бы одна позиция без метки applied
 export function isUnapplied(s) {

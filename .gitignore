@@ -13,3 +13,4 @@ _import/_*.cjs
 # Видео-инструкции (генерируются скриптом _guide/build-guide.mjs)
 _guide/*.gif
 _guide/*.png
+.cache/

@@ -25,14 +25,21 @@
 import { createHash } from "crypto";
 import { mkdirSync, existsSync, readFileSync, writeFileSync, statSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { fileURLToPath } from "url";
 
 const SB_URL = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 const БАКЕТ = "product-photos";                  // единственное, что отдаём
 const РАЗМЕРЫ = [64, 84, 96, 160, 300, 480, 640, 900, 1200];
 const ГОД = 60 * 60 * 24 * 365;
 
-const ПАПКА = join(tmpdir(), "gm-imgcache");
+// Кэш держим РЯДОМ С ПРИЛОЖЕНИЕМ, а не в /tmp: систему когда-нибудь
+// перезагрузят, /tmp очистится, и все накопленные снимки придётся качать и
+// уменьшать заново — а уменьшение у Supabase платное и считается отдельно.
+// Выкладка кэш не трогает: git reset --hard не удаляет посторонние папки.
+const КОРЕНЬ = fileURLToPath(new URL("../../", import.meta.url));
+const ПАПКА = process.env.CACHE_DIR
+  ? join(process.env.CACHE_DIR, "img")
+  : join(КОРЕНЬ, ".cache", "img");
 try { mkdirSync(ПАПКА, { recursive: true }); } catch { }
 
 const ТИПЫ = {

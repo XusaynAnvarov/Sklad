@@ -1,20 +1,20 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260822a";
-import { icon } from "../../icons.js?v=20260822a";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260822a";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260822a";
-import { fmt, convert } from "../../fx.js?v=20260822a";
-import { thumb } from "../../img.js?v=20260822a";
-import { LOW_STOCK } from "../../advice.js?v=20260822a";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260822a";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260822a";
-import { setStock } from "../stock.js?v=20260822a";
+import { el, go } from "../app.js?v=20260822b";
+import { icon } from "../../icons.js?v=20260822b";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260822b";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260822b";
+import { fmt, convert } from "../../fx.js?v=20260822b";
+import { thumb } from "../../img.js?v=20260822b";
+import { LOW_STOCK } from "../../advice.js?v=20260822b";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260822b";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260822b";
+import { setStock } from "../stock.js?v=20260822b";
 // Себестоимость показываем в той валюте, в которой её ввели. Расчёт общий
 // со складом на сайте: иначе один товар выглядит как «$33.87» на компьютере
 // и «241,94 ¥» в телефоне — цифра верная, а доверия к ней никакого.
-import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20260822a";
+import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20260822b";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);

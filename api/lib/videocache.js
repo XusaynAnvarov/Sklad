@@ -21,7 +21,7 @@ import { createHash } from "crypto";
 import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from "fs";
 import { Readable } from "stream";
 import { join } from "path";
-import { tmpdir } from "os";
+import { fileURLToPath } from "url";
 
 const SUPA_URL = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 const SERVICE = process.env.SUPABASE_SERVICE_KEY;
@@ -29,7 +29,14 @@ const BUCKET = "product-videos";
 const ГОД = 60 * 60 * 24 * 365;
 const ЛИМИТ_ПАПКИ = 3 * 1024 * 1024 * 1024;      // 3 ГБ под кэш видео
 
-export const ПАПКА = join(tmpdir(), "gm-videocache");
+// Кэш держим РЯДОМ С ПРИЛОЖЕНИЕМ, а не в /tmp: систему когда-нибудь
+// перезагрузят, /tmp очистится, и все накопленные снимки придётся качать и
+// уменьшать заново — а уменьшение у Supabase платное и считается отдельно.
+// Выкладка кэш не трогает: git reset --hard не удаляет посторонние папки.
+const КОРЕНЬ = fileURLToPath(new URL("../../", import.meta.url));
+export const ПАПКА = process.env.CACHE_DIR
+  ? join(process.env.CACHE_DIR, "video")
+  : join(КОРЕНЬ, ".cache", "video");
 try { mkdirSync(ПАПКА, { recursive: true }); } catch { }
 
 export const имяФайла = (path) => createHash("sha1").update(String(path)).digest("hex") + ".vid";

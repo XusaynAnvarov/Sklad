@@ -3,15 +3,15 @@
 //  себестоимость) и выгрузить в PDF (с реальными фото) или Excel (с фото),
 //  чтобы отправить поставщику. Можно сохранить как «приход (в дороге)».
 // ========================================================================
-import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260822a";
-import { fmt, CUR, convert } from "../fx.js?v=20260822a";
-import { placeholder } from "./products.js?v=20260822a";
-import { icon } from "../icons.js?v=20260822a";
-import { authHeaders } from "../db.js?v=20260822a";
-import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20260822a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260822a";
-import { showNotFound } from "./purchases.js?v=20260822a";
-import { thumb } from "../img.js?v=20260822a";
+import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260822b";
+import { fmt, CUR, convert } from "../fx.js?v=20260822b";
+import { placeholder } from "./products.js?v=20260822b";
+import { icon } from "../icons.js?v=20260822b";
+import { authHeaders } from "../db.js?v=20260822b";
+import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20260822b";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260822b";
+import { showNotFound } from "./purchases.js?v=20260822b";
+import { thumb } from "../img.js?v=20260822b";
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 
