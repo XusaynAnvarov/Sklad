@@ -28,6 +28,38 @@ function roundRect(pg, x, y, w, h, r, opts = {}) {
   pg.drawSvgPath(path, { x, y: y + h, ...opts });
 }
 
+// ------------------------------------------------------------------
+//  Ширина колонок накладной — по ФАКТИЧЕСКОМУ тексту, а не на глаз.
+//  Ширины на глаз и подвели: «3 600 000 сум» не влезало в отведённое
+//  место, и колонка «Цена» налезала на «Сумму». Здесь каждая денежная
+//  колонка получает ровно столько, сколько занимает её самое длинное
+//  значение, плюс поля; остаток отдаётся названию товара.
+//  Вынесено отдельно, чтобы это можно было проверить тестом.
+// ------------------------------------------------------------------
+export function колонкиНакладной({ позиции, reg, bold, M, R, PAD }) {
+  const ш = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
+  const макс = (тексты, size, f, минимум) => Math.max(минимум, ...тексты.map(t => ш(t, size, f)));
+
+  const шN = макс([...позиции.map(p => p.n), "№"], 9.5, reg, 12) + PAD * 2;
+  const шКво = макс([...позиции.map(p => p.кво), "КОЛ-ВО"], 9.5, bold, 30) + PAD * 2;
+  const шЦена = макс([...позиции.map(p => p.цена), "ЦЕНА"], 9.5, bold, 40) + PAD * 2;
+  const шСумма = макс([...позиции.map(p => p.сумма), "СУММА"], 9.5, bold, 50) + PAD * 2;
+  // Названию — всё, что осталось. Если товаров с длинными ценами много,
+  // места под название становится меньше, и оно обрезается многоточием.
+  const шИмя = (R - M) - шN - шКво - шЦена - шСумма;
+
+  const xИмя = M + шN + PAD;
+  return {
+    n: M + PAD,
+    имя: xИмя,
+    имяПредел: xИмя + шИмя - PAD * 2,
+    квоR: M + шN + шИмя + шКво - PAD,
+    ценаR: M + шN + шИмя + шКво + шЦена - PAD,
+    суммаR: R - PAD,
+    ширины: { шN, шИмя, шКво, шЦена, шСумма },
+  };
+}
+
 export async function buildInvoicePDF({ sale, customer, products, company = "GENERAL MODERN", status, debt }) {
   const pmap = Object.fromEntries((products || []).map(p => [p.id, p]));
   const doc = await PDFDocument.create();
@@ -35,125 +67,152 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
   const reg = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Regular.ttf")));
   const bold = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Bold.ttf")));
 
-  const page = doc.addPage([595, 842]);
-  const W = 595;
-  const M = 44;
-  const T = (s, x, y, size, font = reg, color = DARK) => page.drawText(String(s == null ? "" : s), { x, y, size, font, color });
+  const W = 595, H = 842, M = 45, R = W - M;
+  // НИЗ — граница, ниже которой содержимое не опускается. Строки подписи
+  // стоят на 96, поэтому запас обязателен: иначе последняя строка таблицы
+  // или итог упрутся прямо в «Отпустил / Получил».
+  const PAD = 7, ROW = 19, HEAD = 22, НИЗ = 132;
 
-  // ---- шапка (плашка со скруглёнными нижними углами) ----
-  const bannerH = 96, bannerR = 16;
-  const bannerPath = `M 0 0 H ${W} V ${bannerH - bannerR} Q ${W} ${bannerH} ${W - bannerR} ${bannerH} H ${bannerR} Q 0 ${bannerH} 0 ${bannerH - bannerR} V 0 Z`;
-  page.drawSvgPath(bannerPath, { x: 0, y: 842, color: DARK });
-  roundRect(page, 16, 842 - 96 + 18, 6, 60, 3, { color: ACCENT });
-  T(company, M, 842 - 50, 24, bold, rgb(1, 1, 1));
-  T("Накладная / Hisob-faktura", M, 842 - 74, 12, reg, rgb(0.75, 0.75, 0.85));
+  let pg = doc.addPage([W, H]);
+  const ш = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
+  const T = (s, x, y, size, f = reg, c = DARK) => pg.drawText(String(s == null ? "" : s), { x, y, size, font: f, color: c });
+  const TR = (s, xr, y, size, f = reg, c = DARK) => T(s, xr - ш(s, size, f), y, size, f, c);
+  const линия = (x1, y, x2, толщ = 0.6, цвет = LINE) =>
+    pg.drawLine({ start: { x: x1, y }, end: { x: x2, y }, thickness: толщ, color: цвет });
 
-  const shortNo = String(sale.id || "").replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase();
-  const dateStr = new Date(sale.date).toLocaleDateString("ru-RU");
-  T("№ " + shortNo, W - M - 120, 842 - 50, 13, bold, rgb(1, 1, 1));
-  T("от " + dateStr, W - M - 120, 842 - 70, 12, reg, rgb(0.75, 0.75, 0.85));
-
-  // ---- клиент / статус ----
-  let y = 842 - 130;
-  T("Клиент:", M, y, 11, reg, GREY);
-  T(customer?.name || "—", M + 60, y, 13, bold);
-  // статус: реальный по оплатам (передан в status) либо по флагам накладной (резерв)
-  const st = status || ((sale.items || []).length > 0 && sale.items.every(i => i.paid) ? "paid" : "debt");
-  const stTxt = st === "paid" ? "ОПЛАЧЕНО" : st === "partial" ? "ЧАСТИЧНО" : "В ДОЛГ";
-  const stColor = st === "paid" ? rgb(0.06, 0.72, 0.51) : st === "partial" ? rgb(0.96, 0.62, 0.04) : rgb(0.94, 0.35, 0.14);
-  const bw = 120, stW = bold.widthOfTextAtSize(stTxt, 12);
-  roundRect(page, W - M - bw, y - 6, bw, 24, 12, { color: stColor });
-  T(stTxt, W - M - bw / 2 - stW / 2, y + 1, 12, bold, rgb(1, 1, 1));
-  if (customer?.contact) { y -= 18; T("Контакт: " + customer.contact, M, y, 11, reg, GREY); }
-  if (Number(sale.boxes) > 0) { y -= 18; T("Отправлено коробок: ", M, y, 11, reg, GREY); T(String(sale.boxes), M + 130, y, 12, bold, ACCENT); }
-
-  // ---- таблица с рамками (с разбивкой на страницы) ----
-  const HEADBG = rgb(0.93, 0.93, 0.97), ZEBRA = rgb(0.975, 0.975, 0.99), WHITE = rgb(1, 1, 1);
-  const tableX = M, tableR = W - M;
-  // границы колонок: l | name | qty | price | sum | r  (5 колонок, без пустых)
-  const cx = { l: tableX, name: tableX + 30, qty: tableX + 245, price: tableX + 305, sum: tableX + 383, r: tableR };
-  const padR = 8, rowH = 22, headH = 26, BOTTOM = 80;
-  const tw = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
-
-  let pg = page;
-  const PT = (s, x, yy, size, f = reg, c = DARK) => pg.drawText(String(s == null ? "" : s), { x, y: yy, size, font: f, color: c });
-  const PRT = (s, xr, yy, size, f, c = DARK) => pg.drawText(String(s == null ? "" : s), { x: xr - tw(s, size, f), y: yy, size, font: f, color: c });
-  const hline = (yy) => pg.drawLine({ start: { x: tableX, y: yy }, end: { x: tableR, y: yy }, thickness: 0.8, color: LINE });
-  const verticals = (top, bot) => [cx.l, cx.name, cx.qty, cx.price, cx.sum, cx.r].forEach(x => pg.drawLine({ start: { x, y: top }, end: { x, y: bot }, thickness: 0.8, color: LINE }));
-  function colHeader(bandTop) {
-    const hw = tableR - tableX, hr = 8;
-    pg.drawSvgPath(`M ${hr} 0 H ${hw - hr} Q ${hw} 0 ${hw} ${hr} V ${headH} H 0 V ${hr} Q 0 0 ${hr} 0 Z`, { x: tableX, y: bandTop, color: HEADBG });
-    const hb = bandTop - 17;
-    PT("#", cx.l + 8, hb, 10, bold, GREY); PT("Товар", cx.name + 8, hb, 10, bold, GREY);
-    PRT("Кол-во", cx.price - padR, hb, 10, bold, GREY); PRT("Цена", cx.sum - padR, hb, 10, bold, GREY); PRT("Сумма", cx.r - padR, hb, 10, bold, GREY);
-    hline(bandTop); hline(bandTop - headH);
-  }
-
-  let bandTop = y - 30, segTop = bandTop, cy = bandTop - headH;
-  const totals = {};
-  colHeader(bandTop);
-  (sale.items || []).forEach((it, i) => {
-    if (cy - rowH < BOTTOM) {            // нет места — закрываем сегмент, новая страница
-      verticals(segTop, cy);
-      pg = doc.addPage([595, 842]); bandTop = 842 - 50; segTop = bandTop; colHeader(bandTop); cy = bandTop - headH;
-    }
+  // ------------------------------------------------------------------
+  //  Ширина колонок — по фактическому тексту, а не на глаз.
+  //  Иначе «3 600 000 сум» не влезает в отведённое место и наезжает на
+  //  соседнюю колонку: именно так и было.
+  // ------------------------------------------------------------------
+  const позиции = (sale.items || []).map((it, i) => {
     const p = pmap[it.product_id] || { name: "?" };
     const cur = it.currency || sale.currency;
-    const sum = it.qty * it.unit_price;
-    totals[cur] = (totals[cur] || 0) + sum;
-    if (i % 2 === 1) pg.drawRectangle({ x: tableX, y: cy - rowH, width: tableR - tableX, height: rowH, color: ZEBRA });
-    const base = cy - 15;
-    PT(i + 1, cx.l + 8, base, 10, reg);
-    let nm = p.name || "?"; if (nm.length > 42) nm = nm.slice(0, 41) + "…"; // название целиком, вместе с артикулом
-    PT(nm, cx.name + 8, base, 10, reg);
-    PRT(it.qty, cx.price - padR, base, 10, reg);
-    PRT(money(it.unit_price, cur), cx.sum - padR, base, 10, reg);
-    PRT(money(sum, cur), cx.r - padR, base, 10, bold);
-    cy -= rowH; hline(cy);
+    const сумма = (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
+    return { n: String(i + 1), имя: p.name || "?", кво: String(it.qty ?? ""), цена: money(it.unit_price, cur), сумма: money(сумма, cur), cur, число: сумма };
   });
-  verticals(segTop, cy);
+  const кол = колонкиНакладной({ позиции, reg, bold, M, R, PAD });
 
-  // ---- итог по валютам (в рамке) ----
-  const totalStr = ["som", "usd", "yuan"].filter(c => Math.abs(totals[c] || 0) >= (c === "som" ? 1 : 0.01)).map(c => money(totals[c], c)).join("  +  ") || money(0, sale.currency);
-  const boxH = 34, gap = 18;
-  let boxY = cy - gap - boxH;            // нижняя грань блока
-  if (boxY < BOTTOM) { pg = doc.addPage([595, 842]); boxY = 842 - 80 - boxH; }
-  const boxX = totalStr.length > 22 ? cx.name : cx.qty;
-  roundRect(pg, boxX, boxY, cx.r - boxX, boxH, 10, { color: DARK });
-  PT("ИТОГО:", boxX + 14, boxY + 11, 13, bold, WHITE);
-  PRT(totalStr, cx.r - padR, boxY + 11, 13, bold, ACCENT);
+  // Название обрезаем по ширине, а не по числу букв: буквы разной ширины.
+  const вместить = (s, предел, size) => {
+    let t = String(s || "");
+    if (ш(t, size, reg) <= предел) return t;
+    while (t.length > 1 && ш(t + "…", size, reg) > предел) t = t.slice(0, -1);
+    return t + "…";
+  };
 
-  // ---- расчёты с клиентом: прошлый долг + эта накладная = общий долг (по валютам) ----
+  // ---------------- шапка ----------------
+  function шапкаДокумента(y) {
+    T(company, M, y, 15, bold);
+    TR("№ " + String(sale.id || "").replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase(), R, y, 12, bold);
+    y -= 14;
+    T("Накладная / Hisob-faktura", M, y, 8.5, reg, GREY);
+    TR("от " + new Date(sale.date).toLocaleDateString("ru-RU"), R, y, 9, reg, GREY);
+    y -= 12;
+    линия(M, y, R, 1.2, DARK);
+    return y;
+  }
+
+  // ---------------- шапка таблицы ----------------
+  function шапкаТаблицы(y) {
+    const b = y - 15;
+    T("№", кол.n, b, 8.5, bold, GREY);
+    T("НАИМЕНОВАНИЕ", кол.имя, b, 8.5, bold, GREY);
+    TR("КОЛ-ВО", кол.квоR, b, 8.5, bold, GREY);
+    TR("ЦЕНА", кол.ценаR, b, 8.5, bold, GREY);
+    TR("СУММА", кол.суммаR, b, 8.5, bold, GREY);
+    y -= HEAD;
+    линия(M, y, R, 0.9, LINE);
+    return y;
+  }
+
+  let y = шапкаДокумента(H - 55);
+
+  // ---------------- покупатель ----------------
+  y -= 26;
+  T("Покупатель:", M, y, 9, reg, GREY);
+  T(customer?.name || "—", M + 66, y, 11, bold);
+  const st = status || ((sale.items || []).length > 0 && sale.items.every(i => i.paid) ? "paid" : "debt");
+  const stTxt = st === "paid" ? "ОПЛАЧЕНО" : st === "partial" ? "ОПЛАЧЕНО ЧАСТИЧНО" : "В ДОЛГ";
+  TR("Статус оплаты: " + stTxt, R, y, 9.5, bold);
+
+  if (customer?.contact || Number(sale.boxes) > 0) {
+    y -= 15;
+    if (customer?.contact) { T("Телефон:", M, y, 9, reg, GREY); T(customer.contact, M + 66, y, 9.5); }
+    if (Number(sale.boxes) > 0) TR("Мест (коробок): " + sale.boxes, R, y, 9.5, reg, GREY);
+  }
+
+  // ---------------- таблица ----------------
+  y -= 24;
+  y = шапкаТаблицы(y);
+  const итоги = {};
+
+  for (const поз of позиции) {
+    if (y - ROW < НИЗ) {
+      pg = doc.addPage([W, H]);
+      y = шапкаТаблицы(H - 55);
+    }
+    итоги[поз.cur] = (итоги[поз.cur] || 0) + поз.число;
+    const b = y - 13;
+    T(поз.n, кол.n, b, 9, reg, GREY);
+    T(вместить(поз.имя, кол.имяПредел - кол.имя, 9.5), кол.имя, b, 9.5);
+    TR(поз.кво, кол.квоR, b, 9.5);
+    TR(поз.цена, кол.ценаR, b, 9.5);
+    TR(поз.сумма, кол.суммаR, b, 9.5, bold);
+    y -= ROW;
+    линия(M, y, R, 0.4, rgb(0.90, 0.90, 0.91));
+  }
+
+  // ---------------- итог ----------------
+  const строкаИтога = ["som", "usd", "yuan"]
+    .filter(c => Math.abs(итоги[c] || 0) >= (c === "som" ? 1 : 0.01))
+    .map(c => money(итоги[c], c)).join("  +  ") || money(0, sale.currency);
+
+  const местоПодИтог = 34;
+  if (y - местоПодИтог < НИЗ) { pg = doc.addPage([W, H]); y = H - 70; }
+  y -= 22;
+  TR("ИТОГО К ОПЛАТЕ", кол.суммаR - ш(строкаИтога, 14, bold) - 18, y, 10, bold, GREY);
+  TR(строкаИтога, кол.суммаR, y, 14, bold);
+  y -= 8;
+  линия(Math.max(M, кол.суммаR - ш(строкаИтога, 14, bold) - 170), y, R, 1.2, DARK);
+
+  // ---------------- расчёты с клиентом ----------------
   if (debt) {
     const CURS = ["som", "usd", "yuan"];
-    const RED = rgb(0.85, 0.25, 0.12), GREEN = rgb(0.06, 0.5, 0.3);
-    const sig = (v, c) => Math.abs(Number(v) || 0) >= (c === "som" ? 1 : 0.01);
-    const shown = CURS.filter(c => sig(debt.invoiceTotal[c], c) || sig(debt.balanceBefore[c], c) || sig(debt.balanceAfter[c], c));
-    if (shown.length) {
-      const lineH = 16;
-      const need = 30 + shown.length * 74;
-      let dy = boxY - 26;
-      if (dy - need < BOTTOM) { pg = doc.addPage([595, 842]); dy = 842 - 70; }
-      PT("Расчёты с клиентом", cx.l, dy, 11, bold, GREY); dy -= 20;
-      for (const c of shown) {
-        const before = debt.balanceBefore[c], inv = debt.invoiceTotal[c], after = debt.balanceAfter[c];
-        if (before > 0 && sig(before, c)) { PT("Прошлый долг:", cx.name, dy, 10, reg, GREY); PRT("+ " + money(before, c), cx.r - padR, dy, 10, reg, DARK); dy -= lineH; }
-        else if (before < 0 && sig(before, c)) { PT("Скидка (аванс):", cx.name, dy, 10, reg, GREY); PRT("− " + money(-before, c), cx.r - padR, dy, 10, reg, GREEN); dy -= lineH; }
-        if (sig(inv, c)) { PT("Эта накладная:", cx.name, dy, 10, reg, GREY); PRT(money(inv, c), cx.r - padR, dy, 10, reg, DARK); dy -= lineH; }
-        // разделитель — с отступом от текста сверху и снизу (иначе линия наезжала на «Общий долг»)
-        pg.drawLine({ start: { x: cx.name, y: dy + 7 }, end: { x: cx.r, y: dy + 7 }, thickness: 0.6, color: LINE });
+    const есть = (v, c) => Math.abs(Number(v) || 0) >= (c === "som" ? 1 : 0.01);
+    const показать = CURS.filter(c => есть(debt.invoiceTotal[c], c) || есть(debt.balanceBefore[c], c) || есть(debt.balanceAfter[c], c));
+    if (показать.length) {
+      const нужно = 26 + показать.length * 72;
+      let dy = y - 28;
+      if (dy - нужно < НИЗ) { pg = doc.addPage([W, H]); dy = H - 70; }
+      T("Расчёты с клиентом", M, dy, 10, bold, GREY);
+      dy -= 20;
+      for (const c of показать) {
+        const было = debt.balanceBefore[c], счёт = debt.invoiceTotal[c], стало = debt.balanceAfter[c];
+        if (было > 0 && есть(было, c)) { T("Прошлый долг", M, dy, 9.5, reg, GREY); TR("+ " + money(было, c), R, dy, 9.5); dy -= 15; }
+        else if (было < 0 && есть(было, c)) { T("Аванс клиента", M, dy, 9.5, reg, GREY); TR("− " + money(-было, c), R, dy, 9.5); dy -= 15; }
+        if (есть(счёт, c)) { T("Эта накладная", M, dy, 9.5, reg, GREY); TR(money(счёт, c), R, dy, 9.5); dy -= 15; }
+        линия(M, dy + 7, R, 0.6, LINE);
         dy -= 9;
-        if (after >= 0) { PT("Общий долг клиента:", cx.name, dy, 11, bold, DARK); PRT(money(after, c), cx.r - padR, dy, 11, bold, sig(after, c) ? RED : GREEN); }
-        else { PT("Аванс клиенту (мы должны):", cx.name, dy, 11, bold, DARK); PRT(money(-after, c), cx.r - padR, dy, 11, bold, GREEN); }
-        dy -= lineH + 12;
+        if (стало >= 0) { T("Общий долг клиента", M, dy, 10, bold); TR(money(стало, c), R, dy, 10, bold); }
+        else { T("Аванс клиенту (мы должны)", M, dy, 10, bold); TR(money(-стало, c), R, dy, 10, bold); }
+        dy -= 27;
       }
+      y = dy;
     }
   }
 
-  // ---- подвал ----
-  pg.drawLine({ start: { x: M, y: 64 }, end: { x: W - M, y: 64 }, thickness: 0.6, color: LINE });
-  pg.drawText("Спасибо за покупку! " + company, { x: M, y: 48, size: 10, font: reg, color: GREY });
-  pg.drawText(new Date().toLocaleString("ru-RU"), { x: W - M - 130, y: 48, size: 9, font: reg, color: rgb(0.6, 0.6, 0.68) });
+  // ---------------- подписи и подвал ----------------
+  // Подписи всегда внизу листа: документ подписывают от руки, и место под
+  // это должно быть на своём месте, а не ехать за списком товаров.
+  линия(M, 96, M + 170, 0.6, LINE);
+  линия(R - 170, 96, R, 0.6, LINE);
+  T("Отпустил", M, 84, 8.5, reg, GREY);
+  TR("Получил", R, 84, 8.5, reg, GREY);
+
+  линия(M, 60, R, 0.6, LINE);
+  T(company, M, 44, 9, reg, GREY);
+  TR(new Date().toLocaleString("ru-RU"), R, 44, 8.5, reg, rgb(0.62, 0.62, 0.64));
 
   return await doc.save(); // Uint8Array
 }
