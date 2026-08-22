@@ -347,98 +347,160 @@ export async function buildReconciliationPDF({ customer, sales, payments, compan
   doc.registerFontkit(fontkit);
   const reg = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Regular.ttf")));
   const bold = await doc.embedFont(readFileSync(join(__dirname, "../fonts/NotoSans-Bold.ttf")));
-  const W = 595, H = 842, M = 44, tableR = W - M;
-  const cDate = M, cOper = M + 70, xShip = 372, xPaid = 462, xBal = tableR;
-  const rowH = 20, headH = 22, BOTTOM = 64;
+
+  const W = 595, H = 842, M = 45, R = W - M;
+  const PAD = 7, ROW = 18, HEAD = 21, НИЗ = 132;
   const CURS = ["som", "usd", "yuan"];
-  const CURNAME = { som: "Расчёты в сумах", usd: "Расчёты в долларах ($)", yuan: "Расчёты в юанях (¥)" };
+  const ИМЯ_ВАЛЮТЫ = { som: "Расчёты в сумах", usd: "Расчёты в долларах", yuan: "Расчёты в юанях" };
 
   let pg, y;
-  const tw = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
+  const ш = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
   const T = (s, x, yy, size, f = reg, c = DARK) => pg.drawText(String(s == null ? "" : s), { x, y: yy, size, font: f, color: c });
-  const TR = (s, xr, yy, size, f = reg, c = DARK) => pg.drawText(String(s == null ? "" : s), { x: xr - tw(s, size, f), y: yy, size, font: f, color: c });
+  const TR = (s, xr, yy, size, f = reg, c = DARK) => T(s, xr - ш(s, size, f), yy, size, f, c);
+  const линия = (x1, yy, x2, толщ = 0.6, цвет = LINE) =>
+    pg.drawLine({ start: { x: x1, y: yy }, end: { x: x2, y: yy }, thickness: толщ, color: цвет });
 
-  function header() {
-    const bannerH = 88, bannerR = 16;
-    pg.drawSvgPath(`M 0 0 H ${W} V ${bannerH - bannerR} Q ${W} ${bannerH} ${W - bannerR} ${bannerH} H ${bannerR} Q 0 ${bannerH} 0 ${bannerH - bannerR} V 0 Z`, { x: 0, y: H, color: DARK });
-    roundRect(pg, 16, H - bannerH + 15, 6, 58, 3, { color: ACCENT });
-    T(company, M, H - 46, 22, bold, rgb(1, 1, 1));
-    T("Акт сверки взаиморасчётов", M, H - 68, 12, reg, rgb(0.75, 0.75, 0.85));
-    TR("от " + new Date().toLocaleDateString("ru-RU"), tableR, H - 46, 12, reg, rgb(0.75, 0.75, 0.85));
-    y = H - 112;
-  }
-  function newPage() { pg = doc.addPage([W, H]); header(); }
-  function colHead() {
-    const hw = tableR - M, hr = 9;
-    pg.drawSvgPath(`M ${hr} 0 H ${hw - hr} Q ${hw} 0 ${hw} ${hr} V ${headH} H 0 V ${hr} Q 0 0 ${hr} 0 Z`, { x: M, y, color: rgb(0.93, 0.93, 0.97) });
-    const hb = y - 15;
-    T("Дата", cDate + 6, hb, 9, bold, GREY);
-    T("Операция", cOper + 6, hb, 9, bold, GREY);
-    TR("Отгружено", xShip - 4, hb, 9, bold, GREY);
-    TR("Оплачено", xPaid - 4, hb, 9, bold, GREY);
-    TR("Остаток", xBal - 4, hb, 9, bold, GREY);
-    y -= headH;
-  }
-
-  newPage();
-  T("Клиент:", M, y, 11, reg, GREY); T(customer?.name || "—", M + 56, y, 13, bold);
-  if (customer?.contact) { y -= 16; T("Контакт: " + customer.contact, M, y, 11, reg, GREY); }
-  y -= 16; T("Период: за всё время", M, y, 11, reg, GREY);
-  y -= 26;
-
-  const opening = customer?.opening_debt || {};
-  const closing = {};
-  let drew = false;
-
+  // ------------------------------------------------------------------
+  //  Собираем движения по всем валютам ЗАРАНЕЕ: ширина денежных колонок
+  //  считается по самому длинному значению, а не задаётся числом на глаз.
+  //  Накладная уже наступала на эти грабли — там «Цена» налезала на «Сумму».
+  // ------------------------------------------------------------------
+  const начальный = customer?.opening_debt || {};
+  const разделы = [];
   for (const cur of CURS) {
-    const events = [];
+    const события = [];
     (sales || []).forEach(s => {
-      let sum = 0;
-      (s.items || []).forEach(it => { const c = it.currency || s.currency; if (c === cur) sum += (Number(it.qty) || 0) * (Number(it.unit_price) || 0); });
-      if (sum > 0.0001) events.push({ date: s.date, type: "ship", amount: sum });
+      let сумма = 0;
+      (s.items || []).forEach(it => {
+        const c = it.currency || s.currency;
+        if (c === cur) сумма += (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
+      });
+      if (сумма > 0.0001) события.push({ date: s.date, type: "ship", amount: сумма });
     });
-    (payments || []).forEach(p => { if ((p.currency || "som") === cur && (Number(p.amount) || 0) > 0.0001) events.push({ date: p.date, type: "pay", amount: Number(p.amount) }); });
-    const open = Number(opening[cur]) || 0;
-    if (!events.length && Math.abs(open) < (cur === "som" ? 1 : 0.01)) continue;
-    events.sort((a, b) => new Date(a.date) - new Date(b.date));
-    drew = true;
+    (payments || []).forEach(p => {
+      if ((p.currency || "som") === cur && (Number(p.amount) || 0) > 0.0001)
+        события.push({ date: p.date, type: "pay", amount: Number(p.amount) });
+    });
+    const открытие = Number(начальный[cur]) || 0;
+    if (!события.length && Math.abs(открытие) < (cur === "som" ? 1 : 0.01)) continue;
+    события.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    if (y - (headH + rowH * 3 + 60) < BOTTOM) newPage();
-    T(CURNAME[cur], M, y - 2, 13, bold, ACCENT); y -= 20;
-    T("Начальный долг (до системы): " + money(open, cur), M, y - 2, 10, reg, GREY); y -= 16;
-    colHead();
+    // прогоняем остаток заранее — заодно узнаём самые длинные строки
+    let остаток = открытие;
+    const строки = события.map(ev => {
+      остаток += ev.type === "ship" ? ev.amount : -ev.amount;
+      return {
+        дата: new Date(ev.date).toLocaleDateString("ru-RU"),
+        операция: ev.type === "ship" ? "Накладная" : "Оплата",
+        отгружено: ev.type === "ship" ? money(ev.amount, cur) : "",
+        оплачено: ev.type === "pay" ? money(ev.amount, cur) : "",
+        остаток: money(остаток, cur),
+      };
+    });
+    разделы.push({ cur, открытие, строки, итог: остаток });
+  }
 
-    let bal = open, ship = 0, paid = 0, i = 0;
-    for (const ev of events) {
-      if (y - rowH < BOTTOM) { newPage(); colHead(); }
-      const base = y - 14;
-      if (i % 2 === 1) pg.drawRectangle({ x: M, y: y - rowH, width: tableR - M, height: rowH, color: rgb(0.975, 0.975, 0.99) });
-      T(new Date(ev.date).toLocaleDateString("ru-RU"), cDate + 6, base, 9, reg);
-      if (ev.type === "ship") { bal += ev.amount; ship += ev.amount; T("Накладная", cOper + 6, base, 9, reg); TR(money(ev.amount, cur), xShip - 4, base, 9, reg, rgb(0.7, 0.2, 0.1)); }
-      else { bal -= ev.amount; paid += ev.amount; T("Оплата", cOper + 6, base, 9, reg); TR(money(ev.amount, cur), xPaid - 4, base, 9, reg, rgb(0.06, 0.5, 0.3)); }
-      TR(money(bal, cur), xBal - 4, base, 9, bold);
-      y -= rowH;
-      pg.drawLine({ start: { x: M, y }, end: { x: tableR, y }, thickness: 0.6, color: LINE });
-      i++;
+  const все = разделы.flatMap(р => р.строки);
+  const макс = (тексты, минимум) => Math.max(минимум, ...тексты.map(t => ш(t, 9, bold)));
+  const шДата = макс([...все.map(с => с.дата), "ДАТА"], 44) + PAD * 2;
+  const шОтгр = макс([...все.map(с => с.отгружено), "ОТГРУЖЕНО"], 50) + PAD * 2;
+  const шОпл = макс([...все.map(с => с.оплачено), "ОПЛАЧЕНО"], 50) + PAD * 2;
+  const шОст = макс([...все.map(с => с.остаток), "ОСТАТОК"], 50) + PAD * 2;
+  const шОпер = (R - M) - шДата - шОтгр - шОпл - шОст;
+
+  const кол = {
+    дата: M + PAD,
+    операция: M + шДата + PAD,
+    отгрR: M + шДата + шОпер + шОтгр - PAD,
+    оплR: M + шДата + шОпер + шОтгр + шОпл - PAD,
+    остR: R - PAD,
+  };
+
+  // ---------------- страницы ----------------
+  function шапка() {
+    T(company, M, H - 55, 15, bold);
+    TR("от " + new Date().toLocaleDateString("ru-RU"), R, H - 55, 9.5, reg, GREY);
+    T("Акт сверки взаиморасчётов", M, H - 69, 8.5, reg, GREY);
+    линия(M, H - 81, R, 1.2, DARK);
+    y = H - 81;
+  }
+  function новаяСтраница() { pg = doc.addPage([W, H]); шапка(); }
+  function шапкаТаблицы() {
+    const b = y - 14;
+    T("ДАТА", кол.дата, b, 8, bold, GREY);
+    T("ОПЕРАЦИЯ", кол.операция, b, 8, bold, GREY);
+    TR("ОТГРУЖЕНО", кол.отгрR, b, 8, bold, GREY);
+    TR("ОПЛАЧЕНО", кол.оплR, b, 8, bold, GREY);
+    TR("ОСТАТОК", кол.остR, b, 8, bold, GREY);
+    y -= HEAD;
+    линия(M, y, R, 0.9, LINE);
+  }
+
+  новаяСтраница();
+
+  y -= 26;
+  T("Клиент:", M, y, 9, reg, GREY);
+  T(customer?.name || "—", M + 52, y, 11, bold);
+  TR("Период: за всё время", R, y, 9, reg, GREY);
+  if (customer?.contact) {
+    y -= 15;
+    T("Телефон:", M, y, 9, reg, GREY);
+    T(customer.contact, M + 52, y, 9.5);
+  }
+  y -= 24;
+
+  // ---------------- разделы по валютам ----------------
+  const итоги = {};
+  for (const р of разделы) {
+    if (y - (HEAD + ROW * 3 + 46) < НИЗ) { новаяСтраница(); y -= 20; }
+    T(ИМЯ_ВАЛЮТЫ[р.cur], M, y - 2, 11, bold);
+    TR("начальный долг: " + money(р.открытие, р.cur), R, y - 2, 9, reg, GREY);
+    y -= 18;
+    шапкаТаблицы();
+
+    for (const с of р.строки) {
+      if (y - ROW < НИЗ) { новаяСтраница(); y -= 20; шапкаТаблицы(); }
+      const b = y - 12.5;
+      T(с.дата, кол.дата, b, 9, reg, GREY);
+      T(с.операция, кол.операция, b, 9);
+      if (с.отгружено) TR(с.отгружено, кол.отгрR, b, 9);
+      if (с.оплачено) TR(с.оплачено, кол.оплR, b, 9);
+      TR(с.остаток, кол.остR, b, 9, bold);
+      y -= ROW;
+      линия(M, y, R, 0.4, rgb(0.90, 0.90, 0.91));
     }
-    closing[cur] = bal;
-    y -= 26;
+    итоги[р.cur] = р.итог;
+    y -= 24;
   }
 
-  if (!drew) {
-    T("Движений по счёту нет.", M, y, 12, reg, GREY);
+  // ---------------- итог ----------------
+  if (!разделы.length) {
+    T("Движений по счёту нет.", M, y, 10, reg, GREY);
   } else {
-    // общий долг по всем валютам — в конце
-    const parts = CURS.filter(c => Math.abs(closing[c] || 0) >= (c === "som" ? 1 : 0.01)).map(c => money(closing[c], c));
-    const debtStr = parts.length ? parts.join("     +     ") : money(0, "som");
-    if (y - 64 < BOTTOM) newPage();
-    const boxH = 50;
-    roundRect(pg, M, y - boxH, tableR - M, boxH, 16, { color: DARK });
-    T("Общий долг клиента", M + 20, y - 19, 11, reg, rgb(0.72, 0.74, 0.88));
-    T(debtStr, M + 20, y - 39, 17, bold, ACCENT);
-    y -= boxH + 12;
+    const части = CURS
+      .filter(c => Math.abs(итоги[c] || 0) >= (c === "som" ? 1 : 0.01))
+      .map(c => money(итоги[c], c));
+    const строкаДолга = части.length ? части.join("  +  ") : money(0, "som");
+
+    if (y - 40 < НИЗ) { новаяСтраница(); y -= 20; }
+    y -= 6;
+    TR("ОБЩИЙ ДОЛГ КЛИЕНТА", кол.остR - ш(строкаДолга, 14, bold) - 18, y, 10, bold, GREY);
+    TR(строкаДолга, кол.остR, y, 14, bold);
+    y -= 8;
+    линия(Math.max(M, кол.остR - ш(строкаДолга, 14, bold) - 190), y, R, 1.2, DARK);
   }
-  pg.drawText("Сформировано: " + new Date().toLocaleString("ru-RU") + " · " + company, { x: M, y: 32, size: 9, font: reg, color: GREY });
+
+  // ---------------- подписи и подвал ----------------
+  // Акт подписывают обе стороны — место под это должно быть всегда внизу
+  // листа, а не ехать следом за последней строкой таблицы.
+  линия(M, 96, M + 190, 0.6, LINE);
+  линия(R - 190, 96, R, 0.6, LINE);
+  T("От поставщика", M, 84, 8.5, reg, GREY);
+  TR("От покупателя", R, 84, 8.5, reg, GREY);
+
+  линия(M, 60, R, 0.6, LINE);
+  T(company, M, 44, 9, reg, GREY);
+  TR(new Date().toLocaleString("ru-RU"), R, 44, 8.5, reg, rgb(0.62, 0.62, 0.64));
 
   return await doc.save();
 }

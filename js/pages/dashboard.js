@@ -1,18 +1,18 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260822b";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260822b";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260822b";
-import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20260822b";
-import { sparkline } from "../charts.js?v=20260822b";
-import { debtByCur, onlyPositive } from "../debt.js?v=20260822b";
-import { icon } from "../icons.js?v=20260822b";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260822b";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260822b";
-import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260822b";
-import { buildAdvice } from "../advice.js?v=20260822b";
-import { thumb } from "../img.js?v=20260822b";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20260822c";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20260822c";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20260822c";
+import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20260822c";
+import { sparkline } from "../charts.js?v=20260822c";
+import { debtByCur, onlyPositive } from "../debt.js?v=20260822c";
+import { icon } from "../icons.js?v=20260822c";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260822c";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20260822c";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20260822c";
+import { buildAdvice } from "../advice.js?v=20260822c";
+import { thumb } from "../img.js?v=20260822c";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
