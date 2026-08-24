@@ -60,6 +60,8 @@ for (const f of HTML) {
   const p = join(ROOT, f);
   let s = readFileSync(p, "utf8");
   s = s.replace(/\?v=\d{8}[a-z]\d*/g, "?v=" + VER);           // script/css с версией
+  // метка версии в самой странице — по ней приложение ловит устаревшее
+  s = s.replace(/(name="gm-build" content=")[^"]*"/, `$1${VER}"`);
   s = s.replace(/(href="css\/[a-z]+\.css)"/g, `$1?v=${VER}"`); // css без версии — добавим
   writeFileSync(p, s);
 }
