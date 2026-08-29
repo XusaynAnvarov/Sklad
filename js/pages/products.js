@@ -1,18 +1,18 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260829b";
-import { icon } from "../icons.js?v=20260829b";
-import { fmt, convert } from "../fx.js?v=20260829b";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260829b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260829b";
-import { openEditor } from "./sales.js?v=20260829b";
-import { thumbAttrs, thumb } from "../img.js?v=20260829b";
-import { LOW_STOCK } from "../advice.js?v=20260829b";
-import { qrSvg, skuPayload } from "../qr.js?v=20260829b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260829c";
+import { icon } from "../icons.js?v=20260829c";
+import { fmt, convert } from "../fx.js?v=20260829c";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260829c";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260829c";
+import { openEditor } from "./sales.js?v=20260829c";
+import { thumbAttrs, thumb } from "../img.js?v=20260829c";
+import { LOW_STOCK } from "../advice.js?v=20260829c";
+import { qrSvg, skuPayload } from "../qr.js?v=20260829c";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20260829b";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20260829c";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
