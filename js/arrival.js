@@ -8,11 +8,35 @@
 //  старую партию. Иначе прибыль по старому товару считалась бы по новой
 //  цене и врала.
 // ========================================================================
-import { ensureBatches, sumQty, costAfter, currentCost } from "./inventory.js?v=20260829a";
-import { convert } from "./fx.js?v=20260829a";
-import { isShop } from "./purchase.js?v=20260829a";
+import { ensureBatches, sumQty, costAfter, currentCost } from "./inventory.js?v=20260829b";
+import { convert } from "./fx.js?v=20260829b";
+import { isShop } from "./purchase.js?v=20260829b";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+// Зачислить пришедшее на склад.
+// Порядок важен: сперва закрываем «долговые» партии (отрицательные — это
+// товар, который продали, когда его уже не было), и лишь остаток кладём
+// новой партией В КОНЕЦ очереди, чтобы старые запасы продавались первыми.
+export function зачислить(batches, qty, cost_yuan, cost_usd, when) {
+  const список = (batches || []).map(b => ({ ...b }));
+  let осталось = Number(qty) || 0;
+
+  for (const b of список) {
+    if (осталось <= 0) break;
+    const q = Number(b.qty) || 0;
+    if (q >= 0) continue;                       // долги идут первыми
+    const покрыть = Math.min(осталось, -q);
+    b.qty = q + покрыть;
+    осталось -= покрыть;
+  }
+
+  const оставить = список.filter(b => Math.abs(Number(b.qty) || 0) > 0.0001);
+  if (осталось > 0.0001) {
+    оставить.push({ qty: осталось, cost_yuan, cost_usd, date: when || new Date().toISOString() });
+  }
+  return оставить;
+}
 
 // Что записать по каждому товару поступления. Ничего не пишет — только считает,
 // поэтому проверяется тестом без базы.
@@ -49,8 +73,12 @@ export function arrivalRows(purchase, products) {
     };
     const cy = shop ? своя.cost_yuan : отПоставщика.cost_yuan;
     const cu = shop ? своя.cost_usd : отПоставщика.cost_usd;
-    // новая партия встаёт В КОНЕЦ: старые продаются первыми
-    const next = [...batches, { qty: Number(it.qty) || 0, cost_yuan: cy, cost_usd: cu, date: when }];
+    // Приход СНАЧАЛА ГАСИТ ДОЛГ, и только остаток становится новой партией.
+    // Раньше долг оставался висеть отдельной строкой рядом с приходом:
+    // общее количество сходилось, но себестоимость система брала с первой
+    // ПОЛОЖИТЕЛЬНОЙ партии, и на складе с долгом −60 и старыми 900 шт по
+    // ¥12,5 она показывала цену мелкой новой партии, а не настоящую.
+    const next = зачислить(batches, Number(it.qty) || 0, cy, cu, when);
     const cc = costAfter(next, { cost_yuan: cy, cost_usd: cu });
 
     const row = { id: p.id, stock_qty: sumQty(next), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: next };
