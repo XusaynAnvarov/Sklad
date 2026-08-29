@@ -6,8 +6,8 @@
 //  каждый по-своему, но список проблем у обоих обязан быть один, иначе
 //  «на компьютере чисто, а в телефоне десять расхождений».
 // ========================================================================
-import { ensureBatches, sumQty, currentCost, costOutlook } from "./inventory.js?v=20260829c";
-import { isIssued } from "./debt.js?v=20260829c";
+import { ensureBatches, sumQty, currentCost, costOutlook } from "./inventory.js?v=20260829d";
+import { isIssued } from "./debt.js?v=20260829d";
 
 // Накладная оформлена, но товар со склада не сняли.
 // Отметку applied ставит тот, кто списывал; её отсутствие значит, что

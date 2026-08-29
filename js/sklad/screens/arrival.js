@@ -2,15 +2,15 @@
 // в складе на сайте. Товар зачисляется СРАЗУ и по НАШЕЙ складской цене:
 // цена магазина нас не касается, иначе себестоимость и прибыль поехали бы.
 // Долг магазину не ведём — так решил владелец.
-import { el, go } from "../app.js?v=20260829c";
-import { icon } from "../../icons.js?v=20260829c";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260829c";
-import { fmt } from "../../fx.js?v=20260829c";
-import { ensureBatches, currentCost } from "../../inventory.js?v=20260829c";
-import { receiveFromShop } from "../stock.js?v=20260829c";
-import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260829c";
-import { photoBlock } from "../photo.js?v=20260829c";
-import { KIND_SHOP } from "../../purchase.js?v=20260829c";
+import { el, go } from "../app.js?v=20260829d";
+import { icon } from "../../icons.js?v=20260829d";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260829d";
+import { fmt } from "../../fx.js?v=20260829d";
+import { ensureBatches, currentCost } from "../../inventory.js?v=20260829d";
+import { receiveFromShop } from "../stock.js?v=20260829d";
+import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260829d";
+import { photoBlock } from "../photo.js?v=20260829d";
+import { KIND_SHOP } from "../../purchase.js?v=20260829d";
 
 const uid = () => "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 

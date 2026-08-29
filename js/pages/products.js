@@ -1,18 +1,18 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260829c";
-import { icon } from "../icons.js?v=20260829c";
-import { fmt, convert } from "../fx.js?v=20260829c";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260829c";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260829c";
-import { openEditor } from "./sales.js?v=20260829c";
-import { thumbAttrs, thumb } from "../img.js?v=20260829c";
-import { LOW_STOCK } from "../advice.js?v=20260829c";
-import { qrSvg, skuPayload } from "../qr.js?v=20260829c";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260829d";
+import { icon } from "../icons.js?v=20260829d";
+import { fmt, convert } from "../fx.js?v=20260829d";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260829d";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260829d";
+import { openEditor } from "./sales.js?v=20260829d";
+import { thumbAttrs, thumb } from "../img.js?v=20260829d";
+import { LOW_STOCK } from "../advice.js?v=20260829d";
+import { qrSvg, skuPayload } from "../qr.js?v=20260829d";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20260829c";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20260829d";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -289,6 +289,9 @@ export function openForm(ctx, p, cats = []) {
     : costCur0 === "som" ? Math.round(convert((Number(p.cost_usd) > 0 ? Number(p.cost_usd) : convert(Number(p.cost_yuan) || 0, "yuan", "usd")), "usd", "som"))
     : p.cost_yuan;
   const fCost = input({ type: "number", step: "0.01", value: costVal0 || "", placeholder: "0" });
+  // Что стояло в поле при открытии. Если владелец это изменил — значит он
+  // ЗНАЕТ, какая цена верная, и переоценить надо весь остаток.
+  const костБыл = Number(costVal0) || 0;
   const fCostCur = select(ВАЛЮТЫ.map(v => ({ value: v.value, label: v.label })), costCur0);
   const fStatus = select([
     { value: "", label: "Авто (по остатку)" },
@@ -315,6 +318,7 @@ export function openForm(ctx, p, cats = []) {
     arrivedHint,
     field("Валюта прихода", fCostCur),
     el("div.hint", { text: "Цены продажи вводятся при продаже. Вторая валюта себестоимости считается по курсу автоматически." }),
+    el("div.hint", { text: "Измените себестоимость — она проставится всему остатку, включая все партии. Пригодится, когда товар переводят из штук в пачки." }),
     (p.cost_prev && Number(p.cost_prev.cost_yuan) > 0 && Math.abs(Number(p.cost_prev.cost_yuan) - Number(p.cost_yuan)) > 0.001)
       ? el("div.hint", { text: "Прошлая себестоимость: " + fmt(p.cost_prev.cost_yuan, "yuan") }) : null,
     batchesView(p),
@@ -366,11 +370,22 @@ export function openForm(ctx, p, cats = []) {
           batches.push({ qty: desired - have, cost_yuan: by, cost_usd: bu, date: new Date().toISOString() });
         }
         else if (desired < have) batches = consumeFIFO(batches, have - desired).batches;
-        // если ввели себестоимость — проставить её партиям без цены (и переоценить единственную партию)
+        // Себестоимость: партии без цены заполняем всегда.
+        //
+        // А если владелец ИЗМЕНИЛ цену в поле — переоцениваем ВЕСЬ остаток.
+        // Раньше введённая цена применялась только когда партия одна, и при
+        // двух партиях молча пропадала: человек вписывал верное значение,
+        // нажимал «Сохранить» и ничего не происходило. Так и случилось,
+        // когда товар перевели из штук в пачки: 4800 шт по ¥0,75 стали
+        // 400 пачек, цену пачки ¥9 вписать было невозможно.
         if (amt > 0) {
-          let touched = false;
-          batches.forEach(b => { if ((Number(b.cost_yuan) || 0) <= 0 && (Number(b.cost_usd) || 0) <= 0) { b.cost_yuan = cost_yuan; b.cost_usd = cost_usd; touched = true; } });
-          if (!touched && batches.length === 1) { batches[0].cost_yuan = cost_yuan; batches[0].cost_usd = cost_usd; }
+          batches.forEach(b => {
+            if ((Number(b.cost_yuan) || 0) <= 0 && (Number(b.cost_usd) || 0) <= 0) {
+              b.cost_yuan = cost_yuan; b.cost_usd = cost_usd;
+            }
+          });
+          const тронул = Math.abs(amt - костБыл) > 0.001;
+          if (тронул) batches.forEach(b => { b.cost_yuan = cost_yuan; b.cost_usd = cost_usd; });
         }
         if (isNew && desired > 0 && !batches.length) batches = [{ qty: desired, cost_yuan, cost_usd, date: new Date().toISOString() }];
         // склад пуст → не теряем себестоимость (сохраняем введённую/прежнюю)
