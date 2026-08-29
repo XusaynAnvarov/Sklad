@@ -5,7 +5,9 @@
 //  Пишем ПАКЕТОМ (upsertMany): на телефоне поштучная запись 20 позиций
 //  занимала бы минуту.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260826a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260829a";
+import { arrivalRows } from "../arrival.js?v=20260829a";
+import { KIND_SHOP } from "../purchase.js?v=20260829a";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
@@ -145,19 +147,19 @@ export async function receiveFromShop(db, items) {
   const missing = ids.filter(id => !fresh[id]);
   if (missing.length) throw new Error("Товар не найден на складе (" + missing.length + " поз.)");
 
-  const rows = [];
-  for (const it of items) {
-    const p = fresh[it.product_id];
-    const qty = Number(it.qty) || 0;
-    if (!p || qty <= 0) continue;
-    const batches = ensureBatches(p);
-    const own = currentCost(batches);
-    const cy = own.cost_yuan || Number(p.cost_yuan) || 0;
-    const cu = own.cost_usd || Number(p.cost_usd) || 0;
-    const next = returnToStock(batches, qty, cy, cu);
-    const cc = costAfter(next, p);
-    rows.push({ id: p.id, stock_qty: sumQty(next), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: next });
-  }
+  // Считаем общим кодом (js/arrival.js) — тем же, каким приходует склад на
+  // сайте. Раньше здесь стоял returnToStock, а он написан для ВОЗВРАТА и
+  // кладёт товар в НАЧАЛО очереди: возвращённое забирали оттуда же.
+  // Для прихода это неверно — новый товар должен встать в КОНЕЦ, иначе он
+  // начинает продаваться раньше старых запасов. На складе с 900 шт по ¥12,5
+  // новая партия по ¥13 вставала первой, и себестоимость показывала ¥13
+  // вместо ¥12,5, хотя дешёвый товар ещё лежал нетронутым.
+  const rows = arrivalRows({
+    kind: KIND_SHOP,
+    currency: "yuan",
+    date: new Date().toISOString(),
+    items: items.filter(i => (Number(i.qty) || 0) > 0),
+  }, Object.values(fresh));
   await writeStock(db, rows);
   // сверяем: остаток должен вырасти ровно на принятое
   const expected = Object.fromEntries(rows.map(r => [r.id, r.stock_qty]));
