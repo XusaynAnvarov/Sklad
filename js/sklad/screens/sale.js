@@ -2,18 +2,18 @@
 // Сканируем наклейку за наклейкой — каждая позиция ложится в общий список.
 // Цена подставляется из прошлой продажи этого товара, остаток показывается
 // живой: отсканировали ту же наклейку после продажи — увидели новый остаток.
-import { el, go } from "../app.js?v=20260829d";
-import { icon } from "../../icons.js?v=20260829d";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260829d";
-import { fmt } from "../../fx.js?v=20260829d";
-import { LOW_STOCK } from "../../advice.js?v=20260829d";
-import { issueInvoice } from "../issue.js?v=20260829d";
-import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260829d";
-import { invoiceHtml, openPrint } from "../print.js?v=20260829d";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260829d";
-import { setStock } from "../stock.js?v=20260829d";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote, repriceItems } from "../../prices.js?v=20260829d";
-import { photoBlock } from "../photo.js?v=20260829d";
+import { el, go } from "../app.js?v=20260830a";
+import { icon } from "../../icons.js?v=20260830a";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260830a";
+import { fmt } from "../../fx.js?v=20260830a";
+import { LOW_STOCK } from "../../advice.js?v=20260830a";
+import { issueInvoice } from "../issue.js?v=20260830a";
+import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260830a";
+import { invoiceHtml, openPrint } from "../print.js?v=20260830a";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260830a";
+import { setStock } from "../stock.js?v=20260830a";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote, repriceItems } from "../../prices.js?v=20260830a";
+import { photoBlock } from "../photo.js?v=20260830a";
 
 const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];
 

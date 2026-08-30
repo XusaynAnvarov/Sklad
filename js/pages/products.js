@@ -1,18 +1,21 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260829d";
-import { icon } from "../icons.js?v=20260829d";
-import { fmt, convert } from "../fx.js?v=20260829d";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260829d";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260829d";
-import { openEditor } from "./sales.js?v=20260829d";
-import { thumbAttrs, thumb } from "../img.js?v=20260829d";
-import { LOW_STOCK } from "../advice.js?v=20260829d";
-import { qrSvg, skuPayload } from "../qr.js?v=20260829d";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260830a";
+import { icon } from "../icons.js?v=20260830a";
+import { fmt, convert } from "../fx.js?v=20260830a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260830a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260830a";
+import { openEditor } from "./sales.js?v=20260830a";
+import { thumbAttrs, thumb } from "../img.js?v=20260830a";
+import { LOW_STOCK } from "../advice.js?v=20260830a";
+import { qrSvg, skuPayload } from "../qr.js?v=20260830a";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20260829d";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20260830a";
+// Единица измерения: товар считают штуками, пачками, коробками. Смена
+// единицы пересчитывает и остаток, и себестоимость, и все партии.
+import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20260830a";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -209,7 +212,7 @@ export default async function render(page, ctx) {
             ]),
             // минус = товара не хватило (продали больше, чем было) — показываем красным
             el("span" + ((Number(p.stock_qty) || 0) < 0 ? "" : ".muted"), {
-              text: "ост: " + (Number(p.stock_qty) || 0),
+              text: "ост: " + подписьКол(Number(p.stock_qty) || 0, p),
               title: (Number(p.stock_qty) || 0) < 0 ? "Продано больше, чем было на складе — долг по товару" : "",
               style: (Number(p.stock_qty) || 0) < 0 ? { color: "var(--danger,#f87171)", fontWeight: "700" } : {},
             }),
@@ -293,6 +296,27 @@ export function openForm(ctx, p, cats = []) {
   // ЗНАЕТ, какая цена верная, и переоценить надо весь остаток.
   const костБыл = Number(costVal0) || 0;
   const fCostCur = select(ВАЛЮТЫ.map(v => ({ value: v.value, label: v.label })), costCur0);
+
+  // ---- единица измерения ----
+  const едБыла = единица(p);
+  const вЕдБыло = вЕдинице(p);
+  const fUnit = select(ЕДИНИЦЫ.map(e => ({ value: e.value, label: e.label })), едБыла);
+  const fPack = input({ type: "number", step: "1", value: вЕдБыло > 1 ? String(вЕдБыло) : "", placeholder: "12" });
+  const packWrap = field("Штук в одной единице", fPack);
+  const unitHint = el("div.hint", {});
+
+  function показатьЕдиницу() {
+    const u = fUnit.value;
+    packWrap.style.display = считаетсяПачками(u) ? "" : "none";
+    const вЕд = u === "шт" ? 1 : (Number(fPack.value) || 1);
+    const пробный = перевести(p, { unit: u, pack_size: вЕд });
+    unitHint.textContent = (пробный.множитель === 1)
+      ? "Товар считается и продаётся в этих единицах."
+      : объяснение(p, пробный).split("\n").join("  ·  ");
+  }
+  fUnit.addEventListener("change", показатьЕдиницу);
+  fPack.addEventListener("input", показатьЕдиницу);
+  показатьЕдиницу();
   const fStatus = select([
     { value: "", label: "Авто (по остатку)" },
     { value: "in_stock", label: "Есть" },
@@ -314,6 +338,9 @@ export function openForm(ctx, p, cats = []) {
     ]),
     el("div.hint", { text: "Первое фото — главное (в списке и каталоге). Клиенты видят все фото." }),
     el("div.section-h", { text: "Остаток и себестоимость" }),
+    el("div.hint", { text: "Остаток, себестоимость и цены считаются в выбранной единице. Смените её — всё пересчитается само." }),
+    el("div.row2", {}, [field("Единица измерения", fUnit), packWrap]),
+    unitHint,
     el("div.row3", {}, [field("Остаток (кол-во)", fStock), field("Пришло на склад (+)", fArrived), field("Себестоимость", fCost)]),
     arrivedHint,
     field("Валюта прихода", fCostCur),
@@ -353,14 +380,35 @@ export function openForm(ctx, p, cats = []) {
       { label: "Отмена", kind: "btn-outline", onClick: (c) => c() },
       { label: "Сохранить", kind: "btn-primary", onClick: async (close) => {
         if (!fName.value.trim()) { toast("Введите название", "err"); return; }
+        // ---- смена единицы измерения ----
+        // Если владелец поменял единицу или размер упаковки, сперва
+        // переводим ВЕСЬ товар: остаток, себестоимость и каждую партию.
+        // Делаем это до остальной работы, чтобы ниже всё считалось уже в
+        // новых единицах. Товара и денег на складе при этом столько же.
+        const едСтала = fUnit.value;
+        const вЕдСтало = едСтала === "шт" ? 1 : Math.max(1, Number(fPack.value) || 1);
+        const переводНужен = едСтала !== едБыла || вЕдСтало !== вЕдБыло;
+        let товар = p;
+        if (переводНужен && !isNew) {
+          const н = перевести(p, { unit: едСтала, pack_size: вЕдСтало });
+          товар = { ...p, stock_qty: н.stock_qty, cost_yuan: н.cost_yuan, cost_usd: н.cost_usd, batches: н.batches };
+        }
+
         const amt = +fCost.value || 0, cur = fCostCur.value;
         const { cost_yuan, cost_usd } = костПоля(amt, cur);
         // «Пришло на склад» прибавляем к текущему остатку (в т.ч. гасим минус),
         // иначе берём то, что вписано в поле «Остаток».
         const arrived = Math.max(0, +fArrived.value || 0);
-        const desired = arrived > 0 ? (Number(fStock.value) || 0) + arrived : (+fStock.value || 0);
+        // В поле «Остаток» лежит число в СТАРЫХ единицах — владелец его не
+        // трогал. Если единицу сменили, переводим и его, иначе склад
+        // мгновенно раздуется: 4800 пачек вместо 400.
+        const вПоле = +fStock.value || 0;
+        const остатокПоля = (переводНужен && !isNew && Math.abs(вПоле - (Number(p.stock_qty) || 0)) < 0.001)
+          ? (Number(товар.stock_qty) || 0)
+          : вПоле;
+        const desired = arrived > 0 ? остатокПоля + arrived : остатокПоля;
         // --- партии (FIFO): подгоняем под введённый остаток ---
-        let batches = isNew ? [] : ensureBatches(p);
+        let batches = isNew ? [] : ensureBatches(товар);
         const have = sumQty(batches);
         if (desired > have) {
           // если себестоимость не ввели (0) — берём текущую цену товара, чтобы не создавать партию ¥0
@@ -384,7 +432,11 @@ export function openForm(ctx, p, cats = []) {
               b.cost_yuan = cost_yuan; b.cost_usd = cost_usd;
             }
           });
-          const тронул = Math.abs(amt - костБыл) > 0.001;
+          // После перевода единиц цена в карточке уже другая — сравнивать
+          // надо с ПЕРЕВЕДЁННОЙ, иначе сам перевод выглядел бы как ручная
+          // правка цены и затёр бы разные цены партий одной величиной.
+          const ожидалось = переводНужен && !isNew ? (Number(товар.cost_yuan) || 0) : костБыл;
+          const тронул = Math.abs(amt - ожидалось) > 0.001;
           if (тронул) batches.forEach(b => { b.cost_yuan = cost_yuan; b.cost_usd = cost_usd; });
         }
         if (isNew && desired > 0 && !batches.length) batches = [{ qty: desired, cost_yuan, cost_usd, date: new Date().toISOString() }];
@@ -402,12 +454,14 @@ export function openForm(ctx, p, cats = []) {
           stock_qty: batches.length ? sumQty(batches) : desired,
           cost_usd: cc.cost_usd, cost_yuan: cc.cost_yuan,
           cost_cur: cur, // валюта, в которой ввели себестоимость — в ней и показываем
+          unit: едСтала,
+          pack_size: вЕдСтало,
           status_override: fStatus.value || null,
         };
         // продажные цены (price_*) форма не редактирует — НЕ перезаписываем их (иначе обнуляются).
         // Для нового товара зададим явные нули, у существующего PATCH сохранит прежние.
         if (isNew) { obj.price_yuan = 0; obj.price_usd = 0; obj.price_som = 0; }
-        const noPhotos = (o) => { const { photos: _ph, cost_cur: _cc, sku: _sk, ...rest } = o; return rest; }; // фолбэк, если колонок photos/cost_cur/sku ещё нет
+        const noPhotos = (o) => { const { photos: _ph, cost_cur: _cc, sku: _sk, unit: _u, pack_size: _ps, ...rest } = o; return rest; }; // фолбэк, если колонок photos/cost_cur/sku/unit ещё нет
         try { await ctx.db.products.upsert({ ...obj, batches, ...(cost_prev ? { cost_prev } : {}) }); }
         catch (e) {
           try { await ctx.db.products.upsert({ ...obj, batches }); }
