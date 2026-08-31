@@ -2,15 +2,16 @@
 // клиент прислал список, надо проставить цены и выдать накладную.
 // С телефона делаем главное — открыть, поправить цены и оформить.
 // Отправку клиенту оставили сайту: с телефона накладные никуда не уходят.
-import { el } from "../app.js?v=20260830a";
-import { icon } from "../../icons.js?v=20260830a";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260830a";
-import { fmt } from "../../fx.js?v=20260830a";
-import { issueInvoice, totalsByCur } from "../issue.js?v=20260830a";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260830a";
+import { el } from "../app.js?v=20260831a";
+import { icon } from "../../icons.js?v=20260831a";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260831a";
+import { fmt } from "../../fx.js?v=20260831a";
+import { issueInvoice, totalsByCur } from "../issue.js?v=20260831a";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260831a";
 
 const ЖДУТ = ["order", "pending_confirm", "confirmed"];
-const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];
+// Сум первым — им торгуют каждый день, юань вторым, доллар последним.
+const CURS = [{ value: "som", label: "сум" }, { value: "yuan", label: "¥" }, { value: "usd", label: "$" }];
 const когда = (d) => { const t = new Date(d); return isFinite(t) ? t.toLocaleString("ru-RU") : "—"; };
 
 export default async function render(box, ctx) {

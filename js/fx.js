@@ -6,10 +6,13 @@
 //    rate_som_usd  — сколько $ в одном суме
 // ========================================================================
 
+// Порядок важен: по нему строятся выпадающие списки валют в накладных
+// (js/pages/sales.js). Сум первым — им торгуют каждый день, юань вторым —
+// им закупаются, доллар последним: он нужен реже всех.
 export const CUR = {
+  som:  { code: "som",  sign: "сум", label: "Сум" },
   yuan: { code: "yuan", sign: "¥", label: "Юань" },
   usd:  { code: "usd",  sign: "$", label: "Доллар" },
-  som:  { code: "som",  sign: "сум", label: "Сум" },
 };
 
 let rates = { yuan_usd: 0.14, som_usd: 0.000079 };
@@ -56,7 +59,7 @@ export function sumByCur(items) {
 // строка сумм по валютам: "500 000 сум + $40"
 export function curStr(o) {
   const a = [];
-  ["som", "usd", "yuan"].forEach(c => { if (Math.abs(o[c] || 0) >= (c === "som" ? 1 : 0.01)) a.push(fmt(o[c], c)); });
+  ["som", "yuan", "usd"].forEach(c => { if (Math.abs(o[c] || 0) >= (c === "som" ? 1 : 0.01)) a.push(fmt(o[c], c)); });
   return a.length ? a.join(" + ") : "0";
 }
 

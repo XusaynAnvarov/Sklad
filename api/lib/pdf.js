@@ -164,7 +164,7 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
   }
 
   // ---------------- итог ----------------
-  const строкаИтога = ["som", "usd", "yuan"]
+  const строкаИтога = ["som", "yuan", "usd"]
     .filter(c => Math.abs(итоги[c] || 0) >= (c === "som" ? 1 : 0.01))
     .map(c => money(итоги[c], c)).join("  +  ") || money(0, sale.currency);
 
@@ -178,7 +178,7 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
 
   // ---------------- расчёты с клиентом ----------------
   if (debt) {
-    const CURS = ["som", "usd", "yuan"];
+    const CURS = ["som", "yuan", "usd"];
     const есть = (v, c) => Math.abs(Number(v) || 0) >= (c === "som" ? 1 : 0.01);
     const показать = CURS.filter(c => есть(debt.invoiceTotal[c], c) || есть(debt.balanceBefore[c], c) || есть(debt.balanceAfter[c], c));
     if (показать.length) {
@@ -350,7 +350,7 @@ export async function buildReconciliationPDF({ customer, sales, payments, compan
 
   const W = 595, H = 842, M = 45, R = W - M;
   const PAD = 7, ROW = 18, HEAD = 21, НИЗ = 132;
-  const CURS = ["som", "usd", "yuan"];
+  const CURS = ["som", "yuan", "usd"];
   const ИМЯ_ВАЛЮТЫ = { som: "Расчёты в сумах", usd: "Расчёты в долларах", yuan: "Расчёты в юанях" };
 
   let pg, y;

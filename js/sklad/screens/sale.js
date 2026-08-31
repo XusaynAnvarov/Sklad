@@ -2,20 +2,21 @@
 // Сканируем наклейку за наклейкой — каждая позиция ложится в общий список.
 // Цена подставляется из прошлой продажи этого товара, остаток показывается
 // живой: отсканировали ту же наклейку после продажи — увидели новый остаток.
-import { el, go } from "../app.js?v=20260830a";
-import { icon } from "../../icons.js?v=20260830a";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260830a";
-import { fmt } from "../../fx.js?v=20260830a";
-import { LOW_STOCK } from "../../advice.js?v=20260830a";
-import { issueInvoice } from "../issue.js?v=20260830a";
-import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260830a";
-import { invoiceHtml, openPrint } from "../print.js?v=20260830a";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260830a";
-import { setStock } from "../stock.js?v=20260830a";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote, repriceItems } from "../../prices.js?v=20260830a";
-import { photoBlock } from "../photo.js?v=20260830a";
+import { el, go } from "../app.js?v=20260831a";
+import { icon } from "../../icons.js?v=20260831a";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260831a";
+import { fmt } from "../../fx.js?v=20260831a";
+import { LOW_STOCK } from "../../advice.js?v=20260831a";
+import { issueInvoice } from "../issue.js?v=20260831a";
+import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260831a";
+import { invoiceHtml, openPrint } from "../print.js?v=20260831a";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260831a";
+import { setStock } from "../stock.js?v=20260831a";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote, repriceItems } from "../../prices.js?v=20260831a";
+import { photoBlock } from "../photo.js?v=20260831a";
 
-const CURS = [{ value: "som", label: "сум" }, { value: "usd", label: "$" }, { value: "yuan", label: "¥" }];
+// Сум первым — им торгуют каждый день, юань вторым, доллар последним.
+const CURS = [{ value: "som", label: "сум" }, { value: "yuan", label: "¥" }, { value: "usd", label: "$" }];
 
 export default async function render(box, ctx) {
   const [products, customers, sales] = await Promise.all([
