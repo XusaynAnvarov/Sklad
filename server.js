@@ -63,6 +63,8 @@ const routes = [
   [["GET"],   "/api/client/invoice-pdf",      "./api/client/invoice-pdf.js"],
   // заказ
   [["POST"],  "/api/site-order",              "./api/site-order.js"],
+  // мини-приложение заказа: свои заказы, правка, отмена, ответ на цену
+  [["POST"],  "/api/my-orders",               "./api/my-orders.js"],
   // рассылка клиентам о новинках (при оприходовании прихода)
   [["POST"],  "/api/notify-new-products",     "./api/notify-new-products.js"],
   [["POST","OPTIONS"], "/api/send-guide",     "./api/send-guide.js"],
@@ -156,7 +158,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20260831a");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20260831b");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -210,8 +212,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260831a");
-    const { sget } = await import("./api/lib/supa.js?v=20260831a");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260831b");
+    const { sget } = await import("./api/lib/supa.js?v=20260831b");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +

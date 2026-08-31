@@ -2,12 +2,18 @@
 //  Service Worker — оффлайн-оболочка + быстрый старт (stale-while-revalidate).
 //  Данные (Supabase/api) НЕ кэшируем — всегда из сети.
 // ========================================================================
-const CACHE = "sklad-v150";
-const BUILD = "20260831a";   // версия кода: по ней ловим устаревшую страницу
+const CACHE = "sklad-v151";
+const BUILD = "20260831b";   // версия кода: по ней ловим устаревшую страницу
 const SHELL = ["./", "./index.html", "./admin.html", "./catalog.html", "./sklad.html", "./css/theme.css", "./css/site.css", "./config.js", "./icon.svg", "./manifest.webmanifest"];
 // код (html/css/js) грузим «сеть в приоритете», чтобы изменения были видны сразу;
 // картинки/иконки/шрифты — из кэша (быстро + офлайн).
-const isCode = (p) => p.endsWith(".html") || p.endsWith(".css") || p.endsWith(".js") || p.endsWith("/");
+//
+// Адрес без расширения — тоже страница: nginx отдаёт /order, /sklad, /admin
+// и /catalog из одноимённых html. Раньше такие адреса попадали в ветку
+// «сначала кэш», и приложение навсегда застревало на первой открытой сборке:
+// страница несёт версии всех модулей, и старая страница тянет старый код.
+const isPage = (p) => !p.split("/").pop().includes(".");
+const isCode = (p) => p.endsWith(".html") || p.endsWith(".css") || p.endsWith(".js") || p.endsWith("/") || isPage(p);
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL).catch(() => {})));

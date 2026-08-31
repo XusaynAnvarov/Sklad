@@ -5,7 +5,7 @@
   <!-- Версия кода. Читается из САМОЙ страницы: служебный работник (sw.js)
        подменяет адреса файлов, и версию из адреса модуля брать нельзя —
        оттуда приходит имя кэша, а не версия сборки. -->
-  <meta name="gm-build" content="20260831a" />
+  <meta name="gm-build" content="20260831b" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Каталог товаров</title>
   <link rel="manifest" href="manifest.webmanifest" />
@@ -19,12 +19,11 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   <script>try{if(!localStorage.getItem("sklad_theme_v2")){localStorage.setItem("sklad_theme","dark");localStorage.setItem("sklad_theme_v2","1");}}catch(e){}document.documentElement.setAttribute("data-theme", localStorage.getItem("sklad_theme") || "dark");</script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="css/theme.css?v=20260831a" />
+  <link rel="stylesheet" href="css/theme.css?v=20260831b" />
   <style>
     .cat-topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 16px 0;flex-wrap:wrap;max-width:1200px;margin:0 auto;}
     .cat-topbar .lang-switch{margin:0;width:auto;}
     .cat-topbar .theme-toggle{margin:0;width:auto;padding:8px 14px;}
-    .order-mode .cat-topbar{display:none;}
     .cat-header{text-align:center;padding:14px 20px 8px;}
     .cat-header .badge-top{display:inline-block;padding:6px 14px;border-radius:30px;font-size:12px;margin-bottom:10px;
       background:rgba(245,197,66,.16);border:1px solid rgba(245,197,66,.5);color:var(--accent3);}
@@ -51,69 +50,7 @@
       padding:2px 9px;border-radius:20px;}
     .cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
     .cat-select{min-width:170px;max-width:240px;cursor:pointer;}
-    /* подсказка-баннер «оформите заказ» (только в режиме заказа) */
-    .order-hint{display:none;max-width:1200px;margin:6px auto 0;padding:12px 16px;border-radius:12px;
-      background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);
-      color:var(--text);font-size:14px;line-height:1.4;}
-    .order-mode .order-hint{display:block;}
-    /* карточка в режиме заказа: только кнопка «Добавить» + маленький бейдж кол-ва */
-    .prod .add-row{margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-    .prod .qty-inp{width:62px;flex-shrink:0;padding:9px 8px;border-radius:10px;border:1px solid var(--border);
-      background:var(--panel);color:var(--text);font-size:14px;font-weight:700;text-align:center;-moz-appearance:textfield;}
-    .prod .qty-inp::-webkit-outer-spin-button,.prod .qty-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
-    .prod .qty-inp:focus{outline:none;border-color:var(--accent);}
-    .prod .add-btn{flex:1;min-width:110px;border:none;border-radius:10px;padding:10px 8px;font-size:13px;font-weight:700;cursor:pointer;
-      background:var(--grad);color:#fff;transition:transform .12s,background .15s;white-space:nowrap;}
-    .prod .add-btn:active{transform:scale(.96);}
-    .prod .add-btn.added{background:#059669;}
-    .prod .add-btn.off,.prod .add-btn:disabled{background:#e4e7ec;color:#98a2b3;cursor:not-allowed;font-weight:600;}
-    .prod .in-cart{font-size:12px;font-weight:800;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);
-      border-radius:20px;padding:3px 9px;white-space:nowrap;}
     .cat-footer{text-align:center;padding:24px;color:var(--muted);font-size:13px;border-top:1px solid var(--border);}
-    /* в Telegram-заказе: убрать большой герой и плавающие кнопки — больше места товарам */
-    .order-mode .cat-header,.order-mode .cat-footer{display:none;}
-    .order-mode .theme-toggle.floating,.order-mode .lang-switch.floating{display:none;}
-
-    /* корзина (режим заказа в Telegram) */
-    .order-mode #grid{padding-bottom:110px;}
-    .qrow{display:flex;align-items:center;gap:8px;margin-top:8px;}
-    .qrow .qbtn{width:34px;height:34px;border-radius:12px;border:1px solid var(--border);background:color-mix(in srgb,var(--text) 6%,transparent);
-      color:var(--text);font-size:20px;font-weight:700;cursor:pointer;display:grid;place-items:center;line-height:1;transition:.15s;}
-    .qrow .qbtn:active{transform:scale(.92);}
-    .qrow .qbtn.add{flex:1;width:auto;background:var(--grad);color:#fff;border:none;font-size:14px;font-weight:700;}
-    .qrow .qval{min-width:28px;text-align:center;font-weight:800;font-size:16px;}
-    .cartbar{position:fixed;left:0;right:0;bottom:0;z-index:120;display:none;gap:12px;align-items:center;justify-content:space-between;
-      padding:12px 16px;background:color-mix(in srgb,var(--panel) 96%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--border);}
-    .cartbar.show{display:flex;}
-    .cartbar .ci{font-weight:700;font-size:14px;}
-    .cartbar .ci small{display:block;color:var(--muted);font-weight:500;font-size:12px;}
-    .cartbar .btn{white-space:nowrap;}
-    .qrow .qinp{width:46px;text-align:center;font-weight:800;font-size:15px;padding:6px 4px;border-radius:8px;
-      background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);-moz-appearance:textfield;}
-    .qrow .qinp::-webkit-outer-spin-button,.qrow .qinp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
-
-    /* экран «Ваш заказ» */
-    .ov{position:fixed;inset:0;z-index:200;background:rgba(20,16,8,.45);backdrop-filter:blur(6px);display:none;align-items:flex-end;}
-    .ov.show{display:flex;}
-    .ov-card{width:100%;max-height:88vh;display:flex;flex-direction:column;background:var(--panel);
-      border-top-left-radius:22px;border-top-right-radius:22px;border:1px solid var(--border);box-shadow:var(--shadow);animation:rise .3s ease both;}
-    @media(min-width:560px){ .ov{align-items:center;justify-content:center;} .ov-card{max-width:460px;border-radius:22px;} }
-    .ov-head{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 8px;}
-    .ov-head h3{font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px;}
-    .ov-x{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;}
-    .ov-list{overflow-y:auto;padding:4px 14px;flex:1;}
-    .ov-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
-    .ov-ph{width:46px;height:46px;border-radius:12px;object-fit:cover;background:#f1ebdc;flex-shrink:0;}
-    .ov-nm{flex:1;font-size:14px;font-weight:600;line-height:1.25;min-width:0;}
-    .ov-oos{display:inline-flex;align-items:center;gap:3px;margin-top:3px;font-size:11px;font-weight:700;color:#dc2626;
-      background:rgba(220,38,38,.10);border-radius:6px;padding:2px 7px;width:fit-content;}
-    .ov-row.oos .ov-ph{outline:2px solid rgba(220,38,38,.35);}
-    .ov-row .qrow{margin-top:0;}
-    .ov-row .qbtn.del{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.4);color:#f87171;font-size:15px;}
-    .ov-foot{padding:14px 18px 18px;border-top:1px solid var(--border);}
-    .ov-sum{text-align:center;color:var(--muted);font-size:13px;margin-bottom:10px;}
-    .ov-actions{display:flex;gap:10px;}
-    .ov-actions .btn{flex:1;justify-content:center;}
 
     /* мобильный вид: 2 колонки, липкий поиск, компактная шапка */
     @media(max-width:560px){
@@ -134,7 +71,6 @@
       .prod .badge{font-size:11px;padding:3px 8px;}
     }
     html[data-theme="light"] .cat-controls{background:rgba(255,255,255,.92);}
-    html[data-theme="light"] .cartbar{background:rgba(255,255,255,.96);}
   </style>
 </head>
 <body>
@@ -150,7 +86,6 @@
       <button id="pdfBtn" class="btn btn-primary" style="display:none">📄 Скачать каталог (PDF)</button>
     </div>
   </div>
-  <div id="orderHint" class="order-hint"></div>
   <main id="grid" class="cat-wrap">
     <div class="empty" style="grid-column:1/-1">
       <svg width="108" height="108" viewBox="0 0 512 512" style="margin-bottom:8px" aria-label="GENERAL MODERN">
@@ -182,12 +117,7 @@
   </main>
   <footer class="cat-footer">© 2026 · Каталог товаров</footer>
 
-  <div id="cartbar" class="cartbar">
-    <div class="ci" id="cartinfo">Корзина пуста<small>выберите товары</small></div>
-    <button id="cartsend" class="btn btn-primary">Подтвердить список →</button>
-  </div>
-
   <script src="config.js"></script>
-  <script type="module" src="js/catalog.js?v=20260831a"></script>
+  <script type="module" src="js/catalog.js?v=20260831b"></script>
 </body>
 </html>

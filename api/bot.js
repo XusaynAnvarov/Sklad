@@ -247,7 +247,7 @@ async function sendClientInvoices(chatId, c, L) {
 
 function clientMenu(chatId, c, L) {
   return tg("sendMessage", { chat_id: chatId, text: L.menu(c.name), reply_markup: { inline_keyboard: [
-    [{ text: L.bOrder, web_app: { url: PUBLIC_URL + "/catalog?order=1" } }],
+    [{ text: L.bOrder, web_app: { url: PUBLIC_URL + "/order" } }],
     [{ text: L.bCat, callback_data: "cat" }],
     [{ text: L.bDebt, callback_data: "debt" }],
     [{ text: L.bInv, callback_data: "inv" }],
@@ -335,7 +335,7 @@ const showAdminKb = (chatId) =>
 function adminMenu(chatId) {
   return tg("sendMessage", { chat_id: chatId, text: "🛠 Панель владельца:", reply_markup: { inline_keyboard: [
     [{ text: "📦 Склад (мини-приложение)", web_app: { url: skladUrl() } }],
-    [{ text: "🛒 Заказать (как клиент — для демо)", web_app: { url: PUBLIC_URL + "/catalog?order=1" } }],
+    [{ text: "🛒 Заказать (как клиент — для демо)", web_app: { url: PUBLIC_URL + "/order" } }],
     [{ text: "🌐 Каталог", callback_data: "a_cat" }],
     [{ text: "👥 Клиенты", callback_data: "a_clients" }],
     [{ text: "💸 Долги", callback_data: "a_debts" }],

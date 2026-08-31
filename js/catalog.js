@@ -1,10 +1,15 @@
 // ========================================================================
 //  ПУБЛИЧНЫЙ КАТАЛОГ — только фото, название, категория и статус (без цен)
+//
+//  Это витрина сайта. Заказ переехал в отдельное приложение (/order):
+//  он открывается из бота и рассчитан только на телефон. Пока заказ жил
+//  здесь же, мобильный вид приходилось выбивать заплатками поверх
+//  десктопных стилей — и в итоге страдало и то, и другое.
 // ========================================================================
-import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20260831a";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260831a";
-import { iconSvg } from "./icons.js?v=20260831a";
-import { thumb } from "./img.js?v=20260831a";
+import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20260831b";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260831b";
+import { iconSvg } from "./icons.js?v=20260831b";
+import { thumb } from "./img.js?v=20260831b";
 
 // увеличение фото по клику (повторный клик — закрыть)
 function openLightbox(src) {
@@ -96,10 +101,7 @@ function isOwner() {
   return !!(k && cfg.SECRET_KEY && k === cfg.SECRET_KEY);
 }
 
-// --- режим заказа (Telegram Mini App) ---
 const TG = window.Telegram && window.Telegram.WebApp;
-const orderMode = !!(TG && TG.initData);   // открыто как Mini App с подписью
-const cart = new Map();                     // id → qty
 const byId = (id) => items.find(p => String(p.id) === String(id));
 
 function statusBadge(status) {
@@ -110,19 +112,6 @@ function statusBadge(status) {
 
 function cardHtml(p, i) {
   const id = escapeHtml(String(p.id));
-  const qty = cart.get(String(p.id)) || 0;
-  // в режиме заказа: товар в наличии — поле «кол-во» + «В корзину»;
-  // нет в наличии — заказать НЕЛЬЗЯ (кнопка неактивна)
-  const inStock = p.status === "in_stock";
-  const addRow = orderMode
-    ? (inStock
-      ? `<div class="add-row">
-        <input class="qty-inp" type="number" inputmode="numeric" min="1" placeholder="Кол-во" data-id="${id}" />
-        <button class="add-btn" data-id="${id}">＋ В корзину</button>
-        <span class="in-cart" data-cart="${id}"${qty > 0 ? "" : ' style="display:none"'}>×${qty}</span>
-      </div>`
-      : `<div class="add-row"><button class="add-btn off" type="button" disabled>Нет в наличии</button></div>`)
-    : "";
   const np = (p.photos && p.photos.length) ? p.photos.length : (p.photo_url ? 1 : 0);
   const mainPhoto = (p.photos && p.photos.length) ? p.photos[0] : p.photo_url;
   return `<div class="prod reveal" data-id="${id}" style="animation-delay:${(i % 12) * 0.03}s">
@@ -137,7 +126,6 @@ function cardHtml(p, i) {
         ${p.sku ? `<div class="cat" style="font-size:11px;opacity:.8">Арт.: ${escapeHtml(p.sku)}</div>` : ""}
         ${p.hit ? `<div style="font-size:12px;font-weight:600;color:#e8810c;margin-top:3px">🔥 Хит недели</div>` : ""}
         <div style="margin-top:auto">${statusBadge(p.status)}</div>
-        ${addRow}
       </div></div>`;
 }
 
@@ -217,14 +205,14 @@ function escapeHtml(s) { return (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;
 function wirePdfButton() {
   const btn = document.getElementById("pdfBtn");
   if (!btn) return;
-  if (orderMode || !isOwner()) { btn.style.display = "none"; return; }  // клиентам — нельзя
+  if (!isOwner()) { btn.style.display = "none"; return; }  // клиентам — нельзя
   btn.style.display = "";  // владельцу — показать
   const label = btn.innerHTML;
   btn.addEventListener("click", async () => {
     if (!items.length) return;
     btn.disabled = true;
     try {
-      const m = await import("./catalog-pdf.js?v=20260831a");
+      const m = await import("./catalog-pdf.js?v=20260831b");
       await m.downloadCatalogPDF(groupByCategory(items), (done, total) => {   // PDF — всегда все товары
         btn.textContent = `Готовим PDF… ${done}/${total}`;
       });
@@ -236,114 +224,9 @@ function wirePdfButton() {
   });
 }
 
-// ---------- корзина (режим заказа) ----------
-function qrowInner(qty) {
-  return qty > 0
-    ? `<button class="qbtn minus">−</button><input class="qinp" type="number" inputmode="numeric" min="0" value="${qty}"><button class="qbtn plus">＋</button>`
-    : `<button class="qbtn add plus">＋ В заказ</button>`;
-}
-function setQty(id, qty) {
-  id = String(id);
-  qty = Math.max(0, Math.min(100000, Math.floor(Number(qty) || 0)));
-  if (qty <= 0) cart.delete(id); else cart.set(id, qty);
-  // обновить маленький бейдж кол-ва на карточке
-  const badge = grid.querySelector(`.in-cart[data-cart="${CSS.escape(id)}"]`);
-  if (badge) { const n = cart.get(id) || 0; badge.textContent = "×" + n; badge.style.display = n > 0 ? "" : "none"; }
-  updateCartBar();
-  if (document.getElementById("orderview")?.classList.contains("show")) renderOrderView();
-}
-function updateCartBar() {
-  const bar = document.getElementById("cartbar");
-  const info = document.getElementById("cartinfo");
-  if (!bar) return;
-  let positions = 0, units = 0;
-  cart.forEach(q => { positions++; units += q; });
-  if (positions > 0) {
-    bar.classList.add("show");
-    info.innerHTML = `Корзина: ${positions} поз.<small>${units} шт.</small>`;
-  } else {
-    info.innerHTML = `Корзина пуста<small>выберите товары</small>`;
-    bar.classList.remove("show");
-  }
-}
-async function sendOrder() {
-  if (!cart.size) return;
-  const btn = document.getElementById("cartsend");
-  const items_ = [...cart.entries()].map(([id, qty]) => ({ id, qty }));
-  btn.disabled = true; btn.textContent = "Отправляем…";
-  try {
-    const r = await fetch("/api/order", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ initData: TG.initData, items: items_ }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.ok) throw new Error(j.error || ("ошибка " + r.status));
-    cart.clear(); updateCartBar();
-    if (TG.showAlert) TG.showAlert("✅ Заказ отправлен! Мы свяжемся с вами.", () => TG.close());
-    else { alert("Заказ отправлен!"); TG.close(); }
-  } catch (e) {
-    btn.disabled = false; btn.textContent = "✅ Подтвердить заказ";
-    if (TG.showAlert) TG.showAlert("Не удалось отправить: " + e.message);
-    else alert("Не удалось отправить: " + e.message);
-  }
-}
-
-// ---------- экран «Ваш заказ» (проверка/правка перед отправкой) ----------
-function ensureOverlay() {
-  let ov = document.getElementById("orderview");
-  if (ov) return ov;
-  ov = document.createElement("div"); ov.id = "orderview"; ov.className = "ov";
-  ov.innerHTML = `<div class="ov-card">
-    <div class="ov-head"><h3>${iconSvg("cart", { size: 19 })} Ваш заказ</h3><button class="ov-x" type="button">${iconSvg("x", { size: 18 })}</button></div>
-    <div class="ov-list"></div>
-    <div class="ov-foot"><div class="ov-sum"></div>
-      <div class="ov-actions">
-        <button class="btn btn-outline ov-back" type="button">← Добавить ещё</button>
-        <button class="btn btn-primary ov-send" type="button">${iconSvg("check", { size: 16 })} Подтвердить заказ</button>
-      </div></div></div>`;
-  document.body.append(ov);
-  ov.querySelector(".ov-x").addEventListener("click", closeOrderView);
-  ov.querySelector(".ov-back").addEventListener("click", closeOrderView);
-  ov.querySelector(".ov-send").addEventListener("click", sendOrder);
-  const list = ov.querySelector(".ov-list");
-  list.addEventListener("click", (e) => {
-    const b = e.target.closest("button"); if (!b) return;
-    const id = b.closest(".ov-row")?.getAttribute("data-id"); if (!id) return;
-    const cur = cart.get(String(id)) || 0;
-    if (b.classList.contains("minus")) setQty(id, cur - 1);
-    else if (b.classList.contains("plus")) setQty(id, cur + 1);
-    else if (b.classList.contains("del")) setQty(id, 0);
-  });
-  list.addEventListener("change", (e) => {
-    const inp = e.target.closest(".qinp"); if (!inp) return;
-    const id = inp.closest(".ov-row")?.getAttribute("data-id"); if (id) setQty(id, inp.value, true);
-  });
-  return ov;
-}
-function openOrderView() { if (!cart.size) return; ensureOverlay(); renderOrderView(); document.getElementById("orderview").classList.add("show"); }
-function closeOrderView() { document.getElementById("orderview")?.classList.remove("show"); }
-function renderOrderView() {
-  const ov = document.getElementById("orderview"); if (!ov) return;
-  const list = ov.querySelector(".ov-list"), sum = ov.querySelector(".ov-sum");
-  if (!cart.size) { closeOrderView(); return; }
-  let positions = 0, units = 0; list.innerHTML = "";
-  cart.forEach((qty, id) => {
-    positions++; units += qty;
-    const p = byId(id) || { name: "?", photo_url: "" };
-    const oos = p.status && p.status !== "in_stock";
-    const row = document.createElement("div"); row.className = "ov-row" + (oos ? " oos" : ""); row.setAttribute("data-id", id);
-    row.innerHTML = `<img class="ov-ph" loading="lazy" decoding="async" src="${escapeHtml(p.photo_url ? thumb(p.photo_url, 160) : placeholder(p.name))}" data-full="${escapeHtml(p.photo_url || "")}" data-ph="${escapeHtml(placeholder(p.name))}" onerror="if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full}else{this.src=this.dataset.ph}"/>
-      <div class="ov-nm">${escapeHtml(p.name)}${oos ? `<span class="ov-oos">${iconSvg("x", { size: 11 })} нет в наличии</span>` : ""}</div>
-      <div class="qrow"><button class="qbtn minus" type="button">−</button><input class="qinp" type="number" inputmode="numeric" min="0" value="${qty}"><button class="qbtn plus" type="button">＋</button></div>
-      <button class="qbtn del" type="button" title="Удалить">${iconSvg("trash", { size: 16 })}</button>`;
-    list.append(row);
-  });
-  sum.textContent = `${positions} поз. · ${units} шт.`;
-}
-
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=150", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=151", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();
@@ -351,18 +234,14 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
 }
 
 (async function init() {
+  // Кнопки в переписке живут вечно: у клиентов остались сообщения со старой
+  // ссылкой на каталог в режиме заказа. Открыли её из Telegram — уводим
+  // в приложение заказа, чтобы старые кнопки продолжали работать.
+  if (TG && TG.initData) { location.replace("/order"); return; }
+
   initTheme();
   initCursorGlow();
   initStarfield();
-  // Telegram Mini App: развернуть, включить режим заказа
-  if (TG) { try { TG.ready(); TG.expand(); } catch {} }
-  if (orderMode) {
-    document.body.classList.add("order-mode");
-    const hint = document.getElementById("orderHint");
-    if (hint) hint.textContent = "🛒 Выберите товары и нажмите «Добавить». Когда закончите — нажмите «Подтвердить список» внизу, проверьте количество и отправьте заказ.";
-    const bar = document.getElementById("cartbar");
-    if (bar) bar.addEventListener("click", openOrderView);   // вся панель открывает экран заказа
-  }
   // язык + тема — аккуратной строкой сверху (не плавающие, чтобы не налезали на поиск)
   const topbar = document.createElement("div");
   topbar.className = "cat-topbar";
@@ -370,38 +249,14 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
   const tg = makeThemeToggle();
   topbar.append(ls, tg);
   document.body.insertBefore(topbar, document.body.firstChild);
-  // добавить товар с введённым вручную количеством
-  function addFromCard(add) {
-    if (add.disabled) return;
-    const id = add.getAttribute("data-id");
-    const prod = byId(id);
-    if (prod && prod.status && prod.status !== "in_stock") return;   // нет в наличии — заказать нельзя
-    const inp = add.closest(".add-row")?.querySelector(".qty-inp");
-    const typed = Math.max(1, Math.floor(Number(inp && inp.value) || 1));
-    setQty(id, (cart.get(String(id)) || 0) + typed);
-    if (inp) inp.value = "";
-    add.classList.add("added"); add.textContent = "✓ Добавлено";
-    clearTimeout(add._t); add._t = setTimeout(() => { add.classList.remove("added"); add.textContent = "＋ В корзину"; }, 900);
-  }
-  // клики по сетке: «В корзину» (с введённым кол-вом) или увеличение фото
+  // клик по снимку — открыть галерею товара
   grid.addEventListener("click", (e) => {
-    const add = e.target.closest(".add-btn");
-    if (add) { addFromCard(add); return; }
     const img = e.target.closest(".prod .ph");
-    if (img) {
-      const id = img.closest(".prod")?.getAttribute("data-id");
-      const prod = byId(id);
-      const photos = (prod && prod.photos && prod.photos.length) ? prod.photos : (prod && prod.photo_url ? [prod.photo_url] : [img.src]);
-      openGallery(photos, 0, prod ? prod.name : "");
-    }
-  });
-  // Enter в поле количества → добавить
-  grid.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    const inp = e.target.closest(".qty-inp"); if (!inp) return;
-    e.preventDefault();
-    const add = inp.closest(".add-row")?.querySelector(".add-btn");
-    if (add) addFromCard(add);
+    if (!img) return;
+    const id = img.closest(".prod")?.getAttribute("data-id");
+    const prod = byId(id);
+    const photos = (prod && prod.photos && prod.photos.length) ? prod.photos : (prod && prod.photo_url ? [prod.photo_url] : [img.src]);
+    openGallery(photos, 0, prod ? prod.name : "");
   });
   applyI18n(document.body);
   try {

@@ -29,7 +29,10 @@ export const isEmpty = (d) => !CURS.some(c => Math.abs(d && d[c] || 0) > EPS[c])
 // такие заказы долгом, телефон не считал; сходились они только у клиентов
 // без заказов. Считаем по факту выдачи — это те же статусы, по которым
 // списывается склад (js/pages/sales.js).
-const NOT_ISSUED = ["order", "pending_confirm", "confirmed", "draft"];
+// "canceled" — клиент отменил заказ в мини-приложении. Товар не выдавали,
+// значит и долга по нему нет. Без этой строки отменённый заказ попал бы
+// в долг клиента: всё, чего нет в списке, считается выданным.
+const NOT_ISSUED = ["order", "pending_confirm", "confirmed", "draft", "canceled"];
 export const isIssued = (sale) => !NOT_ISSUED.includes(String((sale && sale.status) || ""));
 export const issuedOnly = (sales) => (sales || []).filter(isIssued);
 

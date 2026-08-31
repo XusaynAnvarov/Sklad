@@ -175,6 +175,38 @@ const D = {
   "Под заказ": { uz: "Buyurtmaga", en: "On order" },
   "Ничего не найдено": { uz: "Hech narsa topilmadi", en: "Nothing found" },
   "Загрузка каталога…": { uz: "Katalog yuklanmoqda…", en: "Loading catalog…" },
+  // --- приложение заказа (для клиентов) ---
+  "Корзина": { uz: "Savat", en: "Cart" },
+  "Мои заказы": { uz: "Buyurtmalarim", en: "My orders" },
+  "В корзину": { uz: "Savatga", en: "Add to cart" },
+  "Ещё": { uz: "Yana", en: "More" },
+  "✓ Добавлено": { uz: "✓ Qo‘shildi", en: "✓ Added" },
+  "Нет в наличии": { uz: "Mavjud emas", en: "Out of stock" },
+  "Скоро будет": { uz: "Tez orada", en: "Coming soon" },
+  "Новый": { uz: "Yangi", en: "New" },
+  "Все заказы": { uz: "Barcha buyurtmalar", en: "All orders" },
+  "Открыть каталог": { uz: "Katalogni ochish", en: "Open catalog" },
+  "Отправить заказ": { uz: "Buyurtmani yuborish", en: "Send order" },
+  "Добавить к заказу": { uz: "Buyurtmaga qo‘shish", en: "Add to order" },
+  "Отменить заказ": { uz: "Buyurtmani bekor qilish", en: "Cancel order" },
+  "Подтвердить": { uz: "Tasdiqlash", en: "Confirm" },
+  "Не подходит": { uz: "To‘g‘ri kelmadi", en: "Does not suit" },
+  "Убрать": { uz: "Olib tashlash", en: "Remove" },
+  "Отправляем…": { uz: "Yuborilmoqda…", en: "Sending…" },
+  "Считаем цену": { uz: "Narx hisoblanmoqda", en: "Pricing" },
+  "Проверьте цену": { uz: "Narxni tekshiring", en: "Check the price" },
+  "Подтверждён": { uz: "Tasdiqlangan", en: "Confirmed" },
+  "Оформлен": { uz: "Rasmiylashtirilgan", en: "Completed" },
+  "Отменён": { uz: "Bekor qilingan", en: "Canceled" },
+  "Корзина пуста. Выберите товары в каталоге.": { uz: "Savat bo‘sh. Katalogdan mahsulot tanlang.", en: "Cart is empty. Pick items in the catalog." },
+  "Заказов пока нет. Выберите товары в каталоге — мы посчитаем цену.": { uz: "Hozircha buyurtma yo‘q. Katalogdan tanlang — narxini hisoblaymiz.", en: "No orders yet. Pick items in the catalog and we will quote a price." },
+  "Цену мы посчитаем и пришлём вам на подтверждение.": { uz: "Narxni hisoblab, tasdiqlash uchun yuboramiz.", en: "We will calculate the price and send it for your approval." },
+  "Мы готовим цену. Пока можно поправить заказ.": { uz: "Narx tayyorlanmoqda. Hozircha buyurtmani o‘zgartirsa bo‘ladi.", en: "We are preparing the price. You can still edit the order." },
+  "Цена готова. Согласны — подтвердите, и мы соберём заказ.": { uz: "Narx tayyor. Rozimisiz — tasdiqlang, buyurtmani yig‘amiz.", en: "The price is ready. Confirm and we will assemble the order." },
+  "Спасибо! Собираем ваш заказ.": { uz: "Rahmat! Buyurtmangizni yig‘yapmiz.", en: "Thank you! We are assembling your order." },
+  "Заказ оформлен, накладная готова.": { uz: "Buyurtma rasmiylashtirildi, nakladnoy tayyor.", en: "The order is complete, the invoice is ready." },
+  "Заказ отменён.": { uz: "Buyurtma bekor qilindi.", en: "The order was canceled." },
+  "Ничего не нашлось": { uz: "Hech narsa topilmadi", en: "Nothing found" },
 };
 
 // заменяемые плейсхолдеры
@@ -187,6 +219,7 @@ const PH = {
   "Телефон / @username": { uz: "Telefon / @username", en: "Phone / @username" },
   "Комментарий (необязательно)": { uz: "Izoh (ixtiyoriy)", en: "Comment (optional)" },
   "Сумма": { uz: "Summa", en: "Amount" },
+  "Название или артикул…": { uz: "Nomi yoki artikul…", en: "Name or SKU…" },
 };
 
 export function applyI18n(root = document.body) {

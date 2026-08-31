@@ -2,6 +2,7 @@
 // JWT клиента обязателен; unit_price:0 (владелец выставит цены в складе)
 import { getValidClient } from "./lib/clientauth.js";
 import { sget } from "./lib/supa.js";
+import { слить, описание } from "./lib/mergeorder.js";
 
 async function notifyAdmin(text) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -46,22 +47,27 @@ export default async function handler(req, res) {
       unit_price: 0,
     }));
 
-    // Если у клиента УЖЕ есть необработанный заказ (status=order) — ОБНОВЛЯЕМ его
-    // (клиент изменил/добавил товары и переотправил), иначе создаём новый.
-    let existingId = null;
+    // Если у клиента УЖЕ есть заказ, которому ещё не проставили цену
+    // (status=order), — ДОПИСЫВАЕМ товары в него, иначе создаём новый.
+    // Раньше список тут ЗАМЕНЯЛСЯ, и первый заказ терял содержимое.
+    let existing = null;
     try {
-      const ex = await sget(`sales?status=eq.order&customer_id=eq.${client.customer_id}&select=id&order=date.desc&limit=1`);
-      existingId = ex[0]?.id || null;
+      const ex = await sget(`sales?status=eq.order&customer_id=eq.${client.customer_id}&select=id,items&order=date.desc&limit=1`);
+      existing = ex[0] || null;
     } catch {}
+    const existingId = existing?.id || null;
+    let добавлено = [];
 
     const SUPA = process.env.SUPABASE_URL;
     const KEY = process.env.SUPABASE_SERVICE_KEY;
     const H = { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json", Prefer: "return=representation" };
     let sale;
     if (existingId) {
+      const слитые = слить(existing.items, saleItems);
+      добавлено = описание(existing.items, слитые, Object.fromEntries(prods.map(p => [String(p.id), p.name])));
       const r = await fetch(SUPA + "/rest/v1/sales?id=eq." + encodeURIComponent(existingId), {
         method: "PATCH", headers: H,
-        body: JSON.stringify({ items: saleItems, date: new Date().toISOString() }),
+        body: JSON.stringify({ items: слитые, date: new Date().toISOString() }),
       });
       if (!r.ok) { console.error("site-order patch error", await r.text()); return res.status(500).json({ error: "Не удалось обновить заказ" }); }
       const upd = await r.json(); sale = Array.isArray(upd) ? upd[0] : upd;
@@ -83,8 +89,10 @@ export default async function handler(req, res) {
     // уведомление владельцу
     const adminChatId = process.env.ADMIN_CHAT_ID;
     if (adminChatId) {
-      const lines = saleItems.map(it => { const p = prodMap[it.product_id]; return `• ${p?.name || it.product_id} × ${it.qty}`; });
-      const msg = `${existingId ? "✏️ Заказ ИЗМЕНЁН клиентом (с сайта)" : "🛒 Новый заказ с сайта"}\n\nКлиент: ${client.phone}\n\n${lines.join("\n")}`;
+      const lines = existingId
+        ? (добавлено.length ? добавлено : ["Без изменений"])
+        : saleItems.map(it => { const p = prodMap[it.product_id]; return `• ${p?.name || it.product_id} × ${it.qty}`; });
+      const msg = `${existingId ? "➕ Клиент ДОПОЛНИЛ заказ (с сайта)" : "🛒 Новый заказ с сайта"}\n\nКлиент: ${client.phone}\n\n${lines.join("\n")}`;
       try { await notifyAdmin(msg); } catch {}
     }
 
