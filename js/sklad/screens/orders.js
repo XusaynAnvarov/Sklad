@@ -1,13 +1,16 @@
-// Заказы из бота и с сайта. Ради них чаще всего и лезут вечером в компьютер:
-// клиент прислал список, надо проставить цены и выдать накладную.
-// С телефона делаем главное — открыть, поправить цены и оформить.
-// Отправку клиенту оставили сайту: с телефона накладные никуда не уходят.
-import { el } from "../app.js?v=20260901a";
-import { icon } from "../../icons.js?v=20260901a";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260901a";
-import { fmt } from "../../fx.js?v=20260901a";
-import { issueInvoice, totalsByCur } from "../issue.js?v=20260901a";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260901a";
+// Заказы из бота и с сайта: клиент прислал список, надо проставить цены.
+// Дальше две дороги:
+//   «Спросить цену» — отправить клиенту на подтверждение, склад не трогаем;
+//   «Оформить»      — выдать накладную и списать товар.
+// Готовую накладную клиенту по-прежнему отправляет сайт: с телефона PDF
+// никуда не уходит.
+import { el } from "../app.js?v=20260901b";
+import { icon } from "../../icons.js?v=20260901b";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260901b";
+import { fmt } from "../../fx.js?v=20260901b";
+import { issueInvoice, totalsByCur } from "../issue.js?v=20260901b";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260901b";
+import { наПодтверждение } from "../../orderconfirm.js?v=20260901b";
 
 const ЖДУТ = ["order", "pending_confirm", "confirmed"];
 // Сум первым — им торгуют каждый день, юань вторым, доллар последним.
@@ -173,6 +176,27 @@ export default async function render(box, ctx) {
               close(); draw();
               toast("Заказ удалён — лежит в Корзине", "ok");
             } catch (e) { toast("Не удалось: " + (e.message || e), "err"); }
+          });
+        } },
+        // Спросить клиента, согласен ли он с ценой. Склад не трогаем:
+        // товар уходит только по «Оформить». Раньше этой кнопки на телефоне
+        // не было вовсе — приходилось идти к компьютеру.
+        { label: "Спросить цену", kind: "btn-outline", onClick: (close) => {
+          if (!позиции.length) { toast("В заказе ничего нет", "err"); return; }
+          const без = позиции.filter(i => !(i.unit_price > 0));
+          if (без.length) { toast("Не проставлена цена: позиций " + без.length, "err"); return; }
+          confirmDialog("Отправить клиенту на подтверждение: " + итогТекст() + "?", async () => {
+            try {
+              const { отправлено } = await наПодтверждение(ctx.db, {
+                sale: s, customerId: клиент || s.customer_id, customer: cmap[клиент || s.customer_id],
+                currency: позиции[0].currency, items: позиции,
+              });
+              s.status = "pending_confirm";
+              close(); draw();
+              toast(отправлено
+                ? "Отправлено — ждём ответа клиента"
+                : "Цены сохранены. У клиента нет Telegram — спросите его сами", отправлено ? "ok" : "err");
+            } catch (e) { toast(e.message || String(e), "err"); }
           });
         } },
         { label: "Оформить", kind: "btn-primary", onClick: (close) => {

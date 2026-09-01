@@ -9,13 +9,13 @@
 //  Цен в каталоге нет и не будет: цену клиент видит только в своём заказе,
 //  и только после того, как владелец её проставил.
 // ========================================================================
-import { el } from "../el.js?v=20260901a";
-import { icon } from "../icons.js?v=20260901a";
-import { toast } from "../ui.js?v=20260901a";
-import { setLang, applyI18n } from "../i18n.js?v=20260901a";
-import { кнопкаРазвернуть } from "../miniapp.js?v=20260901a";
-import { мои, каталог, подпись } from "./api.js?v=20260901a";
-import * as корзина from "./cart.js?v=20260901a";
+import { el } from "../el.js?v=20260901b";
+import { icon } from "../icons.js?v=20260901b";
+import { toast } from "../ui.js?v=20260901b";
+import { setLang, applyI18n } from "../i18n.js?v=20260901b";
+import { кнопкаРазвернуть } from "../miniapp.js?v=20260901b";
+import { мои, каталог, подпись } from "./api.js?v=20260901b";
+import * as корзина from "./cart.js?v=20260901b";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const корень = () => document.getElementById("ord-root");
@@ -39,9 +39,9 @@ export const ctx = {
 };
 
 const ЭКРАНЫ = {
-  catalog: { title: "Каталог", mod: () => import("./screens/catalog.js?v=20260901a") },
-  cart:    { title: "Корзина", mod: () => import("./screens/cart.js?v=20260901a") },
-  orders:  { title: "Мои заказы", mod: () => import("./screens/myorders.js?v=20260901a") },
+  catalog: { title: "Каталог", mod: () => import("./screens/catalog.js?v=20260901b") },
+  cart:    { title: "Корзина", mod: () => import("./screens/cart.js?v=20260901b") },
+  orders:  { title: "Мои заказы", mod: () => import("./screens/myorders.js?v=20260901b") },
 };
 const ВКЛАДКИ = [
   { id: "catalog", label: "Каталог",    ic: "box" },

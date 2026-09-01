@@ -7,6 +7,8 @@
 //  не зная, какой режим активен.
 // ========================================================================
 
+import { freshFirst, lastForCustomerMap } from "./prices.js?v=20260901b";
+
 const cfg = window.APP_CONFIG || {};
 const useSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
 
@@ -326,19 +328,15 @@ export const db = {
     return j.path;
   },
 
-  // Последняя цена в юанях, по которой товар продавался данному клиенту.
-  async lastYuanPriceForCustomer(customerId, productId) {
-    const info = await this.lastSaleInfoForCustomer(customerId, productId);
-    return info ? info.priceYuan : null;
-  },
 
-  // Карта последних цен клиента по ВСЕМ товарам за один проход (для редактора заказа).
-  // product_id → { price, currency, date }. Берём первую (самую свежую) продажу каждого товара.
-  // Последняя цена продажи товара КОМУ УГОДНО — для быстрой продажи без клиента.
-  // Берём самую свежую продажу, где этот товар встречался с проставленной ценой.
+  // Последняя цена продажи товара КОМУ УГОДНО — для быстрой продажи,
+  // когда клиент не назван. Берём самую свежую выданную накладную,
+  // где этот товар шёл с проставленной ценой.
   async lastPriceAny(productId) {
     if (!productId) return null;
-    const sales = (await this.sales.list()).sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Только выданные накладные: заказ, по которому товар ещё не отдан,
+    // ценой не считается — она может ещё измениться.
+    const sales = freshFirst(await this.sales.list());
     for (const s of sales) {
       for (const it of (s.items || [])) {
         if (String(it.product_id) !== String(productId)) continue;
@@ -349,42 +347,25 @@ export const db = {
     }
     return null;
   },
+  // Прошлые цены клиента: товар → { price, currency, date }.
+  //
+  // Правило ОДНО с телефоном (js/prices.js): в расчёт идут только выданные
+  // накладные и только ненулевые цены. Раньше здесь этих двух условий не
+  // было — и только что присланный заказ клиента (цена 0, дата сегодняшняя)
+  // вставал первым и подменял собой настоящую прошлую цену. Владелец
+  // открывал заказ, чтобы проставить цены, а под каждой строкой видел
+  // «Пред. цена клиенту: 0» вместо той, по которой клиент привык брать.
   async lastPricesForCustomer(customerId) {
-    const map = new Map();
-    if (!customerId) return map;
-    const sales = (await this.sales.list())
-      .filter(s => s.customer_id === customerId)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-    for (const s of sales) {
-      for (const it of (s.items || [])) {
-        if (!it.product_id || map.has(it.product_id)) continue;
-        if (it.unit_price == null && it.price_yuan_norm == null) continue;
-        map.set(it.product_id, { price: it.unit_price != null ? it.unit_price : null, currency: it.currency || s.currency || "som", priceYuan: it.price_yuan_norm != null ? it.price_yuan_norm : null, date: s.date });
-      }
-    }
-    return map;
+    if (!customerId) return new Map();
+    return lastForCustomerMap(freshFirst(await this.sales.list()), customerId);
   },
 
-  // Последняя продажа товара клиенту: ТОЧНАЯ цена в её валюте + дата.
-  // (раньше возвращали цену в юанях и пересчитывали обратно — давало дрейф из-за округления/курса)
+  // Последняя продажа ОДНОГО товара клиенту — тем же правилом.
+  // Цена отдаётся в своей валюте, без пересчёта через юань: пересчёт туда
+  // и обратно давал дрейф на округлении и курсе.
   async lastSaleInfoForCustomer(customerId, productId) {
     if (!customerId || !productId) return null;
-    const sales = await this.sales.list();
-    const rows = sales
-      .filter(s => s.customer_id === customerId)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-    for (const s of rows) {
-      const it = (s.items || []).find(i => i.product_id === productId);
-      if (it && (it.unit_price != null || it.price_yuan_norm != null)) {
-        return {
-          price: it.unit_price != null ? it.unit_price : null,
-          currency: it.currency || s.currency || "som",
-          priceYuan: it.price_yuan_norm != null ? it.price_yuan_norm : null,
-          date: s.date,
-        };
-      }
-    }
-    return null;
+    return (await this.lastPricesForCustomer(customerId)).get(productId) || null;
   },
 
   // Полный сброс локальных демо-данных (кнопка в настройках).

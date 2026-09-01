@@ -1,17 +1,18 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260901a";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260901a";
-import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient, requestOrderConfirm } from "../telegram.js?v=20260901a";
-import { placeholder } from "./products.js?v=20260901a";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260901a";
-import { icon } from "../icons.js?v=20260901a";
-import { showLoader, hideLoader } from "../ui.js?v=20260901a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260901a";
-import { exportInvoice } from "../xlsx-export.js?v=20260901a";
-import { showNotFound } from "./purchases.js?v=20260901a";
-import { thumb } from "../img.js?v=20260901a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260901b";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260901b";
+import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient } from "../telegram.js?v=20260901b";
+import { наПодтверждение } from "../orderconfirm.js?v=20260901b";
+import { placeholder } from "./products.js?v=20260901b";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260901b";
+import { icon } from "../icons.js?v=20260901b";
+import { showLoader, hideLoader } from "../ui.js?v=20260901b";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260901b";
+import { exportInvoice } from "../xlsx-export.js?v=20260901b";
+import { showNotFound } from "./purchases.js?v=20260901b";
+import { thumb } from "../img.js?v=20260901b";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -127,13 +128,23 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
     // себестоимость
     costLine.textContent = "Себестоимость 1 ед.: " + fmt(p.cost_yuan, "yuan") + " ≈ " + fmt(convert(p.cost_yuan, "yuan", "som"), "som") + " ≈ " + fmt(convert(p.cost_yuan, "yuan", "usd"), "usd");
     costLine.style.display = costShown ? "" : "none";
-    // прошлая цена этому клиенту
-    const li = await ctx.db.lastSaleInfoForCustomer(state.customer_id, id);
+    // Прошлая цена этому клиенту — из уже загруженной карты, без нового
+    // запроса на каждый выбранный товар: раньше каждый выбор выкачивал
+    // всю историю продаж заново.
+    const li = lastPriceMap.get(id);
     if (li) {
       // показываем ТОЧНУЮ цену в её исходной валюте (без пересчёта → без дрейфа)
       const lcur = li.currency || "som";
-      const lprice = li.price != null ? li.price : convert(li.priceYuan, "yuan", lcur);
-      lastHint.innerHTML = 'Прошлая цена (этому клиенту): <b style="color:var(--accent3)">' + fmt(lprice, lcur) + '</b> · ' + (li.date || "").slice(0, 10);
+      const lprice = li.price;
+      // Собираем узлами, а не строкой HTML: валюта и дата приходят из базы,
+      // и склеивать их в разметку — лишний способ однажды получить чужой
+      // скрипт на своей странице.
+      lastHint.innerHTML = "";
+      lastHint.append(
+        el("span", { text: "Прошлая цена (этому клиенту): " }),
+        el("b", { text: fmt(lprice, lcur), style: { color: "var(--accent3)" } }),
+        el("span", { text: " · " + String(li.date || "").slice(0, 10) }),
+      );
       // «Подставить»: если валюта совпадает — точное значение, иначе пересчёт в текущую валюту чека
       substBtn.style.display = ""; substBtn.onclick = () => { fPrice.value = lcur === state.currency ? round(lprice) : round(convert(lprice, lcur, state.currency)); };
       lastHint.append(substBtn);
@@ -205,7 +216,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       // подсказка владельцу при выставлении цены: себестоимость в ¥ + прошлая цена этому клиенту
       const li = lastPriceMap.get(it.product_id);
       const lastTxt = li
-        ? " · Пред. цена клиенту: " + fmt(li.price != null ? li.price : convert(li.priceYuan, "yuan", li.currency), li.currency) + " · " + (li.date || "").slice(0, 10)
+        ? " · Пред. цена клиенту: " + fmt(li.price, li.currency) + " · " + String(li.date || "").slice(0, 10)
         : " · клиент не покупал";
       const infoEl = el("div", { style: { fontSize: "12px", color: "var(--muted)", marginTop: "2px" } }, [
         el("span", { text: "Себест.: " + fmt(p.cost_yuan, "yuan"), style: { color: "#fbbf24" } }),
@@ -281,21 +292,23 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
   });
 }
 
-// Отправить заказ клиенту на подтверждение цены (статус pending_confirm, склад НЕ списываем).
+// Отправить заказ клиенту на подтверждение цены (статус pending_confirm,
+// склад НЕ списываем). Сам расчёт — в js/orderconfirm.js: то же самое
+// делает склад в телефоне, и расходиться им нельзя.
 async function sendForConfirm(ctx, sale, state, close, customers) {
-  if (!state.items.length) { toast("Добавьте позиции с ценами", "err"); return; }
-  if (state.items.some(it => !(it.unit_price > 0))) { toast("У некоторых позиций нет цены", "err"); return; }
   showLoader("Отправка клиенту…");
   try {
     const customer_id = state.customer_id || sale.customer_id || null;
-    await ctx.db.sales.upsert({ id: sale.id, customer_id, date: state.date || sale.date, currency: state.currency, status: "pending_confirm", items: state.items });
-    const cust = customers.find(c => c.id === customer_id);
-    const chatId = cust?.tg_chat_id || sale?.order_from?.chat_id;
-    if (!chatId) { toast("У клиента нет Telegram (chat_id) — отправьте подтверждение вручную", "err"); close(); ctx.refresh(); return; }
-    await requestOrderConfirm(sale.id, chatId);
-    toast("Отправлено клиенту на подтверждение ✅", "ok");
+    const { отправлено } = await наПодтверждение(ctx.db, {
+      sale, customerId: customer_id,
+      customer: customers.find(c => c.id === customer_id),
+      currency: state.currency, items: state.items, date: state.date,
+    });
+    toast(отправлено
+      ? "Отправлено клиенту на подтверждение ✅"
+      : "Цены сохранены. У клиента нет Telegram — спросите его сами", отправлено ? "ok" : "err");
     close(); ctx.refresh();
-  } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
+  } catch (e) { toast(e.message || String(e), "err"); }
   finally { hideLoader(); }
 }
 
