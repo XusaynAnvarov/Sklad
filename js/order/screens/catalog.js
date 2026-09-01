@@ -4,11 +4,12 @@
 //  Цен здесь нет: цену выставляет владелец после заказа.
 //  Нет в наличии — заказать нельзя, кнопка не нажимается.
 // ========================================================================
-import { el } from "../../el.js?v=20260831b";
-import { icon } from "../../icons.js?v=20260831b";
-import { toast } from "../../ui.js?v=20260831b";
-import { идти } from "../app.js?v=20260831b";
-import { снимки, картинка, открытьФото } from "../photo.js?v=20260831b";
+import { el } from "../../el.js?v=20260901a";
+import { icon } from "../../icons.js?v=20260901a";
+import { toast } from "../../ui.js?v=20260901a";
+import { идти } from "../app.js?v=20260901a";
+import { снимки, картинка, открытьФото } from "../photo.js?v=20260901a";
+import { счётчик } from "../stepper.js?v=20260901a";
 
 const ВСЕ = "all";
 const категория = (p) => (p.category && String(p.category).trim()) || "Без категории";
@@ -75,9 +76,9 @@ export default function render(box, ctx) {
     const снимок = картинка(фото[0], { size: 300, имя: p.name, className: "ord-ph" });
     if (фото.length) снимок.addEventListener("click", () => открытьФото(фото, 0, p.name));
 
-    const счётчик = el("span.n", { text: String(было || 1) });
-    let сколько = было || 1;
-    const поставить = (n) => { сколько = Math.max(1, Math.min(100000, n)); счётчик.textContent = String(сколько); };
+    // Сколько добавить за один раз. Вводится с клавиатуры: заказывают
+    // сотнями, и набирать это плюсиком невозможно.
+    const поле = счётчик(было || 1, (n) => n, { минимум: 1 });
 
     const кнопка = есть
       ? el("button.ord-add", {}, [icon("plus", { size: 15 }), было ? "Ещё" : "В корзину"])
@@ -85,7 +86,7 @@ export default function render(box, ctx) {
 
     if (есть) {
       кнопка.addEventListener("click", () => {
-        корзина.добавить(p.id, сколько);
+        корзина.добавить(p.id, поле.значение());
         обновитьМетку();
         кнопка.classList.add("done");
         кнопка.textContent = "✓ Добавлено";
@@ -115,11 +116,7 @@ export default function render(box, ctx) {
         p.sku ? el("div.ord-sku", { text: p.sku }) : null,
         el("div.ord-mark." + м.cls, { text: м.text }),
         вКорзине,
-        есть ? el("div.ord-qty", {}, [
-          el("button.q", { text: "−", onclick: () => поставить(сколько - 1) }),
-          счётчик,
-          el("button.q", { text: "+", onclick: () => поставить(сколько + 1) }),
-        ]) : null,
+        есть ? поле : null,
         кнопка,
       ].filter(Boolean)),
     ]);

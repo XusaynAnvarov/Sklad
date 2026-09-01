@@ -5,12 +5,13 @@
 //  сложатся. Раньше клиент об этом узнавал постфактум — и решал, что
 //  первый заказ пропал.
 // ========================================================================
-import { el } from "../../el.js?v=20260831b";
-import { icon } from "../../icons.js?v=20260831b";
-import { toast, confirmDialog } from "../../ui.js?v=20260831b";
-import { идти } from "../app.js?v=20260831b";
-import { отправитьКорзину } from "../api.js?v=20260831b";
-import { снимки, картинка } from "../photo.js?v=20260831b";
+import { el } from "../../el.js?v=20260901a";
+import { icon } from "../../icons.js?v=20260901a";
+import { toast, confirmDialog } from "../../ui.js?v=20260901a";
+import { идти } from "../app.js?v=20260901a";
+import { отправитьКорзину } from "../api.js?v=20260901a";
+import { снимки, картинка } from "../photo.js?v=20260901a";
+import { счётчик } from "../stepper.js?v=20260901a";
 
 const дата = (d) => { const t = new Date(d); return isFinite(t) ? t.toLocaleDateString("ru-RU") : "—"; };
 
@@ -21,6 +22,13 @@ export default function render(box, ctx) {
 
   const список = el("div.mini-list");
   const низ = el("div.mini-cta");
+  // Итог считается отдельно: при вводе количества незачем перерисовывать
+  // весь список — под пальцем пропало бы поле, в которое только что вводили.
+  const сводка = el("div.ord-sum");
+  const обновитьСводку = () => {
+    const { позиций, штук } = корзина.итого();
+    сводка.textContent = позиций + " поз. · " + штук + " шт.";
+  };
   box.append(список, низ);
 
   function рисовать() {
@@ -51,12 +59,13 @@ export default function render(box, ctx) {
       const имя = p ? p.name : "товар недоступен";
       const фото = p ? снимки(p) : [];
 
-      const число = el("span.n", { text: String(qty) });
-      const поставить = (n) => {
+      // Ноль убирает товар из корзины — тогда список перерисовывается целиком.
+      const поле = счётчик(qty, (n) => {
         const стало = корзина.поставить(id, n);
-        if (стало <= 0) { рисовать(); return; }
-        число.textContent = String(стало);
-      };
+        if (стало <= 0) { рисовать(); return 0; }
+        обновитьСводку();
+        return стало;
+      });
 
       список.append(el("div.mini-row", {}, [
         картинка(фото[0], { size: 96, имя, className: "ph" }),
@@ -64,19 +73,14 @@ export default function render(box, ctx) {
           el("div.nm", { text: имя }),
           p && p.sku ? el("div.sku", { text: p.sku }) : null,
         ].filter(Boolean)),
-        el("div.ord-qty", {}, [
-          el("button.q", { text: "−", onclick: () => поставить(корзина.количество(id) - 1) }),
-          число,
-          el("button.q", { text: "+", onclick: () => поставить(корзина.количество(id) + 1) }),
-        ]),
-        el("button.ord-del", { title: "Убрать", onclick: () => поставить(0) }, [icon("trash", { size: 16 })]),
+        поле,
+        el("button.ord-del", { title: "Убрать", onclick: () => { корзина.поставить(id, 0); рисовать(); } }, [icon("trash", { size: 16 })]),
       ]));
     });
 
-    const { позиций, штук } = корзина.итого();
-    список.append(el("div.ord-sum", { text: `${позиций} поз. · ${штук} шт.` }));
-    список.append(el("div.hint", { style: { marginTop: "6px" },
+    список.append(сводка, el("div.hint", { style: { marginTop: "6px" },
       text: "Цену мы посчитаем и пришлём вам на подтверждение." }));
+    обновитьСводку();
 
     const отправить = el("button.btn.btn-primary", {}, [
       icon("send", { size: 17 }),

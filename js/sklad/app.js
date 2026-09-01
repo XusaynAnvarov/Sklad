@@ -4,13 +4,13 @@
 //  тот же токен склада, что и вход по паролю. Дальше работает обычный
 //  js/db.js, поэтому база ОДНА: движение с телефона сразу видно на сайте.
 // ========================================================================
-import { db } from "../db.js?v=20260831b";
-import { el } from "../el.js?v=20260831b";
-import { setRates } from "../fx.js?v=20260831b";
-import { обновитьЕслиУстарело } from "../version.js?v=20260831b";
-import { icon } from "../icons.js?v=20260831b";
-import { toast } from "../ui.js?v=20260831b";
-import { isDesktop } from "./qr.js?v=20260831b";
+import { db } from "../db.js?v=20260901a";
+import { el } from "../el.js?v=20260901a";
+import { setRates } from "../fx.js?v=20260901a";
+import { обновитьЕслиУстарело } from "../version.js?v=20260901a";
+import { icon } from "../icons.js?v=20260901a";
+import { toast } from "../ui.js?v=20260901a";
+import { кнопкаРазвернуть } from "../miniapp.js?v=20260901a";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const TOKEN_KEY = "sklad_admin_token";
@@ -24,7 +24,7 @@ export const isGuest = () => {
 
 // Помощник переехал в js/el.js — им пользуется и мини-приложение заказа,
 // которому вход в склад не нужен. Экспорт оставлен, чтобы все экраны
-// склада продолжали брать его отсюда: import { el } from "../app.js?v=20260831b".
+// склада продолжали брать его отсюда: import { el } from "../app.js?v=20260901a".
 export { el };
 
 const root = () => document.getElementById("mini-root");
@@ -94,19 +94,19 @@ export const VERSION = ((import.meta.url.split("?v=")[1] || "").split("&")[0]) |
 
 // ---------- экраны ----------
 const SCREENS = {
-  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20260831b") },
-  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20260831b") },
-  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20260831b") },
-  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20260831b") },
-  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20260831b") },
-  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20260831b") },
-  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260831b") },
-  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260831b") },
-  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20260831b") },
-  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20260831b") },
-  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20260831b") },
-  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20260831b") },
-  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20260831b") },
+  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20260901a") },
+  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20260901a") },
+  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20260901a") },
+  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20260901a") },
+  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20260901a") },
+  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20260901a") },
+  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260901a") },
+  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260901a") },
+  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20260901a") },
+  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20260901a") },
+  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20260901a") },
+  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20260901a") },
+  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20260901a") },
 };
 // Внизу помещается пять кнопок — то, за чем заходят каждый день.
 // Всё остальное живёт в «Ещё»: больше пяти в ряд на телефоне превращаются
@@ -173,15 +173,11 @@ async function draw() {
   }
   head.append(el("h1", { text: SCREENS[current].title }));
 
-  // «Развернуть» — только для компьютера (кнопка скрыта стилями ниже 900px)
-  // и только если версия Telegram это умеет. Не умеет — кнопки нет.
-  // На компьютере окно Telegram узкое, поэтому привязка к ширине не работала —
-  // смотрим на платформу: tdesktop, macOS или веб.
-  if (TG && isDesktop() && typeof TG.requestFullscreen === "function") {
-    head.append(el("button.mini-full", { title: "Развернуть на весь экран", onclick: () => {
-      try { TG.isFullscreen ? TG.exitFullscreen() : TG.requestFullscreen(); } catch { }
-    } }, [icon("arrow-up-right", { size: 17 })]));
-  }
+  // «Развернуть» — только для компьютера и только если версия Telegram
+  // это умеет. Кнопку строит общий модуль: приложение заказа делает
+  // ровно то же самое, и расходиться им незачем.
+  const развернуть = кнопкаРазвернуть();
+  if (развернуть) head.append(развернуть);
 
   [...bar.children].forEach((b, i) => b.classList.toggle("on", TABS[i].id === current));
 

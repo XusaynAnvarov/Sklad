@@ -2,12 +2,12 @@
 // клиент прислал список, надо проставить цены и выдать накладную.
 // С телефона делаем главное — открыть, поправить цены и оформить.
 // Отправку клиенту оставили сайту: с телефона накладные никуда не уходят.
-import { el } from "../app.js?v=20260831b";
-import { icon } from "../../icons.js?v=20260831b";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260831b";
-import { fmt } from "../../fx.js?v=20260831b";
-import { issueInvoice, totalsByCur } from "../issue.js?v=20260831b";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260831b";
+import { el } from "../app.js?v=20260901a";
+import { icon } from "../../icons.js?v=20260901a";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260901a";
+import { fmt } from "../../fx.js?v=20260901a";
+import { issueInvoice, totalsByCur } from "../issue.js?v=20260901a";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260901a";
 
 const ЖДУТ = ["order", "pending_confirm", "confirmed"];
 // Сум первым — им торгуют каждый день, юань вторым, доллар последним.

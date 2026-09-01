@@ -39,6 +39,9 @@
   overflow: hidden;
 }
 .ord-card.off { opacity: .72; }
+/* В карточке «нет в наличии» счётчика нет, и без этого её кнопка висела
+   выше соседних — ряд выглядел рваным. */
+.ord-card.off .ord-add { margin-top: auto; }
 
 .ord-ph-box { position: relative; background: var(--bg2, #eef0f3); }
 .ord-ph {
@@ -91,9 +94,21 @@
   display: grid; place-items: center;
 }
 .ord-qty .q:active { transform: scale(.93); }
+/* Количество ВВОДИТСЯ: заказывают сотнями, и набирать это плюсиком
+   невозможно. 16px обязательны — на меньшем телефон приближает страницу
+   при заходе в поле, и вёрстка уезжает. */
 .ord-qty .n {
-  min-width: 30px; text-align: center; font-weight: 700; font-size: 15px;
-  font-variant-numeric: tabular-nums;
+  width: 54px; min-width: 0; flex: 1 1 auto; text-align: center;
+  font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;
+  padding: 6px 2px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--bg2, #eef0f3); color: var(--text);
+  -moz-appearance: textfield; appearance: textfield;
+}
+.ord-qty .n::-webkit-outer-spin-button,
+.ord-qty .n::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ord-qty .n:focus {
+  outline: none; background: var(--panel);
+  border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 /* Названия у товаров разной длины. Прижимаем счётчик и кнопку к низу
    карточки, иначе в соседних карточках они оказываются на разной высоте
@@ -183,5 +198,47 @@ body.ord .mini-row .nm {
 body.ord .mini-row { gap: 9px; padding: 10px 11px; }
 body.ord .mini-row .info { flex: 1 1 auto; }
 body.ord .mini-row .ord-qty .q { width: 31px; height: 31px; font-size: 17px; }
-body.ord .mini-row .ord-qty .n { min-width: 24px; font-size: 14px; }
+body.ord .mini-row .ord-qty .n { width: 48px; flex: none; font-size: 16px; padding: 5px 2px; }
 body.ord .mini-row .ord-del { width: 32px; height: 32px; }
+
+/* ================================================================
+   НОУТБУК — от 900px. То же приложение, но во всю ширину: меню
+   уезжает влево колонкой, товары идут в четыре колонки. Разворот
+   окна Telegram на весь экран включает кнопка в шапке.
+   Каркас берётся из css/sklad.css — здесь только то, что мы
+   переопределили выше и что нужно вернуть на место.
+   ================================================================ */
+@media (min-width: 900px) {
+  /* Меню — колонкой слева. Без этого три вкладки остались бы в ряд
+     поперёк узкой боковой полосы. */
+  .ord-bar { grid-template-columns: 1fr; }
+  .ord-bar .mini-tab {
+    flex-direction: row; justify-content: flex-start; gap: 11px;
+    padding: 12px 14px; font-size: 14.5px; min-height: 46px; border-radius: 9px;
+  }
+  .ord-badge { position: static; margin-left: auto; }
+
+  /* Сетка товаров тянется во всю ширину рабочей области. */
+  .ord-grid { gap: 14px; }
+  .ord-nm { font-size: 14px; }
+  .ord-add { min-height: 40px; font-size: 14px; }
+
+  /* Списки корзины и заказов на широком экране — в две колонки
+     (правило из css/sklad.css). Итог и пояснения должны занимать
+     всю строку, иначе они встают рядом с товаром. */
+  body.ord .mini-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+  body.ord .mini-list > .ord-note,
+  body.ord .mini-list > .ord-sum,
+  body.ord .mini-list > .hint,
+  body.ord .mini-list > .mini-empty,
+  body.ord .mini-list > .btn { grid-column: 1 / -1; }
+
+  /* Подробности заказа читаются в одну колонку: там позиции с ценами,
+     и разбивать их надвое незачем. */
+  body.ord .ord-head ~ .mini-list { grid-template-columns: 1fr; }
+
+  /* Нижняя кнопка прижимается к правому краю рабочей области: на широком
+     экране она иначе висит в левом углу, далеко от того, что читают. */
+  body.ord .mini-cta { display: flex; justify-content: flex-end; }
+  body.ord .mini-cta .btn { width: auto; min-width: 260px; }
+}

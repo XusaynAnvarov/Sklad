@@ -7,13 +7,14 @@
 //  Пока цену не проставили — заказ можно поправить и отменить. После —
 //  только согласиться с ценой или отказаться: заказ уже в работе.
 // ========================================================================
-import { el } from "../../el.js?v=20260831b";
-import { icon } from "../../icons.js?v=20260831b";
-import { toast, confirmDialog } from "../../ui.js?v=20260831b";
-import { fmt } from "../../fx.js?v=20260831b";
-import { идти } from "../app.js?v=20260831b";
-import { мои } from "../api.js?v=20260831b";
-import { картинка } from "../photo.js?v=20260831b";
+import { el } from "../../el.js?v=20260901a";
+import { icon } from "../../icons.js?v=20260901a";
+import { toast, confirmDialog } from "../../ui.js?v=20260901a";
+import { fmt } from "../../fx.js?v=20260901a";
+import { идти } from "../app.js?v=20260901a";
+import { мои } from "../api.js?v=20260901a";
+import { картинка } from "../photo.js?v=20260901a";
+import { счётчик } from "../stepper.js?v=20260901a";
 
 const СОСТОЯНИЕ = {
   order:           { метка: "Считаем цену",   cls: "wait",  что: "Мы готовим цену. Пока можно поправить заказ." },
@@ -120,12 +121,10 @@ export default function render(box, ctx) {
       // Править можно, только пока цену не проставили: после этого заказ
       // уже считают и собирают, и менять его молча нельзя.
       if (правится) {
+        // Правка уходит на сервер, поэтому применяем её только когда число
+        // выбрано окончательно: набирая «200», не дёргаем сервер на «2» и «20».
         строка.append(
-          el("div.ord-qty", {}, [
-            el("button.q", { text: "−", onclick: () => правка(o, it, it.qty - 1) }),
-            el("span.n", { text: String(it.qty) }),
-            el("button.q", { text: "+", onclick: () => правка(o, it, it.qty + 1) }),
-          ]),
+          счётчик(it.qty, (n) => { правка(o, it, n); return n; }, { минимум: 1 }),
           el("button.ord-del", { title: "Убрать", onclick: () => убрать(o, it) }, [icon("trash", { size: 16 })]),
         );
       }
