@@ -116,8 +116,12 @@ export default async function handler(req, res) {
     if (action === "edit") {
       const sale = await взятьСвойЗаказ(body.order_id, chatId, customer);
       if (!sale) return res.status(404).json({ error: "Заказ не найден" });
-      if (sale.status !== ЖДЁТ_ЦЕНЫ) {
-        return res.status(409).json({ error: "Заказ уже в работе — менять его нельзя. Напишите нам." });
+      // Менять количество и убирать товар можно и после того, как цены
+      // выставлены: цена за штуку уже согласована, меняется только итог,
+      // и клиент подтверждает заказ сразу — без второго круга к владельцу.
+      // Подтверждённый и оформленный заказ уже собирают — его не трогаем.
+      if (sale.status !== ЖДЁТ_ЦЕНЫ && sale.status !== ЖДЁТ_ОТВЕТА) {
+        return res.status(409).json({ error: "Заказ уже собирают — менять его нельзя. Напишите нам." });
       }
       const pid = String(body.product_id || "");
       const qty = Math.max(0, Math.min(ПОТОЛОК, Math.floor(Number(body.qty) || 0)));
@@ -135,7 +139,10 @@ export default async function handler(req, res) {
 
       const карточки = await карточкиТоваров([pid]);
       const имя = карточки[pid]?.name || pid;
-      await уведомить(`✏️ Клиент поправил заказ\nКлиент: ${customer?.name || user.first_name || chatId}\n`
+      // Отдельно отмечаем правку ПОСЛЕ выставленных цен: там меняется итог
+      // по уже согласованной цене, и владельцу стоит на это взглянуть.
+      const когда = sale.status === ЖДЁТ_ОТВЕТА ? " (уже с ценами)" : "";
+      await уведомить(`✏️ Клиент поправил заказ${когда}\nКлиент: ${customer?.name || user.first_name || chatId}\n`
         + (qty > 0 ? `• ${имя} → ${qty}` : `• ${имя} — убрал из заказа`));
       return res.status(200).json({ ok: true });
     }

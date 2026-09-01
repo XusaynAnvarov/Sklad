@@ -7,7 +7,7 @@
 //  не зная, какой режим активен.
 // ========================================================================
 
-import { freshFirst, lastForCustomerMap } from "./prices.js?v=20260901b";
+import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20260901c";
 
 const cfg = window.APP_CONFIG || {};
 const useSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
@@ -358,6 +358,15 @@ export const db = {
   async lastPricesForCustomer(customerId) {
     if (!customerId) return new Map();
     return lastForCustomerMap(freshFirst(await this.sales.list()), customerId);
+  },
+
+  // Обе карты цен за один проход по продажам: своя цена клиента и общая.
+  // Нужны вместе: если этот клиент товар не брал, подставляем цену, по
+  // которой товар уходил кому угодно, — иначе под строкой пусто, и цену
+  // приходится вспоминать самому. Ровно так считает склад в телефоне.
+  async priceHints(customerId) {
+    const sorted = freshFirst(await this.sales.list());
+    return { own: lastForCustomerMap(sorted, customerId), any: lastAnyMap(sorted) };
   },
 
   // Последняя продажа ОДНОГО товара клиенту — тем же правилом.

@@ -47,15 +47,18 @@ export default async function handler(req, res) {
       unit_price: 0,
     }));
 
-    // Если у клиента УЖЕ есть заказ, которому ещё не проставили цену
-    // (status=order), — ДОПИСЫВАЕМ товары в него, иначе создаём новый.
-    // Раньше список тут ЗАМЕНЯЛСЯ, и первый заказ терял содержимое.
+    // Если у клиента УЖЕ есть открытый заказ — ДОПИСЫВАЕМ товары в него,
+    // иначе создаём новый. Раньше список тут ЗАМЕНЯЛСЯ, и первый заказ
+    // терял содержимое.
+    // Дописываем и в заказ с выставленными ценами: у новых товаров цены
+    // нет, поэтому такой заказ возвращается владельцу на расчёт.
     let existing = null;
     try {
-      const ex = await sget(`sales?status=eq.order&customer_id=eq.${client.customer_id}&select=id,items&order=date.desc&limit=1`);
+      const ex = await sget(`sales?status=in.(order,pending_confirm)&customer_id=eq.${client.customer_id}&select=id,items,status&order=date.desc&limit=1`);
       existing = ex[0] || null;
     } catch {}
     const existingId = existing?.id || null;
+    const былиЦены = existing?.status === "pending_confirm";
     let добавлено = [];
 
     const SUPA = process.env.SUPABASE_URL;
@@ -67,7 +70,9 @@ export default async function handler(req, res) {
       добавлено = описание(existing.items, слитые, Object.fromEntries(prods.map(p => [String(p.id), p.name])));
       const r = await fetch(SUPA + "/rest/v1/sales?id=eq." + encodeURIComponent(existingId), {
         method: "PATCH", headers: H,
-        body: JSON.stringify({ items: слитые, date: new Date().toISOString() }),
+        body: JSON.stringify(былиЦены
+          ? { items: слитые, date: new Date().toISOString(), status: "order" }   // новым товарам нужна цена
+          : { items: слитые, date: new Date().toISOString() }),
       });
       if (!r.ok) { console.error("site-order patch error", await r.text()); return res.status(500).json({ error: "Не удалось обновить заказ" }); }
       const upd = await r.json(); sale = Array.isArray(upd) ? upd[0] : upd;
@@ -92,7 +97,10 @@ export default async function handler(req, res) {
       const lines = existingId
         ? (добавлено.length ? добавлено : ["Без изменений"])
         : saleItems.map(it => { const p = prodMap[it.product_id]; return `• ${p?.name || it.product_id} × ${it.qty}`; });
-      const msg = `${existingId ? "➕ Клиент ДОПОЛНИЛ заказ (с сайта)" : "🛒 Новый заказ с сайта"}\n\nКлиент: ${client.phone}\n\n${lines.join("\n")}`;
+      const шапка = !existingId ? "🛒 Новый заказ с сайта"
+        : былиЦены ? "➕ Клиент ДОПОЛНИЛ заказ — нужна цена на новое (с сайта)"
+          : "➕ Клиент ДОПОЛНИЛ заказ (с сайта)";
+      const msg = `${шапка}\n\nКлиент: ${client.phone}\n\n${lines.join("\n")}`;
       try { await notifyAdmin(msg); } catch {}
     }
 

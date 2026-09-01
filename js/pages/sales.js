@@ -1,18 +1,19 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260901b";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260901b";
-import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient } from "../telegram.js?v=20260901b";
-import { наПодтверждение } from "../orderconfirm.js?v=20260901b";
-import { placeholder } from "./products.js?v=20260901b";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260901b";
-import { icon } from "../icons.js?v=20260901b";
-import { showLoader, hideLoader } from "../ui.js?v=20260901b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260901b";
-import { exportInvoice } from "../xlsx-export.js?v=20260901b";
-import { showNotFound } from "./purchases.js?v=20260901b";
-import { thumb } from "../img.js?v=20260901b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260901c";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260901c";
+import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient } from "../telegram.js?v=20260901c";
+import { наПодтверждение } from "../orderconfirm.js?v=20260901c";
+import { suggestPrice, priceNote } from "../prices.js?v=20260901c";
+import { placeholder } from "./products.js?v=20260901c";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260901c";
+import { icon } from "../icons.js?v=20260901c";
+import { showLoader, hideLoader } from "../ui.js?v=20260901c";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260901c";
+import { exportInvoice } from "../xlsx-export.js?v=20260901c";
+import { showNotFound } from "./purchases.js?v=20260901c";
+import { thumb } from "../img.js?v=20260901c";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -74,9 +75,13 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
   const consumedByProduct = {};
   if (alreadyDeducted) (sale.items || []).forEach(it => { consumedByProduct[it.product_id] = (consumedByProduct[it.product_id] || 0) + (Number(it.qty) || 0); });
 
-  // карта последних цен этого клиента по товарам (для подсказки на строках заказа)
-  let lastPriceMap = new Map();
-  async function loadLastPrices() { try { lastPriceMap = await ctx.db.lastPricesForCustomer(state.customer_id); drawCart(); } catch {} }
+  // Подсказки по ценам: сперва цена самого клиента, а если он этот товар не
+  // брал — общая последняя цена. Раньше во втором случае под строкой было
+  // «клиент не покупал» и больше ничего, и цену приходилось вспоминать.
+  // Склад в телефоне считает так же — расходиться им нельзя.
+  let hints = { own: new Map(), any: new Map() };
+  const hintFor = (id) => suggestPrice(id, { ownMap: hints.own, anyMap: hints.any });
+  async function loadLastPrices() { try { hints = await ctx.db.priceHints(state.customer_id); drawCart(); } catch {} }
 
   // ----- шапка -----
   const custNameToId = {}; customers.forEach(c => { custNameToId[(c.name || "").toLowerCase()] = c.id; });
@@ -131,7 +136,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
     // Прошлая цена этому клиенту — из уже загруженной карты, без нового
     // запроса на каждый выбранный товар: раньше каждый выбор выкачивал
     // всю историю продаж заново.
-    const li = lastPriceMap.get(id);
+    const li = hintFor(id);
     if (li) {
       // показываем ТОЧНУЮ цену в её исходной валюте (без пересчёта → без дрейфа)
       const lcur = li.currency || "som";
@@ -141,9 +146,9 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       // скрипт на своей странице.
       lastHint.innerHTML = "";
       lastHint.append(
-        el("span", { text: "Прошлая цена (этому клиенту): " }),
+        el("span", { text: li.own ? "Прошлая цена (этому клиенту): " : "Общая прошлая цена: " }),
         el("b", { text: fmt(lprice, lcur), style: { color: "var(--accent3)" } }),
-        el("span", { text: " · " + String(li.date || "").slice(0, 10) }),
+        el("span", { text: " · " + priceNote(li) }),
       );
       // «Подставить»: если валюта совпадает — точное значение, иначе пересчёт в текущую валюту чека
       substBtn.style.display = ""; substBtn.onclick = () => { fPrice.value = lcur === state.currency ? round(lprice) : round(convert(lprice, lcur, state.currency)); };
@@ -214,10 +219,10 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       };
       paintStock();
       // подсказка владельцу при выставлении цены: себестоимость в ¥ + прошлая цена этому клиенту
-      const li = lastPriceMap.get(it.product_id);
+      const li = hintFor(it.product_id);
       const lastTxt = li
-        ? " · Пред. цена клиенту: " + fmt(li.price, li.currency) + " · " + String(li.date || "").slice(0, 10)
-        : " · клиент не покупал";
+        ? " · " + (li.own ? "Пред. цена клиенту: " : "Общая цена: ") + fmt(li.price, li.currency) + " · " + priceNote(li)
+        : " · этот товар ещё не продавали";
       const infoEl = el("div", { style: { fontSize: "12px", color: "var(--muted)", marginTop: "2px" } }, [
         el("span", { text: "Себест.: " + fmt(p.cost_yuan, "yuan"), style: { color: "#fbbf24" } }),
         el("span", { text: lastTxt }),

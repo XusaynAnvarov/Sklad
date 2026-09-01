@@ -4,13 +4,13 @@
 //   «Оформить»      — выдать накладную и списать товар.
 // Готовую накладную клиенту по-прежнему отправляет сайт: с телефона PDF
 // никуда не уходит.
-import { el } from "../app.js?v=20260901b";
-import { icon } from "../../icons.js?v=20260901b";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260901b";
-import { fmt } from "../../fx.js?v=20260901b";
-import { issueInvoice, totalsByCur } from "../issue.js?v=20260901b";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260901b";
-import { наПодтверждение } from "../../orderconfirm.js?v=20260901b";
+import { el } from "../app.js?v=20260901c";
+import { icon } from "../../icons.js?v=20260901c";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260901c";
+import { fmt } from "../../fx.js?v=20260901c";
+import { issueInvoice, totalsByCur } from "../issue.js?v=20260901c";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260901c";
+import { наПодтверждение } from "../../orderconfirm.js?v=20260901c";
 
 const ЖДУТ = ["order", "pending_confirm", "confirmed"];
 // Сум первым — им торгуют каждый день, юань вторым, доллар последним.

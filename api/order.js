@@ -80,19 +80,29 @@ export default async function handler(req, res) {
     // Именно дописываем: раньше здесь список ЗАМЕНЯЛСЯ, и первый заказ
     // терял содержимое — клиент видел, что его заказ исчез.
     // Заказ, которому цену уже дали, не трогаем: он уйдёт отдельной строкой.
+    // Дописываем и в заказ, которому цены УЖЕ выставлены: клиент, увидев
+    // цены, часто добавляет ещё. У новых товаров цены нет, поэтому такой
+    // заказ возвращается владельцу на расчёт — иначе клиент подтвердил бы
+    // заказ, где половина позиций стоит ноль.
+    // Подтверждённый заказ уже собирают — в него не дописываем, он уйдёт
+    // отдельной строкой.
+    const ОТКРЫТЫЕ = "(order,pending_confirm)";
     let existing = null;
     try {
       let ex = [];
-      if (customer?.id) ex = await sget(`sales?customer_id=eq.${customer.id}&status=eq.order&select=id,items&order=date.desc&limit=1`);
-      else { const all = await sget(`sales?status=eq.order&select=id,items,order_from&order=date.desc&limit=30`); ex = (all || []).filter(r => String(r.order_from?.chat_id || "") === String(user.id)).slice(0, 1); }
+      if (customer?.id) ex = await sget(`sales?customer_id=eq.${customer.id}&status=in.${ОТКРЫТЫЕ}&select=id,items,status&order=date.desc&limit=1`);
+      else { const all = await sget(`sales?status=in.${ОТКРЫТЫЕ}&select=id,items,status,order_from&order=date.desc&limit=30`); ex = (all || []).filter(r => String(r.order_from?.chat_id || "") === String(user.id)).slice(0, 1); }
       existing = ex[0] || null;
     } catch {}
     const existingId = existing?.id || null;
+    const былиЦены = existing?.status === "pending_confirm";
     let добавлено = [];
     if (existingId) {
       const слитые = слить(existing.items, saleItems);
       добавлено = описание(existing.items, слитые, Object.fromEntries(prods.map(p => [String(p.id), p.name])));
-      await spatch(`sales?id=eq.${encodeURIComponent(existingId)}`, { items: слитые, date: new Date().toISOString() });
+      const правка = { items: слитые, date: new Date().toISOString() };
+      if (былиЦены) правка.status = "order";      // новым товарам нужна цена
+      await spatch(`sales?id=eq.${encodeURIComponent(existingId)}`, правка);
     } else {
       await supsert("sales", {
         customer_id: customer?.id || null,
@@ -106,13 +116,17 @@ export default async function handler(req, res) {
     // подтверждение клиенту (на его языке) + уведомление владельцу
     const lang = await clientLang(user.id, customer);
     await tgSend(CLIENT_TOKEN, user.id, OK_MSG[lang] || OK_MSG.ru);
-    const шапка = existingId ? "➕ Клиент ДОПОЛНИЛ заказ (из бота)" : "🛒 Новый заказ из бота";
+    const шапка = !existingId ? "🛒 Новый заказ из бота"
+      : былиЦены ? "➕ Клиент ДОПОЛНИЛ заказ — нужна цена на новое (из бота)"
+        : "➕ Клиент ДОПОЛНИЛ заказ (из бота)";
     const хвост = existingId
       ? (добавлено.length ? "\n" + добавлено.join("\n") : "\nБез изменений")
       : `\nПозиций: ${saleItems.length}`;
     await tgSend(ADMIN_TOKEN, ADMIN_CHAT, `${шапка}\nОт: ${customer?.name || tgName}${customer ? "" : " (не привязан)"}${хвост}`);
 
-    return res.status(200).json({ ok: true, merged: !!existingId, skipped: пропущены });
+    // repriced — заказ вернулся владельцу на расчёт: приложение скажет об
+    // этом клиенту, чтобы он не ждал кнопку «Подтвердить», которой пока нет.
+    return res.status(200).json({ ok: true, merged: !!existingId, repriced: !!былиЦены, skipped: пропущены });
   } catch (e) {
     return res.status(500).json({ error: "Ошибка сервера" });
   }

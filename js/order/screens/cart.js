@@ -5,20 +5,24 @@
 //  сложатся. Раньше клиент об этом узнавал постфактум — и решал, что
 //  первый заказ пропал.
 // ========================================================================
-import { el } from "../../el.js?v=20260901b";
-import { icon } from "../../icons.js?v=20260901b";
-import { toast, confirmDialog } from "../../ui.js?v=20260901b";
-import { идти } from "../app.js?v=20260901b";
-import { отправитьКорзину } from "../api.js?v=20260901b";
-import { снимки, картинка } from "../photo.js?v=20260901b";
-import { счётчик } from "../stepper.js?v=20260901b";
+import { el } from "../../el.js?v=20260901c";
+import { icon } from "../../icons.js?v=20260901c";
+import { toast, confirmDialog } from "../../ui.js?v=20260901c";
+import { идти } from "../app.js?v=20260901c";
+import { отправитьКорзину } from "../api.js?v=20260901c";
+import { снимки, картинка } from "../photo.js?v=20260901c";
+import { счётчик } from "../stepper.js?v=20260901c";
 
 const дата = (d) => { const t = new Date(d); return isFinite(t) ? t.toLocaleDateString("ru-RU") : "—"; };
 
 export default function render(box, ctx) {
   const { корзина } = ctx;
-  // Заказ, в который допишутся товары: тот, которому ещё не дали цену.
-  const открытый = ctx.заказы.find(o => o.status === "order") || null;
+  // Заказ, в который допишутся товары. Годится и тот, которому цены уже
+  // выставили: клиент, увидев цены, часто добавляет ещё. Тогда заказ
+  // вернётся владельцу на расчёт — предупреждаем об этом заранее.
+  const открытый = ctx.заказы.find(o => o.status === "order")
+    || ctx.заказы.find(o => o.status === "pending_confirm") || null;
+  const сЦенами = открытый && открытый.status === "pending_confirm";
 
   const список = el("div.mini-list");
   const низ = el("div.mini-cta");
@@ -49,8 +53,11 @@ export default function render(box, ctx) {
     if (открытый) {
       список.append(el("div.ord-note", {}, [
         icon("alert", { size: 16 }),
-        el("span", { text: `У вас уже есть заказ от ${дата(открытый.date)}, мы его ещё считаем. `
-          + "Эти товары допишем в него — одинаковые сложатся по количеству." }),
+        el("span", { text: сЦенами
+          ? `По заказу от ${дата(открытый.date)} цена уже готова. Эти товары допишем в него — `
+            + "на новое посчитаем цену и пришлём заказ на подтверждение заново."
+          : `У вас уже есть заказ от ${дата(открытый.date)}, мы его ещё считаем. `
+            + "Эти товары допишем в него — одинаковые сложатся по количеству." }),
       ]));
     }
 
@@ -106,7 +113,9 @@ export default function render(box, ctx) {
           toast("Не попали в заказ (разобрали): " + ответ.skipped.join(", "), "err");
         }
         try { await ctx.обновитьЗаказы(); } catch {}
-        toast(ответ.merged ? "Товары добавлены в ваш заказ" : "Заказ отправлен", "ok");
+        toast(ответ.repriced ? "Добавили. Посчитаем цену на новое и пришлём заказ заново"
+          : ответ.merged ? "Товары добавлены в ваш заказ"
+            : "Заказ отправлен", "ok");
         идти("orders");
       } catch (e) {
         кнопка.disabled = false;
