@@ -767,6 +767,22 @@ export default async function handler(req, res) {
         }
         if (!owns) { await tg("sendMessage", { chat_id: chatId, text: "Этот заказ не привязан к вам." }); return res.status(200).send("ok"); }
         const confirm = data.startsWith("ocf:");
+
+        // Кнопки живут в переписке вечно, и нажать их можно когда угодно.
+        // Отвечать ими имеет смысл только пока мы ждём ответа по цене.
+        // Без этой проверки нажатие по старому сообщению ОТКАТЫВАЛО уже
+        // оформленную накладную обратно в «подтверждён»: заказ снова
+        // всплывал в «Заказах», а товар был уже списан — повторное
+        // оформление списало бы его второй раз.
+        if (sale.status !== "pending_confirm") {
+          const что = sale.status === "final" ? "Этот заказ уже оформлен — накладная у вас."
+            : sale.status === "confirmed" ? "Вы уже подтвердили этот заказ, спасибо."
+              : sale.status === "canceled" ? "Этот заказ отменён."
+                : "Мы ещё считаем цену по этому заказу — дождитесь нового сообщения.";
+          await tg("sendMessage", { chat_id: chatId, text: что });
+          return res.status(200).send("ok");
+        }
+
         await spatch(`sales?id=eq.${encodeURIComponent(sid)}`, { status: confirm ? "confirmed" : "order" });
         await tg("sendMessage", { chat_id: chatId, text: confirm ? "✅ Спасибо! Заказ подтверждён — мы готовим накладную." : "❌ Заказ отклонён. Мы свяжемся с вами." });
         // владельцу — КТО и КАКОЙ клиент подтвердил/отменил

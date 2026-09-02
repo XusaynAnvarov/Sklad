@@ -99,14 +99,7 @@ const routes = [
   [["POST"],  "/api/bot",                     "./api/bot.js"],
   [["POST","OPTIONS"], "/api/telegram",       "./api/telegram.js"],
   // существующие API склада
-  [["GET","POST","PUT","DELETE","OPTIONS"], "/api/sales",     "./api/sales.js"],
-  [["GET","POST","PUT","DELETE","OPTIONS"], "/api/products",  "./api/products.js"],
-  [["GET","POST","PUT","DELETE","OPTIONS"], "/api/customers", "./api/customers.js"],
-  [["GET","POST","PUT","DELETE","OPTIONS"], "/api/payments",  "./api/payments.js"],
-  [["GET","POST","PUT","DELETE","OPTIONS"], "/api/invoices",  "./api/invoices.js"],
   [["GET","POST","PUT","DELETE","OPTIONS"], "/api/order",     "./api/order.js"],
-  [["GET","POST","PUT","DELETE","OPTIONS"], "/api/auth",      "./api/auth.js"],
-  [["GET","POST","PUT","DELETE","OPTIONS"], "/api/settings",  "./api/settings.js"],
 ];
 
 for (const [methods, path, file] of routes) {
@@ -158,7 +151,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20260902a");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20260902b");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -212,8 +205,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260902a");
-    const { sget } = await import("./api/lib/supa.js?v=20260902a");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260902b");
+    const { sget } = await import("./api/lib/supa.js?v=20260902b");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +

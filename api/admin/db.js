@@ -135,22 +135,31 @@ export default async function handler(req, res) {
       if (!table) return res.status(400).json({ error: "table required" });
       if (!TABLES.has(table)) return res.status(400).json({ error: "Неизвестная таблица" });
 
-      // ПАКЕТНАЯ запись: data — массив записей, один запрос вместо N.
-      // PostgREST сам делает upsert по первичному ключу при resolution=merge-duplicates.
+      // ПАКЕТНАЯ запись: data — массив записей, один запрос от браузера
+      // вместо N. К базе всё равно идёт по запросу на строку, но это
+      // сервер рядом с базой, а не телефон через мобильный интернет.
+      //
+      // ОБНОВЛЯЕМ (PATCH), а не upsert-ом. Раньше здесь был POST с
+      // resolution=merge-duplicates, и он падал на КАЖДОМ сохранении
+      // накладной: приходят неполные строки (id, остаток, себестоимость,
+      // партии), Postgres проверяет NOT NULL до разрешения конфликта —
+      // и ругался «null value in column "name"». Браузер молча откатывался
+      // на поштучную запись, то есть два лишних запроса каждый раз.
+      // Строки, которой ещё нет, вставляем отдельно — так восстанавливают
+      // запись из корзины.
       if (op === "upsert_many") {
         if (!Array.isArray(data)) return res.status(400).json({ error: "data должен быть массивом" });
         const rows = data.filter(r => r && typeof r === "object");
         if (!rows.length) return res.json([]);
         if (rows.length > 500) return res.status(400).json({ error: "слишком много записей (максимум 500)" });
         if (!rows.every(r => okId(r.id))) return res.status(400).json({ error: "у каждой записи должен быть корректный id" });
-        const r = await fetch(SB_URL + "/rest/v1/" + table, {
-          method: "POST",
-          headers: sbHeaders({ Prefer: "resolution=merge-duplicates,return=representation" }),
-          body: JSON.stringify(rows),
-        });
-        if (!r.ok) throw new Error("DB UPSERT_MANY " + r.status + ": " + (await r.text()).slice(0, 300));
-        const txt = await r.text();
-        return res.json(txt ? JSON.parse(txt) : rows);
+        const out = await Promise.all(rows.map(async (row) => {
+          const patched = await sbPatch(`${table}?id=eq.${encodeURIComponent(row.id)}`, row);
+          if (patched && patched.length) return patched[0];
+          const created = await sbPost(table, row);          // записи не было — создаём
+          return (Array.isArray(created) ? created[0] : created) || row;
+        }));
+        return res.json(out);
       }
 
       if (op === "delete" || op === "remove") {

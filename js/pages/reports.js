@@ -2,18 +2,18 @@
 //  ОТЧЁТЫ: итоги, диаграммы (месяцы · категории · сезоны · топ-полосы),
 //  сезонность товаров, советы, топ товаров/клиентов, долги и оборот.
 // ========================================================================
-import { el, modal, select } from "../ui.js?v=20260902a";
-import { curStr, toUSD } from "../fx.js?v=20260902a";
-import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260902a";
-import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260902a";
-import { debtByCur, onlyPositive } from "../debt.js?v=20260902a";
-import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260902a";
-import { buildAdvice } from "../advice.js?v=20260902a";
-import { placeholder } from "./products.js?v=20260902a";
-import { icon } from "../icons.js?v=20260902a";
-import { thumb } from "../img.js?v=20260902a";
-import { byMethod, methodText } from "../payment.js?v=20260902a";
-import { isShop } from "../purchase.js?v=20260902a";
+import { el, modal, select } from "../ui.js?v=20260902b";
+import { curStr, toUSD } from "../fx.js?v=20260902b";
+import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20260902b";
+import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20260902b";
+import { debtByCur, onlyPositive } from "../debt.js?v=20260902b";
+import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20260902b";
+import { buildAdvice } from "../advice.js?v=20260902b";
+import { placeholder } from "./products.js?v=20260902b";
+import { icon } from "../icons.js?v=20260902b";
+import { thumb } from "../img.js?v=20260902b";
+import { byMethod, methodText } from "../payment.js?v=20260902b";
+import { isShop } from "../purchase.js?v=20260902b";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 

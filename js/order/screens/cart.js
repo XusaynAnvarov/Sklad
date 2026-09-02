@@ -5,13 +5,13 @@
 //  сложатся. Раньше клиент об этом узнавал постфактум — и решал, что
 //  первый заказ пропал.
 // ========================================================================
-import { el } from "../../el.js?v=20260902a";
-import { icon } from "../../icons.js?v=20260902a";
-import { toast, confirmDialog } from "../../ui.js?v=20260902a";
-import { идти } from "../app.js?v=20260902a";
-import { отправитьКорзину } from "../api.js?v=20260902a";
-import { снимки, картинка } from "../photo.js?v=20260902a";
-import { счётчик } from "../stepper.js?v=20260902a";
+import { el } from "../../el.js?v=20260902b";
+import { icon } from "../../icons.js?v=20260902b";
+import { toast, confirmDialog } from "../../ui.js?v=20260902b";
+import { идти } from "../app.js?v=20260902b";
+import { отправитьКорзину } from "../api.js?v=20260902b";
+import { снимки, картинка } from "../photo.js?v=20260902b";
+import { счётчик } from "../stepper.js?v=20260902b";
 
 const дата = (d) => { const t = new Date(d); return isFinite(t) ? t.toLocaleDateString("ru-RU") : "—"; };
 
