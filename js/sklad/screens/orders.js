@@ -2,15 +2,15 @@
 // Дальше две дороги:
 //   «Спросить цену» — отправить клиенту на подтверждение, склад не трогаем;
 //   «Оформить»      — выдать накладную и списать товар.
-// Готовую накладную клиенту по-прежнему отправляет сайт: с телефона PDF
-// никуда не уходит.
-import { el } from "../app.js?v=20260901c";
-import { icon } from "../../icons.js?v=20260901c";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260901c";
-import { fmt } from "../../fx.js?v=20260901c";
-import { issueInvoice, totalsByCur } from "../issue.js?v=20260901c";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260901c";
-import { наПодтверждение } from "../../orderconfirm.js?v=20260901c";
+// Оформление сразу шлёт клиенту PDF накладной — раньше это умел только
+// сайт, и после подтверждения цены приходилось идти к компьютеру.
+import { el } from "../app.js?v=20260902a";
+import { icon } from "../../icons.js?v=20260902a";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260902a";
+import { fmt } from "../../fx.js?v=20260902a";
+import { issueInvoice, totalsByCur } from "../issue.js?v=20260902a";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260902a";
+import { наПодтверждение, отправитьНакладную } from "../../orderconfirm.js?v=20260902a";
 
 const ЖДУТ = ["order", "pending_confirm", "confirmed"];
 // Сум первым — им торгуют каждый день, юань вторым, доллар последним.
@@ -204,7 +204,7 @@ export default async function render(box, ctx) {
           if (!клиент) { toast("Выберите клиента", "err"); return; }
           const без = позиции.filter(i => !(i.unit_price > 0));
           if (без.length) { toast("Не проставлена цена: позиций " + без.length, "err"); return; }
-          confirmDialog("Оформить накладную на " + итогТекст() + "?", async () => {
+          confirmDialog("Оформить накладную на " + итогТекст() + "? Клиенту уйдёт PDF.", async () => {
             try {
               await issueInvoice(ctx.db, {
                 id: s.id, customerId: клиент, currency: позиции[0].currency,
@@ -214,6 +214,14 @@ export default async function render(box, ctx) {
               заказы.splice(заказы.indexOf(s), 1);
               close(); draw();
               toast("Накладная оформлена, склад списан", "ok");
+              // Накладную клиенту шлём отдельно от списания: если Telegram
+              // не ответит, склад всё равно уже сведён, и повторять
+              // оформление нельзя — товар списался бы дважды.
+              try {
+                const { отправлено } = await отправитьНакладную(s.id, cmap[клиент], s);
+                toast(отправлено ? "Накладная отправлена клиенту"
+                  : "У клиента нет Telegram — передайте накладную сами", отправлено ? "ok" : "err");
+              } catch (e) { toast("Клиенту не отправлено: " + (e.message || e) + ". Накладная оформлена.", "err"); }
             } catch (e) { toast("Не удалось: " + (e.message || e), "err"); }
           });
         } },

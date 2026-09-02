@@ -1,19 +1,19 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260901c";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260901c";
-import { sendInvoice, sendInvoicePDF, sendInvoicePDFToClient, notifyClient } from "../telegram.js?v=20260901c";
-import { наПодтверждение } from "../orderconfirm.js?v=20260901c";
-import { suggestPrice, priceNote } from "../prices.js?v=20260901c";
-import { placeholder } from "./products.js?v=20260901c";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260901c";
-import { icon } from "../icons.js?v=20260901c";
-import { showLoader, hideLoader } from "../ui.js?v=20260901c";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260901c";
-import { exportInvoice } from "../xlsx-export.js?v=20260901c";
-import { showNotFound } from "./purchases.js?v=20260901c";
-import { thumb } from "../img.js?v=20260901c";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260902a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260902a";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260902a";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260902a";
+import { suggestPrice, priceNote } from "../prices.js?v=20260902a";
+import { placeholder } from "./products.js?v=20260902a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260902a";
+import { icon } from "../icons.js?v=20260902a";
+import { showLoader, hideLoader } from "../ui.js?v=20260902a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260902a";
+import { exportInvoice } from "../xlsx-export.js?v=20260902a";
+import { showNotFound } from "./purchases.js?v=20260902a";
+import { thumb } from "../img.js?v=20260902a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -472,16 +472,15 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
     // --- подтверждение заказа: отправить накладную клиенту в его бот ---
     if (toClient) {
       const cust = customers.find(c => c.id === state.customer_id);
-      const chatId = cust?.tg_chat_id || sale?.order_from?.chat_id;
-      if (chatId) {
-        try {
-          await notifyClient(chatId, "✅ Ваша накладная готова! Отправляем…");
-          await sendInvoicePDFToClient((saved || obj).id, chatId, "🧾 Ваша накладная");
-          toast("Отправлено клиенту", "ok");
-        } catch (e) { toast("Клиенту не отправлено: " + e.message, "err"); }
-      } else {
-        toast("У клиента нет Telegram — отправьте вручную (нет chat_id)", "err");
-      }
+      // Тем же правилом, что и вопрос о цене: у фирмы бывает несколько
+      // привязанных Telegram-аккаунтов. Раньше здесь смотрели только
+      // основной — и клиенту, привязанному вторым номером, накладная
+      // не уходила: «У клиента нет Telegram».
+      try {
+        const { отправлено } = await отправитьНакладную((saved || obj).id, cust, sale);
+        toast(отправлено ? "Отправлено клиенту" : "У клиента нет Telegram — передайте накладную сами",
+          отправлено ? "ok" : "err");
+      } catch (e) { toast("Клиенту не отправлено: " + e.message, "err"); }
     }
     close(); ctx.refresh();
   } catch (e) {

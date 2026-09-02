@@ -5,8 +5,8 @@
 //  Снимки идут через свой сервер (js/img.js) — так они кэшируются у нас,
 //  а не тянутся из Supabase на каждый просмотр.
 // ========================================================================
-import { el } from "../el.js?v=20260901c";
-import { thumb, full } from "../img.js?v=20260901c";
+import { el } from "../el.js?v=20260902a";
+import { thumb, full } from "../img.js?v=20260902a";
 
 // Все снимки товара: новые лежат в photos, старые — в одном photo_url.
 export function снимки(p) {

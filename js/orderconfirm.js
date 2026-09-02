@@ -11,7 +11,7 @@
 //  Раньше эта кнопка была только на сайте — с телефона заказ было
 //  некуда отправить, и приходилось идти к компьютеру.
 // ========================================================================
-import { requestOrderConfirm } from "./telegram.js?v=20260901c";
+import { requestOrderConfirm, sendInvoicePDFToClient, notifyClient } from "./telegram.js?v=20260902a";
 
 // Куда слать. У клиента может быть несколько привязанных Telegram-аккаунтов
 // (несколько номеров на фирму) — годится любой. Гостевой заказ несёт свой
@@ -59,5 +59,17 @@ export async function наПодтверждение(db, { sale, customer, custo
   const чат = чатКлиента(customer, sale);
   if (!чат) return { отправлено: false };
   await requestOrderConfirm(sale.id, чат);
+  return { отправлено: true };
+}
+
+// Отправить готовую накладную клиенту в его бот — PDF плюс короткое
+// сообщение. Тот же поиск аккаунта, что и у вопроса о цене: раньше
+// накладная искала только основной номер, и клиенту, привязанному вторым,
+// не уходила вовсе — «У клиента нет Telegram».
+export async function отправитьНакладную(saleId, customer, sale, caption) {
+  const чат = чатКлиента(customer, sale);
+  if (!чат) return { отправлено: false };
+  await notifyClient(чат, "✅ Ваша накладная готова! Отправляем…");
+  await sendInvoicePDFToClient(saleId, чат, caption || "🧾 Ваша накладная");
   return { отправлено: true };
 }

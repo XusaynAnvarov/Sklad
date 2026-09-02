@@ -158,7 +158,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20260901c");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20260902a");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -212,8 +212,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260901c");
-    const { sget } = await import("./api/lib/supa.js?v=20260901c");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260902a");
+    const { sget } = await import("./api/lib/supa.js?v=20260902a");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +
