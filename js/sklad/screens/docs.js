@@ -3,13 +3,14 @@
 // Осторожно с удалением накладной: товар из неё уже списан со склада,
 // поэтому при удалении его надо ВЕРНУТЬ обратно — иначе остатки разъедутся.
 // Возврат делает returnItems из js/sklad/stock.js, теми же партиями FIFO.
-import { el } from "../app.js?v=20260902b";
-import { icon } from "../../icons.js?v=20260902b";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20260902b";
-import { fmt } from "../../fx.js?v=20260902b";
-import { returnItems } from "../stock.js?v=20260902b";
-import { applyQtyChange, applyPriceChange } from "../issue.js?v=20260902b";
-import { methodOptions, methodLabel, DEFAULT_METHOD } from "../../payment.js?v=20260902b";
+import { el } from "../app.js?v=20260902c";
+import { списанные } from "../../stockcheck.js?v=20260902c";
+import { icon } from "../../icons.js?v=20260902c";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20260902c";
+import { fmt } from "../../fx.js?v=20260902c";
+import { returnItems } from "../stock.js?v=20260902c";
+import { applyQtyChange, applyPriceChange } from "../issue.js?v=20260902c";
+import { methodOptions, methodLabel, DEFAULT_METHOD } from "../../payment.js?v=20260902c";
 
 // Сум первым — им торгуют каждый день, юань вторым, доллар последним.
 const CURS = [{ value: "som", label: "сум" }, { value: "yuan", label: "¥" }, { value: "usd", label: "$" }];
@@ -87,7 +88,10 @@ export default async function render(box, ctx) {
               async () => {
                 try {
                   // 1) сначала возвращаем товар — если это не выйдет, накладную не трогаем
-                  await returnItems(ctx.db, (s.items || []).map(i => ({ product_id: i.product_id, qty: i.qty })));
+                  // Возвращаем только то, что реально списывали: если статус
+                  // накладной когда-то откатывался, часть позиций могла остаться
+                  // непроведённой, и возврат «всего подряд» надул бы остаток.
+                  await returnItems(ctx.db, списанные(s).map(i => ({ product_id: i.product_id, qty: i.qty })));
                   // 2) и только потом убираем запись
                   await ctx.db.sales.remove(s.id);
                   const i = sales.findIndex(x => x.id === s.id);

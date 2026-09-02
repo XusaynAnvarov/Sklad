@@ -11,7 +11,7 @@
 //  Раньше эта кнопка была только на сайте — с телефона заказ было
 //  некуда отправить, и приходилось идти к компьютеру.
 // ========================================================================
-import { requestOrderConfirm, sendInvoicePDFToClient, notifyClient } from "./telegram.js?v=20260902b";
+import { requestOrderConfirm, sendInvoicePDFToClient, notifyClient } from "./telegram.js?v=20260902c";
 
 // Куда слать. У клиента может быть несколько привязанных Telegram-аккаунтов
 // (несколько номеров на фирму) — годится любой. Гостевой заказ несёт свой

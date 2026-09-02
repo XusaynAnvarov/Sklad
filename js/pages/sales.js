@@ -1,19 +1,20 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260902b";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260902b";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260902b";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260902b";
-import { suggestPrice, priceNote } from "../prices.js?v=20260902b";
-import { placeholder } from "./products.js?v=20260902b";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260902b";
-import { icon } from "../icons.js?v=20260902b";
-import { showLoader, hideLoader } from "../ui.js?v=20260902b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260902b";
-import { exportInvoice } from "../xlsx-export.js?v=20260902b";
-import { showNotFound } from "./purchases.js?v=20260902b";
-import { thumb } from "../img.js?v=20260902b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260902c";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260902c";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260902c";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260902c";
+import { suggestPrice, priceNote } from "../prices.js?v=20260902c";
+import { списанные } from "../stockcheck.js?v=20260902c";
+import { placeholder } from "./products.js?v=20260902c";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260902c";
+import { icon } from "../icons.js?v=20260902c";
+import { showLoader, hideLoader } from "../ui.js?v=20260902c";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260902c";
+import { exportInvoice } from "../xlsx-export.js?v=20260902c";
+import { showNotFound } from "./purchases.js?v=20260902c";
+import { thumb } from "../img.js?v=20260902c";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -498,10 +499,13 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
 // удаление накладной с возвратом товаров на склад
 export async function deleteSale(ctx, sale, products) {
   try {
-    // склад списывался ТОЛЬКО при оформлении (final). Заказ из бота/сайта (order/confirmed) — не списывался,
-    // поэтому при его удалении остаток НЕ трогаем (иначе ложно прибавим).
-    const wasDeducted = sale.status === "final";
-    if (wasDeducted) for (const it of (sale.items || [])) {
+    // Возвращаем ровно те позиции, которые со склада списывали, — по отметке
+    // applied, а не по статусу. Раньше здесь стояло «списано, только если
+    // status === final», и заказ, у которого статус откатился, удалялся БЕЗ
+    // возврата товара: остаток тихо терялся, и его приходилось вписывать руками.
+    const вернуть = списанные(sale);
+    const wasDeducted = вернуть.length > 0;
+    for (const it of вернуть) {
       const p = products.find(x => x.id === it.product_id); if (!p) continue;
       const perY = it.qty ? (Number(it.cogs_yuan) || 0) / it.qty : (Number(p.cost_yuan) || 0);
       const perU = it.qty ? (Number(it.cogs_usd) || 0) / it.qty : (Number(p.cost_usd) || 0);

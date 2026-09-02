@@ -6,8 +6,8 @@
 //  каждый по-своему, но список проблем у обоих обязан быть один, иначе
 //  «на компьютере чисто, а в телефоне десять расхождений».
 // ========================================================================
-import { ensureBatches, sumQty, currentCost, costOutlook } from "./inventory.js?v=20260902b";
-import { isIssued } from "./debt.js?v=20260902b";
+import { ensureBatches, sumQty, currentCost, costOutlook } from "./inventory.js?v=20260902c";
+import { isIssued } from "./debt.js?v=20260902c";
 
 // Накладная оформлена, но товар со склада не сняли.
 // Отметку applied ставит тот, кто списывал; её отсутствие значит, что
@@ -17,6 +17,16 @@ export function isUnapplied(s) {
   const items = s.items || [];
   return items.length > 0 && items.some(it => it.applied !== true);
 }
+
+// Позиции накладной, которые РЕАЛЬНО списаны со склада. Только их возвращают
+// при удалении или правке.
+//
+// Раньше об этом судили по статусу: «final — значит списано». Статус может
+// откатиться — клиент нажимал старую кнопку подтверждения в чате, и
+// оформленная накладная снова становилась заказом. Товар при этом оставался
+// списанным, и удаление такого заказа НЕ возвращало его на склад: остаток
+// молча терялся. Отметка applied — единственная правда о том, трогали склад.
+export const списанные = (sale) => ((sale && sale.items) || []).filter(it => it.applied === true);
 
 export function findProblems(products, sales) {
   const goods = products || [], docs = sales || [];

@@ -12,7 +12,7 @@
 //  сканирование не работало вообще. Теперь закрытие ловим тем событием,
 //  которое для этого и предназначено: scanQrPopupClosed.
 // ========================================================================
-import { toast } from "../ui.js?v=20260902b";
+import { toast } from "../ui.js?v=20260902c";
 
 const TG = () => window.Telegram && window.Telegram.WebApp;
 
@@ -54,7 +54,7 @@ export function scanSku() {
 
 // Компьютер ли это — переехало в js/miniapp.js: этим пользуются оба
 // мини-приложения, а к сканеру наклеек оно отношения не имеет.
-export { isDesktop } from "../miniapp.js?v=20260902b";
+export { isDesktop } from "../miniapp.js?v=20260902c";
 
 // ========================================================================
 //  Что делать с тем, что прочитал сканер.
@@ -63,7 +63,7 @@ export { isDesktop } from "../miniapp.js?v=20260902b";
 //  Теперь: сначала пробуем нашу наклейку, потом номер товара как есть,
 //  потом артикул. Если не нашли — показываем сам код.
 // ========================================================================
-import { parsePayload } from "../qr.js?v=20260902b";
+import { parsePayload } from "../qr.js?v=20260902c";
 
 const clean = (v) => String(v == null ? "" : v).trim().toLowerCase();
 const tight = (v) => clean(v).split(" ").join("");

@@ -4,13 +4,15 @@
 //   «Оформить»      — выдать накладную и списать товар.
 // Оформление сразу шлёт клиенту PDF накладной — раньше это умел только
 // сайт, и после подтверждения цены приходилось идти к компьютеру.
-import { el } from "../app.js?v=20260902b";
-import { icon } from "../../icons.js?v=20260902b";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260902b";
-import { fmt } from "../../fx.js?v=20260902b";
-import { issueInvoice, totalsByCur } from "../issue.js?v=20260902b";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260902b";
-import { наПодтверждение, отправитьНакладную } from "../../orderconfirm.js?v=20260902b";
+import { el } from "../app.js?v=20260902c";
+import { icon } from "../../icons.js?v=20260902c";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260902c";
+import { fmt } from "../../fx.js?v=20260902c";
+import { issueInvoice, totalsByCur } from "../issue.js?v=20260902c";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20260902c";
+import { наПодтверждение, отправитьНакладную } from "../../orderconfirm.js?v=20260902c";
+import { списанные } from "../../stockcheck.js?v=20260902c";
+import { returnItems } from "../stock.js?v=20260902c";
 
 const ЖДУТ = ["order", "pending_confirm", "confirmed"];
 // Сум первым — им торгуют каждый день, юань вторым, доллар последним.
@@ -168,13 +170,21 @@ export default async function render(box, ctx) {
       ].filter(Boolean)),
       actions: [
         { label: "Закрыть", kind: "btn-outline", onClick: c => c() },
+        // Обычно по заказу склад ещё не трогали. Но если товар всё-таки
+        // списан (позиции с отметкой applied) — возвращаем его, иначе
+        // остаток тихо потеряется и его придётся вписывать руками.
         { label: "Удалить заказ", kind: "btn-outline", onClick: (close) => {
-          confirmDialog("Удалить заказ? Склад не тронется — по заказу он ещё не списан.", async () => {
+          const вернуть = списанные(s);
+          confirmDialog(вернуть.length
+            ? "Удалить заказ? По нему уже списан товар — он вернётся на склад."
+            : "Удалить заказ? Склад не тронется — по заказу он ещё не списан.", async () => {
             try {
+              // Сперва возвращаем товар: не вышло — запись не трогаем.
+              if (вернуть.length) await returnItems(ctx.db, вернуть.map(i => ({ product_id: i.product_id, qty: i.qty })));
               await ctx.db.sales.remove(s.id);
               заказы.splice(заказы.indexOf(s), 1);
               close(); draw();
-              toast("Заказ удалён — лежит в Корзине", "ok");
+              toast(вернуть.length ? "Заказ удалён, товар возвращён на склад" : "Заказ удалён — лежит в Корзине", "ok");
             } catch (e) { toast("Не удалось: " + (e.message || e), "err"); }
           });
         } },

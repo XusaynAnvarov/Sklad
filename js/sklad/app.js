@@ -4,13 +4,13 @@
 //  тот же токен склада, что и вход по паролю. Дальше работает обычный
 //  js/db.js, поэтому база ОДНА: движение с телефона сразу видно на сайте.
 // ========================================================================
-import { db } from "../db.js?v=20260902b";
-import { el } from "../el.js?v=20260902b";
-import { setRates } from "../fx.js?v=20260902b";
-import { обновитьЕслиУстарело } from "../version.js?v=20260902b";
-import { icon } from "../icons.js?v=20260902b";
-import { toast } from "../ui.js?v=20260902b";
-import { кнопкаРазвернуть } from "../miniapp.js?v=20260902b";
+import { db } from "../db.js?v=20260902c";
+import { el } from "../el.js?v=20260902c";
+import { setRates } from "../fx.js?v=20260902c";
+import { обновитьЕслиУстарело } from "../version.js?v=20260902c";
+import { icon } from "../icons.js?v=20260902c";
+import { toast } from "../ui.js?v=20260902c";
+import { кнопкаРазвернуть } from "../miniapp.js?v=20260902c";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const TOKEN_KEY = "sklad_admin_token";
@@ -24,7 +24,7 @@ export const isGuest = () => {
 
 // Помощник переехал в js/el.js — им пользуется и мини-приложение заказа,
 // которому вход в склад не нужен. Экспорт оставлен, чтобы все экраны
-// склада продолжали брать его отсюда: import { el } from "../app.js?v=20260902b".
+// склада продолжали брать его отсюда: import { el } from "../app.js?v=20260902c".
 export { el };
 
 const root = () => document.getElementById("mini-root");
@@ -94,19 +94,19 @@ export const VERSION = ((import.meta.url.split("?v=")[1] || "").split("&")[0]) |
 
 // ---------- экраны ----------
 const SCREENS = {
-  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20260902b") },
-  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20260902b") },
-  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20260902b") },
-  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20260902b") },
-  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20260902b") },
-  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20260902b") },
-  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260902b") },
-  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260902b") },
-  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20260902b") },
-  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20260902b") },
-  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20260902b") },
-  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20260902b") },
-  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20260902b") },
+  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20260902c") },
+  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20260902c") },
+  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20260902c") },
+  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20260902c") },
+  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20260902c") },
+  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20260902c") },
+  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20260902c") },
+  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20260902c") },
+  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20260902c") },
+  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20260902c") },
+  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20260902c") },
+  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20260902c") },
+  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20260902c") },
 };
 // Внизу помещается пять кнопок — то, за чем заходят каждый день.
 // Всё остальное живёт в «Ещё»: больше пяти в ряд на телефоне превращаются
