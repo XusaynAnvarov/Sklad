@@ -1,20 +1,20 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260910a";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260910a";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260910a";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260910a";
-import { suggestPrice, priceNote } from "../prices.js?v=20260910a";
-import { списанные } from "../stockcheck.js?v=20260910a";
-import { placeholder } from "./products.js?v=20260910a";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260910a";
-import { icon } from "../icons.js?v=20260910a";
-import { showLoader, hideLoader } from "../ui.js?v=20260910a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260910a";
-import { exportInvoice } from "../xlsx-export.js?v=20260910a";
-import { showNotFound } from "./purchases.js?v=20260910a";
-import { thumb } from "../img.js?v=20260910a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260910b";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260910b";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260910b";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260910b";
+import { suggestPrice, priceNote } from "../prices.js?v=20260910b";
+import { списанные } from "../stockcheck.js?v=20260910b";
+import { placeholder } from "./products.js?v=20260910b";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260910b";
+import { icon } from "../icons.js?v=20260910b";
+import { showLoader, hideLoader } from "../ui.js?v=20260910b";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260910b";
+import { exportInvoice } from "../xlsx-export.js?v=20260910b";
+import { showNotFound } from "./purchases.js?v=20260910b";
+import { thumb } from "../img.js?v=20260910b";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -430,12 +430,12 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
       const P = (id) => fresh[id] || products.find(x => x.id === id);
 
       // Возвращаем на склад ТОЛЬКО те позиции, которые с него реально
-      // списывали. Раньше решали по статусу («заказ — значит не списывали»),
-      // но статус мог откатиться: клиент нажимал старую кнопку подтверждения
-      // в чате, и оформленная накладная снова становилась заказом. Товар при
-      // этом был уже списан, и повторное оформление списывало его второй раз.
-      // Отметка applied — единственная правда о том, трогали склад или нет.
-      if (sale) (sale.items || []).filter(it => it.applied === true).forEach(it => {
+      // списывали (правило — в js/stockcheck.js). Раньше решали по одному
+      // статусу: «заказ — значит не списывали». Но статус мог откатиться —
+      // клиент нажимал старую кнопку подтверждения в чате, и оформленная
+      // накладная снова становилась заказом. Товар был уже списан, и
+      // повторное оформление списывало его второй раз.
+      if (sale) списанные(sale).forEach(it => {
         const p = P(it.product_id); if (!p) return;
         const perY = it.qty ? (Number(it.cogs_yuan) || 0) / it.qty : (Number(p.cost_yuan) || 0);
         const perU = it.qty ? (Number(it.cogs_usd) || 0) / it.qty : (Number(p.cost_usd) || 0);
