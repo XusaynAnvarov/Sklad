@@ -1,20 +1,20 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260902c";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260902c";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260902c";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260902c";
-import { suggestPrice, priceNote } from "../prices.js?v=20260902c";
-import { списанные } from "../stockcheck.js?v=20260902c";
-import { placeholder } from "./products.js?v=20260902c";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260902c";
-import { icon } from "../icons.js?v=20260902c";
-import { showLoader, hideLoader } from "../ui.js?v=20260902c";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260902c";
-import { exportInvoice } from "../xlsx-export.js?v=20260902c";
-import { showNotFound } from "./purchases.js?v=20260902c";
-import { thumb } from "../img.js?v=20260902c";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260910a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260910a";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260910a";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260910a";
+import { suggestPrice, priceNote } from "../prices.js?v=20260910a";
+import { списанные } from "../stockcheck.js?v=20260910a";
+import { placeholder } from "./products.js?v=20260910a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260910a";
+import { icon } from "../icons.js?v=20260910a";
+import { showLoader, hideLoader } from "../ui.js?v=20260910a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260910a";
+import { exportInvoice } from "../xlsx-export.js?v=20260910a";
+import { showNotFound } from "./purchases.js?v=20260910a";
+import { thumb } from "../img.js?v=20260910a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -82,7 +82,25 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
   // Склад в телефоне считает так же — расходиться им нельзя.
   let hints = { own: new Map(), any: new Map() };
   const hintFor = (id) => suggestPrice(id, { ownMap: hints.own, anyMap: hints.any });
-  async function loadLastPrices() { try { hints = await ctx.db.priceHints(state.customer_id); drawCart(); } catch {} }
+
+  // Цены грузятся из базы, то есть не мгновенно. Когда ответ пришёл, надо
+  // перерисовать ОБА места, где видна подсказка: строки чека и строку под
+  // полем цены. Раньше обновлялся только чек, и подсказка под полем цены
+  // навсегда оставалась той, что посчиталась ДО выбора клиента, — поэтому
+  // у всех показывало «общая цена» вместо цены самого клиента.
+  //
+  // Ответ на устаревший запрос отбрасываем: пока считали одного клиента,
+  // владелец мог выбрать другого, и старый ответ затёр бы новый.
+  async function loadLastPrices() {
+    const кому = state.customer_id;
+    try {
+      const свежие = await ctx.db.priceHints(кому);
+      if (кому !== state.customer_id) return;
+      hints = свежие;
+      drawCart();
+      refreshAdd();
+    } catch { }
+  }
 
   // ----- шапка -----
   const custNameToId = {}; customers.forEach(c => { custNameToId[(c.name || "").toLowerCase()] = c.id; });
