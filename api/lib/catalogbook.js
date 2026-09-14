@@ -27,7 +27,7 @@ import fontkit from "@pdf-lib/fontkit";
 import { readFileSync } from "fs";
 import { qrMatrix } from "../../js/qr.js";
 import { БУКВЫ, раздел as разделТовара, буквыРаздела } from "../../js/catalogcode.js";
-import { ПОДПИСИ, названиеРаздела } from "./catalogbook-text.js";
+import { ПОДПИСИ, названиеРаздела } from "../../js/catalogbook-text.js";
 
 // ---------------------------------------------------------------- размеры
 const ММ = 72 / 25.4;
@@ -82,7 +82,7 @@ export function собратьРазделы(товары) {
   const таблица = { ...БУКВЫ };
   const карта = new Map();
   for (const p of товары || []) {
-    if (!p || p.hidden || p.status === "hidden") continue;
+    if (!p || p.hidden || p.status === "hidden" || p.site_status === "hidden") continue;
     const k = разделТовара(p.category);
     if (!карта.has(k)) карта.set(k, []);
     карта.get(k).push(p);
@@ -215,6 +215,36 @@ export function перенести(текст, шрифт, кегль, шири�
     out[out.length - 1] = last.trimEnd() + "…";
   }
   return out;
+}
+
+// Поворот, записанный телефоном в EXIF: 1 — как есть, 3/6/8 — снимок надо
+// повернуть. Браузер поворачивает сам, а PDF кладёт снимок как есть.
+export function ориентацияJpeg(b) {
+  if (!b || b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return 1;
+  let i = 2;
+  while (i + 4 <= b.length) {
+    if (b[i] !== 0xff) return 1;
+    const метка = b[i + 1];
+    const длина = (b[i + 2] << 8) | b[i + 3];
+    if (метка === 0xda || метка === 0xd9) return 1;          // дальше само изображение
+    if (метка === 0xe1 && b[i + 4] === 0x45 && b[i + 5] === 0x78 && b[i + 6] === 0x69 && b[i + 7] === 0x66) {
+      const t = i + 10;                                        // заголовок TIFF
+      const le = b[t] === 0x49;
+      const u16 = (o) => (le ? b[o] | (b[o + 1] << 8) : (b[o] << 8) | b[o + 1]);
+      const u32 = (o) => (le ? (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) : ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3])) >>> 0;
+      const ifd = t + u32(t + 4);
+      if (ifd + 2 > b.length) return 1;
+      const записей = u16(ifd);
+      for (let k = 0; k < записей; k++) {
+        const e = ifd + 2 + k * 12;
+        if (e + 12 > b.length) break;
+        if (u16(e) === 0x0112) return u16(e + 8) || 1;
+      }
+      return 1;
+    }
+    i += 2 + длина;
+  }
+  return 1;
 }
 
 // Путь снимка в хранилище из того, что лежит в товаре (ссылка или путь).

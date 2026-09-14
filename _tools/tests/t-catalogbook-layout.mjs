@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 
 const корень = new URL("../../", import.meta.url);
 const К = await import(new URL("api/lib/catalogbook.js", корень));
-const { ПОДПИСИ, РАЗДЕЛЫ, названиеРаздела, ЯЗЫКИ } = await import(new URL("api/lib/catalogbook-text.js", корень));
+const { ПОДПИСИ, РАЗДЕЛЫ, названиеРаздела, ЯЗЫКИ } = await import(new URL("js/catalogbook-text.js", корень));
 const { БУКВЫ, раздатьКоды } = await import(new URL("js/catalogcode.js", корень));
 const { PDFDocument, PDFName } = await import("pdf-lib");
 const fontkit = (await import("@pdf-lib/fontkit")).default;

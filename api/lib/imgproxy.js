@@ -86,6 +86,39 @@ export function адресаSupabase(path, w) {
   ];
 }
 
+// С диска, а если нет — скачать по очереди по адресам и сохранить на диск.
+// Возвращает { байты, изКэша } или null.
+async function сДискаИлиСкачать(файл, адреса) {
+  try {
+    if (existsSync(файл) && statSync(файл).size > 0) return { байты: readFileSync(файл), изКэша: true };
+  } catch { }
+  for (const url of адреса) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const байты = Buffer.from(await r.arrayBuffer());
+      if (!байты.length) continue;
+      try { writeFileSync(файл, байты); } catch { }   // не смогли сохранить — не беда
+      return { байты, изКэша: false };
+    } catch { }
+  }
+  return null;
+}
+
+// Уменьшенный снимок: диск → уменьшенная копия Supabase → оригинал.
+export async function снимок(path, w) {
+  if (!ширинаДопустима(w) || !путьДопустим(path) || !SB_URL) return null;
+  return сДискаИлиСкачать(join(ПАПКА, имяФайла(path, w)), адресаSupabase(path, w));
+}
+
+// Оригинал без уменьшения — для печатного каталога. Фото и так сжаты при
+// загрузке (около 100 КБ), а уменьшение у Supabase считается отдельно.
+// Скачивается один раз, дальше берётся с диска.
+export async function оригинал(path) {
+  if (!путьДопустим(path) || !SB_URL) return null;
+  return сДискаИлиСкачать(join(ПАПКА, имяФайла(path, "orig")), [адресаSupabase(path, 0)[1]]);
+}
+
 export default async function handler(req, res) {
   const w = Number(req.query.w);
   const path = String(req.query.p || "");
@@ -95,32 +128,14 @@ export default async function handler(req, res) {
   }
   if (!SB_URL) return res.status(500).send("SUPABASE_URL не задан");
 
-  const файл = join(ПАПКА, имяФайла(path, w));
-  const тип = типПоИмени(path);
-
-  // Уже качали — отдаём с диска, Supabase не трогаем вовсе.
-  try {
-    if (existsSync(файл) && statSync(файл).size > 0) {
-      res.setHeader("Content-Type", тип);
-      res.setHeader("Cache-Control", `public, max-age=${ГОД}, immutable`);
-      res.setHeader("X-Img-Cache", "HIT");
-      return res.end(readFileSync(файл));
-    }
-  } catch { }
-
-  // Первый раз: скачиваем. Сначала уменьшенную копию, потом оригинал.
-  for (const url of адресаSupabase(path, w)) {
-    try {
-      const r = await fetch(url);
-      if (!r.ok) continue;
-      const buf = Buffer.from(await r.arrayBuffer());
-      if (!buf.length) continue;
-      try { writeFileSync(файл, buf); } catch { }   // не смогли сохранить — не беда
-      res.setHeader("Content-Type", r.headers.get("content-type") || тип);
-      res.setHeader("Cache-Control", `public, max-age=${ГОД}, immutable`);
-      res.setHeader("X-Img-Cache", "MISS");
-      return res.end(buf);
-    } catch { }
+  // Уже качали — с диска, Supabase не трогаем вовсе. Первый раз —
+  // скачиваем: сначала уменьшенную копию, потом оригинал.
+  const есть = await снимок(path, w);
+  if (есть) {
+    res.setHeader("Content-Type", типПоИмени(path));
+    res.setHeader("Cache-Control", `public, max-age=${ГОД}, immutable`);
+    res.setHeader("X-Img-Cache", есть.изКэша ? "HIT" : "MISS");
+    return res.end(есть.байты);
   }
 
   // Снимка нет. Кэшируем отказ ненадолго, чтобы битая ссылка в списке

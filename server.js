@@ -76,6 +76,9 @@ const routes = [
   [["GET","POST","DELETE","OPTIONS"], "/api/admin/db", "./api/admin/db.js"],
   [["GET"],   "/api/admin/site-clients",      "./api/admin/site-clients.js"],
   [["GET","POST"], "/api/admin/catalog-codes", "./api/admin/catalog-codes.js"],
+  // печатный каталог: сборка в отдельном потоке и скачивание по пропуску
+  [["GET","POST"], "/api/admin/catalog-book",  "./api/admin/catalog-book.js"],
+  [["GET","HEAD"], "/api/catalog-book-file",   "./api/catalog-book-file.js"],
   [["GET"],   "/api/admin/act-pdf",           "./api/admin/act-pdf.js"],
   [["GET"],   "/api/admin/bot-contacts",      "./api/admin/bot-contacts.js"],
   [["POST","OPTIONS"], "/api/video-sign-upload", "./api/video-sign-upload.js"],
@@ -152,7 +155,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20260914a");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20260914b");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -206,8 +209,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260914a");
-    const { sget } = await import("./api/lib/supa.js?v=20260914a");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20260914b");
+    const { sget } = await import("./api/lib/supa.js?v=20260914b");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +

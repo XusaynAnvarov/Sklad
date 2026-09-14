@@ -1,13 +1,14 @@
 // ========================================================================
 //  «КАТАЛОГ» в админке — предпросмотр, ссылка, отправка клиенту через бота
 // ========================================================================
-import { el, toast, field, input } from "../ui.js?v=20260914a";
-import { sendToClient } from "../telegram.js?v=20260914a";
-import { statusOf, placeholder } from "./products.js?v=20260914a";
-import { icon } from "../icons.js?v=20260914a";
-import { thumb } from "../img.js?v=20260914a";
-import { authHeaders } from "../db.js?v=20260914a";
-import { естьКолонкаКода } from "../catalogcode.js?v=20260914a";
+import { el, toast, field, input } from "../ui.js?v=20260914b";
+import { sendToClient } from "../telegram.js?v=20260914b";
+import { statusOf, placeholder } from "./products.js?v=20260914b";
+import { icon } from "../icons.js?v=20260914b";
+import { thumb } from "../img.js?v=20260914b";
+import { authHeaders } from "../db.js?v=20260914b";
+import { естьКолонкаКода, раздел } from "../catalogcode.js?v=20260914b";
+import { РАЗДЕЛЫ } from "../catalogbook-text.js?v=20260914b";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -47,6 +48,7 @@ export default async function render(page, ctx) {
   ]));
 
   page.append(блокКодов(products));
+  page.append(await блокКниги(products, ctx));
 
   // предпросмотр
   page.append(el("div.section-h", { text: "Предпросмотр (как видит клиент)" }));
@@ -145,5 +147,166 @@ function блокКодов(products) {
     });
     список.append(таблица, присвоить);
   }
+  return card;
+}
+
+// ------------------------------------------------------------------------
+//  ПЕЧАТНЫЙ КАТАЛОГ — книга для типографии.
+//  Данные для обложки и последней страницы хранятся в settings.catalog_info.
+//  Книга собирается на сервере (фото там уже лежат), здесь — только
+//  запуск, полоса хода и ссылки на готовые файлы.
+// ------------------------------------------------------------------------
+const ЯЗЫК_КНИГИ = { ru: "Русский", uz: "O‘zbekcha", en: "English" };
+
+async function блокКниги(products, ctx) {
+  let настройки = {};
+  try { настройки = await ctx.db.getSettings(); } catch { }
+  const инфо = (настройки && настройки.catalog_info) || {};
+  const естьКолонка = настройки && Object.prototype.hasOwnProperty.call(настройки, "catalog_info");
+  const поЯзыку = (v, я) => (v && typeof v === "object" ? (v[я] || "") : (я === "ru" ? String(v || "") : ""));
+
+  const fИмя = input({ value: инфо.название || "", placeholder: "GENERAL MODERN" });
+  const fСайт = input({ value: инфо.сайт || "", placeholder: "generalmodern.uz" });
+  const fБот = input({ value: инфо.telegram || "", placeholder: "https://t.me/generalmodernbot" });
+  const fТел = el("textarea.inp", { placeholder: "+998 90 123 45 67\n+998 91 765 43 21", rows: 2 });
+  fТел.value = (Array.isArray(инфо.телефоны) ? инфо.телефоны : String(инфо.телефоны || "").split(/[,;\n]/)).map(s => s.trim()).filter(Boolean).join("\n");
+  const fАдрес = {};
+  const fО = {};
+  for (const я of Object.keys(ЯЗЫК_КНИГИ)) {
+    fАдрес[я] = input({ value: поЯзыку(инфо.адрес, я), placeholder: `Адрес — ${ЯЗЫК_КНИГИ[я]}` });
+    fО[я] = el("textarea.inp", { rows: 3, placeholder: `2–3 предложения о компании — ${ЯЗЫК_КНИГИ[я]}. Пусто — не печатается.` });
+    fО[я].value = поЯзыку(инфо.оКомпании, я);
+  }
+
+  // названия разделов в книге — только те разделы, что есть в складе
+  const разделы = [...new Set(products.map(p => раздел(p.category)))].sort((a, b) => a.localeCompare(b, "ru"));
+  const правки = инфо.разделы || {};
+  const fРазделы = {};
+  const таблица = el("div", { style: { overflowX: "auto" } });
+  const сетка = el("div", { style: { display: "grid", gridTemplateColumns: "minmax(120px,1fr) repeat(3, minmax(140px,1.3fr))", gap: "6px", alignItems: "center", minWidth: "620px" } });
+  сетка.append(el("b", { text: "В складе" }), ...Object.values(ЯЗЫК_КНИГИ).map(t => el("b", { text: t })));
+  for (const р of разделы) {
+    fРазделы[р] = {};
+    сетка.append(el("span", { text: р, style: { fontSize: "13px" } }));
+    for (const я of Object.keys(ЯЗЫК_КНИГИ)) {
+      const поУмолчанию = (РАЗДЕЛЫ[р] && РАЗДЕЛЫ[р][я]) || р;
+      fРазделы[р][я] = input({ value: (правки[р] && правки[р][я]) || "", placeholder: поУмолчанию });
+      сетка.append(fРазделы[р][я]);
+    }
+  }
+  таблица.append(сетка);
+
+  const сохранить = el("button.btn.btn-outline", { text: "Сохранить данные каталога" });
+  сохранить.addEventListener("click", async () => {
+    const обЯзыках = (поля) => Object.fromEntries(Object.entries(поля).map(([я, f]) => [я, f.value.trim()]).filter(([, v]) => v));
+    const новыеПравки = {};
+    for (const [р, поля] of Object.entries(fРазделы)) {
+      const своё = обЯзыках(поля);
+      if (Object.keys(своё).length) новыеПравки[р] = своё;
+    }
+    const данные = {
+      название: fИмя.value.trim(),
+      сайт: fСайт.value.trim(),
+      telegram: fБот.value.trim(),
+      телефоны: fТел.value.split("\n").map(s => s.trim()).filter(Boolean),
+      адрес: обЯзыках(fАдрес),
+      оКомпании: обЯзыках(fО),
+      разделы: новыеПравки,
+    };
+    сохранить.disabled = true;
+    try { await ctx.db.saveSettings({ catalog_info: данные }); toast("Данные каталога сохранены", "ok"); }
+    catch (e) { toast(e.message, "err"); }
+    finally { сохранить.disabled = false; }
+  });
+
+  // ---- сборка ----
+  const язык = el("select.inp", { style: { maxWidth: "200px" } });
+  for (const [k, t] of Object.entries(ЯЗЫК_КНИГИ)) язык.append(el("option", { value: k, text: t }));
+  const кнОбразец = el("button.btn.btn-outline", { text: "Собрать образец (7 стр.)" });
+  const кнВся = el("button.btn.btn-primary", { text: "Собрать весь каталог" });
+  const полоса = el("div", { style: { height: "8px", background: "var(--line, #e5e7eb)", borderRadius: "4px", overflow: "hidden", margin: "10px 0 4px" } });
+  const заливка = el("div", { style: { height: "100%", width: "0%", background: "var(--accent, #c9a24a)", transition: "width .4s" } });
+  полоса.append(заливка);
+  const ходТекст = el("div.hint");
+  const ходБлок = el("div", {}, [полоса, ходТекст]);
+  ходБлок.hidden = true;
+  const книги = el("div");
+
+  const card = el("div.card", { style: { marginBottom: "18px" } }, [
+    el("div.section-h", { text: "Печатный каталог (книга для типографии)", style: { marginTop: 0 } }),
+    el("div.hint", { text: "Книга A4 с обложкой, содержанием и всеми товарами, кроме скрытых, — с фото, кодом и названием, без цен. Собирается из того, что сейчас в складе: добавили фото или товар — соберите заново." }),
+    естьКолонка ? null : el("div.hint", { style: { color: "var(--danger, #b91c1c)" }, text: "Для сохранения данных нужен db/catalog-migration.sql (поле catalog_info)." }),
+    el("div.row2", {}, [field("Название на обложке", fИмя), field("Сайт", fСайт)]),
+    el("div.row2", {}, [field("Telegram-бот (для QR)", fБот), field("Телефоны — по одному в строке", fТел)]),
+    el("details", { style: { margin: "8px 0" } }, [
+      el("summary", { text: "Адрес и текст «О компании» на трёх языках", style: { cursor: "pointer", fontWeight: "600" } }),
+      ...Object.keys(ЯЗЫК_КНИГИ).map(я => el("div", { style: { marginTop: "8px" } }, [field("Адрес — " + ЯЗЫК_КНИГИ[я], fАдрес[я]), field("О компании — " + ЯЗЫК_КНИГИ[я], fО[я])])),
+    ]),
+    el("details", { style: { margin: "8px 0" } }, [
+      el("summary", { text: "Названия разделов в книге", style: { cursor: "pointer", fontWeight: "600" } }),
+      el("div.hint", { text: "Серым — как будет напечатано сейчас. Впишите своё, если перевод не подходит." }),
+      таблица,
+    ]),
+    сохранить,
+    el("div.section-h", { text: "Собрать", style: { marginTop: "18px" } }),
+    el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" } }, [язык, кнОбразец, кнВся]),
+    ходБлок,
+    книги,
+  ].filter(Boolean));
+
+  const запрос = async (method, body) => {
+    const r = await fetch("/api/admin/catalog-book", {
+      method, headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok && r.status !== 409) throw new Error(d.error || "Ошибка " + r.status);
+    if (r.status === 409) toast(d.error, "err");
+    return d;
+  };
+
+  const ЭТАП = { запуск: "Запуск…", товары: "Читаю товары…", фото: "Фото", страницы: "Страницы", сохранение: "Сохраняю файл…", готово: "Готово" };
+  const мб = (b) => (b / 1024 / 1024).toFixed(1) + " МБ";
+  let таймер = 0;
+
+  function нарисовать(с) {
+    const з = с.задача;
+    const идёт = з && !з.закончено;
+    кнОбразец.disabled = кнВся.disabled = !!идёт;
+    if (з) {
+      ходБлок.hidden = false;
+      const доля = з.всего ? з.готово / з.всего : 0;
+      // фото — первая половина полосы, страницы — вторая
+      const общая = з.закончено ? 1 : з.этап === "фото" ? доля * 0.5 : з.этап === "страницы" ? 0.5 + доля * 0.45 : з.этап === "сохранение" ? 0.97 : 0.02;
+      заливка.style.width = Math.round(общая * 100) + "%";
+      const что = `${ЯЗЫК_КНИГИ[з.язык] || з.язык}, ${з.образец ? "образец" : "весь каталог"}`;
+      if (з.ошибка) ходТекст.textContent = `${что}: ошибка — ${з.ошибка}`;
+      else if (з.закончено) ходТекст.textContent = `${что}: готово — ${з.всегоСтраниц ? (з.образец ? `${з.страниц} из ${з.всегоСтраниц}` : з.всегоСтраниц) + " стр., " : ""}${з.байт ? мб(з.байт) : ""}`;
+      else ходТекст.textContent = `${что}: ${ЭТАП[з.этап] || з.этап}${з.всего ? ` ${з.готово} из ${з.всего}` : ""}`;
+    }
+    книги.replaceChildren();
+    if (с.книги && с.книги.length) {
+      книги.append(el("div.section-h", { text: "Готовые файлы", style: { marginTop: "14px" } }));
+      for (const к of с.книги) {
+        книги.append(el("div", { style: { display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", padding: "6px 0", borderTop: "1px solid var(--line, #e5e7eb)" } }, [
+          el("span", { text: `${ЯЗЫК_КНИГИ[к.язык] || к.язык} · ${к.образец ? "образец" : "весь каталог"}`, style: { fontWeight: "600" } }),
+          el("span.muted", { text: `${мб(к.байт)} · ${new Date(к.собрана).toLocaleString("ru-RU")}` }),
+          el("a.btn.btn-outline.btn-sm", { href: к.ссылка, download: к.имя, text: "Скачать" }),
+        ]));
+      }
+    }
+    clearTimeout(таймер);
+    // пока идёт сборка и страница открыта — спрашиваем ход
+    if (идёт) таймер = setTimeout(() => { if (document.body.contains(card)) обновить(); }, 1500);
+  }
+  const обновить = async () => { try { нарисовать(await запрос("GET")); } catch (e) { ходТекст.textContent = e.message; } };
+  const собрать = async (образец) => {
+    кнОбразец.disabled = кнВся.disabled = true;
+    try { нарисовать(await запрос("POST", { язык: язык.value, образец })); }
+    catch (e) { toast(e.message, "err"); кнОбразец.disabled = кнВся.disabled = false; }
+  };
+  кнОбразец.addEventListener("click", () => собрать(true));
+  кнВся.addEventListener("click", () => собрать(false));
+  обновить();
   return card;
 }
