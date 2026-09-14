@@ -1,21 +1,23 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260910b";
-import { icon } from "../icons.js?v=20260910b";
-import { fmt, convert } from "../fx.js?v=20260910b";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260910b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260910b";
-import { openEditor } from "./sales.js?v=20260910b";
-import { thumbAttrs, thumb } from "../img.js?v=20260910b";
-import { LOW_STOCK } from "../advice.js?v=20260910b";
-import { qrSvg, skuPayload } from "../qr.js?v=20260910b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260914a";
+import { icon } from "../icons.js?v=20260914a";
+import { fmt, convert } from "../fx.js?v=20260914a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20260914a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260914a";
+import { openEditor } from "./sales.js?v=20260914a";
+import { thumbAttrs, thumb } from "../img.js?v=20260914a";
+import { LOW_STOCK } from "../advice.js?v=20260914a";
+import { qrSvg, skuPayload } from "../qr.js?v=20260914a";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20260910b";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20260914a";
 // Единица измерения: товар считают штуками, пачками, коробками. Смена
 // единицы пересчитывает и остаток, и себестоимость, и все партии.
-import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20260910b";
+import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20260914a";
+import { подходит } from "../productsearch.js?v=20260914a";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20260914a";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -137,7 +139,7 @@ export default async function render(page, ctx) {
     const cat = catFilter.value;
     draw(all.filter(p =>
       (!cat || p.category === cat) &&
-      (p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q))));
+      подходит(p, q)));
   }
 
   // ---- порционная отрисовка: 866 карточек разом вешают телефон ----
@@ -203,7 +205,7 @@ export default async function render(page, ctx) {
         el("div.body", {}, [
           el("div.nm", { text: p.name }),
           el("div.cat", { text: p.category || "—" }),
-          ...(p.sku ? [el("div.muted", { text: "Арт.: " + p.sku, style: { fontSize: "11px", marginTop: "-2px" } })] : []),
+          ...(подписьКода(p) ? [el("div.muted", { text: подписьКода(p), style: { fontSize: "11px", marginTop: "-2px" } })] : []),
           transitNote,
           el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" } }, [
             el("div", { style: { display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" } }, [
@@ -245,6 +247,8 @@ export function openForm(ctx, p, cats = []) {
   const fName = input({ value: p.name, placeholder: "Название" });
   const fCat = inputList(cats, { value: p.category || "", placeholder: "Категория (выбор или ввод)" });
   const fSku = input({ value: p.sku || "", placeholder: "Артикул (виден клиентам)" });
+  // Постоянный код из печатного каталога. Пусто — присвоится сам при сохранении.
+  const fCode = input({ value: p.code || "", placeholder: "присвоится сам: LP-017", style: { textTransform: "uppercase" } });
   // несколько фото; первое — главное (показывается в списке и каталоге)
   let photos = (Array.isArray(p.photos) && p.photos.length) ? [...p.photos] : (p.photo_url ? [p.photo_url] : []);
   const thumbsBox = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "8px", minHeight: "20px" } });
@@ -329,6 +333,7 @@ export function openForm(ctx, p, cats = []) {
   const body = el("div", {}, [
     field("Название", fName),
     el("div.row2", {}, [field("Категория", fCat), field("Артикул (виден клиентам)", fSku)]),
+    field("Код в каталоге", fCode),
     el("div.section-h", { text: "Фотографии (можно несколько)" }),
     thumbsBox,
     field("Загрузить файлы (можно выбрать сразу несколько)", fFile),
@@ -369,7 +374,7 @@ export function openForm(ctx, p, cats = []) {
           body: el("div", {}, [
             holder,
             el("div.hint", { style: { textAlign: "center", marginTop: "10px" },
-              text: (p.sku ? "Арт.: " + p.sku + " · " : "") + "сканируйте с экрана или наклейте на коробку" }),
+              text: (подписьКода(p) ? подписьКода(p) + " · " : "") + "сканируйте с экрана или наклейте на коробку" }),
           ]),
           actions: [{ label: "Закрыть", kind: "btn-primary", onClick: (c) => c() }],
         });
@@ -446,8 +451,21 @@ export function openForm(ctx, p, cats = []) {
         const oldC = { cost_yuan: Number(p.cost_yuan) || 0, cost_usd: Number(p.cost_usd) || 0 };
         const changed = !isNew && (oldC.cost_yuan || oldC.cost_usd) && (Math.abs(oldC.cost_yuan - cc.cost_yuan) > 0.001 || Math.abs(oldC.cost_usd - cc.cost_usd) > 0.001);
         const cost_prev = changed ? oldC : (p.cost_prev || null);
+        // Постоянный код. Решаем по свежему списку товаров, а не по тому, что
+        // был при открытии формы: за это время код мог уйти другому товару.
+        // До миграции колонки code нет — тогда код не пишем вовсе.
+        let код = null;
+        try {
+          const все = await ctx.db.products.list();
+          if (естьКолонкаКода(все)) {
+            const решение = кодПриСохранении({ товар: isNew ? {} : p, вписано: fCode.value, категория: fCat.value.trim(), товары: все });
+            if (решение.ошибка) { toast(решение.ошибка, "err"); return; }
+            код = решение.code;
+          }
+        } catch { }
         const obj = {
           ...(isNew ? {} : { id: p.id }),
+          ...(код ? { code: код } : {}),
           name: fName.value.trim(), category: fCat.value.trim(),
           sku: fSku.value.trim() || null,
           photo_url: photos[0] || "", photos,
@@ -461,11 +479,23 @@ export function openForm(ctx, p, cats = []) {
         // продажные цены (price_*) форма не редактирует — НЕ перезаписываем их (иначе обнуляются).
         // Для нового товара зададим явные нули, у существующего PATCH сохранит прежние.
         if (isNew) { obj.price_yuan = 0; obj.price_usd = 0; obj.price_som = 0; }
-        const noPhotos = (o) => { const { photos: _ph, cost_cur: _cc, sku: _sk, unit: _u, pack_size: _ps, ...rest } = o; return rest; }; // фолбэк, если колонок photos/cost_cur/sku/unit ещё нет
-        try { await ctx.db.products.upsert({ ...obj, batches, ...(cost_prev ? { cost_prev } : {}) }); }
-        catch (e) {
-          try { await ctx.db.products.upsert({ ...obj, batches }); }
-          catch (e2) { try { await ctx.db.products.upsert(noPhotos({ ...obj, batches })); } catch (e3) { await ctx.db.products.upsert(noPhotos(obj)); } }
+        const noPhotos = (o) => { const { photos: _ph, cost_cur: _cc, sku: _sk, unit: _u, pack_size: _ps, code: _cd, ...rest } = o; return rest; }; // фолбэк, если колонок photos/cost_cur/sku/unit/code ещё нет
+        const сохранить = async (o) => {
+          try { await ctx.db.products.upsert({ ...o, batches, ...(cost_prev ? { cost_prev } : {}) }); }
+          catch (e) {
+            // Код успел уйти другому товару — это решаем снаружи, следующим
+            // номером. Молча сохранить товар без кода было бы хуже.
+            if (o.code && КОД_ЗАНЯТ.test(String((e && e.message) || e))) throw e;
+            try { await ctx.db.products.upsert({ ...o, batches }); }
+            catch (e2) { try { await ctx.db.products.upsert(noPhotos({ ...o, batches })); } catch (e3) { await ctx.db.products.upsert(noPhotos(o)); } }
+          }
+        };
+        for (let попытка = 0; ; попытка++) {
+          try { await сохранить(obj); break; }
+          catch (e) {
+            if (попытка < 5 && obj.code && КОД_ЗАНЯТ.test(String((e && e.message) || e))) { obj.code = следующийПосле(obj.code); continue; }
+            throw e;
+          }
         }
         // отметить себестоимость как проверенную при этой стоимости (предупреждение на дашборде уйдёт)
         try { const a = JSON.parse(localStorage.getItem("gm_cost_ack") || "{}"); const pid = obj.id || p.id; if (pid) { a[pid] = Number(cc.cost_yuan) || 0; localStorage.setItem("gm_cost_ack", JSON.stringify(a)); } } catch {}

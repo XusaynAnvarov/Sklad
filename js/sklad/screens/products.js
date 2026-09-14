@@ -1,21 +1,23 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20260910b";
-import { icon } from "../../icons.js?v=20260910b";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260910b";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260910b";
-import { fmt, convert } from "../../fx.js?v=20260910b";
-import { thumb } from "../../img.js?v=20260910b";
-import { LOW_STOCK } from "../../advice.js?v=20260910b";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260910b";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260910b";
-import { setStock } from "../stock.js?v=20260910b";
+import { el, go } from "../app.js?v=20260914a";
+import { icon } from "../../icons.js?v=20260914a";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20260914a";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20260914a";
+import { fmt, convert } from "../../fx.js?v=20260914a";
+import { thumb } from "../../img.js?v=20260914a";
+import { LOW_STOCK } from "../../advice.js?v=20260914a";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20260914a";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260914a";
+import { setStock } from "../stock.js?v=20260914a";
 // Себестоимость показываем в той валюте, в которой её ввели. Расчёт общий
 // со складом на сайте: иначе один товар выглядит как «$33.87» на компьютере
 // и «241,94 ¥» в телефоне — цифра верная, а доверия к ней никакого.
-import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20260910b";
-import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20260910b";
+import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20260914a";
+import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20260914a";
+import { подходит } from "../../productsearch.js?v=20260914a";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20260914a";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -46,6 +48,8 @@ export default async function render(box, ctx) {
 
     const fName = inp({ type: "text", value: item.name || "", placeholder: "Название" });
     const fSku = inp({ type: "text", value: item.sku || "", placeholder: "Артикул" });
+    // Постоянный код из печатного каталога. Пусто — присвоится сам.
+    const fCode = inp({ type: "text", value: item.code || "", placeholder: "присвоится сам: LP-017", autocapitalize: "characters" });
     const fCat = inp({ type: "text", value: item.category || "", placeholder: "Категория" });
     const костCur = isNew ? "yuan" : костВалюта(item);
     const костЗнач = isNew ? 0 : костЧисло(own.cost_yuan || item.cost_yuan, item.cost_usd, костCur);
@@ -131,8 +135,16 @@ export default async function render(box, ctx) {
           const name = fName.value.trim();
           if (!name) { toast("Впишите название", "err"); return; }
           const { cost_yuan: cy, cost_usd, cost_cur } = костПоля(fCost.value, fCostCur.value);
+          // Постоянный код. До миграции колонки code нет — тогда не пишем.
+          let код = null;
+          if (естьКолонкаКода(products)) {
+            const решение = кодПриСохранении({ товар: isNew ? { id: item.id } : item, вписано: fCode.value, категория: fCat.value.trim(), товары: products });
+            if (решение.ошибка) { toast(решение.ошибка, "err"); return; }
+            код = решение.code;
+          }
           const row = {
             id: item.id, name, sku: fSku.value.trim(), category: fCat.value.trim(),
+            ...(код ? { code: код } : {}),
             cost_yuan: cy,
             cost_usd,
             cost_cur,
@@ -141,17 +153,33 @@ export default async function render(box, ctx) {
             photos: фото,
             photo_url: фото[0] || null,
           };
+          // Код успел уйти другому товару (два телефона завели товар разом) —
+          // пробуем следующий номер, а не сохраняем товар молча без кода.
+          const сКодом = async (записать) => {
+            for (let попытка = 0; ; попытка++) {
+              try { return await записать(); }
+              catch (e) {
+                if (попытка < 5 && row.code && КОД_ЗАНЯТ.test(String((e && e.message) || e))) { row.code = следующийПосле(row.code); continue; }
+                throw e;
+              }
+            }
+          };
           try {
             if (isNew) {
               const qty = Number(fQty.value) || 0;
               row.stock_qty = qty;
               row.batches = qty > 0 ? [{ qty, cost_yuan: cy, cost_usd: row.cost_usd, date: new Date().toISOString() }] : [];
-              try { await ctx.db.products.upsert(row); }
-              catch { await ctx.db.products.upsert((({ batches, ...x }) => x)(row)); }
+              await сКодом(async () => {
+                try { await ctx.db.products.upsert(row); }
+                catch (e) {
+                  if (row.code && КОД_ЗАНЯТ.test(String((e && e.message) || e))) throw e;
+                  await ctx.db.products.upsert((({ batches, ...x }) => x)(row));
+                }
+              });
               products.unshift(row);
             } else {
               // остаток и партии не трогаем — для них есть «Остаток на полке»
-              await ctx.db.products.upsert(row);
+              await сКодом(() => ctx.db.products.upsert(row));
               Object.assign(item, row);
             }
             close(); draw();
@@ -185,6 +213,7 @@ export default async function render(box, ctx) {
         field("Название", fName),
         el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" } }, [
           field("Артикул", fSku), field("Категория", fCat),
+          field("Код в каталоге", fCode),
         ]),
         el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" } }, [
           field("Себестоимость", fCost), field("Валюта прихода", fCostCur),
@@ -238,7 +267,7 @@ export default async function render(box, ctx) {
       title: p.name,
       body: el("div", {}, [
         holder,
-        el("div.sku", { style: { textAlign: "center", marginTop: "10px" }, text: p.sku ? "Арт.: " + p.sku : "без артикула" }),
+        el("div.sku", { style: { textAlign: "center", marginTop: "10px" }, text: подписьКода(p) || "без кода и артикула" }),
         el("div.hint", { style: { marginTop: "6px" }, text: "Можно сканировать прямо с экрана — код тот же, что на наклейке." }),
       ]),
       actions: [{ label: "Закрыть", kind: "btn-primary", onClick: c => c() }],
@@ -251,7 +280,7 @@ export default async function render(box, ctx) {
     if (filter === "low" && !(q > 0 && q <= LOW_STOCK)) return false;
     if (filter === "neg" && !(q < 0)) return false;
     if (!query) return true;
-    return (p.name || "").toLowerCase().includes(query) || (p.sku || "").toLowerCase().includes(query);
+    return подходит(p, query);
   }
 
   function row(p) {
@@ -261,7 +290,7 @@ export default async function render(box, ctx) {
     const out = costOutlook(ensureBatches(p));
     const вал = костВалюта(p);
     const себест = костЧисло(own.cost_yuan, own.cost_usd != null ? own.cost_usd : p.cost_usd, вал);
-    const sub = [p.sku ? "Арт.: " + p.sku : null, "себест: " + (себест ? костСтрока(own.cost_yuan, own.cost_usd != null ? own.cost_usd : p.cost_usd, вал) : "—")]
+    const sub = [подписьКода(p) || null, "себест: " + (себест ? костСтрока(own.cost_yuan, own.cost_usd != null ? own.cost_usd : p.cost_usd, вал) : "—")]
       .filter(Boolean).join(" · ");
     return el("div.mini-row" + cls, { onclick: () => openEdit(p) }, [
       p.photo_url

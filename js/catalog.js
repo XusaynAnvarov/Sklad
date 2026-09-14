@@ -6,10 +6,12 @@
 //  здесь же, мобильный вид приходилось выбивать заплатками поверх
 //  десктопных стилей — и в итоге страдало и то, и другое.
 // ========================================================================
-import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20260910b";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260910b";
-import { iconSvg } from "./icons.js?v=20260910b";
-import { thumb } from "./img.js?v=20260910b";
+import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20260914a";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260914a";
+import { iconSvg } from "./icons.js?v=20260914a";
+import { thumb } from "./img.js?v=20260914a";
+import { подходит } from "./productsearch.js?v=20260914a";
+import { подписьКода } from "./catalogcode.js?v=20260914a";
 
 // увеличение фото по клику (повторный клик — закрыть)
 function openLightbox(src) {
@@ -63,7 +65,7 @@ function placeholder(name = "?") {
 
 async function loadItems() {
   // клиенту — только «есть / нет / скоро» и признак хита; количеств и цен не показываем
-  const norm = (d) => ({ id: d.id, name: d.name, sku: d.sku || "", category: d.category, photo_url: d.photo_url, photos: (Array.isArray(d.photos) && d.photos.length) ? d.photos : (d.photo_url ? [d.photo_url] : []), status: d.status, is_new: !!d.is_new, hit: !!d.hit });
+  const norm = (d) => ({ id: d.id, name: d.name, sku: d.sku || "", code: d.code || "", category: d.category, photo_url: d.photo_url, photos: (Array.isArray(d.photos) && d.photos.length) ? d.photos : (d.photo_url ? [d.photo_url] : []), status: d.status, is_new: !!d.is_new, hit: !!d.hit });
   if (useSupabase) {
     // публичный API (отдаёт все фото товара)
     try {
@@ -78,7 +80,7 @@ async function loadItems() {
   return (store.products || []).map(p => {
     const ref = Math.max(p.created_at ? +new Date(p.created_at) : 0, p.last_arrival_at ? +new Date(p.last_arrival_at) : 0);
     return {
-      id: p.id, name: p.name, sku: p.sku || "", category: p.category, photo_url: p.photo_url,
+      id: p.id, name: p.name, sku: p.sku || "", code: p.code || "", category: p.category, photo_url: p.photo_url,
       photos: (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []),
       status: p.status_override || (Number(p.stock_qty) > 0 ? "in_stock" : "on_order"),
       is_new: ref > 0 && (Date.now() - ref) / 86400000 <= 7,
@@ -123,7 +125,7 @@ function cardHtml(p, i) {
       <div class="body">
         <div class="nm">${escapeHtml(p.name)}</div>
         <div class="cat">${escapeHtml(p.category || "")}</div>
-        ${p.sku ? `<div class="cat" style="font-size:11px;opacity:.8">Арт.: ${escapeHtml(p.sku)}</div>` : ""}
+        ${подписьКода(p) ? `<div class="cat" style="font-size:11px;opacity:.8">${escapeHtml(подписьКода(p))}</div>` : ""}
         ${p.hit ? `<div style="font-size:12px;font-weight:600;color:#e8810c;margin-top:3px">🔥 Хит недели</div>` : ""}
         <div style="margin-top:auto">${statusBadge(p.status)}</div>
       </div></div>`;
@@ -160,8 +162,8 @@ function filteredItems() {
   const q = query.trim().toLowerCase();
   return items.filter(p =>
     (selectedCat === "all" || catKey(p) === selectedCat) &&
-    // ищем по названию, категории И артикулу — клиент часто знает именно артикул
-    (!q || (p.name || "").toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q)));
+    // название, категория, артикул и постоянный код — одно правило на весь склад
+    подходит(p, q));
 }
 
 // Выпадающий список категорий (строится один раз).
@@ -212,7 +214,7 @@ function wirePdfButton() {
     if (!items.length) return;
     btn.disabled = true;
     try {
-      const m = await import("./catalog-pdf.js?v=20260910b");
+      const m = await import("./catalog-pdf.js?v=20260914a");
       await m.downloadCatalogPDF(groupByCategory(items), (done, total) => {   // PDF — всегда все товары
         btn.textContent = `Готовим PDF… ${done}/${total}`;
       });
@@ -226,7 +228,7 @@ function wirePdfButton() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=159", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=160", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();

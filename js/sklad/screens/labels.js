@@ -4,10 +4,12 @@
 // Печатаем СО СТРАНИЦЫ, а не через новое окно: Telegram новые окна блокирует
 // («Разрешите открытие окна»), поэтому лист собирается тут же и уходит на
 // принтер по window.print().
-import { el } from "../app.js?v=20260910b";
-import { icon } from "../../icons.js?v=20260910b";
-import { toast } from "../../ui.js?v=20260910b";
-import { qrSvg, skuPayload } from "../../qr.js?v=20260910b";
+import { el } from "../app.js?v=20260914a";
+import { icon } from "../../icons.js?v=20260914a";
+import { toast } from "../../ui.js?v=20260914a";
+import { qrSvg, skuPayload } from "../../qr.js?v=20260914a";
+import { подходит } from "../../productsearch.js?v=20260914a";
+import { подписьКода } from "../../catalogcode.js?v=20260914a";
 
 const PAGE = 24;   // сразу рисовать сотни QR — телефон не потянет
 
@@ -35,9 +37,7 @@ export default async function render(box, ctx) {
   const printBtn = el("button.btn.btn-primary", { text: "Печать" });
   box.append(allBtn, el("div", { style: { height: "8px" } }), el("div.mini-cta", {}, [printBtn]));
 
-  const filtered = () => products.filter(p => !query
-    || (p.name || "").toLowerCase().includes(query)
-    || (p.sku || "").toLowerCase().includes(query));
+  const filtered = () => products.filter(p => подходит(p, query));
 
   function refresh() {
     const list = filtered();
@@ -62,7 +62,7 @@ export default async function render(box, ctx) {
     qr.innerHTML = qrSvg(skuPayload(p.id), { size: 150 });
     c.append(qr,
       el("div.nm", { text: p.name }),
-      el("div.sku", { text: p.sku || "без артикула" }),
+      el("div.sku", { text: подписьКода(p) || "без кода" }),
       el("div.tick", {}, [icon("check", { size: 13 })]),
     );
     return c;
@@ -107,7 +107,8 @@ export default async function render(box, ctx) {
       const c = el("div.qr-card");
       const qr = el("div");
       qr.innerHTML = qrSvg(skuPayload(p.id), { size: 132 });
-      c.append(qr, el("div.nm", { text: p.name }), el("div.sku", { text: p.sku || "" }));
+      // На наклейке код — тот же, что клиент видит в печатном каталоге.
+      c.append(qr, el("div.nm", { text: p.name }), el("div.sku", { text: p.code || p.sku || "" }));
       sheet.append(c);
     });
     printArea.append(sheet);

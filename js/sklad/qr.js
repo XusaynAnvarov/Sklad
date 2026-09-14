@@ -12,7 +12,7 @@
 //  сканирование не работало вообще. Теперь закрытие ловим тем событием,
 //  которое для этого и предназначено: scanQrPopupClosed.
 // ========================================================================
-import { toast } from "../ui.js?v=20260910b";
+import { toast } from "../ui.js?v=20260914a";
 
 const TG = () => window.Telegram && window.Telegram.WebApp;
 
@@ -54,7 +54,7 @@ export function scanSku() {
 
 // Компьютер ли это — переехало в js/miniapp.js: этим пользуются оба
 // мини-приложения, а к сканеру наклеек оно отношения не имеет.
-export { isDesktop } from "../miniapp.js?v=20260910b";
+export { isDesktop } from "../miniapp.js?v=20260914a";
 
 // ========================================================================
 //  Что делать с тем, что прочитал сканер.
@@ -63,7 +63,8 @@ export { isDesktop } from "../miniapp.js?v=20260910b";
 //  Теперь: сначала пробуем нашу наклейку, потом номер товара как есть,
 //  потом артикул. Если не нашли — показываем сам код.
 // ========================================================================
-import { parsePayload } from "../qr.js?v=20260910b";
+import { parsePayload } from "../qr.js?v=20260914a";
+import { компактныйКод } from "../catalogcode.js?v=20260914a";
 
 const clean = (v) => String(v == null ? "" : v).trim().toLowerCase();
 const tight = (v) => clean(v).split(" ").join("");
@@ -82,6 +83,8 @@ export function findByScan(raw, products) {
   return products.find(p => clean(p.id) === low)
       || products.find(p => clean(p.sku) === low)
       || products.find(p => p.sku && tight(p.sku) === flat)
+      // постоянный код из печатного каталога: «LP-017», «lp17»
+      || (компактныйКод(s) && products.find(p => p.code && компактныйКод(p.code) === компактныйКод(s)))
       || null;
 }
 

@@ -17,29 +17,22 @@ export default async function handler(req, res) {
   else res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
 
   try {
-    let raw = [];
-    try {
-      raw = await sget(
-        "products?select=id,name,category,sku,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at&order=created_at.desc,name.asc"
-      );
-    } catch {
-      try {
-        raw = await sget(
-          "products?select=id,name,category,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at&order=created_at.desc,name.asc"
-        );
-      } catch {
-        try {
-          raw = await sget(
-            "products?select=id,name,category,photo_url,stock_qty,site_status,created_at&order=created_at.desc,name.asc"
-          );
-        } catch {
-          // fallback если site_status ещё не добавлена в Supabase
-          raw = await sget(
-            "products?select=id,name,category,photo_url,stock_qty,created_at&order=created_at.desc,name.asc"
-          );
-        }
-      }
+    // От самого полного запроса к самому скромному: на старой базе каких-то
+    // колонок нет (code появляется после db/catalog-migration.sql, site_status —
+    // после миграции сайта), и тогда пробуем без них. Первый ответивший — наш.
+    const ПОЛЯ = [
+      "id,name,category,sku,code,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at",
+      "id,name,category,sku,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at",
+      "id,name,category,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at",
+      "id,name,category,photo_url,stock_qty,site_status,created_at",
+      "id,name,category,photo_url,stock_qty,created_at",
+    ];
+    let raw = null, ошибка = null;
+    for (const поля of ПОЛЯ) {
+      try { raw = await sget(`products?select=${поля}&order=created_at.desc,name.asc`); break; }
+      catch (e) { ошибка = e; }
     }
+    if (!raw) throw ошибка;
 
     const freshness = p => Math.max(
       p.created_at ? new Date(p.created_at).getTime() : 0,
@@ -86,6 +79,8 @@ export default async function handler(req, res) {
           // поэтому он должен остаться и внутри имени. Отдельным полем sku — тоже.
           name: p.name,
           sku: p.sku || "",
+          // Постоянный код (LP-017) — публичный: он и так напечатан в каталоге.
+          code: p.code || "",
           category: p.category || "",
           photo_url: p.photo_url || null,
           // все фото товара (для галереи у клиента); если колонки photos нет — из photo_url

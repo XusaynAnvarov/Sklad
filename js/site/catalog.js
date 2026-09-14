@@ -1,8 +1,10 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20260910b";
-import { t } from "./app.js?v=20260910b";
-import { openLogin } from "./auth.js?v=20260910b";
-import { thumb } from "../img.js?v=20260910b";
+import { api, isLoggedIn } from "./api.js?v=20260914a";
+import { t } from "./app.js?v=20260914a";
+import { openLogin } from "./auth.js?v=20260914a";
+import { thumb } from "../img.js?v=20260914a";
+import { подходит } from "../productsearch.js?v=20260914a";
+import { подписьКода } from "../catalogcode.js?v=20260914a";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
@@ -195,10 +197,8 @@ export async function renderCatalog(container) {
     if (io) { io.disconnect(); io = null; }
     filteredList = products.filter(p => {
       const matchCat = activeCategory === "Все" || p.category === activeCategory;
-      // ищем и по названию, и по артикулу — клиент часто знает именно артикул
-      const matchQ = !searchQuery
-        || (p.name || "").toLowerCase().includes(searchQuery)
-        || (p.sku || "").toLowerCase().includes(searchQuery);
+      // название, категория, артикул и код из печатного каталога
+      const matchQ = подходит(p, searchQuery);
       return matchCat && matchQ;
     });
     // хиты недели — вверх (только признак, без чисел: количество клиенту не показываем)
@@ -266,7 +266,7 @@ function buildCard(p) {
   const cat  = mkEl("div", "product-category"); cat.textContent = p.category || "";
   // артикул виден всем клиентам: по нему они находят нужную деталь и называют её в заказе
   let skuEl = null;
-  if (p.sku) { skuEl = mkEl("div", "product-sku"); skuEl.textContent = "Арт.: " + p.sku; }
+  if (подписьКода(p)) { skuEl = mkEl("div", "product-sku"); skuEl.textContent = подписьКода(p); }
   // хит недели — сколько куплено за 7 дней
   let weekEl = null;
   // «Хит» — без числа продаж: клиент не видит количеств

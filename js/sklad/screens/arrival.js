@@ -2,15 +2,16 @@
 // в складе на сайте. Товар зачисляется СРАЗУ и по НАШЕЙ складской цене:
 // цена магазина нас не касается, иначе себестоимость и прибыль поехали бы.
 // Долг магазину не ведём — так решил владелец.
-import { el, go } from "../app.js?v=20260910b";
-import { icon } from "../../icons.js?v=20260910b";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260910b";
-import { fmt } from "../../fx.js?v=20260910b";
-import { ensureBatches, currentCost } from "../../inventory.js?v=20260910b";
-import { receiveFromShop } from "../stock.js?v=20260910b";
-import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260910b";
-import { photoBlock } from "../photo.js?v=20260910b";
-import { KIND_SHOP } from "../../purchase.js?v=20260910b";
+import { el, go } from "../app.js?v=20260914a";
+import { icon } from "../../icons.js?v=20260914a";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260914a";
+import { fmt } from "../../fx.js?v=20260914a";
+import { ensureBatches, currentCost } from "../../inventory.js?v=20260914a";
+import { receiveFromShop } from "../stock.js?v=20260914a";
+import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260914a";
+import { photoBlock } from "../photo.js?v=20260914a";
+import { KIND_SHOP } from "../../purchase.js?v=20260914a";
+import { подходит } from "../../productsearch.js?v=20260914a";
 
 const uid = () => "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -77,7 +78,7 @@ export default async function render(box, ctx) {
     found.innerHTML = "";
     if (q.length < 2) return;
     products
-      .filter(p => (p.name || "").toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q))
+      .filter(p => подходит(p, q))
       .slice(0, 8)
       .forEach(p => found.append(el("div.mini-row", { onclick: () => { pick.value = ""; found.innerHTML = ""; openCard(p); } }, [
         el("div.info", {}, [
