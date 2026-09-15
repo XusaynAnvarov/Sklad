@@ -9,6 +9,8 @@
 import { sget, spatch, supsert } from "./lib/supa.js";
 import { buildInvoicePDF, buildReconciliationPDF } from "./lib/pdf.js";
 import { invoiceCoverageStatus, invoiceDebtSummary } from "./lib/debt.js";
+import { отправитьНакладнуюPDF } from "./lib/invoicesend.js";
+import { накладныеКлиента, подписьКнопки, своя } from "./lib/clientinvoices.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -102,9 +104,9 @@ const dt = (d) => new Date(d).toLocaleDateString("ru-RU");
 
 // ---------- переводы ----------
 const T = {
-  ru: { welcome: "👋 Добро пожаловать!\nЧтобы найти вас в системе, поделитесь номером телефона.", share: "📱 Поделиться номером", notFound: "❌ Ваш номер не найден. Мы свяжемся с вами.", found: n => `✅ Нашли вас: ${n}`, menu: n => `Здравствуйте, ${n}! 👋\nВыберите:`, advYou: "🟢 Ваш аванс (мы вам должны): ", bOrder: "🛒 Заказать товары", bCat: "🌐 Каталог товаров", bDebt: "💰 Мой оборот и долг", bInv: "🧾 Мои накладные", catMsg: u => `🌐 Наш каталог:\n${u}`, debtMsg: (n, t, d) => `💰 *${n}*\n\nОборот всего: ${t}\nТекущий долг: *${d}*`, noInv: "У вас пока нет накладных.", invList: "🧾 Ваши накладные (нажмите для PDF):", invCap: d => `🧾 Накладная от ${d}` },
-  uz: { welcome: "👋 Xush kelibsiz!\nTizimdan topish uchun telefon raqamingizni yuboring.", share: "📱 Raqamni yuborish", notFound: "❌ Raqamingiz topilmadi. Tez orada bog‘lanamiz.", found: n => `✅ Topdik: ${n}`, menu: n => `Assalomu alaykum, ${n}! 👋\nTanlang:`, advYou: "🟢 Avansingiz (sizga qarzdormiz): ", bOrder: "🛒 Buyurtma berish", bCat: "🌐 Mahsulotlar katalogi", bDebt: "💰 Aylanma va qarzim", bInv: "🧾 Mening nakladnoylarim", catMsg: u => `🌐 Katalogimiz:\n${u}`, debtMsg: (n, t, d) => `💰 *${n}*\n\nUmumiy aylanma: ${t}\nJoriy qarz: *${d}*`, noInv: "Sizda hali nakladnoy yo‘q.", invList: "🧾 Nakladnoylaringiz (PDF uchun bosing):", invCap: d => `🧾 ${d} sanadagi nakladnoy` },
-  en: { welcome: "👋 Welcome!\nShare your phone number so we can find you.", share: "📱 Share number", notFound: "❌ Your number was not found. We will contact you.", found: n => `✅ Found you: ${n}`, menu: n => `Hello, ${n}! 👋\nChoose:`, advYou: "🟢 Your advance (we owe you): ", bOrder: "🛒 Order products", bCat: "🌐 Product catalog", bDebt: "💰 My turnover & debt", bInv: "🧾 My invoices", catMsg: u => `🌐 Our catalog:\n${u}`, debtMsg: (n, t, d) => `💰 *${n}*\n\nTotal turnover: ${t}\nCurrent debt: *${d}*`, noInv: "You have no invoices yet.", invList: "🧾 Your invoices (tap for PDF):", invCap: d => `🧾 Invoice ${d}` },
+  ru: { welcome: "👋 Добро пожаловать!\nЧтобы найти вас в системе, поделитесь номером телефона.", share: "📱 Поделиться номером", notFound: "❌ Ваш номер не найден. Мы свяжемся с вами.", found: n => `✅ Нашли вас: ${n}`, menu: n => `Здравствуйте, ${n}! 👋\nВыберите:`, advYou: "🟢 Ваш аванс (мы вам должны): ", bOrder: "🛒 Заказать товары", bCat: "🌐 Каталог товаров", bDebt: "💰 Мой оборот и долг", bInv: "🧾 Мои накладные", catMsg: u => `🌐 Наш каталог:\n${u}`, debtMsg: (n, t, d) => `💰 *${n}*\n\nОборот всего: ${t}\nТекущий долг: *${d}*`, noInv: "У вас пока нет накладных.", invList: "🧾 Ваши накладные (нажмите для PDF):", invListOf: (n, всего) => "🧾 Ваши накладные — последние " + n + " из " + всего + " (нажмите для PDF):", invAll: (n) => "📂 Все накладные — " + n, invCap: d => `🧾 Накладная от ${d}` },
+  uz: { welcome: "👋 Xush kelibsiz!\nTizimdan topish uchun telefon raqamingizni yuboring.", share: "📱 Raqamni yuborish", notFound: "❌ Raqamingiz topilmadi. Tez orada bog‘lanamiz.", found: n => `✅ Topdik: ${n}`, menu: n => `Assalomu alaykum, ${n}! 👋\nTanlang:`, advYou: "🟢 Avansingiz (sizga qarzdormiz): ", bOrder: "🛒 Buyurtma berish", bCat: "🌐 Mahsulotlar katalogi", bDebt: "💰 Aylanma va qarzim", bInv: "🧾 Mening nakladnoylarim", catMsg: u => `🌐 Katalogimiz:\n${u}`, debtMsg: (n, t, d) => `💰 *${n}*\n\nUmumiy aylanma: ${t}\nJoriy qarz: *${d}*`, noInv: "Sizda hali nakladnoy yo‘q.", invList: "🧾 Nakladnoylaringiz (PDF uchun bosing):", invListOf: (n, всего) => "🧾 Nakladnoylaringiz — oxirgi " + n + " ta, jami " + всего + " (PDF uchun bosing):", invAll: (n) => "📂 Barcha nakladnoylar — " + n, invCap: d => `🧾 ${d} sanadagi nakladnoy` },
+  en: { welcome: "👋 Welcome!\nShare your phone number so we can find you.", share: "📱 Share number", notFound: "❌ Your number was not found. We will contact you.", found: n => `✅ Found you: ${n}`, menu: n => `Hello, ${n}! 👋\nChoose:`, advYou: "🟢 Your advance (we owe you): ", bOrder: "🛒 Order products", bCat: "🌐 Product catalog", bDebt: "💰 My turnover & debt", bInv: "🧾 My invoices", catMsg: u => `🌐 Our catalog:\n${u}`, debtMsg: (n, t, d) => `💰 *${n}*\n\nTotal turnover: ${t}\nCurrent debt: *${d}*`, noInv: "You have no invoices yet.", invList: "🧾 Your invoices (tap for PDF):", invListOf: (n, всего) => "🧾 Your invoices — latest " + n + " of " + всего + " (tap for PDF):", invAll: (n) => "📂 All invoices — " + n, invCap: d => `🧾 Invoice ${d}` },
 };
 const CHOOSE_LANG = "Выберите язык / Tilni tanlang / Choose language:";
 const langKb = { inline_keyboard: [[{ text: "🇷🇺 Русский", callback_data: "lang:ru" }, { text: "🇺🇿 O‘zbek", callback_data: "lang:uz" }, { text: "🇬🇧 English", callback_data: "lang:en" }]] };
@@ -150,27 +152,8 @@ const curStr = (o) => { const a = []; ["som", "usd", "yuan"].forEach(c => { if (
 // иконка статуса накладной по реальным оплатам (а не по флагу)
 const stIcon = (st) => st === "paid" ? "✅" : st === "partial" ? "🟡" : "🔴";
 
-async function sendPDFto(chatId, saleId, cap) {
-  if (!okId(saleId)) return;
-  const sale = (await sget(`sales?id=eq.${eid(saleId)}&select=*`))[0];
-  if (!sale) return;
-  const custId = okId(sale.customer_id) ? sale.customer_id : null;
-  const customer = custId ? (await sget(`customers?id=eq.${eid(custId)}&select=*`))[0] : { name: "—" };
-  const products = await sget("products?select=id,name,sku");
-  await tg("sendChatAction", { chat_id: chatId, action: "upload_document" });
-  let status, debt;
-  if (custId) {
-    const [cs, pays] = await Promise.all([sget(`sales?customer_id=eq.${eid(custId)}&select=id,date,currency,items,status`), sget(`payments?customer_id=eq.${eid(custId)}&select=amount,currency,date`)]);
-    status = invoiceCoverageStatus(sale.id, cs, pays, customer.opening_debt);
-    debt = invoiceDebtSummary(sale.id, cs, pays, customer.opening_debt);
-  }
-  const bytes = await buildInvoicePDF({ sale, customer, products, status, debt });
-  const fd = new FormData();
-  fd.append("chat_id", String(chatId));
-  fd.append("caption", cap || `🧾 ${dt(sale.date)}`);
-  fd.append("document", new Blob([bytes], { type: "application/pdf" }), `nakladnaya-${new Date(sale.date).toISOString().slice(0, 10)}.pdf`);
-  await fetch(api("sendDocument"), { method: "POST", body: fd });
-}
+// PDF накладной в чат — общая часть с мини-приложением (api/lib/invoicesend.js).
+const sendPDFto = (chatId, saleId, cap) => отправитьНакладнуюPDF(TOKEN, chatId, saleId, cap);
 
 // ---------- Акт сверки (PDF) для владельца ----------
 // собрать PDF акта по клиенту: только оформленные накладные (final) + оплаты
@@ -234,15 +217,19 @@ async function sendClientDebt(chatId, c, L) {
   return tg("sendMessage", { chat_id: chatId, parse_mode: "Markdown", text: txt });
 }
 
+// Накладные клиента в чате: только оформленные, последние В_ЧАТЕ штук,
+// на кнопке дата, сумма и остаток долга. Полный список — в приложении
+// (вкладка «Накладные»): в чат 50 кнопок не влезают и читать их неудобно.
+const В_ЧАТЕ = 10;
 async function sendClientInvoices(chatId, c, L) {
+  const lang = Object.keys(T).find(k => T[k] === L) || "ru";
   const [sales, ipays] = await Promise.all([clientSales(c.id), sget(`payments?customer_id=eq.${eid(c.id)}&select=amount,currency`)]);
-  if (!sales.length) return tg("sendMessage", { chat_id: chatId, text: L.noInv });
-  const rows = sales.slice(0, 20).map(s => {
-    const t = (s.items || []).reduce((a, i) => a + i.qty * i.unit_price, 0);
-    const st = invoiceCoverageStatus(s.id, sales, ipays, c.opening_debt);
-    return [{ text: `${dt(s.date)} · ${money(t, s.currency)} ${stIcon(st)}`, callback_data: "inv:" + s.id }];
-  });
-  return tg("sendMessage", { chat_id: chatId, text: L.invList, reply_markup: { inline_keyboard: rows } });
+  const все = накладныеКлиента(sales, ipays, c.opening_debt);
+  if (!все.length) return tg("sendMessage", { chat_id: chatId, text: L.noInv });
+  const rows = все.slice(0, В_ЧАТЕ).map(inv => [{ text: подписьКнопки(inv, lang), callback_data: "inv:" + inv.id }]);
+  if (все.length > В_ЧАТЕ) rows.push([{ text: L.invAll(все.length), web_app: { url: PUBLIC_URL + "/order#invoices" } }]);
+  const text = все.length > В_ЧАТЕ ? L.invListOf(В_ЧАТЕ, все.length) : L.invList;
+  return tg("sendMessage", { chat_id: chatId, text, reply_markup: { inline_keyboard: rows } });
 }
 
 function clientMenu(chatId, c, L) {
@@ -852,7 +839,10 @@ export default async function handler(req, res) {
       else if (data.startsWith("inv:")) {
         const invId = data.slice(4);
         if (!okId(invId)) return res.status(200).send("ok");
-        await sendPDFto(chatId, invId, L.invCap(dt((await sget(`sales?id=eq.${eid(invId)}&select=date`))[0]?.date || Date.now())));
+        // Данные кнопки можно подделать — отдаём PDF только своей оформленной накладной.
+        const sale = (await sget(`sales?id=eq.${eid(invId)}&select=id,date,status,customer_id`))[0];
+        if (!своя(sale, c)) return res.status(200).send("ok");
+        await sendPDFto(chatId, invId, L.invCap(dt(sale.date)));
       }
       return res.status(200).send("ok");
     }

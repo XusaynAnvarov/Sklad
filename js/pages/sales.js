@@ -1,20 +1,20 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260914b";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260914b";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260914b";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260914b";
-import { suggestPrice, priceNote } from "../prices.js?v=20260914b";
-import { списанные } from "../stockcheck.js?v=20260914b";
-import { placeholder } from "./products.js?v=20260914b";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260914b";
-import { icon } from "../icons.js?v=20260914b";
-import { showLoader, hideLoader } from "../ui.js?v=20260914b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260914b";
-import { exportInvoice } from "../xlsx-export.js?v=20260914b";
-import { showNotFound } from "./purchases.js?v=20260914b";
-import { thumb } from "../img.js?v=20260914b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260915a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260915a";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260915a";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260915a";
+import { suggestPrice, priceNote } from "../prices.js?v=20260915a";
+import { списанные } from "../stockcheck.js?v=20260915a";
+import { placeholder } from "./products.js?v=20260915a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260915a";
+import { icon } from "../icons.js?v=20260915a";
+import { showLoader, hideLoader } from "../ui.js?v=20260915a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260915a";
+import { exportInvoice } from "../xlsx-export.js?v=20260915a";
+import { showNotFound } from "./purchases.js?v=20260915a";
+import { thumb } from "../img.js?v=20260915a";
 
 const cfg = window.APP_CONFIG || {};
 

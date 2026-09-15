@@ -1,7 +1,7 @@
 // ========================================================================
 //  МИНИ-ПРИЛОЖЕНИЕ ЗАКАЗА — для клиентов, открывается кнопкой в боте.
 //
-//  Три вкладки: Каталог · Корзина · Мои заказы.
+//  Четыре вкладки: Каталог · Корзина · Мои заказы · Накладные.
 //  «Мои заказы» — главное, чего тут раньше не было: клиент отправлял заказ
 //  и больше его не видел. Теперь виден и заказ, и что с ним происходит.
 //
@@ -9,13 +9,13 @@
 //  Цен в каталоге нет и не будет: цену клиент видит только в своём заказе,
 //  и только после того, как владелец её проставил.
 // ========================================================================
-import { el } from "../el.js?v=20260914b";
-import { icon } from "../icons.js?v=20260914b";
-import { toast } from "../ui.js?v=20260914b";
-import { setLang, applyI18n } from "../i18n.js?v=20260914b";
-import { кнопкаРазвернуть } from "../miniapp.js?v=20260914b";
-import { мои, каталог, подпись } from "./api.js?v=20260914b";
-import * as корзина from "./cart.js?v=20260914b";
+import { el } from "../el.js?v=20260915a";
+import { icon } from "../icons.js?v=20260915a";
+import { toast } from "../ui.js?v=20260915a";
+import { setLang, applyI18n } from "../i18n.js?v=20260915a";
+import { кнопкаРазвернуть } from "../miniapp.js?v=20260915a";
+import { мои, каталог, подпись } from "./api.js?v=20260915a";
+import * as корзина from "./cart.js?v=20260915a";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const корень = () => document.getElementById("ord-root");
@@ -39,14 +39,17 @@ export const ctx = {
 };
 
 const ЭКРАНЫ = {
-  catalog: { title: "Каталог", mod: () => import("./screens/catalog.js?v=20260914b") },
-  cart:    { title: "Корзина", mod: () => import("./screens/cart.js?v=20260914b") },
-  orders:  { title: "Мои заказы", mod: () => import("./screens/myorders.js?v=20260914b") },
+  catalog: { title: "Каталог", mod: () => import("./screens/catalog.js?v=20260915a") },
+  cart:    { title: "Корзина", mod: () => import("./screens/cart.js?v=20260915a") },
+  orders:  { title: "Мои заказы", mod: () => import("./screens/myorders.js?v=20260915a") },
+  // все оформленные накладные — в чате бота видны только последние десять
+  invoices: { title: "Накладные", mod: () => import("./screens/invoices.js?v=20260915a") },
 };
 const ВКЛАДКИ = [
   { id: "catalog", label: "Каталог",    ic: "box" },
   { id: "cart",    label: "Корзина",    ic: "cart" },
   { id: "orders",  label: "Мои заказы", ic: "receipt" },
+  { id: "invoices", label: "Накладные", ic: "wallet" },
 ];
 
 let текущий = "catalog";

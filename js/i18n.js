@@ -207,6 +207,16 @@ const D = {
   "Заказ оформлен, накладная готова.": { uz: "Buyurtma rasmiylashtirildi, nakladnoy tayyor.", en: "The order is complete, the invoice is ready." },
   "Заказ отменён.": { uz: "Buyurtma bekor qilindi.", en: "The order was canceled." },
   "Ничего не нашлось": { uz: "Hech narsa topilmadi", en: "Nothing found" },
+  // --- накладные в приложении заказа ---
+  "Накладные": { uz: "Nakladnoylar", en: "Invoices" },
+  "Накладных пока нет.": { uz: "Hozircha nakladnoy yo‘q.", en: "No invoices yet." },
+  "Долг по накладным": { uz: "Nakladnoylar bo‘yicha qarz", en: "Debt on invoices" },
+  "Все накладные оплачены": { uz: "Barcha nakladnoylar to‘langan", en: "All invoices are paid" },
+  "С долгом": { uz: "Qarzdor", en: "With debt" },
+  "Оплачено": { uz: "To‘langan", en: "Paid" },
+  "Накладных с долгом нет.": { uz: "Qarzdor nakladnoy yo‘q.", en: "No invoices with debt." },
+  "Оплаченных накладных пока нет.": { uz: "Hozircha to‘langan nakladnoy yo‘q.", en: "No paid invoices yet." },
+  "PDF отправлен в чат с ботом": { uz: "PDF bot chatiga yuborildi", en: "PDF sent to the bot chat" },
 };
 
 // заменяемые плейсхолдеры

@@ -9,7 +9,7 @@
    ================================================================ */
 
 /* ---------- нижние вкладки: их три, а не пять ---------- */
-.ord-bar { grid-template-columns: repeat(3, 1fr); }
+.ord-bar { grid-template-columns: repeat(4, 1fr); }
 .ord-bar .mini-tab { font-size: 11px; padding: 9px 4px 8px; gap: 3px; }
 
 /* значок на вкладке: сколько в корзине, сколько заказов ждут ответа */
@@ -242,3 +242,35 @@ body.ord .mini-row .ord-del { width: 32px; height: 32px; }
   body.ord .mini-cta { display: flex; justify-content: flex-end; }
   body.ord .mini-cta .btn { width: auto; min-width: 260px; }
 }
+
+/* ---------- Накладные ---------- */
+.inv-sum {
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;
+  background: var(--panel);
+}
+.inv-sum.debt { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
+.inv-sum .l { font-size: 12.5px; color: var(--muted); }
+.inv-sum .v { font-size: 22px; font-weight: 700; color: var(--danger); margin-top: 2px; }
+.inv-sum.paid .l { color: var(--ok); font-weight: 600; font-size: 14px; }
+.inv-sum .s { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+
+.inv-filter { display: flex; gap: 6px; margin-bottom: 6px; }
+.inv-filter button {
+  flex: 1 1 0; min-height: 38px; border-radius: 9px; font: inherit; font-size: 14px; font-weight: 600;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); cursor: pointer;
+}
+.inv-filter button.on { background: var(--accent); border-color: var(--accent); color: #15151a; }
+
+.inv-month {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin: 16px 2px 8px; font-weight: 700; font-size: 14.5px;
+}
+.inv-month .s { font-weight: 500; font-size: 12.5px; color: var(--muted); }
+
+.inv-row .inv-date {
+  flex: none; min-width: 46px; text-align: center; font-weight: 700; font-size: 14px;
+  padding: 6px 4px; border-radius: 8px; background: color-mix(in srgb, var(--muted) 12%, transparent);
+}
+.inv-row .info .ord-mark { margin-top: 4px; }
+.inv-row .qty { color: var(--muted); }
+.inv-row.busy { opacity: .55; pointer-events: none; }

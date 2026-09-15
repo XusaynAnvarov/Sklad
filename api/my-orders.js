@@ -11,6 +11,8 @@
 //    edit    — количество / убрать товар, пока цену не проставили
 //    cancel  — отменить заказ целиком, пока цену не проставили
 //    confirm — согласиться с ценой или отказаться, когда цена выставлена
+//    invoices    — свои оформленные накладные с остатком долга
+//    invoice_pdf — PDF своей накладной в чат с ботом
 //
 //  Цены отдаются ТОЛЬКО по заказам самого клиента: выборка ограничена его
 //  Telegram-аккаунтом. В каталог цена не попадает никогда.
@@ -23,11 +25,14 @@ import {
   найтиКлиента, владелецЗаказа, языкКлиента, заказыКлиента,
   ЖДЁТ_ЦЕНЫ, ЖДЁТ_ОТВЕТА, ОТМЕНЁН,
 } from "./lib/clientorders.js";
+import { накладныеКлиента, своя } from "./lib/clientinvoices.js";
+import { отправитьНакладнуюPDF, датаНакладной } from "./lib/invoicesend.js";
 
 const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN;
 const ADMIN_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT = process.env.ADMIN_CHAT_ID;
 const ПОТОЛОК = 100000;
+const последнийPDF = new Map();   // chatId → когда последний раз просили PDF
 
 async function уведомить(text) {
   if (!ADMIN_TOKEN || !ADMIN_CHAT) return;
@@ -174,6 +179,32 @@ export default async function handler(req, res) {
       await уведомить(согласен
         ? `✅ Заказ ПОДТВЕРЖДЁН (в приложении)\nКлиент: ${customer?.name || кто}\nПодтвердил: ${кто}\nПозиций: ${(sale.items || []).length}`
         : `❌ Заказ ОТКЛОНЁН клиентом (в приложении)\nКлиент: ${customer?.name || кто}\nОтклонил: ${кто}\nПозиций: ${(sale.items || []).length}`);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ---------- накладные: все оформленные, с остатком долга по каждой ----------
+    if (action === "invoices") {
+      if (!customer || !okId(customer.id)) return res.status(200).json({ ok: true, invoices: [] });
+      const [sales, pays] = await Promise.all([
+        sget(`sales?customer_id=eq.${encodeURIComponent(customer.id)}&status=eq.final&select=id,date,currency,items,status&order=date.desc&limit=5000`),
+        sget(`payments?customer_id=eq.${encodeURIComponent(customer.id)}&select=amount,currency`),
+      ]);
+      return res.status(200).json({ ok: true, invoices: накладныеКлиента(sales, pays, customer.opening_debt) });
+    }
+
+    // ---------- PDF накладной — в чат с ботом ----------
+    // Открыть PDF внутри окна Telegram получается не на всех телефонах,
+    // а файл в чате сохраняется и пересылается как обычно.
+    if (action === "invoice_pdf") {
+      if (!okId(body.invoice_id)) return res.status(400).json({ error: "Накладная не найдена" });
+      const sale = (await sget(`sales?id=eq.${encodeURIComponent(body.invoice_id)}&select=id,date,status,customer_id`))[0];
+      if (!своя(sale, customer)) return res.status(404).json({ error: "Накладная не найдена" });
+      // PDF собирается на сервере — частые нажатия подряд не пускаем.
+      const прошло = Date.now() - (последнийPDF.get(chatId) || 0);
+      if (прошло < 3000) return res.status(429).json({ error: "PDF уже отправляется — подождите пару секунд" });
+      последнийPDF.set(chatId, Date.now());
+      const ушло = await отправитьНакладнуюPDF(CLIENT_TOKEN, chatId, sale.id, `🧾 ${датаНакладной(sale.date)}`);
+      if (!ушло) return res.status(502).json({ error: "Не удалось отправить PDF. Попробуйте ещё раз." });
       return res.status(200).json({ ok: true });
     }
 
