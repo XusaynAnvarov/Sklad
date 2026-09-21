@@ -1,20 +1,20 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260915a";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260915a";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260915a";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260915a";
-import { suggestPrice, priceNote } from "../prices.js?v=20260915a";
-import { списанные } from "../stockcheck.js?v=20260915a";
-import { placeholder } from "./products.js?v=20260915a";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260915a";
-import { icon } from "../icons.js?v=20260915a";
-import { showLoader, hideLoader } from "../ui.js?v=20260915a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260915a";
-import { exportInvoice } from "../xlsx-export.js?v=20260915a";
-import { showNotFound } from "./purchases.js?v=20260915a";
-import { thumb } from "../img.js?v=20260915a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260921a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260921a";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260921a";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260921a";
+import { suggestPrice, priceNote } from "../prices.js?v=20260921a";
+import { списанные } from "../stockcheck.js?v=20260921a";
+import { placeholder } from "./products.js?v=20260921a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260921a";
+import { icon } from "../icons.js?v=20260921a";
+import { showLoader, hideLoader } from "../ui.js?v=20260921a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260921a";
+import { exportInvoice } from "../xlsx-export.js?v=20260921a";
+import { showNotFound } from "./purchases.js?v=20260921a";
+import { thumb, поставитьСнимок } from "../img.js?v=20260921a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -141,7 +141,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
     const id = selId(); const p = pmap[id];
     if (!p) { preview.style.display = "none"; qtyLbl.textContent = "Кол-во"; lastHint.innerHTML = ""; costLine.style.display = "none"; substBtn.style.display = "none"; return; }
     // фото
-    preview.src = p.photo_url || placeholder(p.name); preview.style.display = ""; preview.onclick = () => p.photo_url && lightbox(p.photo_url);
+    поставитьСнимок(preview, p.photo_url, placeholder(p.name), 96); preview.style.display = ""; preview.onclick = () => p.photo_url && lightbox(p.photo_url);
     // доступно
     const inCart = state.items.filter(i => i.product_id === id).reduce((t, i) => t + i.qty, 0);
     const avail = (Number(p.stock_qty) || 0) - inCart;

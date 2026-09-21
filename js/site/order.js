@@ -1,8 +1,9 @@
 // Страница «Заказать»: товары карточками (как в каталоге) + ручной ввод количества,
 // и отдельный экран «Мои заказанные товары» (проверить / удалить / добавить ещё).
-import { api, isLoggedIn } from "./api.js?v=20260915a";
-import { sToast, t } from "./app.js?v=20260915a";
-import { openLogin } from "./auth.js?v=20260915a";
+import { api, isLoggedIn } from "./api.js?v=20260921a";
+import { sToast, t } from "./app.js?v=20260921a";
+import { openLogin } from "./auth.js?v=20260921a";
+import { поставитьСнимок } from "../img.js?v=20260921a";
 
 function mkEl(tag, cls = "") {
   const e = document.createElement(tag);
@@ -113,7 +114,7 @@ export async function renderOrder(container) {
     const card = mkEl("div", "product-card");
     const imgWrap = mkEl("div", "product-card-img");
     if (p.photo_url) {
-      const img = document.createElement("img"); img.src = p.photo_url; img.alt = p.name; img.loading = "lazy";
+      const img = document.createElement("img"); img.alt = p.name; поставитьСнимок(img, p.photo_url, "", 480, true);
       img.onerror = () => { imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`; reBadges(); };
       imgWrap.append(img);
     } else imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`;
@@ -176,7 +177,7 @@ export async function renderOrder(container) {
       const p = pmap[pid] || { name: "?" };
       const row = mkEl("div"); row.style.cssText = "display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border,#eee)";
       const thumb = mkEl("div"); thumb.style.cssText = "width:46px;height:46px;border-radius:10px;background:var(--bg2,#f3f5f8);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0";
-      if (p.photo_url) { const img = document.createElement("img"); img.src = p.photo_url; img.style.cssText = "width:100%;height:100%;object-fit:cover"; thumb.append(img); }
+      if (p.photo_url) { const img = document.createElement("img"); img.style.cssText = "width:100%;height:100%;object-fit:cover"; поставитьСнимок(img, p.photo_url, "", 160); thumb.append(img); }
       else thumb.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
       const info = mkEl("div"); info.style.cssText = "flex:1;min-width:0";
       const nm = mkEl("div"); nm.style.cssText = "font-weight:600;font-size:14px"; nm.textContent = p.name;

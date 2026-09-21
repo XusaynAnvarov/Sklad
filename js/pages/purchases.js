@@ -1,18 +1,18 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260915a";
-import { fmt, CUR, convert } from "../fx.js?v=20260915a";
-import { placeholder } from "./products.js?v=20260915a";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260915a";
-import { icon } from "../icons.js?v=20260915a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260915a";
-import { notifyOwner } from "../telegram.js?v=20260915a";
-import { authHeaders } from "../db.js?v=20260915a";
-import { thumb } from "../img.js?v=20260915a";
-import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260915a";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260921a";
+import { fmt, CUR, convert } from "../fx.js?v=20260921a";
+import { placeholder } from "./products.js?v=20260921a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260921a";
+import { icon } from "../icons.js?v=20260921a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260921a";
+import { notifyOwner } from "../telegram.js?v=20260921a";
+import { authHeaders } from "../db.js?v=20260921a";
+import { thumb, поставитьСнимок } from "../img.js?v=20260921a";
+import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260921a";
 // Оприходование общее со складом в телефоне — иначе остатки разойдутся.
-import { applyArrival } from "../arrival.js?v=20260915a";
+import { applyArrival } from "../arrival.js?v=20260921a";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
@@ -185,7 +185,7 @@ function openEditor(ctx, purchase, products, suppliers = []) {
   function refreshAdd() {
     const p = pmap[selId()];
     if (!p) { preview.style.display = "none"; costHint.textContent = ""; return; }
-    preview.src = p.photo_url || placeholder(p.name); preview.style.display = ""; preview.onclick = () => p.photo_url && lightbox(p.photo_url);
+    поставитьСнимок(preview, p.photo_url, placeholder(p.name), 96); preview.style.display = ""; preview.onclick = () => p.photo_url && lightbox(p.photo_url);
     // цена по FIFO-партиям — то, во что товар обходится нам прямо сейчас
     const own = currentCost(ensureBatches(p));
     const def = state.currency === "usd" ? own.cost_usd : state.currency === "yuan" ? own.cost_yuan : Math.round(convert(own.cost_yuan, "yuan", "som"));

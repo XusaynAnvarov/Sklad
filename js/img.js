@@ -57,6 +57,25 @@ export function full(url) {
   return путь ? `/api/img?w=1200&p=${encodeURIComponent(путь)}` : u;
 }
 
+// То же самое, но для уже созданного <img>: показать снимок товара.
+// Всегда через свой сервер — прямая ссылка на Supabase у части клиентов
+// не открывается (блокировщики, DNS), и вместо фото виден битый значок.
+// Не вышло и через сервер — пробуем оригинал, потом заглушку.
+// ленивое — для длинных списков: грузить, только когда снимок доскроллили.
+// Одиночный снимок (превью в форме) грузим сразу.
+export function поставитьСнимок(img, url, запасной = "", width = 300, ленивое = false) {
+  if (!img) return img;
+  if (ленивое) img.loading = "lazy";
+  img.decoding = "async";
+  img.onerror = function () {
+    if (url && this.src !== url) { this.src = url; return; }
+    if (запасной && this.src !== запасной) this.src = запасной;
+    else this.onerror = null;
+  };
+  img.src = url ? thumb(url, width) : запасной;
+  return img;
+}
+
 // Готовые атрибуты для <img>: миниатюра + откат на оригинал + на заглушку.
 // Использование: el("img.ph", { ...thumbAttrs(p.photo_url, ph, 300), alt: p.name })
 export function thumbAttrs(url, placeholderUrl, width = 300) {

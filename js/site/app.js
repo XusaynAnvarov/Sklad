@@ -1,11 +1,12 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20260915a";
-import { renderCatalog } from "./catalog.js?v=20260915a";
-import { renderVideos } from "./videos.js?v=20260915a";
-import { renderCabinet } from "./cabinet.js?v=20260915a";
-import { renderAdminPanel } from "./admin-panel.js?v=20260915a";
-import { renderOrder } from "./order.js?v=20260915a";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20260915a";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20260921a";
+import { renderCatalog } from "./catalog.js?v=20260921a";
+import { renderVideos } from "./videos.js?v=20260921a";
+import { renderCabinet } from "./cabinet.js?v=20260921a";
+import { renderAdminPanel } from "./admin-panel.js?v=20260921a";
+import { renderOrder } from "./order.js?v=20260921a";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20260921a";
+import { поставитьСнимок } from "../img.js?v=20260921a";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -181,7 +182,7 @@ function renderCartDrawerContent() {
       const row = document.createElement("div"); row.className = "cart-item";
       const imgEl = document.createElement("div");
       imgEl.style.cssText = "width:56px;height:56px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0";
-      if (it.photo_url) { const img = document.createElement("img"); img.src = it.photo_url; img.style.cssText = "width:100%;height:100%;object-fit:cover"; imgEl.append(img); }
+      if (it.photo_url) { const img = document.createElement("img"); img.style.cssText = "width:100%;height:100%;object-fit:cover"; поставитьСнимок(img, it.photo_url, "", 160); imgEl.append(img); }
       else imgEl.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
       const info = document.createElement("div"); info.className = "cart-item-info";
       const name = document.createElement("div"); name.className = "cart-item-name"; name.textContent = it.name;
@@ -212,7 +213,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20260915a");
+        const { api: siteApi } = await import("./api.js?v=20260921a");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -575,7 +576,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=162", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=163", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

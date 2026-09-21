@@ -3,15 +3,15 @@
 //  себестоимость) и выгрузить в PDF (с реальными фото) или Excel (с фото),
 //  чтобы отправить поставщику. Можно сохранить как «приход (в дороге)».
 // ========================================================================
-import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260915a";
-import { fmt, CUR, convert } from "../fx.js?v=20260915a";
-import { placeholder } from "./products.js?v=20260915a";
-import { icon } from "../icons.js?v=20260915a";
-import { authHeaders } from "../db.js?v=20260915a";
-import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20260915a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260915a";
-import { showNotFound } from "./purchases.js?v=20260915a";
-import { thumb } from "../img.js?v=20260915a";
+import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260921a";
+import { fmt, CUR, convert } from "../fx.js?v=20260921a";
+import { placeholder } from "./products.js?v=20260921a";
+import { icon } from "../icons.js?v=20260921a";
+import { authHeaders } from "../db.js?v=20260921a";
+import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20260921a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260921a";
+import { showNotFound } from "./purchases.js?v=20260921a";
+import { thumb, поставитьСнимок } from "../img.js?v=20260921a";
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 
@@ -61,7 +61,7 @@ export default async function render(page, ctx) {
   function refreshAdd() {
     const p = pmap[selId()];
     if (!p) { preview.style.display = "none"; costHint.textContent = ""; return; }
-    preview.src = p.photo_url || placeholder(p.name); preview.style.display = ""; preview.onclick = () => p.photo_url && lightbox(p.photo_url);
+    поставитьСнимок(preview, p.photo_url, placeholder(p.name), 96); preview.style.display = ""; preview.onclick = () => p.photo_url && lightbox(p.photo_url);
     if (!fCost.value) fCost.value = defCost(p) || "";
     costHint.textContent = "Текущая себестоимость: " + fmt(p.cost_yuan, "yuan");
   }

@@ -5,9 +5,9 @@
 //  Пишем ПАКЕТОМ (upsertMany): на телефоне поштучная запись 20 позиций
 //  занимала бы минуту.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260915a";
-import { arrivalRows } from "../arrival.js?v=20260915a";
-import { KIND_SHOP } from "../purchase.js?v=20260915a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260921a";
+import { arrivalRows } from "../arrival.js?v=20260921a";
+import { KIND_SHOP } from "../purchase.js?v=20260921a";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
