@@ -2,16 +2,16 @@
 // в складе на сайте. Товар зачисляется СРАЗУ и по НАШЕЙ складской цене:
 // цена магазина нас не касается, иначе себестоимость и прибыль поехали бы.
 // Долг магазину не ведём — так решил владелец.
-import { el, go } from "../app.js?v=20260925a";
-import { icon } from "../../icons.js?v=20260925a";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20260925a";
-import { fmt } from "../../fx.js?v=20260925a";
-import { ensureBatches, currentCost } from "../../inventory.js?v=20260925a";
-import { receiveFromShop } from "../stock.js?v=20260925a";
-import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260925a";
-import { photoBlock } from "../photo.js?v=20260925a";
-import { KIND_SHOP } from "../../purchase.js?v=20260925a";
-import { подходит } from "../../productsearch.js?v=20260925a";
+import { el, go } from "../app.js?v=20260925b";
+import { icon } from "../../icons.js?v=20260925b";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20260925b";
+import { fmt } from "../../fx.js?v=20260925b";
+import { ensureBatches, currentCost } from "../../inventory.js?v=20260925b";
+import { receiveFromShop } from "../stock.js?v=20260925b";
+import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20260925b";
+import { photoBlock } from "../photo.js?v=20260925b";
+import { KIND_SHOP } from "../../purchase.js?v=20260925b";
+import { подходит } from "../../productsearch.js?v=20260925b";
 
 const uid = () => "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -140,15 +140,19 @@ export default async function render(box, ctx) {
     confirmDialog(`Принять ${cart.reduce((s, i) => s + i.qty, 0)} шт от «${shop}»?`, async () => {
       saveBtn.disabled = true; saveBtn.textContent = "Принимаем…";
       try {
-        await receiveFromShop(ctx.db, cart);
-        // запись прихода — в отчёте склада «Приход из магазинов» появится сама
+        // Номер прихода заводим ЗАРАНЕЕ и передаём в зачисление: им метятся
+        // партии. По метке видно, чей это товар, и «−1 оприх.» снимает ровно
+        // его. Раньше приход записывался после товара и без номера — если
+        // запись срывалась, на складе оставался товар без всякого следа.
+        const приход = uid();
         const items = cart.map(i => {
           const own = currentCost(ensureBatches(pmap[i.product_id] || {}));
           return { product_id: i.product_id, qty: i.qty, unit_cost: own.cost_yuan, currency: "yuan" };
         });
-        const row = { id: uid(), supplier: shop, currency: "yuan", status: "arrived", date: new Date().toISOString(), items };
+        const row = { id: приход, supplier: shop, currency: "yuan", status: "arrived", date: new Date().toISOString(), items };
         try { await ctx.db.purchases.upsert({ ...row, kind: KIND_SHOP }); }
         catch { await ctx.db.purchases.upsert(row); }
+        await receiveFromShop(ctx.db, cart, приход);
         toast("Принято на склад", "ok");
         cart.length = 0; drawCart();
         go("home");

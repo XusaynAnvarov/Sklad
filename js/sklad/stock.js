@@ -5,9 +5,9 @@
 //  Пишем ПАКЕТОМ (upsertMany): на телефоне поштучная запись 20 позиций
 //  занимала бы минуту.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260925a";
-import { arrivalRows } from "../arrival.js?v=20260925a";
-import { KIND_SHOP } from "../purchase.js?v=20260925a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260925b";
+import { arrivalRows } from "../arrival.js?v=20260925b";
+import { KIND_SHOP } from "../purchase.js?v=20260925b";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
@@ -140,7 +140,7 @@ export async function setStock(db, productId, want) {
 
 // Принять товар из магазина: зачисляем СРАЗУ и по НАШЕЙ складской цене.
 // Цена магазина нас не касается — иначе себестоимость и прибыль поехали бы.
-export async function receiveFromShop(db, items) {
+export async function receiveFromShop(db, items, приход) {
   const ids = [...new Set(items.map(i => i.product_id).filter(Boolean))];
   if (!ids.length) return { written: 0 };
   const fresh = await readFresh(db, ids);
@@ -155,6 +155,7 @@ export async function receiveFromShop(db, items) {
   // новая партия по ¥13 вставала первой, и себестоимость показывала ¥13
   // вместо ¥12,5, хотя дешёвый товар ещё лежал нетронутым.
   const rows = arrivalRows({
+    id: приход,                       // метка на партиях: чей это товар
     kind: KIND_SHOP,
     currency: "yuan",
     date: new Date().toISOString(),
