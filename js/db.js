@@ -7,7 +7,7 @@
 //  не зная, какой режим активен.
 // ========================================================================
 
-import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20260925b";
+import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20260925c";
 
 const cfg = window.APP_CONFIG || {};
 const useSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
@@ -157,7 +157,33 @@ async function adminGet(table, id) {
   if (!r.ok) throw new Error(j.error || r.status);
   return j;
 }
+// ------------------------------------------------------------------
+//  КОРОТКАЯ ПАМЯТЬ БРАУЗЕРА.
+//  Каждая страница склада заново качает весь список товаров — 700 КБ.
+//  Переключился между «Товары» и «Продажи» — скачал дважды. Держим
+//  список несколько секунд; своя запись стирает память сразу, поэтому
+//  после сохранения сразу видно новое.
+// ------------------------------------------------------------------
+const списки = new Map();          // таблица → { до, обещание }
+const ПАМЯТЬ_МС = 8000;
+
+function забытьСписок(table) {
+  if (table) списки.delete(table); else списки.clear();
+}
+
+function списокИзПамяти(table, взять) {
+  const есть = списки.get(table);
+  if (есть && есть.до > Date.now()) return есть.обещание;
+  const обещание = взять().catch(err => { списки.delete(table); throw err; });
+  списки.set(table, { до: Date.now() + ПАМЯТЬ_МС, обещание });
+  return обещание;
+}
+
 async function adminPost(table, op, data, id) {
+  забытьСписок(table);
+  // Приход меняет и товары, и приходы; продажа — и товары, и продажи.
+  // Проще всего забыть всё: список снова скачается один раз.
+  забытьСписок();
   const r = await fetch("/api/admin/db", { method: "POST", headers: adminHeaders(), body: JSON.stringify({ table, op, data, id }) });
   const j = await r.json();
   if (r.status === 401) { handleAuthError(); throw new Error("Сессия истекла"); }
@@ -169,7 +195,7 @@ function sbTable(name) {
   return {
     async list() {
       if (!adminToken()) throw new Error("Требуется авторизация");
-      return adminGet(name);
+      return списокИзПамяти(name, () => adminGet(name));
     },
     async get(id) {
       if (!adminToken()) throw new Error("Требуется авторизация");

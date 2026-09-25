@@ -6,12 +6,12 @@
 //  здесь же, мобильный вид приходилось выбивать заплатками поверх
 //  десктопных стилей — и в итоге страдало и то, и другое.
 // ========================================================================
-import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20260925b";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260925b";
-import { iconSvg } from "./icons.js?v=20260925b";
-import { thumb } from "./img.js?v=20260925b";
-import { подходит } from "./productsearch.js?v=20260925b";
-import { подписьКода } from "./catalogcode.js?v=20260925b";
+import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20260925c";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20260925c";
+import { iconSvg } from "./icons.js?v=20260925c";
+import { thumb } from "./img.js?v=20260925c";
+import { подходит } from "./productsearch.js?v=20260925c";
+import { подписьКода } from "./catalogcode.js?v=20260925c";
 
 // увеличение фото по клику (повторный клик — закрыть)
 function openLightbox(src) {
@@ -214,7 +214,7 @@ function wirePdfButton() {
     if (!items.length) return;
     btn.disabled = true;
     try {
-      const m = await import("./catalog-pdf.js?v=20260925b");
+      const m = await import("./catalog-pdf.js?v=20260925c");
       await m.downloadCatalogPDF(groupByCategory(items), (done, total) => {   // PDF — всегда все товары
         btn.textContent = `Готовим PDF… ${done}/${total}`;
       });
@@ -228,7 +228,7 @@ function wirePdfButton() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=165", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=166", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();
