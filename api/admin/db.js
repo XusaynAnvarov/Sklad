@@ -7,6 +7,13 @@
 // POST /api/admin/db  {table, op:"delete",   id:"..."}
 // POST /api/admin/db  {table:"settings", op:"save", data:{...}}
 import { getUser } from "../lib/auth.js";
+import { помнить, забыть } from "../lib/memcache.js";
+
+// Столько секунд держим список в памяти. Свои записи память стирают сразу,
+// так что задержка возможна только для чужих: заказ из бота или правка
+// прямо в базе. Десять секунд — перебирая страницы склада, ждать базу не
+// приходится, а новый заказ виден почти сразу.
+const СЕКУНД = 10;
 
 const SB_URL = process.env.SUPABASE_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -124,7 +131,10 @@ export default async function handler(req, res) {
       // тысячи, до приложения просто не доезжал: наклейка читалась, номер
       // разбирался, а товар «не находился». Тем же обрезанием тихо портились
       // отчёты — в них не попадало ничего старше последней тысячи продаж.
-      return res.json(await listAll(table, ORDER, sbGet));
+      // Список целиком держим в памяти сервера несколько секунд: склад
+      // просит его на каждой странице, а это 940 строк и полторы секунды
+      // ожидания базы. Любая запись в эту таблицу память сразу стирает.
+      return res.json(await помнить(`db:${table}:все`, СЕКУНД, () => listAll(table, ORDER, sbGet)));
     }
 
     // ── POST: upsert / delete / save-settings ─────────────────────────────
@@ -134,6 +144,11 @@ export default async function handler(req, res) {
       const { table, op, data, id } = body || {};
       if (!table) return res.status(400).json({ error: "table required" });
       if (!TABLES.has(table)) return res.status(400).json({ error: "Неизвестная таблица" });
+
+      // Записали — прошлые ответы устарели. Забываем и список этой таблицы,
+      // и каталог: он считается из товаров и приходов.
+      забыть(`db:${table}:`);
+      забыть("catalog");
 
       // ПАКЕТНАЯ запись: data — массив записей, один запрос от браузера
       // вместо N. К базе всё равно идёт по запросу на строку, но это

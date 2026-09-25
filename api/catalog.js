@@ -3,6 +3,11 @@
 // Порядок: сначала новые (created_at desc), потом по категории
 import { sget } from "./lib/supa.js";
 import { getSiteAdmin } from "./lib/siteadmin.js";
+import { помнить } from "./lib/memcache.js";
+
+// Столько секунд держим прочитанное из базы. Минута: каталог меняется
+// редко, а открывают его часто.
+const СЕКУНД = 60;
 
 const NEW_DAYS = 7; // товар считается «новинкой» N дней после добавления или последнего прихода
 
@@ -27,12 +32,18 @@ export default async function handler(req, res) {
       "id,name,category,photo_url,stock_qty,site_status,created_at",
       "id,name,category,photo_url,stock_qty,created_at",
     ];
-    let raw = null, ошибка = null;
-    for (const поля of ПОЛЯ) {
-      try { raw = await sget(`products?select=${поля}&order=created_at.desc,name.asc`); break; }
-      catch (e) { ошибка = e; }
-    }
-    if (!raw) throw ошибка;
+    // Каталог смотрят и клиенты, и приложение заказа; считается он из трёх
+    // запросов к базе и занимает секунды. Держим прочитанное в памяти
+    // сервера минуту — любая запись через склад её стирает (api/admin/db.js).
+    let raw = await помнить("catalog:товары", СЕКУНД, async () => {
+      let строки = null, ошибка = null;
+      for (const поля of ПОЛЯ) {
+        try { строки = await sget(`products?select=${поля}&order=created_at.desc,name.asc`); break; }
+        catch (e) { ошибка = e; }
+      }
+      if (!строки) throw ошибка;
+      return строки;
+    });
 
     const freshness = p => Math.max(
       p.created_at ? new Date(p.created_at).getTime() : 0,
@@ -43,7 +54,7 @@ export default async function handler(req, res) {
     // Товары в активных приходах «В дороге» → статус «Скоро» если нет остатка
     let transitIds = new Set();
     try {
-      const inTransit = await sget("purchases?status=eq.in_transit&select=items");
+      const inTransit = await помнить("catalog:вдороге", СЕКУНД, () => sget("purchases?status=eq.in_transit&select=items"));
       inTransit.forEach(p => (p.items || []).forEach(it => { if (it.product_id) transitIds.add(String(it.product_id)); }));
     } catch {}
 
@@ -51,7 +62,7 @@ export default async function handler(req, res) {
     const weekMap = {};
     try {
       const since = new Date(Date.now() - 7 * 864e5).toISOString();
-      const recent = await sget("sales?status=eq.final&date=gte." + encodeURIComponent(since) + "&select=items,date");
+      const recent = await помнить("catalog:занеделю", СЕКУНД, () => sget("sales?status=eq.final&date=gte." + encodeURIComponent(since) + "&select=items,date"));
       recent.forEach(s => (s.items || []).forEach(it => { if (it.product_id) weekMap[it.product_id] = (weekMap[it.product_id] || 0) + (Number(it.qty) || 0); }));
     } catch {}
 
