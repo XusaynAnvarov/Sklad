@@ -18,7 +18,7 @@ const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 // Порядок важен: сперва закрываем «долговые» партии (отрицательные — это
 // товар, который продали, когда его уже не было), и лишь остаток кладём
 // новой партией В КОНЕЦ очереди, чтобы старые запасы продавались первыми.
-export function зачислить(batches, qty, cost_yuan, cost_usd, when) {
+export function зачислить(batches, qty, cost_yuan, cost_usd, when, откуда) {
   const список = (batches || []).map(b => ({ ...b }));
   let осталось = Number(qty) || 0;
 
@@ -33,7 +33,9 @@ export function зачислить(batches, qty, cost_yuan, cost_usd, when) {
 
   const оставить = список.filter(b => Math.abs(Number(b.qty) || 0) > 0.0001);
   if (осталось > 0.0001) {
-    оставить.push({ qty: осталось, cost_yuan, cost_usd, date: when || new Date().toISOString() });
+    // откуда — номер поступления. По нему видно, что этот приход уже
+    // зачислен, и повторное нажатие не задваивает остаток.
+    оставить.push({ qty: осталось, cost_yuan, cost_usd, date: when || new Date().toISOString(), ...(откуда ? { src: откуда } : {}) });
   }
   return оставить;
 }
@@ -51,6 +53,10 @@ export function arrivalRows(purchase, products) {
     if (!p) continue;
     const cur = it.currency || purchase.currency;
     const batches = ensureBatches(p);
+    // Этот товар из этого же поступления уже зачислен — второй раз не кладём.
+    // Оприходование сорвалось на середине (закрыли вкладку, оборвалась связь)
+    // — жмём «Оприходовать» снова, и допишется только то, чего не хватает.
+    if (purchase.id && batches.some(b => b && b.src === purchase.id)) continue;
     const own = currentCost(batches);
 
     // Из магазина берём НАШУ складскую цену: сколько отдали в магазине —
@@ -78,7 +84,7 @@ export function arrivalRows(purchase, products) {
     // общее количество сходилось, но себестоимость система брала с первой
     // ПОЛОЖИТЕЛЬНОЙ партии, и на складе с долгом −60 и старыми 900 шт по
     // ¥12,5 она показывала цену мелкой новой партии, а не настоящую.
-    const next = зачислить(batches, Number(it.qty) || 0, cy, cu, when);
+    const next = зачислить(batches, Number(it.qty) || 0, cy, cu, when, purchase.id);
     const cc = costAfter(next, { cost_yuan: cy, cost_usd: cu });
 
     const row = { id: p.id, stock_qty: sumQty(next), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: next };
@@ -93,12 +99,55 @@ export function arrivalRows(purchase, products) {
   return rows;
 }
 
-export async function applyArrival(db, purchase, products) {
-  const rows = arrivalRows(purchase, products);
+// Записать пакетом, одним запросом. Поштучно 43 позиции пишутся полминуты:
+// выглядит как «зависло», владелец закрывает вкладку или жмёт ещё раз — и
+// половина прихода остаётся незачисленной, а половина попадает дважды.
+// Если пакет не прошёл — пробуем без партий и лишь потом по одному,
+// и обязательно сообщаем об ошибке наверх.
+export async function записатьПачкой(db, rows, наПрогресс) {
+  if (!rows.length) return 0;
+  const безПартий = () => rows.map(({ batches, ...rest }) => rest);
+  if (typeof db.products.upsertMany === "function") {
+    try { await db.products.upsertMany(rows); if (наПрогресс) наПрогресс(rows.length, rows.length); return rows.length; } catch { }
+    try { await db.products.upsertMany(безПартий()); if (наПрогресс) наПрогресс(rows.length, rows.length); return rows.length; } catch { }
+  }
+  let n = 0;
   for (const row of rows) {
-    // колонки batches может не быть в старой базе — тогда пишем без неё
     try { await db.products.upsert(row); }
     catch { const { batches, ...noBatches } = row; await db.products.upsert(noBatches); }
+    if (наПрогресс) наПрогресс(++n, rows.length);
   }
   return rows.length;
+}
+
+export async function applyArrival(db, purchase, products, наПрогресс) {
+  const rows = arrivalRows(purchase, products);
+  return записатьПачкой(db, rows, наПрогресс);
+}
+
+// Снять зачисление этого поступления: убираем ровно те партии, которые он
+// положил (по метке src). Старые приходы метки не имеют — для них, как и
+// раньше, списываем количество позиции по очереди (FIFO).
+export function откатитьПриход(purchase, products, consumeFIFO) {
+  const pmap = Object.fromEntries((products || []).map(p => [p.id, p]));
+  const rows = [];
+  for (const it of (purchase.items || [])) {
+    const p = pmap[it.product_id];
+    if (!p) continue;
+    const batches = ensureBatches(p);
+    const свои = purchase.id ? batches.filter(b => b && b.src === purchase.id) : [];
+    let next;
+    if (свои.length) {
+      // убираем одну партию этого прихода — последнюю из положенных
+      const лишняя = свои[свои.length - 1];
+      let убрали = false;
+      next = batches.filter(b => (b === лишняя && !убрали ? (убрали = true, false) : true));
+    } else {
+      next = consumeFIFO(batches, Number(it.qty) || 0).batches;
+    }
+    const cc = costAfter(next, p);
+    rows.push({ id: p.id, stock_qty: sumQty(next), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: next });
+    p.batches = next; p.stock_qty = sumQty(next);
+  }
+  return rows;
 }

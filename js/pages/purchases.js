@@ -12,7 +12,7 @@ import { authHeaders } from "../db.js?v=20260921a";
 import { thumb, поставитьСнимок } from "../img.js?v=20260921a";
 import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260921a";
 // Оприходование общее со складом в телефоне — иначе остатки разойдутся.
-import { applyArrival } from "../arrival.js?v=20260921a";
+import { applyArrival, записатьПачкой, откатитьПриход } from "../arrival.js?v=20260921a";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
@@ -102,7 +102,7 @@ export default async function render(page, ctx) {
         ? el("span.badge.arrived", {}, [icon("check", { size: 13 }), "Пришёл"])
         : el("span.badge.transit", {}, [icon("truck", { size: 13 }), "В дороге"])]),
       el("td.right", {}, [el("div.row-actions", {}, [
-        s.status !== "arrived" && el("button.btn.btn-ok.btn-sm", { text: "Оприходовать", title: "Отметить «пришёл» и добавить на склад", onclick: () => arrive(ctx, s, products) }),
+        s.status !== "arrived" && el("button.btn.btn-ok.btn-sm", { text: "Оприходовать", title: "Отметить «пришёл» и добавить на склад", onclick: function () { arrive(ctx, s, products, this); } }),
         s.status === "arrived" && el("button.btn.btn-outline.btn-sm", { title: "Если оприходовали дважды — списать товары этого прихода один раз", onclick: () => unarriveOnce(ctx, s, products) }, ["↩️ −1 оприх."]),
         el("button.btn.btn-outline.btn-sm", { title: "Показать товары этого поставщика (фото + кол-во)", text: "👁 Товары", onclick: () => showPurchaseItems(s, products) }),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать", onclick: () => openEditor(ctx, s, products, suppliers) }, [icon("edit", { size: 16 })]),
@@ -123,24 +123,35 @@ export default async function render(page, ctx) {
 
 // списать товары этого прихода со склада ОДИН раз — если приход случайно оприходован дважды
 async function unarriveOnce(ctx, s, products) {
-  const pmap = Object.fromEntries(products.map(p => [p.id, p]));
   confirmDialog("Списать товары этого прихода со склада ОДИН раз? (используйте, если оприходовали дважды). Запись прихода останется.", async () => {
-    for (const it of (s.items || [])) {
-      const p = pmap[it.product_id]; if (!p) continue;
-      const r = consumeFIFO(ensureBatches(p), it.qty);
-      p.batches = r.batches;
-      const cc = costAfter(r.batches, p);
-      const base = { id: p.id, stock_qty: sumQty(r.batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
-      try { await ctx.db.products.upsert({ ...base, batches: r.batches }); } catch (e) { await ctx.db.products.upsert(base); }
-    }
-    toast("Списано один раз — остатки исправлены", "ok"); ctx.refresh();
+    showLoader("Списываем…");
+    try {
+      await записатьПачкой(ctx.db, откатитьПриход(s, products, consumeFIFO));
+      toast("Списано один раз — остатки исправлены", "ok");
+    } catch (e) { toast("Не получилось списать: " + (e.message || e), "err"); }
+    finally { hideLoader(); }
+    ctx.refresh();
   });
 }
 
-async function arrive(ctx, s, products) {
+async function arrive(ctx, s, products, кнопка) {
   confirmDialog("Оприходовать поступление? Товары добавятся на склад.", async () => {
-    await applyArrival(ctx.db, s, products);
-    await ctx.db.purchases.upsert({ id: s.id, status: "arrived" });
+    // Пока идёт запись, кнопку блокируем: раньше при 43 позициях запись шла
+    // почти минуту, владелец считал, что зависло, и нажимал ещё раз —
+    // половина прихода ложилась на склад дважды.
+    if (кнопка) { кнопка.disabled = true; кнопка.textContent = "Оприходую…"; }
+    showLoader("Оприходование…");
+    try {
+      await applyArrival(ctx.db, s, products, (готово, всего) => showLoader(`Оприходование… ${готово} из ${всего}`));
+      await ctx.db.purchases.upsert({ id: s.id, status: "arrived" });
+    } catch (e) {
+      hideLoader();
+      if (кнопка) { кнопка.disabled = false; кнопка.textContent = "Оприходовать"; }
+      toast("Не дошло до конца: " + (e.message || e) + ". Нажмите «Оприходовать» ещё раз — допишется только недостающее.", "err");
+      ctx.refresh();
+      return;
+    }
+    hideLoader();
     const pmap2 = Object.fromEntries(products.map(p => [p.id, p]));
     const lines = (s.items || []).map(it => `• ${pmap2[it.product_id]?.name || "?"} × ${it.qty}`);
     try { await notifyOwner(`Новый приход на склад\n${kindWho(s.kind)}: ${s.supplier || "—"}\n\n${lines.join("\n")}`); } catch {}
