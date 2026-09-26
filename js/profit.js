@@ -7,7 +7,7 @@
 //  Правила задаёт владелец в Настройках → «Прибыль по группам товаров».
 //  Хранятся в settings.profit_rules, резерв — localStorage.
 // ========================================================================
-import { toUSD } from "./fx.js?v=20260925c";
+import { toUSD } from "./fx.js?v=20260926a";
 
 const LS_KEY = "gm_profit_rules";
 

@@ -38,11 +38,37 @@ export function costAfter(batches, prev) {
 // в партию, иначе он молча превращался в 0: минус исчезал сам собой, а при удалении
 // накладной на склад возвращался товар, которого нет.
 export function ensureBatches(p) {
-  if (Array.isArray(p.batches) && p.batches.length) return p.batches.map(b => ({ ...b }));
   const q = Number(p.stock_qty) || 0;
+  if (Array.isArray(p.batches) && p.batches.length) return сверитьСОстатком(p.batches.map(b => ({ ...b })), p);
   if (q === 0) return [];
   const base = { qty: q, cost_yuan: Number(p.cost_yuan) || 0, cost_usd: Number(p.cost_usd) || 0, date: p.created_at || new Date().toISOString() };
   return q > 0 ? [base] : [{ ...base, shortage: true }];
+}
+
+// Партии и остаток разошлись — верим ОСТАТКУ.
+//
+// Почему: запись в базу иногда проходит наполовину. Если колонка партий
+// не принялась (старая база, отказ, обрыв), в карточку уходит только
+// остаток, а партии остаются прежними — вчерашними. Дальше любое движение
+// пересчитывало остаток ИЗ ЭТИХ СТАРЫХ ПАРТИЙ, и проданный товар
+// возвращался на склад сам собой, да ещё и со старой датой прихода.
+//
+// Поэтому лишнее в партиях срезаем с начала очереди — как сделала бы
+// продажа, — а нехватку дописываем одной партией по нынешней цене.
+export function сверитьСОстатком(batches, p) {
+  if (p.stock_qty === undefined || p.stock_qty === null) return batches;
+  const хотим = Number(p.stock_qty) || 0;
+  const есть = sumQty(batches);
+  if (Math.abs(есть - хотим) < 0.0001) return batches;
+  if (хотим < есть) return consumeFIFO(batches, есть - хотим).batches;
+  const цена = currentCost(batches);
+  return [...batches, {
+    qty: хотим - есть,
+    cost_yuan: цена.cost_yuan || Number(p.cost_yuan) || 0,
+    cost_usd: цена.cost_usd || Number(p.cost_usd) || 0,
+    date: new Date().toISOString(),
+    правка: true,                     // видно, что партия появилась при сверке
+  }];
 }
 // списать qty по FIFO → вернуть новые партии и себестоимость списания.
 // Если товара не хватает — уходим В МИНУС: остаётся «долговая» партия с отрицательным qty,
