@@ -18,6 +18,7 @@ import { костСтрока as costShow, костВалюта, костПол�
 import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20260927a";
 import { подходит } from "../productsearch.js?v=20260927a";
 import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20260927a";
+import { изменениеСклада } from "../db.js?v=20260927a";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -65,6 +66,23 @@ const WAREHOUSE_NEW_DAYS = 7;
 // догрузчик текущего показа списка — сюда пишет render(), а единственный
 // слушатель прокрутки только вызывает его (см. ниже)
 let loadMore = null;
+// он же запоминает, докуда долистали (см. «место» ниже)
+let запомнитьПрокрутку = null;
+
+// ------------------------------------------------------------------
+//  ГДЕ МЫ БЫЛИ В СПИСКЕ.
+//  Правка товара перерисовывает страницу целиком, и список начинался
+//  заново: поиск сброшен, прокрутка наверх, первые 48 карточек. Найти
+//  товар, который только что правил, приходилось снова.
+//  Поэтому запоминаем поиск, категорию, сколько карточек показано и
+//  какой товар открывали — и после сохранения возвращаемся туда же.
+// ------------------------------------------------------------------
+const место = { поиск: "", категория: "", показано: 0, прокрутка: 0, товар: "" };
+export function запомнитьМесто(показано, товар) {
+  место.показано = Math.max(место.показано, показано || 0);
+  if (товар) место.товар = товар;
+  место.прокрутка = window.scrollY || 0;
+}
 const freshness = p => Math.max(
   p.created_at ? +new Date(p.created_at) : 0,
   p.last_arrival_at ? +new Date(p.last_arrival_at) : 0
@@ -134,9 +152,12 @@ export default async function render(page, ctx) {
     grid,
   );
 
-  function applyFilters() {
+  function applyFilters(сбросить = true) {
     const q = search.value.toLowerCase();
     const cat = catFilter.value;
+    // Сам искал или менял категорию — значит начинаем список сначала.
+    // А при возврате после правки товара (сбросить = false) место храним.
+    if (сбросить) { место.поиск = search.value; место.категория = cat; место.показано = 0; место.прокрутка = 0; место.товар = ""; }
     draw(all.filter(p =>
       (!cat || p.category === cat) &&
       подходит(p, q)));
@@ -177,9 +198,12 @@ export default async function render(page, ctx) {
     if (!drawList.length || shown >= drawList.length) return;
     if (document.documentElement.scrollHeight - (window.scrollY + window.innerHeight) < 700) appendChunk();
   };
+  запомнитьПрокрутку = () => { место.прокрутка = window.scrollY || 0; место.показано = shown; };
+  // Слушатель один на всё время жизни вкладки: раньше он добавлялся при
+  // каждом заходе в «Товары» и никогда не снимался.
   if (!window.__gmProdScrollBound) {
     window.__gmProdScrollBound = true;
-    window.addEventListener("scroll", () => { if (loadMore) loadMore(); }, { passive: true });
+    window.addEventListener("scroll", () => { if (loadMore) loadMore(); if (запомнитьПрокрутку) запомнитьПрокрутку(); }, { passive: true });
   }
 
   function renderCards(list) {
@@ -197,7 +221,7 @@ export default async function render(page, ctx) {
       // Порог берём из советов, чтобы «заканчивается» означало одно и то же везде.
       const qty = Number(p.stock_qty) || 0;
       const stateCls = qty < 0 ? ".neg" : (qty <= LOW_STOCK ? ".low" : "");
-      const card = el("div.prod.reveal" + stateCls, { onclick: () => openForm(ctx, p, cats) }, [
+      const card = el("div.prod.reveal" + stateCls, { "data-id": p.id, onclick: () => { запомнитьМесто(shown, p.id); openForm(ctx, p, cats); } }, [
         // в списке — миниатюра (иначе сотни полноразмерных фото вешают телефон);
         // при увеличении открываются оригиналы
         el("img.ph", { ...thumbAttrs(p.photo_url, placeholder(p.name), 320), alt: p.name, title: "Нажмите для увеличения",
@@ -230,9 +254,28 @@ export default async function render(page, ctx) {
     // анимация появления — только у новой порции, иначе на телефоне это тысячи таймеров
     requestAnimationFrame(() => grid.querySelectorAll(".reveal:not(.in)").forEach((n, i) => setTimeout(() => n.classList.add("in"), Math.min(i, 20) * 30)));
   }
-  draw(all);
-  search.addEventListener("input", applyFilters);
-  catFilter.addEventListener("change", applyFilters);
+  // Возвращаемся туда, где были до правки товара: тот же поиск, та же
+  // категория, столько же показанных карточек и та же прокрутка.
+  search.value = место.поиск || "";
+  if (место.категория && [...catFilter.options].some(o => o.value === место.категория)) catFilter.value = место.категория;
+  applyFilters(false);
+  вернутьсяНаМесто();
+
+  search.addEventListener("input", () => applyFilters());
+  catFilter.addEventListener("change", () => applyFilters());
+
+  function вернутьсяНаМесто() {
+    if (!место.показано && !место.прокрутка) return;
+    // сперва догружаем столько же карточек, сколько было видно
+    let защита = 200;
+    while (shown < место.показано && shown < drawList.length && защита-- > 0) appendChunk();
+    // затем возвращаем взгляд: на сам товар, если он ещё в списке
+    requestAnimationFrame(() => {
+      const карточка = место.товар && grid.querySelector(`[data-id="${место.товар}"]`);
+      if (карточка) карточка.scrollIntoView({ block: "center" });
+      else window.scrollTo({ top: место.прокрутка });
+    });
+  }
 }
 
 export function placeholder(name = "?") {
@@ -479,6 +522,7 @@ export function openForm(ctx, p, cats = []) {
         // продажные цены (price_*) форма не редактирует — НЕ перезаписываем их (иначе обнуляются).
         // Для нового товара зададим явные нули, у существующего PATCH сохранит прежние.
         if (isNew) { obj.price_yuan = 0; obj.price_usd = 0; obj.price_som = 0; }
+        изменениеСклада(isNew ? "Новый товар" : "Правка карточки товара", p && p.id ? p.id : "");
         const noPhotos = (o) => { const { photos: _ph, cost_cur: _cc, sku: _sk, unit: _u, pack_size: _ps, code: _cd, ...rest } = o; return rest; }; // фолбэк, если колонок photos/cost_cur/sku/unit/code ещё нет
         const сохранить = async (o) => {
           try { await ctx.db.products.upsert({ ...o, batches, ...(cost_prev ? { cost_prev } : {}) }); }

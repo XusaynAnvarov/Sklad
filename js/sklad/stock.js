@@ -8,6 +8,7 @@
 import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260927a";
 import { arrivalRows } from "../arrival.js?v=20260927a";
 import { KIND_SHOP } from "../purchase.js?v=20260927a";
+import { изменениеСклада } from "../db.js?v=20260927a";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
@@ -84,6 +85,7 @@ export function applySale(fresh, items) {
 
 // Провести продажу: прочитать свежее → списать → записать пакетом.
 export async function sellItems(db, items) {
+  изменениеСклада("Продажа (телефон)");
   const ids = [...new Set(items.map(i => i.product_id).filter(Boolean))];
   if (!ids.length) return { written: 0 };
   const fresh = await readFresh(db, ids);
@@ -102,6 +104,7 @@ export async function sellItems(db, items) {
 // разница вверх зачисляется по НЫНЕШНЕЙ складской цене — так решил владелец:
 // ничего вводить не нужно и прибыль не искажается. Выводит и из минуса.
 export async function setStock(db, productId, want) {
+  изменениеСклада("Правка остатка вручную");
   const target = Number(want);
   if (!isFinite(target)) throw new Error("Остаток должен быть числом");
   const fresh = await readFresh(db, [productId]);
@@ -141,6 +144,7 @@ export async function setStock(db, productId, want) {
 // Принять товар из магазина: зачисляем СРАЗУ и по НАШЕЙ складской цене.
 // Цена магазина нас не касается — иначе себестоимость и прибыль поехали бы.
 export async function receiveFromShop(db, items, приход) {
+  изменениеСклада("Приход из магазина", приход || "");
   const ids = [...new Set(items.map(i => i.product_id).filter(Boolean))];
   if (!ids.length) return { written: 0 };
   const fresh = await readFresh(db, ids);
@@ -170,6 +174,7 @@ export async function receiveFromShop(db, items, приход) {
 }
 // Вернуть товары на склад (отмена продажи)
 export async function returnItems(db, items) {
+  изменениеСклада("Возврат от клиента");
   const ids = [...new Set(items.map(i => i.product_id).filter(Boolean))];
   if (!ids.length) return;
   const fresh = await readFresh(db, ids);

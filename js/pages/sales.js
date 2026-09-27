@@ -420,6 +420,7 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
       });
     } else {
       // --- FIFO: вернуть старые позиции (если правка обычной накладной) и списать новые ---
+      изменениеСклада("Накладная: " + ((customers.find(c => c.id === state.customer_id) || {}).name || "—"), sale ? sale.id : "");
       const touched = new Set([...((sale && sale.items) || []).map(i => i.product_id), ...state.items.map(i => i.product_id)].filter(Boolean));
       // ВАЖНО: берём КАРТОЧКИ ТОВАРОВ СВЕЖИМИ с сервера. Список в памяти мог устареть
       // (страницу открыли давно / правили с другого устройства) — тогда остаток записывался неверно.

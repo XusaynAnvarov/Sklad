@@ -6,13 +6,14 @@
 import { el, toast, modal, confirmDialog, showLoader, hideLoader, input } from "../ui.js?v=20260927a";
 import { icon } from "../icons.js?v=20260927a";
 import { consumeFIFO, ensureBatches, sumQty, costAfter } from "../inventory.js?v=20260927a";
+import { isUnapplied } from "../stockcheck.js?v=20260927a";
+export { isUnapplied };
 
-// накладная считается непроведённой, если хотя бы одна позиция без метки applied
-export function isUnapplied(s) {
-  if (!s || s.status !== "final") return false;
-  const items = s.items || [];
-  return items.length > 0 && items.some(it => it.applied !== true);
-}
+// Правило одно на весь склад — js/stockcheck.js. Здесь была своя копия,
+// и она устарела: считала непроведённой любую накладную без метки applied.
+// Метки не было до июля 2026, поэтому в список попадали сотни старых
+// накладных, по которым товар давно списан (это видно по записанной
+// себестоимости). Нажать «Списать» значило списать их ВТОРОЙ раз.
 
 // все оформленные накладные без отметки списания (свежие — сверху)
 export function unappliedSales(sales, days) {

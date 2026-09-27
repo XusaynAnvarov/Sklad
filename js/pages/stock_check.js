@@ -15,6 +15,7 @@ import { ensureBatches, sumQty, costAfter, returnToStock, currentCost, costOutlo
 import { placeholder } from "./products.js?v=20260927a";
 import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260927a";
 import { thumb } from "../img.js?v=20260927a";
+import { историяОстатков } from "./stock_history.js?v=20260927a";
 
 export default async function render(page, ctx) {
   const [products, sales] = await Promise.all([ctx.db.products.list(), ctx.db.sales.list()]);
@@ -26,6 +27,11 @@ export default async function render(page, ctx) {
     ]),
     el("button.btn.btn-outline", { onclick: () => ctx.refresh() }, [icon("refresh", { size: 16 }), "Обновить"]),
   ]));
+
+  // История изменений остатков: кто и когда менял остаток и почему.
+  // Всё остальное на этой странице показывает, что разошлось СЕЙЧАС,
+  // а этот раздел отвечает, КАК до этого дошло.
+  историяОстатков(page, ctx, products);
 
   // --- считаем проблемы ---
   const unapplied = unappliedSales(sales, 0);                       // без ограничения по датам

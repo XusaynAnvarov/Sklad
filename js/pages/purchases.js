@@ -13,6 +13,7 @@ import { thumb, поставитьСнимок } from "../img.js?v=20260927a";
 import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20260927a";
 // Оприходование общее со складом в телефоне — иначе остатки разойдутся.
 import { applyArrival, записатьПачкой, откатитьПриход } from "../arrival.js?v=20260927a";
+import { изменениеСклада } from "../db.js?v=20260927a";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
@@ -124,6 +125,7 @@ export default async function render(page, ctx) {
 // списать товары этого прихода со склада ОДИН раз — если приход случайно оприходован дважды
 async function unarriveOnce(ctx, s, products) {
   confirmDialog("Списать товары этого прихода со склада ОДИН раз? (используйте, если оприходовали дважды). Запись прихода останется.", async () => {
+    изменениеСклада("Откат прихода: " + (s.supplier || "—"), s.id);
     showLoader("Списываем…");
     try {
       await записатьПачкой(ctx.db, откатитьПриход(s, products, consumeFIFO));
@@ -140,6 +142,7 @@ async function arrive(ctx, s, products, кнопка) {
     // почти минуту, владелец считал, что зависло, и нажимал ещё раз —
     // половина прихода ложилась на склад дважды.
     if (кнопка) { кнопка.disabled = true; кнопка.textContent = "Оприходую…"; }
+    изменениеСклада("Приход: " + (s.supplier || "—"), s.id);
     showLoader("Оприходование…");
     try {
       await applyArrival(ctx.db, s, products, (готово, всего) => showLoader(`Оприходование… ${готово} из ${всего}`));

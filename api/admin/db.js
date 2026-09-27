@@ -8,6 +8,7 @@
 // POST /api/admin/db  {table:"settings", op:"save", data:{...}}
 import { getUser } from "../lib/auth.js";
 import { помнить, забыть } from "../lib/memcache.js";
+import { остаткиДо, записать as записатьВЖурнал } from "../lib/stocklog.js";
 
 // Столько секунд держим список в памяти. Свои записи память стирают сразу,
 // так что задержка возможна только для чужих: заказ из бота или правка
@@ -168,12 +169,15 @@ export default async function handler(req, res) {
         if (!rows.length) return res.json([]);
         if (rows.length > 500) return res.status(400).json({ error: "слишком много записей (максимум 500)" });
         if (!rows.every(r => okId(r.id))) return res.status(400).json({ error: "у каждой записи должен быть корректный id" });
+        // Снимок остатков ДО записи — для журнала изменений (api/lib/stocklog.js).
+        const доЗаписи = table === "products" ? await остаткиДо(rows.map(r => r.id)) : {};
         const out = await Promise.all(rows.map(async (row) => {
           const patched = await sbPatch(`${table}?id=eq.${encodeURIComponent(row.id)}`, row);
           if (patched && patched.length) return patched[0];
           const created = await sbPost(table, row);          // записи не было — создаём
           return (Array.isArray(created) ? created[0] : created) || row;
         }));
+        if (table === "products") записатьВЖурнал(rows, доЗаписи, { причина: body.причина, документ: body.документ, кто: user.role });
         return res.json(out);
       }
 
@@ -200,8 +204,10 @@ export default async function handler(req, res) {
 
       if (data.id) {
         if (!okId(data.id)) return res.status(400).json({ error: "Неверный id" });
+        const доОдной = table === "products" ? await остаткиДо([data.id]) : {};
         // обновление существующей записи; если её НЕТ (напр. восстановление из корзины) — вставляем заново с тем же id
         const rows = await sbPatch(`${table}?id=eq.${encodeURIComponent(data.id)}`, data);
+        if (table === "products") записатьВЖурнал([data], доОдной, { причина: body.причина, документ: body.документ, кто: user.role });
         if (rows && rows.length) return res.json(rows[0]);
         const created = await sbPost(table, data);
         return res.json((Array.isArray(created) ? created[0] : created) || data);

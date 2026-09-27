@@ -76,6 +76,8 @@ const routes = [
   [["GET","POST","DELETE","OPTIONS"], "/api/admin/db", "./api/admin/db.js"],
   [["GET"],   "/api/admin/site-clients",      "./api/admin/site-clients.js"],
   [["GET","POST"], "/api/admin/catalog-codes", "./api/admin/catalog-codes.js"],
+  // история изменений остатков (для «Проверки склада»)
+  [["GET"],   "/api/admin/stock-log",         "./api/admin/stock-log.js"],
   // печатный каталог: сборка в отдельном потоке и скачивание по пропуску
   [["GET","POST"], "/api/admin/catalog-book",  "./api/admin/catalog-book.js"],
   [["GET","HEAD"], "/api/catalog-book-file",   "./api/catalog-book-file.js"],
