@@ -5,9 +5,9 @@
 //  Пишем ПАКЕТОМ (upsertMany): на телефоне поштучная запись 20 позиций
 //  занимала бы минуту.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260926a";
-import { arrivalRows } from "../arrival.js?v=20260926a";
-import { KIND_SHOP } from "../purchase.js?v=20260926a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20260927a";
+import { arrivalRows } from "../arrival.js?v=20260927a";
+import { KIND_SHOP } from "../purchase.js?v=20260927a";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
@@ -173,12 +173,26 @@ export async function returnItems(db, items) {
   const ids = [...new Set(items.map(i => i.product_id).filter(Boolean))];
   if (!ids.length) return;
   const fresh = await readFresh(db, ids);
+  // Товара нет в складе (удалили карточку) — раньше такую позицию молча
+  // пропускали: владелец видел «товар возвращён», а на складе ничего.
+  const нет = ids.filter(id => !fresh[id]);
+  if (нет.length) throw new Error("Товар не найден в складе (" + нет.length + " поз.) — возврат не проведён");
+
   const rows = [];
+  const ожидаем = {};
   for (const it of items) {
-    const p = fresh[it.product_id]; if (!p) continue;
+    const p = fresh[it.product_id];
     const batches = returnToStock(ensureBatches(p), Number(it.qty) || 0, p.cost_yuan, p.cost_usd);
     const cc = costAfter(batches, p);
-    rows.push({ id: p.id, stock_qty: sumQty(batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches });
+    const row = { id: p.id, stock_qty: sumQty(batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches };
+    rows.push(row);
+    fresh[p.id] = { ...p, ...row };      // две строки одного товара складываются
+    ожидаем[p.id] = row.stock_qty;
   }
   await writeStock(db, rows);
+  // Сверяем: остаток должен стать ровно тем, что посчитали. Молчать о
+  // незаписанном возврате нельзя — товар потеряется.
+  const bad = await verifyStock(db, ожидаем);
+  if (bad.length) throw new Error("Возврат не записался (" + bad.length + " поз.) — проверьте связь и повторите");
+  return { written: rows.length };
 }
