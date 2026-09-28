@@ -8,14 +8,14 @@
 //  E. Новый приход дороже цены продажи
 //  F. Заказы не оформлены (склад ещё не трогали — это норма)
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260927a";
-import { icon } from "../icons.js?v=20260927a";
-import { fmt } from "../fx.js?v=20260927a";
-import { ensureBatches, sumQty, costAfter, returnToStock, currentCost, costOutlook } from "../inventory.js?v=20260927a";
-import { placeholder } from "./products.js?v=20260927a";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260927a";
-import { thumb } from "../img.js?v=20260927a";
-import { историяОстатков } from "./stock_history.js?v=20260927a";
+import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20260928a";
+import { icon } from "../icons.js?v=20260928a";
+import { fmt } from "../fx.js?v=20260928a";
+import { ensureBatches, sumQty, costAfter, returnToStock, currentCost, costOutlook } from "../inventory.js?v=20260928a";
+import { placeholder } from "./products.js?v=20260928a";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20260928a";
+import { thumb } from "../img.js?v=20260928a";
+import { историяОстатков } from "./stock_history.js?v=20260928a";
 
 export default async function render(page, ctx) {
   const [products, sales] = await Promise.all([ctx.db.products.list(), ctx.db.sales.list()]);

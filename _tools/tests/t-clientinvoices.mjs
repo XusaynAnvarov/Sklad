@@ -111,7 +111,9 @@ const поз = (qty, unit_price, currency) => ({ product_id: "p1", qty, unit_pri
   const мой = подписать({ id: 777, first_name: "Клиент" });
 
   ok("без подписи Telegram — 401", (await вызвать({ action: "invoices" })).code === 401);
-  ok("поддельная подпись — 401", (await вызвать({ action: "invoices", initData: мой.replace(/hash=\w/, "hash=0") })).code === 401);
+  // портим подпись наверняка: меняем первый знак на заведомо другой
+  const подделка = мой.replace(/hash=(.)/, (_, c) => "hash=" + (c === "a" ? "b" : "a"));
+  ok("поддельная подпись — 401", (await вызвать({ action: "invoices", initData: подделка })).code === 401);
 
   const r = await вызвать({ action: "invoices", initData: мой });
   const спис = r.body.invoices;
