@@ -7,7 +7,8 @@
 //  не зная, какой режим активен.
 // ========================================================================
 
-import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20260928a";
+import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20260929a";
+import { сверитьСОстатком } from "./inventory.js?v=20260929a";
 
 const cfg = window.APP_CONFIG || {};
 const useSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
@@ -140,6 +141,14 @@ function handleAuthError() {
 }
 
 // пакетное чтение: одним запросом вместо N (при сохранении накладной их были сотни)
+// Карточка пришла из базы — сверяем партии с остатком.
+// Запись в базу иногда проходит наполовину: остаток принят, а партии нет.
+// Тогда партии остаются вчерашними, и проданное «возвращается» само.
+// Правим это здесь, на входе, и ровно один раз: дальше по коду товар
+// правится по шагам, и сверять на каждом шаге нельзя.
+const сверить = (p) => (p && Array.isArray(p.batches) && p.batches.length ? { ...p, batches: сверитьСОстатком(p.batches, p) } : p);
+const сверитьВсе = (список) => (Array.isArray(список) ? список.map(сверить) : список);
+
 async function adminGetMany(table, ids) {
   const list = (ids || []).filter(Boolean);
   if (!list.length) return [];
@@ -147,7 +156,7 @@ async function adminGetMany(table, ids) {
   const j = await r.json();
   if (r.status === 401) { handleAuthError(); throw new Error("Сессия истекла"); }
   if (!r.ok) throw new Error(j.error || r.status);
-  return Array.isArray(j) ? j : [];
+  return Array.isArray(j) ? (table === "products" ? сверитьВсе(j) : j) : [];
 }
 async function adminGet(table, id) {
   const q = id ? `?table=${table}&id=${encodeURIComponent(id)}` : `?table=${table}`;
@@ -155,7 +164,8 @@ async function adminGet(table, id) {
   const j = await r.json();
   if (r.status === 401) { handleAuthError(); throw new Error("Сессия истекла"); }
   if (!r.ok) throw new Error(j.error || r.status);
-  return j;
+  if (table !== "products") return j;
+  return Array.isArray(j) ? сверитьВсе(j) : сверить(j);
 }
 // ------------------------------------------------------------------
 //  КОРОТКАЯ ПАМЯТЬ БРАУЗЕРА.

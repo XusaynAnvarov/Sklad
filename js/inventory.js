@@ -39,7 +39,13 @@ export function costAfter(batches, prev) {
 // накладной на склад возвращался товар, которого нет.
 export function ensureBatches(p) {
   const q = Number(p.stock_qty) || 0;
-  if (Array.isArray(p.batches) && p.batches.length) return сверитьСОстатком(p.batches.map(b => ({ ...b })), p);
+  // ВНИМАНИЕ: здесь НЕЛЬЗЯ сверять партии с остатком.
+  // Накладная правится в два шага: сперва возвращаем старые позиции
+  // (партии растут, остаток ещё прежний), потом списываем новые. Если
+  // сверять на каждом шаге, возврат тут же срезается как «лишний» —
+  // и товар списывается второй раз. Сверка делается один раз, когда
+  // карточка приходит из базы (js/db.js).
+  if (Array.isArray(p.batches) && p.batches.length) return p.batches.map(b => ({ ...b }));
   if (q === 0) return [];
   const base = { qty: q, cost_yuan: Number(p.cost_yuan) || 0, cost_usd: Number(p.cost_usd) || 0, date: p.created_at || new Date().toISOString() };
   return q > 0 ? [base] : [{ ...base, shortage: true }];

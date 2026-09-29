@@ -1,22 +1,23 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260928a";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260928a";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260928a";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260928a";
-import { suggestPrice, priceNote } from "../prices.js?v=20260928a";
-import { списанные } from "../stockcheck.js?v=20260928a";
-import { placeholder } from "./products.js?v=20260928a";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260928a";
-import { icon } from "../icons.js?v=20260928a";
-import { showLoader, hideLoader } from "../ui.js?v=20260928a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260928a";
-import { exportInvoice } from "../xlsx-export.js?v=20260928a";
-import { showNotFound } from "./purchases.js?v=20260928a";
-import { thumb, поставитьСнимок } from "../img.js?v=20260928a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260929a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260929a";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260929a";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260929a";
+import { suggestPrice, priceNote } from "../prices.js?v=20260929a";
+import { списанные } from "../stockcheck.js?v=20260929a";
+import { пересчитатьСклад } from "../saleedit.js?v=20260929a";
+import { placeholder } from "./products.js?v=20260929a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260929a";
+import { icon } from "../icons.js?v=20260929a";
+import { showLoader, hideLoader } from "../ui.js?v=20260929a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260929a";
+import { exportInvoice } from "../xlsx-export.js?v=20260929a";
+import { showNotFound } from "./purchases.js?v=20260929a";
+import { thumb, поставитьСнимок } from "../img.js?v=20260929a";
 // причина изменения остатка — её записывает журнал на сервере
-import { изменениеСклада } from "../db.js?v=20260928a";
+import { изменениеСклада } from "../db.js?v=20260929a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -432,38 +433,14 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
       await readFresh(ctx, [...touched], fresh);
       const P = (id) => fresh[id] || products.find(x => x.id === id);
 
-      // Возвращаем на склад ТОЛЬКО те позиции, которые с него реально
-      // списывали (правило — в js/stockcheck.js). Раньше решали по одному
-      // статусу: «заказ — значит не списывали». Но статус мог откатиться —
-      // клиент нажимал старую кнопку подтверждения в чате, и оформленная
-      // накладная снова становилась заказом. Товар был уже списан, и
-      // повторное оформление списывало его второй раз.
-      if (sale) списанные(sale).forEach(it => {
-        const p = P(it.product_id); if (!p) return;
-        const perY = it.qty ? (Number(it.cogs_yuan) || 0) / it.qty : (Number(p.cost_yuan) || 0);
-        const perU = it.qty ? (Number(it.cogs_usd) || 0) / it.qty : (Number(p.cost_usd) || 0);
-        p.batches = returnToStock(ensureBatches(p), it.qty, perY, perU, sale.date);
-      });
-      state.items.forEach(it => {
-        const p = P(it.product_id); if (!p) return;
-        const r = consumeFIFO(ensureBatches(p), it.qty);
-        p.batches = r.batches; it.cogs_yuan = r.cogY; it.cogs_usd = r.cogU;
-        it.applied = true;      // отметка «со склада списано» — по ней ищем непроведённые накладные
-      });
-
-      // пишем все затронутые товары ОДНИМ пакетом
-      const expected = {};
-      const notFound = [];
-      const rows = [];
-      [...touched].forEach((pid) => {
-        const p = P(pid);
-        if (!p) { notFound.push(pid); return; }
-        // склад распродан → сохраняем прежнюю себестоимость (не обнуляем)
-        const cc = costAfter(p.batches || [], p);
-        const qty = sumQty(p.batches || []);
-        expected[pid] = qty;
-        rows.push({ id: p.id, stock_qty: qty, cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: p.batches });
-      });
+      // Что должно стать со складом после правки — считает js/saleedit.js.
+      // Там же живёт правило «вернуть старое, списать новое», и его
+      // проверяет тест: 29.09.2026 из-за ошибки здесь накладная списала
+      // товар второй раз, и остатки ушли в минус.
+      [...touched].forEach(id => { if (!fresh[id]) { const п = products.find(x => x.id === id); if (п) fresh[id] = п; } });
+      const { rows, ненайденные } = пересчитатьСклад({ товары: fresh, старая: sale, позиции: state.items, дата: obj.date });
+      const notFound = ненайденные;
+      const expected = Object.fromEntries(rows.map(r => [r.id, r.stock_qty]));
       await writeStock(ctx, rows);
 
       // ПРОВЕРКА: остаток действительно изменился на сервере (раньше сбой проходил незаметно).
