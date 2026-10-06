@@ -2,9 +2,9 @@
 //  СТРАНИЦА «ЗАКАЗЫ» — новые заказы из бота и с сайта (status='order').
 //  Разделены по вкладкам: «С сайта» | «Из бота» | «Подтверждённые».
 // ========================================================================
-import { el, toast, confirmDialog } from "../ui.js?v=20260929b";
-import { icon } from "../icons.js?v=20260929b";
-import { openEditor, deleteSale } from "./sales.js?v=20260929b";
+import { el, toast, confirmDialog } from "../ui.js?v=20261006a";
+import { icon } from "../icons.js?v=20261006a";
+import { openEditor, deleteSale } from "./sales.js?v=20261006a";
 
 export default async function render(page, ctx) {
   const [sales, customers, products] = await Promise.all([
@@ -97,7 +97,7 @@ export default async function render(page, ctx) {
         el("div", { style: { marginTop: "8px", fontSize: "13px", color: "var(--muted)" }, text: preview }),
         el("div", { style: { marginTop: "10px", display: "flex", gap: "8px" } }, [
           el("button.btn.btn-primary.btn-sm", { text: "Открыть и оформить →", onclick: (e) => { e.stopPropagation(); openEditor(ctx, s, customers, products, s.customer_id); } }),
-          el("button.btn.btn-danger.btn-sm", { onclick: (e) => { e.stopPropagation(); confirmDialog("Удалить этот заказ?", () => deleteSale(ctx, s, products)); } }, [icon("trash", { size: 15 }), "Удалить"]),
+          el("button.btn.btn-danger.btn-sm", { onclick: (e) => { e.stopPropagation(); confirmDialog("Удалить этот заказ?", () => deleteSale(ctx, s, products, fromName)); } }, [icon("trash", { size: 15 }), "Удалить"]),
         ]),
       ]);
       wrap.append(card);

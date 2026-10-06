@@ -1,23 +1,23 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20260929b";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20260929b";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20260929b";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20260929b";
-import { suggestPrice, priceNote } from "../prices.js?v=20260929b";
-import { списанные } from "../stockcheck.js?v=20260929b";
-import { пересчитатьСклад } from "../saleedit.js?v=20260929b";
-import { placeholder } from "./products.js?v=20260929b";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20260929b";
-import { icon } from "../icons.js?v=20260929b";
-import { showLoader, hideLoader } from "../ui.js?v=20260929b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20260929b";
-import { exportInvoice } from "../xlsx-export.js?v=20260929b";
-import { showNotFound } from "./purchases.js?v=20260929b";
-import { thumb, поставитьСнимок } from "../img.js?v=20260929b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261006a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261006a";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261006a";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261006a";
+import { suggestPrice, priceNote } from "../prices.js?v=20261006a";
+import { списанные } from "../stockcheck.js?v=20261006a";
+import { пересчитатьСклад } from "../saleedit.js?v=20261006a";
+import { placeholder } from "./products.js?v=20261006a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261006a";
+import { icon } from "../icons.js?v=20261006a";
+import { showLoader, hideLoader } from "../ui.js?v=20261006a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261006a";
+import { exportInvoice } from "../xlsx-export.js?v=20261006a";
+import { showNotFound } from "./purchases.js?v=20261006a";
+import { thumb, поставитьСнимок } from "../img.js?v=20261006a";
 // причина изменения остатка — её записывает журнал на сервере
-import { изменениеСклада } from "../db.js?v=20260929b";
+import { изменениеСклада } from "../db.js?v=20261006a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -54,7 +54,7 @@ export default async function render(page, ctx) {
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Скачать в Excel", text: "📊", onclick: async () => { showLoader("Готовим Excel…"); try { await exportInvoice(s, cmap[s.customer_id], products); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } } }),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать", onclick: () => openEditor(ctx, s, customers, products) }, [icon("edit", { size: 16 })]),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить в Telegram", onclick: () => resend(ctx, s, cmap, products) }, [icon("send", { size: 16 })]),
-        el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить накладную? Товары вернутся на склад.", () => deleteSale(ctx, s, products)) }, [icon("trash", { size: 16 })]),
+        el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить накладную? Товары вернутся на склад.", () => deleteSale(ctx, s, products, cmap[s.customer_id]?.name)) }, [icon("trash", { size: 16 })]),
       ])]),
     ]));
   });
@@ -495,8 +495,12 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
 }
 
 // удаление накладной с возвратом товаров на склад
-export async function deleteSale(ctx, sale, products) {
+export async function deleteSale(ctx, sale, products, кто = "") {
   try {
+    // Причину пишем СВОЮ. Без этого в журнал попадала «липкая» причина
+    // прошлой операции: 6 октября возврат от удаления накладной Хожи Ака
+    // был подписан «Накладная: 974639098» — историю было не прочитать.
+    изменениеСклада("Удаление накладной: " + (кто || "—"), sale.id);
     // Возвращаем ровно те позиции, которые со склада списывали, — по отметке
     // applied, а не по статусу. Раньше здесь стояло «списано, только если
     // status === final», и заказ, у которого статус откатился, удалялся БЕЗ

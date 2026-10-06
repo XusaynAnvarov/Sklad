@@ -1,18 +1,18 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20260929b";
-import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20260929b";
-import { openEditor, buildText, deleteSale } from "./sales.js?v=20260929b";
-import { exportCustomerInvoice } from "../xlsx-export.js?v=20260929b";
-import { placeholder as placeholderImg } from "./products.js?v=20260929b";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20260929b";
-import { authHeaders } from "../db.js?v=20260929b";
-import { icon } from "../icons.js?v=20260929b";
-import { thumb } from "../img.js?v=20260929b";
-import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20260929b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261006a";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20261006a";
+import { openEditor, buildText, deleteSale } from "./sales.js?v=20261006a";
+import { exportCustomerInvoice } from "../xlsx-export.js?v=20261006a";
+import { placeholder as placeholderImg } from "./products.js?v=20261006a";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20261006a";
+import { authHeaders } from "../db.js?v=20261006a";
+import { icon } from "../icons.js?v=20261006a";
+import { thumb } from "../img.js?v=20261006a";
+import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20261006a";
 // Расчёт долга общий со складом в телефоне — иначе цифры расходятся.
-import { debtByCur, openingDebt, onlyPositive, coverageMap, issuedOnly } from "../debt.js?v=20260929b";
+import { debtByCur, openingDebt, onlyPositive, coverageMap, issuedOnly } from "../debt.js?v=20261006a";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
 const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);
@@ -249,7 +249,7 @@ async function renderCard(page, ctx, id) {
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать (цена/кол-во/товары)", onclick: () => openEditor(ctx, s, customers, products, c.id) }, [icon("edit", { size: 16 })]),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить клиенту", onclick: () => sendInvToClient(ctx, s, c, products) }, [icon("send", { size: 16 })]),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить в канал", onclick: () => sendInvToChannel(ctx, s, c, products) }, [icon("broadcast", { size: 16 })]),
-          el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить накладную? Товары вернутся на склад.", () => deleteSale(ctx, s, products)) }, [icon("trash", { size: 16 })]),
+          el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить накладную? Товары вернутся на склад.", () => deleteSale(ctx, s, products, c.name)) }, [icon("trash", { size: 16 })]),
         ])]),
       ]);
       tb.append(mainRow, detail);

@@ -68,13 +68,14 @@ export function сверитьСОстатком(batches, p) {
   if (Math.abs(есть - хотим) < 0.0001) return batches;
   if (хотим < есть) return consumeFIFO(batches, есть - хотим).batches;
   const цена = currentCost(batches);
-  return [...batches, {
+  // живым товаром сразу гасим долг — иначе внутри останется скрытый минус
+  return погасить([...batches, {
     qty: хотим - есть,
     cost_yuan: цена.cost_yuan || Number(p.cost_yuan) || 0,
     cost_usd: цена.cost_usd || Number(p.cost_usd) || 0,
     date: new Date().toISOString(),
     правка: true,                     // видно, что партия появилась при сверке
-  }];
+  }]);
 }
 // списать qty по FIFO → вернуть новые партии и себестоимость списания.
 // Если товара не хватает — уходим В МИНУС: остаётся «долговая» партия с отрицательным qty,
@@ -105,5 +106,28 @@ export function consumeFIFO(batches, qty) {
 export function returnToStock(batches, qty, cost_yuan, cost_usd, date) {
   const list = (batches || []).map(b => ({ ...b }));
   if ((Number(qty) || 0) > 0) list.unshift({ qty: Number(qty) || 0, cost_yuan: Number(cost_yuan) || 0, cost_usd: Number(cost_usd) || 0, date: date || new Date().toISOString() });
-  return list;
+  return погасить(list);
+}
+// Погасить долг живым товаром. Долговая партия (минус) появляется, когда
+// товар продали, не имея его на складе. Остаток при этом считался верно —
+// это сумма партий, — но consumeFIFO долговую партию перешагивает: на полке
+// «есть» товар, а внутри сидит минус. После возврата или правки такой склад
+// начинал жить своей жизнью: проданное будто возвращалось само. Поэтому как
+// только живой товар появился, закрываем им долг.
+// СУММА ПАРТИЙ НЕ МЕНЯЕТСЯ — меняется только их устройство.
+export function погасить(batches) {
+  const list = (batches || []).map(b => ({ ...b }));
+  for (const долг of list) {
+    let нужно = -(Number(долг.qty) || 0);
+    if (нужно <= 0) continue;
+    for (const b of list) {
+      if (нужно <= 0) break;
+      const есть = Number(b.qty) || 0;
+      if (есть <= 0) continue;
+      const берём = Math.min(нужно, есть);
+      b.qty = есть - берём; нужно -= берём;
+    }
+    долг.qty = -нужно;
+  }
+  return list.filter(b => Math.abs(Number(b.qty) || 0) > 0.0001);
 }
