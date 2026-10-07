@@ -9,11 +9,11 @@
 //  по одному товару или сразу по нескольким. Ничего не удаляется: правка
 //  остатка это такое же движение склада и тоже попадает в журнал.
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261007b";
-import { icon } from "../icons.js?v=20261007b";
-import { authHeaders, изменениеСклада } from "../db.js?v=20261007b";
-import { setStock } from "../sklad/stock.js?v=20261007b";
-import { подписьКода } from "../catalogcode.js?v=20261007b";
+import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261007c";
+import { icon } from "../icons.js?v=20261007c";
+import { authHeaders, изменениеСклада } from "../db.js?v=20261007c";
+import { setStock } from "../sklad/stock.js?v=20261007c";
+import { подписьКода } from "../catalogcode.js?v=20261007c";
 
 const когда = (d) => {
   const t = new Date(d);
@@ -26,9 +26,16 @@ export function историяОстатков(page, ctx, products) {
   const pmap = Object.fromEntries((products || []).map(p => [String(p.id), p]));
 
   const карточка = el("div.card", { style: { padding: "16px", marginBottom: "16px" } });
-  const шапка = el("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", flexWrap: "wrap" } }, [
+  // Раздел сворачивается: на «Проверке склада» он не главный, а журнал за
+  // 7 дней — это сотни строк. Открывается по щелчку, и выбор запоминается.
+  const стрелка = el("span.muted", { style: { marginLeft: "auto", fontSize: "13px" }, text: "▾" });
+  const шапка = el("div", {
+    style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", flexWrap: "wrap", cursor: "pointer", userSelect: "none" },
+    title: "Показать или скрыть историю",
+  }, [
     el("span", { style: { display: "flex", color: "var(--accent)" } }, [icon("clock", { size: 18 })]),
     el("div", { style: { fontWeight: "700", fontSize: "16px" }, text: "История изменений остатков" }),
+    стрелка,
   ]);
   const пояснение = el("div.muted", { style: { fontSize: "13px", marginBottom: "10px" },
     text: "Видно, у какого товара остаток менялся, на сколько и почему. Здесь же можно вписать настоящее количество с полки." });
@@ -64,8 +71,24 @@ export function историяОстатков(page, ctx, products) {
 
   const тело = el("div");
   const низ = el("div", { style: { marginTop: "10px" } });
-  карточка.append(шапка, пояснение, кнопкиПериода, свой, фильтрРоста, тело, низ);
+  const содержимое = el("div", {}, [пояснение, кнопкиПериода, свой, фильтрРоста, тело, низ]);
+  карточка.append(шапка, содержимое);
   page.append(карточка);
+
+  // Открыто или свёрнуто — помним между заходами.
+  const КЛЮЧ = "gm:история-остатков:открыта";
+  let открыта = false;
+  try { открыта = localStorage.getItem(КЛЮЧ) === "1"; } catch { }
+  let читали = false;
+  const показать = (да) => {
+    открыта = да;
+    содержимое.style.display = да ? "" : "none";
+    стрелка.textContent = да ? "▾" : "▸";
+    try { localStorage.setItem(КЛЮЧ, да ? "1" : "0"); } catch { }
+    // Журнал тянем только когда раздел открыли: страница грузится быстрее.
+    if (да && !читали) { читали = true; загрузить(); }
+  };
+  шапка.addEventListener("click", () => показать(!открыта));
 
   // ---- данные ----
   let записи = [];
@@ -164,5 +187,5 @@ export function историяОстатков(page, ctx, products) {
     });
   }
 
-  загрузить();
+  показать(открыта);
 }
