@@ -2,7 +2,8 @@
 //  Экспорт накладных в Excel (.xlsx) — скачивание на компьютер с сайта.
 //  SheetJS через CDN. Без сервера и без Telegram (всё на клиенте).
 // ========================================================================
-import { CUR } from "./fx.js?v=20261006b";
+import { CUR } from "./fx.js?v=20261007a";
+import { thumb } from "./img.js?v=20261007a";
 
 let _xlsx = null;
 async function lib() { if (!_xlsx) _xlsx = await import("https://esm.sh/xlsx@0.18.5"); return _xlsx; }
@@ -314,59 +315,209 @@ export async function exportAllSales(sales, customers, products) {
   XLSX.writeFile(wb, `nakladnye-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
+
 // ========================================================================
 //  ЛИСТ ДЛЯ ПЕРЕСЧЁТА СКЛАДА.
-//  Владелец идёт по полкам и вписывает в колонку «Факт на полке» то, что
-//  реально лежит. Порядок строк — как на складе: раздел за разделом, внутри
-//  по названию, иначе лист не совпадает с полками и обход превращается в
-//  беготню. Колонка «Факт» специально пустая: пустая клетка значит
-//  «не считал» и остаток не тронет (js/stockcount.js).
+//
+//  Владелец идёт по полкам и вписывает в жёлтую колонку «Факт на полке»
+//  то, что реально лежит. Поэтому лист сделан как рабочая бумага, а не как
+//  выгрузка: фирменная шапка, закреплённые заголовки, раздел за разделом,
+//  печать влезает в ширину A4.
+//
+//  Пустая клетка «Факт» значит «не считал» и остаток не тронет
+//  (js/stockcount.js) — об этом написано прямо в шапке листа.
+//
+//  Фото кладём только когда считают ОДИН раздел: 900 картинок превратят
+//  файл в сотню мегабайт, и Excel будет открывать его минуту.
 // ========================================================================
-// Сами строки листа — отдельно от записи файла, чтобы лист можно было
-// прогнать по кругу (собрать → прочитать → сверить) и проверить.
-export function листПересчёта(products) {
-  const список = [...(products || [])].filter(p => p && p.id).sort((a, b) =>
-    String(a.category || "яяя").localeCompare(String(b.category || "яяя"), "ru") ||
-    String(a.name || "").localeCompare(String(b.name || ""), "ru"));
+// Excel видит в клетке, начинающейся с «=», «+», «-» или «@», ФОРМУЛУ.
+// Название товара приходит из базы, а туда оно попадает и из заказов
+// клиентов, и из загруженных файлов. Поэтому перед записью такой текст
+// обезвреживаем апострофом: Excel покажет его как обычную строку.
+const текстВКлетку = (v) => {
+  const s = String(v == null ? "" : v);
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+};
 
-  const aoa = [
-    ["GENERAL MODERN — пересчёт склада", "", "", "", "", ""],
-    ["Лист от " + new Date().toLocaleDateString("ru-RU"), "", "", "", "", ""],
-    ["Впишите количество в колонку «Факт на полке». Пустую клетку склад не тронет.", "", "", "", "", ""],
-    [],
-    ["Код", "Артикул", "Товар", "Раздел", "Остаток в складе", "Факт на полке"],
-  ];
-  список.forEach(p => aoa.push([
-    p.code || "", p.sku || "", p.name || "", p.category || "",
-    Number(p.stock_qty) || 0, "",
-  ]));
-  return { aoa, список };
+export function списокДляПересчёта(products, категория = "") {
+  return [...(products || [])]
+    .filter(p => p && p.id && (!категория || String(p.category || "") === категория))
+    .sort((a, b) =>
+      String(a.category || "яяя").localeCompare(String(b.category || "яяя"), "ru") ||
+      String(a.name || "").localeCompare(String(b.name || ""), "ru"));
 }
 
-export async function exportStockCountSheet(products) {
-  const XLSX = await lib();
-  const { aoa, список } = листПересчёта(products);
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch: 10 }, { wch: 14 }, { wch: 40 }, { wch: 20 }, { wch: 17 }, { wch: 15 }];
-  ws["!freeze"] = { xSplit: 0, ySplit: 5 };
-  ws["!autofilter"] = { ref: "A5:F" + (список.length + 5) };
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Пересчёт");
-  XLSX.writeFile(wb, `pereschet-${new Date().toISOString().slice(0, 10)}.xlsx`);
+export async function exportStockCountSheet(products, настройки = {}) {
+  const { категория = "", сФото = false, наПрогресс } = настройки;
+  const ExcelJS = await libExcel();
+  const список = списокДляПересчёта(products, категория);
+  const NAVY = "FF16233B", NAVY2 = "FF22324F", GOLD = "FFD9B45A";
+  const ЖЁЛТЫЙ = "FFFFF4CC", ЗЕБРА = "FFF6F8FB", BD = "FFBFC7D5";
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Пересчёт");
+  const колонки = сФото
+    ? [{ width: 5 }, { width: 13 }, { width: 11 }, { width: 14 }, { width: 42 }, { width: 18 }, { width: 16 }, { width: 16 }]
+    : [{ width: 5 }, { width: 11 }, { width: 14 }, { width: 42 }, { width: 18 }, { width: 16 }, { width: 16 }];
+  ws.columns = колонки;
+  const последняя = String.fromCharCode(64 + колонки.length);        // A..H
+  const thin = { style: "thin", color: { argb: BD } };
+  const box = { top: thin, left: thin, bottom: thin, right: thin };
+  const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+
+  ws.mergeCells("A1:" + последняя + "1");
+  Object.assign(ws.getCell("A1"), {
+    value: "GENERAL MODERN — пересчёт склада",
+    font: { bold: true, size: 18, color: { argb: GOLD } },
+    alignment: { horizontal: "center", vertical: "middle" }, fill: fill(NAVY),
+  });
+  ws.getRow(1).height = 34;
+
+  ws.mergeCells("A2:" + последняя + "2");
+  Object.assign(ws.getCell("A2"), {
+    value: (категория ? "Раздел: " + текстВКлетку(категория) : "Весь склад")
+      + " · товаров: " + список.length
+      + " · лист от " + new Date().toLocaleDateString("ru-RU"),
+    font: { bold: true, size: 11, color: { argb: "FFFFFFFF" } },
+    alignment: { horizontal: "center" }, fill: fill(NAVY2),
+  });
+  ws.getRow(2).height = 20;
+
+  ws.mergeCells("A3:" + последняя + "3");
+  Object.assign(ws.getCell("A3"), {
+    value: "Впишите количество в жёлтую колонку «Факт на полке». Пустую клетку склад не тронет — считать можно частями.",
+    font: { italic: true, size: 10, color: { argb: "FF667085" } },
+    alignment: { horizontal: "center" },
+  });
+  ws.addRow([]);
+
+  const заголовки = сФото
+    ? ["№", "Фото", "Код", "Артикул", "Товар", "Раздел", "Остаток в складе", "Факт на полке"]
+    : ["№", "Код", "Артикул", "Товар", "Раздел", "Остаток в складе", "Факт на полке"];
+  const шапка = ws.addRow(заголовки);
+  шапка.height = 24;
+  шапка.eachCell(c => {
+    c.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    c.fill = fill(NAVY2);
+    c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    c.border = box;
+  });
+  const строкаШапки = шапка.number;
+
+  // фото тянем параллельно и уменьшенными — лист должен остаться лёгким
+  let фото = [];
+  if (сФото) {
+    if (наПрогресс) наПрогресс("Готовим фото…");
+    фото = await Promise.all(список.map(p => {
+      const url = (p.photos && p.photos[0]) || p.photo_url || null;
+      return url ? urlToDataUrl(thumb(url, 160)) : Promise.resolve(null);
+    }));
+  }
+
+  const остатокК = колонки.length - 1, фактК = колонки.length, имяК = сФото ? 5 : 4;
+  список.forEach((p, i) => {
+    const поля = [текстВКлетку(p.code), текстВКлетку(p.sku), текстВКлетку(p.name), текстВКлетку(p.category), Number(p.stock_qty) || 0, ""];
+    const данные = сФото ? [i + 1, "", ...поля] : [i + 1, ...поля];
+    const r = ws.addRow(данные);
+    if (сФото) r.height = 72;
+    r.eachCell(c => { c.border = box; c.alignment = { vertical: "middle" }; });
+    if (i % 2) r.eachCell(c => { c.fill = fill(ЗЕБРА); });
+    r.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+    r.getCell(имяК).font = { bold: true };
+    r.getCell(имяК).alignment = { vertical: "middle", wrapText: true };
+    r.getCell(остатокК).alignment = { horizontal: "center", vertical: "middle" };
+    r.getCell(остатокК).numFmt = "#,##0";
+    // клетка под запись: жёлтая, крупная, в золотой рамке — видно, куда писать
+    const ф = r.getCell(фактК);
+    ф.fill = fill(ЖЁЛТЫЙ);
+    ф.numFmt = "#,##0";
+    ф.font = { bold: true, size: 12 };
+    ф.alignment = { horizontal: "center", vertical: "middle" };
+    ф.border = {
+      top: thin, bottom: thin,
+      left: { style: "medium", color: { argb: GOLD } },
+      right: { style: "medium", color: { argb: GOLD } },
+    };
+
+    if (сФото && фото[i]) {
+      const ext = /png/i.test(фото[i].slice(0, 20)) ? "png" : "jpeg";
+      const base64 = фото[i].replace(/^data:[^,]*,/, "");   // ExcelJS ждёт «сырой» base64
+      const imgId = wb.addImage({ base64, extension: ext });
+      ws.addImage(imgId, { tl: { col: 1.15, row: r.number - 1 + 0.12 }, ext: { width: 66, height: 66 }, editAs: "oneCell" });
+    }
+    if (наПрогресс && i && i % 100 === 0) наПрогресс("Собираем лист… " + i + " из " + список.length);
+  });
+
+  // шапка не уезжает при прокрутке, есть фильтр, печать влезает в ширину
+  ws.views = [{ state: "frozen", ySplit: строкаШапки }];
+  ws.autoFilter = {
+    from: { row: строкаШапки, column: 1 },
+    to: { row: строкаШапки + список.length, column: колонки.length },
+  };
+  ws.pageSetup = {
+    paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+    printTitlesRow: строкаШапки + ":" + строкаШапки,
+    margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
+  };
+  ws.headerFooter = { oddFooter: "&LGENERAL MODERN · пересчёт&RСтр. &P из &N" };
+
+  const buf = await wb.xlsx.writeBuffer();
+  скачатьФайл(buf, "pereschet-" + (категория ? safe(категория) + "-" : "") + new Date().toISOString().slice(0, 10) + ".xlsx");
   return список.length;
 }
 
-// Лист расхождений — чтобы перед записью осталась бумага: что было, что
-// стало и на сколько разошлось.
-export async function exportCountDiff(расхождения) {
-  const XLSX = await lib();
-  const aoa = [["Код", "Товар", "Раздел", "Было в складе", "Факт на полке", "Разница"]];
-  (расхождения || []).forEach(({ p, было, факт, разница }) => aoa.push([
-    p.code || "", p.name || "", p.category || "", было, факт, разница,
-  ]));
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch: 10 }, { wch: 40 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 10 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Расхождения");
-  XLSX.writeFile(wb, `rashozhdeniya-${new Date().toISOString().slice(0, 10)}.xlsx`);
+// Лист расхождений — чтобы перед записью осталась бумага: что было,
+// что стало и на сколько разошлось.
+export async function exportCountDiff(расхождения, категория = "") {
+  const ExcelJS = await libExcel();
+  const NAVY = "FF16233B", NAVY2 = "FF22324F", GOLD = "FFD9B45A", BD = "FFBFC7D5";
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Расхождения");
+  ws.columns = [{ width: 5 }, { width: 11 }, { width: 42 }, { width: 18 }, { width: 16 }, { width: 16 }, { width: 12 }];
+  const thin = { style: "thin", color: { argb: BD } };
+  const box = { top: thin, left: thin, bottom: thin, right: thin };
+  const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+
+  ws.mergeCells("A1:G1");
+  Object.assign(ws.getCell("A1"), {
+    value: "GENERAL MODERN — расхождения после пересчёта",
+    font: { bold: true, size: 16, color: { argb: GOLD } },
+    alignment: { horizontal: "center", vertical: "middle" }, fill: fill(NAVY),
+  });
+  ws.getRow(1).height = 30;
+  ws.mergeCells("A2:G2");
+  Object.assign(ws.getCell("A2"), {
+    value: (категория ? "Раздел: " + текстВКлетку(категория) + " · " : "") + new Date().toLocaleString("ru-RU"),
+    font: { size: 11, color: { argb: "FFFFFFFF" } },
+    alignment: { horizontal: "center" }, fill: fill(NAVY2),
+  });
+  ws.addRow([]);
+
+  const шапка = ws.addRow(["№", "Код", "Товар", "Раздел", "Было в складе", "Факт на полке", "Разница"]);
+  шапка.eachCell(c => {
+    c.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    c.fill = fill(NAVY2);
+    c.alignment = { horizontal: "center", wrapText: true };
+    c.border = box;
+  });
+
+  (расхождения || []).forEach(({ p, было, факт, разница }, i) => {
+    const r = ws.addRow([i + 1, текстВКлетку(p.code), текстВКлетку(p.name), текстВКлетку(p.category), было, факт, разница]);
+    r.eachCell(c => { c.border = box; });
+    r.getCell(1).alignment = { horizontal: "center" };
+    r.getCell(3).font = { bold: true };
+    [5, 6, 7].forEach(n => { r.getCell(n).alignment = { horizontal: "center" }; r.getCell(n).numFmt = "#,##0"; });
+    r.getCell(7).font = { bold: true, color: { argb: разница > 0 ? "FF067647" : "FFB42318" } };
+  });
+
+  const buf = await wb.xlsx.writeBuffer();
+  скачатьФайл(buf, "rashozhdeniya-" + new Date().toISOString().slice(0, 10) + ".xlsx");
+}
+
+function скачатьФайл(buf, имя) {
+  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = имя; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }

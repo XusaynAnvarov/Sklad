@@ -14,11 +14,13 @@
 //     названию. Названия у нас похожие («Кайчи (10) KDP» и «Кайчи (11) KDP»),
 //     и по имени легко попасть не в тот товар.
 // ========================================================================
-import { ensureBatches, sumQty, consumeFIFO, returnToStock, currentCost, costAfter } from "./inventory.js?v=20261006b";
+import { ensureBatches, sumQty, consumeFIFO, returnToStock, currentCost, costAfter } from "./inventory.js?v=20261007a";
 
 const чисто = (s) => String(s == null ? "" : s).trim();
 const ключКода = (s) => чисто(s).toUpperCase().replace(/[^A-Z0-9]/g, "");
-const ключИмени = (s) => чисто(s).toLowerCase().replace(/\s+/g, " ");
+// Ведущий апостроф отрезаем: в выгруженный лист он попадает нарочно, чтобы
+// Excel не принял название вроде «=СУММА…» за формулу (js/xlsx-export.js).
+const ключИмени = (s) => чисто(s).replace(/^'+/, "").toLowerCase().replace(/\s+/g, " ");
 
 // Число из клетки: «1 200», «12,5», «  » → null, если считать нечего.
 export function число(v) {

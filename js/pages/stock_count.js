@@ -1,28 +1,47 @@
 // ========================================================================
-//  ПЕРЕСЧЁТ СКЛАДА ЧЕРЕЗ EXCEL — раздел внутри «Проверки склада».
+//  ПЕРЕСЧЁТ СКЛАДА — раздел внутри «Проверки склада».
 //
-//  Так владелец снимает остатки: выгрузил лист, обошёл полки, вписал в
-//  колонку «Факт на полке» то, что лежит, загрузил файл назад. Склад
-//  подвинется на разницу — одной пачкой, а не по товару за раз.
+//  Два пути, один выбор раздела:
+//   • НА ЭКРАНЕ — выбрал «Лапки», увидел все лапки с фото, артикулом и
+//     одним полем, вписал что лежит, подтвердил — остаток сразу стал таким.
+//   • ЧЕРЕЗ EXCEL — та же «Лапки» выгружается листом (с фото), его можно
+//     распечатать, обойти полки без интернета и загрузить назад.
 //
-//  Три правила, которые тут важнее скорости:
-//  1. Пустая клетка — «не считал». Склад на 941 товар за один обход не
-//     проходят, и незаполненные строки не должны ничего обнулять.
-//  2. Сначала СВОДКА, потом запись. Владелец видит каждую строку
-//     «было → стало» и может скачать лист расхождений до записи.
-//  3. Каждая правка попадает в журнал с причиной «Пересчёт склада» —
-//     потом видно, откуда взялось число (js/pages/stock_history.js).
+//  Правила, которые важнее скорости:
+//  1. Пустое поле — «не считал». Склад на 941 товар за один обход не
+//     проходят, и незаполненное не должно ничего обнулять.
+//  2. Перед записью — сводка «было → стало». Владелец видит каждую строку.
+//  3. Введённое держим в браузере: закрыл вкладку или сел телефон — цифры
+//     не пропали.
+//  4. Каждая правка идёт в журнал с причиной «Пересчёт: Лапки» — потом
+//     видно, откуда взялось число (js/pages/stock_history.js).
 // ========================================================================
-import { el, toast, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261006b";
-import { icon } from "../icons.js?v=20261006b";
-import { изменениеСклада } from "../db.js?v=20261006b";
-import { сверитьЛист, строкаПересчёта } from "../stockcount.js?v=20261006b";
-import { exportStockCountSheet, exportCountDiff } from "../xlsx-export.js?v=20261006b";
-import { parseRows, pickFile } from "../xlsx-import.js?v=20261006b";
-import { подписьКода } from "../catalogcode.js?v=20261006b";
+import { el, toast, input, confirmDialog, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261007a";
+import { icon } from "../icons.js?v=20261007a";
+import { изменениеСклада } from "../db.js?v=20261007a";
+import { сверитьЛист, строкаПересчёта } from "../stockcount.js?v=20261007a";
+import { exportStockCountSheet, exportCountDiff, списокДляПересчёта } from "../xlsx-export.js?v=20261007a";
+import { parseRows, pickFile } from "../xlsx-import.js?v=20261007a";
+import { подписьКода } from "../catalogcode.js?v=20261007a";
+import { поставитьСнимок } from "../img.js?v=20261007a";
+import { placeholder } from "./products.js?v=20261007a";
 
 const знак = (n) => (n > 0 ? "+" : "") + (Math.round(n * 100) / 100);
-const ПАЧКА = 150;                 // товаров в одном запросе на запись
+const ПАЧКА = 150;                       // товаров в одном запросе на запись
+const ЧЕРНОВИК = "gm:пересчёт:";         // + раздел
+
+// Черновик держим в браузере: обход полок длится часами, вкладка может
+// закрыться, телефон — уснуть. Потерять введённое нельзя.
+function взятьЧерновик(раздел) {
+  try { return JSON.parse(localStorage.getItem(ЧЕРНОВИК + раздел) || "{}") || {}; }
+  catch { return {}; }
+}
+function сохранитьЧерновик(раздел, данные) {
+  try {
+    if (Object.keys(данные).length) localStorage.setItem(ЧЕРНОВИК + раздел, JSON.stringify(данные));
+    else localStorage.removeItem(ЧЕРНОВИК + раздел);
+  } catch { /* приватный режим — ну и ладно, экран работает */ }
+}
 
 function плитка(подпись, значение, вид = "") {
   const цвет = вид === "warn" ? "var(--danger)" : (вид === "ok" ? "var(--ok)" : "");
@@ -33,32 +52,64 @@ function плитка(подпись, значение, вид = "") {
 }
 
 export function пересчётПоExcel(page, ctx, products) {
-  let итог = null;                 // что дала сверка загруженного листа
+  let раздел = "";                        // выбранный раздел ("" = весь склад)
+  let итог = null;                        // сверка загруженного листа
 
   const карточка = el("div.card", { style: { padding: "16px", marginBottom: "16px" } });
   карточка.append(
     el("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", flexWrap: "wrap" } }, [
       el("span", { style: { display: "flex", color: "var(--accent)" } }, [icon("box", { size: 18 })]),
-      el("div", { style: { fontWeight: "700", fontSize: "16px" }, text: "Пересчёт склада через Excel" }),
+      el("div", { style: { fontWeight: "700", fontSize: "16px" }, text: "Пересчёт склада" }),
     ]),
     el("div.muted", { style: { fontSize: "13px", marginBottom: "12px" },
-      text: "Выгрузите лист, обойдите полки и впишите в колонку «Факт на полке» то, что лежит. Пустые клетки склад не тронет — считать можно частями." }),
+      text: "Выберите раздел — и считайте прямо на экране или выгрузите его в Excel. Пустое поле склад не тронет: считать можно частями." }),
   );
 
-  const кнВыгрузить = el("button.btn.btn-outline", {}, [icon("download", { size: 16 }), "Выгрузить лист (" + products.length + " товаров)"]);
-  const кнЗагрузить = el("button.btn.btn-primary", {}, [icon("upload", { size: 16 }), "Загрузить заполненный лист"]);
-  карточка.append(el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" } }, [кнВыгрузить, кнЗагрузить]));
+  // ---------- разделы ----------
+  const разделы = [...new Set(products.map(p => String(p.category || "")).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "ru"));
+  const сколько = (к) => products.filter(p => (!к || String(p.category || "") === к)).length;
 
+  const полоса = el("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" } });
+  const кнопкаРаздела = (значение, подпись) => {
+    const b = el("button.btn.btn-sm" + (значение === раздел ? ".btn-primary" : ".btn-outline"), {
+      text: подпись + " · " + сколько(значение), "data-cat": значение,
+      onclick: () => { раздел = значение; обновитьПолосу(); нарисоватьСписок(); },
+    });
+    return b;
+  };
+  const обновитьПолосу = () => {
+    [...полоса.children].forEach(b => {
+      const свой = (b.getAttribute("data-cat") || "") === раздел;
+      b.className = "btn btn-sm " + (свой ? "btn-primary" : "btn-outline");
+    });
+  };
+  полоса.append(кнопкаРаздела("", "Весь склад"));
+  разделы.forEach(к => полоса.append(кнопкаРаздела(к, к)));
+  карточка.append(полоса);
+
+  // ---------- кнопки Excel ----------
+  const фотоГалка = el("input", { type: "checkbox", checked: "checked" });
+  const фотоПоле = el("label", { style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer" } },
+    [фотоГалка, el("span", { text: "с фото" })]);
+  const кнВыгрузить = el("button.btn.btn-outline", {}, [icon("download", { size: 16 }), "Выгрузить в Excel"]);
+  const кнЗагрузить = el("button.btn.btn-outline", {}, [icon("upload", { size: 16 }), "Загрузить заполненный лист"]);
+  карточка.append(el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginBottom: "12px" } },
+    [кнВыгрузить, фотоПоле, кнЗагрузить]));
+
+  const списокБокс = el("div");
   const тело = el("div");
-  карточка.append(тело);
+  карточка.append(списокБокс, тело);
   page.append(карточка);
 
   кнВыгрузить.addEventListener("click", async () => {
     кнВыгрузить.disabled = true;
+    // Фото тяжёлые: по всему складу их 900 — файл будет неподъёмным.
+    const сФото = Boolean(раздел) && фотоГалка.checked;
     showLoader("Готовим лист…");
     try {
-      const сколько = await exportStockCountSheet(products);
-      toast("Лист готов: " + сколько + " товаров, раздел за разделом", "ok");
+      const n = await exportStockCountSheet(products, { категория: раздел, сФото, наПрогресс: setLoaderText });
+      toast("Лист готов: " + n + " товаров" + (раздел ? " · " + раздел : ""), "ok");
     } catch (e) { toast("Не удалось: " + (e.message || e), "err"); }
     finally { hideLoader(); кнВыгрузить.disabled = false; }
   });
@@ -69,12 +120,116 @@ export function пересчётПоExcel(page, ctx, products) {
       const строки = await parseRows(file, "count");
       if (!строки.length) throw new Error("В файле не нашлось строк. Нужны колонки «Товар» и «Факт на полке».");
       итог = сверитьЛист(строки, products);
-      нарисовать();
+      нарисоватьСводку();
     } catch (e) { toast("Не удалось прочитать: " + (e.message || e), "err"); }
     finally { hideLoader(); }
   }));
 
-  function нарисовать() {
+  // ====================================================================
+  //  СЧЁТ НА ЭКРАНЕ
+  // ====================================================================
+  function нарисоватьСписок() {
+    итог = null;
+    тело.replaceChildren();
+    списокБокс.replaceChildren();
+    фотоПоле.style.display = раздел ? "flex" : "none";
+    if (!раздел) {
+      списокБокс.append(el("div.muted", { style: { fontSize: "13px", padding: "4px 0" },
+        text: "Выберите раздел, чтобы считать прямо здесь. Для всего склада сразу удобнее выгрузить лист в Excel." }));
+      return;
+    }
+
+    const товары = списокДляПересчёта(products, раздел);
+    const черновик = взятьЧерновик(раздел);
+
+    const счётчик = el("div.muted", { style: { fontSize: "13px" } });
+    const кнСохранить = el("button.btn.btn-primary", { disabled: "disabled" }, [icon("check", { size: 16 }), "Сохранить посчитанное"]);
+    const кнОчистить = el("button.btn.btn-outline.btn-sm", { text: "Очистить введённое" });
+
+    const обновитьНиз = () => {
+      const n = Object.keys(черновик).length;
+      счётчик.textContent = "Заполнено " + n + " из " + товары.length + (n ? " · остальные не изменятся" : "");
+      кнСохранить.disabled = n === 0;
+      кнСохранить.replaceChildren(icon("check", { size: 16 }), document.createTextNode(n ? "Сохранить посчитанное: " + n : "Сохранить посчитанное"));
+    };
+
+    const строки = el("div", { style: { display: "flex", flexDirection: "column", gap: "6px", margin: "4px 0 12px" } });
+    товары.forEach(p => {
+      const было = Number(p.stock_qty) || 0;
+      const поле = input({ type: "number", inputmode: "numeric", placeholder: "факт", style: { width: "110px", minHeight: "40px", fontSize: "16px", textAlign: "center" } });
+      if (черновик[p.id] !== undefined) поле.value = String(черновик[p.id]);
+
+      const фото = el("img", {
+        style: { width: "46px", height: "46px", objectFit: "cover", borderRadius: "8px", background: "var(--bg2)", flex: "0 0 auto" },
+        alt: p.name || "",
+      });
+      поставитьСнимок(фото, (p.photos && p.photos[0]) || p.photo_url || "", placeholder(p.name || "?"), 120, true);
+
+      const строка = el("div.card", { style: { display: "flex", alignItems: "center", gap: "10px", padding: "8px 10px" } }, [
+        фото,
+        el("div", { style: { flex: "1 1 220px", minWidth: "0" } }, [
+          el("div", { style: { fontWeight: "600", lineHeight: "1.25" }, text: p.name || "—" }),
+          el("div.muted", { style: { fontSize: "11px" }, text: подписьКода(p) || "без кода" }),
+        ]),
+        el("div", { style: { textAlign: "right", minWidth: "92px" } }, [
+          el("div.muted", { style: { fontSize: "11px" }, text: "в складе" }),
+          el("div", { style: { fontWeight: "700" }, text: String(было) }),
+        ]),
+        поле,
+      ]);
+
+      поле.addEventListener("input", () => {
+        const v = поле.value.trim();
+        if (v === "" || !isFinite(Number(v))) delete черновик[p.id];
+        else черновик[p.id] = Number(v);
+        const свой = черновик[p.id];
+        строка.style.borderColor = свой === undefined ? "" : (свой === было ? "var(--ok)" : "var(--accent)");
+        сохранитьЧерновик(раздел, черновик);
+        обновитьНиз();
+      });
+      if (черновик[p.id] !== undefined) строка.style.borderColor = черновик[p.id] === было ? "var(--ok)" : "var(--accent)";
+      строки.append(строка);
+    });
+
+    кнОчистить.addEventListener("click", () => {
+      confirmDialog("Убрать всё, что вписали в разделе «" + раздел + "»? Склад не изменится.", () => {
+        Object.keys(черновик).forEach(k => delete черновик[k]);
+        сохранитьЧерновик(раздел, черновик);
+        нарисоватьСписок();
+      });
+    });
+
+    кнСохранить.addEventListener("click", () => {
+      const расхождения = [];
+      let сошлось = 0;
+      товары.forEach(p => {
+        const факт = черновик[p.id];
+        if (факт === undefined) return;
+        const было = Number(p.stock_qty) || 0;
+        if (Math.abs(факт - было) < 0.0001) { сошлось++; return; }
+        расхождения.push({ p, было, факт, разница: Math.round((факт - было) * 100) / 100 });
+      });
+      if (!расхождения.length) {
+        toast(сошлось ? "Всё сошлось: " + сошлось + " товаров, менять нечего" : "Ничего не вписано", сошлось ? "ok" : "err");
+        return;
+      }
+      применить(кнСохранить, расхождения, раздел, () => { Object.keys(черновик).forEach(k => delete черновик[k]); сохранитьЧерновик(раздел, черновик); });
+    });
+
+    списокБокс.append(
+      el("div.muted", { style: { fontSize: "13px", marginBottom: "6px" },
+        text: "Раздел «" + раздел + "»: " + товары.length + " товаров. Вписывайте только то, что пересчитали." }),
+      строки,
+      el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" } }, [кнСохранить, кнОчистить, счётчик]),
+    );
+    обновитьНиз();
+  }
+
+  // ====================================================================
+  //  СВОДКА ПО ЗАГРУЖЕННОМУ ЛИСТУ
+  // ====================================================================
+  function нарисоватьСводку() {
+    списокБокс.replaceChildren();
     тело.replaceChildren();
     if (!итог) return;
     const { расхождения, совпало, пустые, ненайденные, посчитано } = итог;
@@ -117,13 +272,13 @@ export function пересчётПоExcel(page, ctx, products) {
     const вверх = расхождения.filter(r => r.разница > 0).reduce((a, r) => a + r.разница, 0);
     const вниз = расхождения.filter(r => r.разница < 0).reduce((a, r) => a + r.разница, 0);
     тело.append(el("div.muted", { style: { fontSize: "13px", marginBottom: "10px" },
-      text: "Прибавится " + знак(вверх) + " шт, спишется " + знак(вниз) + " шт по " + расхождения.length + " товарам." }));
+      text: "Прибавится " + Math.round(вверх) + " шт, спишется " + Math.abs(Math.round(вниз)) + " шт по " + расхождения.length + " товарам." }));
 
     const кнЛист = el("button.btn.btn-outline", {
-      onclick: () => exportCountDiff(расхождения).catch(e => toast("Не удалось: " + (e.message || e), "err")),
+      onclick: () => exportCountDiff(расхождения, раздел).catch(e => toast("Не удалось: " + (e.message || e), "err")),
     }, [icon("download", { size: 16 }), "Скачать расхождения"]);
     const кнПрименить = el("button.btn.btn-primary", {}, [icon("check", { size: 16 }), "Применить к складу"]);
-    кнПрименить.addEventListener("click", () => применить(кнПрименить, расхождения));
+    кнПрименить.addEventListener("click", () => применить(кнПрименить, расхождения, раздел));
     тело.append(el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [кнПрименить, кнЛист]));
     хвост();
   }
@@ -141,25 +296,26 @@ export function пересчётПоExcel(page, ctx, products) {
     }
   }
 
-  async function применить(кнопка, расхождения) {
+  // ====================================================================
+  //  ЗАПИСЬ
+  // ====================================================================
+  async function применить(кнопка, расхождения, какойРаздел, послеУспеха) {
     // Окно подтверждения переносы строк не показывает, поэтому коротко:
-    // подробная таблица «было → стало» и так перед глазами, выше.
+    // подробности («было → стало») и так перед глазами.
     const штук = расхождения.reduce((s, r) => s + Math.abs(r.разница), 0);
     confirmDialog(
-      "Подвинуть склад по " + расхождения.length + " товарам (всего " + Math.round(штук) + " шт)? "
+      "Поставить новый остаток " + расхождения.length + " товарам (сдвиг " + Math.round(штук) + " шт)? "
       + "Остальные товары не изменятся, каждая правка попадёт в историю остатков.",
       async () => {
         кнопка.disabled = true;
         showLoader("Записываем пересчёт…");
-        // Причина для журнала — своя, чтобы в истории было видно, что число
-        // пришло из пересчёта, а не из накладной.
-        изменениеСклада("Пересчёт склада (лист Excel от " + new Date().toLocaleDateString("ru-RU") + ")");
+        изменениеСклада("Пересчёт склада" + (какойРаздел ? ": " + какойРаздел : "") + " от " + new Date().toLocaleDateString("ru-RU"));
         const строки = расхождения.map(r => строкаПересчёта(r.p, r.факт)).filter(Boolean);
         let записано = 0; const плохо = [];
         try {
           for (let i = 0; i < строки.length; i += ПАЧКА) {
             const часть = строки.slice(i, i + ПАЧКА);
-            showLoader("Записываем пересчёт… " + Math.min(i + часть.length, строки.length) + " из " + строки.length);
+            setLoaderText("Записываем пересчёт… " + Math.min(i + часть.length, строки.length) + " из " + строки.length);
             try { await ctx.db.products.upsertMany(часть); записано += часть.length; }
             catch {
               // Пачка не прошла (оборвалась связь, отказ базы) — доводим по
@@ -171,9 +327,15 @@ export function пересчётПоExcel(page, ctx, products) {
             }
           }
         } finally { hideLoader(); }
-        if (плохо.length) toast("Записано " + записано + ", не прошло " + плохо.length + " — проверьте связь и загрузите лист снова", "err");
-        else toast("Пересчёт записан: " + записано + " товаров", "ok");
+        if (плохо.length) {
+          toast("Записано " + записано + ", не прошло " + плохо.length + " — проверьте связь и повторите", "err");
+        } else {
+          toast("Остатки обновлены: " + записано + " товаров", "ok");
+          if (послеУспеха) послеУспеха();
+        }
         ctx.refresh();
       });
   }
+
+  нарисоватьСписок();
 }

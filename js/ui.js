@@ -2,7 +2,7 @@
 //  UI-ХЕЛПЕРЫ: создание элементов, тосты, модалки, диалоги, анимации
 // ========================================================================
 // img.js ничего не импортирует, поэтому круга зависимостей не возникает.
-import { full } from "./img.js?v=20261006b";
+import { full } from "./img.js?v=20261007a";
 
 // Краткое создание элемента: el("div.card", {onclick}, [children])
 export function el(tag, props = {}, children = []) {
@@ -242,6 +242,17 @@ export function showLoader(text) {
   }
   _loaderEl.querySelector(".gm-loader-txt").textContent = text || "Загрузка…";
   _loaderEl.classList.add("show");
+}
+// Сменить подпись уже показанного загрузчика, НЕ открывая второй.
+// showLoader считает вызовы: когда его звали в цикле ради подписи
+// («Оприходование… 12 из 34»), счётчик уходил вверх, и один hideLoader
+// в конце его не обнулял — загрузчик оставался висеть поверх склада,
+// и работа выглядела зависшей. Для хода работы зовите эту функцию.
+export function setLoaderText(text) {
+  if (_loaderEl && _loaderCount > 0) {
+    const t = _loaderEl.querySelector(".gm-loader-txt");
+    if (t) t.textContent = text || "Загрузка…";
+  }
 }
 export function hideLoader() {
   _loaderCount = Math.max(0, _loaderCount - 1);
