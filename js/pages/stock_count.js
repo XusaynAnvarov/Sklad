@@ -16,19 +16,20 @@
 //  4. Каждая правка идёт в журнал с причиной «Пересчёт: Лапки» — потом
 //     видно, откуда взялось число (js/pages/stock_history.js).
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261007a";
-import { icon } from "../icons.js?v=20261007a";
-import { изменениеСклада } from "../db.js?v=20261007a";
-import { сверитьЛист, строкаПересчёта } from "../stockcount.js?v=20261007a";
-import { exportStockCountSheet, exportCountDiff, списокДляПересчёта } from "../xlsx-export.js?v=20261007a";
-import { parseRows, pickFile } from "../xlsx-import.js?v=20261007a";
-import { подписьКода } from "../catalogcode.js?v=20261007a";
-import { поставитьСнимок } from "../img.js?v=20261007a";
-import { placeholder } from "./products.js?v=20261007a";
+import { el, toast, input, confirmDialog, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261007b";
+import { icon } from "../icons.js?v=20261007b";
+import { изменениеСклада } from "../db.js?v=20261007b";
+import { сверитьЛист, строкаПересчёта } from "../stockcount.js?v=20261007b";
+import { exportStockCountSheet, exportCountDiff, списокДляПересчёта } from "../xlsx-export.js?v=20261007b";
+import { parseRows, pickFile } from "../xlsx-import.js?v=20261007b";
+import { подписьКода } from "../catalogcode.js?v=20261007b";
+import { поставитьСнимок } from "../img.js?v=20261007b";
+import { placeholder } from "./products.js?v=20261007b";
 
 const знак = (n) => (n > 0 ? "+" : "") + (Math.round(n * 100) / 100);
 const ПАЧКА = 150;                       // товаров в одном запросе на запись
-const ЧЕРНОВИК = "gm:пересчёт:";         // + раздел
+const ЧЕРНОВИК = "gm:пересчёт:";         // + раздел (вписанное, но не сохранённое)
+const ОБХОД = "gm:обход:";               // + раздел (что уже посчитали и записали)
 
 // Черновик держим в браузере: обход полок длится часами, вкладка может
 // закрыться, телефон — уснуть. Потерять введённое нельзя.
@@ -43,6 +44,19 @@ function сохранитьЧерновик(раздел, данные) {
   } catch { /* приватный режим — ну и ладно, экран работает */ }
 }
 
+// Что в разделе уже пересчитано: { id товара: "07.10" }. Нужно, чтобы,
+// вернувшись к «Лапкам» через день, видеть ОСТАВШИЕСЯ 100, а не все 120.
+function взятьОбход(раздел) {
+  try { return JSON.parse(localStorage.getItem(ОБХОД + раздел) || "{}") || {}; }
+  catch { return {}; }
+}
+function сохранитьОбход(раздел, данные) {
+  try {
+    if (Object.keys(данные).length) localStorage.setItem(ОБХОД + раздел, JSON.stringify(данные));
+    else localStorage.removeItem(ОБХОД + раздел);
+  } catch { /* приватный режим — ну и ладно */ }
+}
+
 function плитка(подпись, значение, вид = "") {
   const цвет = вид === "warn" ? "var(--danger)" : (вид === "ok" ? "var(--ok)" : "");
   return el("div.card", { style: { padding: "10px 14px", minWidth: "118px" } }, [
@@ -53,6 +67,8 @@ function плитка(подпись, значение, вид = "") {
 
 export function пересчётПоExcel(page, ctx, products) {
   let раздел = "";                        // выбранный раздел ("" = весь склад)
+  let режим = "осталось";                 // осталось | все | сделано
+  let видимые = products;                 // что сейчас на экране — это же уходит в Excel
   let итог = null;                        // сверка загруженного листа
 
   const карточка = el("div.card", { style: { padding: "16px", marginBottom: "16px" } });
@@ -74,7 +90,7 @@ export function пересчётПоExcel(page, ctx, products) {
   const кнопкаРаздела = (значение, подпись) => {
     const b = el("button.btn.btn-sm" + (значение === раздел ? ".btn-primary" : ".btn-outline"), {
       text: подпись + " · " + сколько(значение), "data-cat": значение,
-      onclick: () => { раздел = значение; обновитьПолосу(); нарисоватьСписок(); },
+      onclick: () => { раздел = значение; режим = "осталось"; обновитьПолосу(); нарисоватьСписок(); },
     });
     return b;
   };
@@ -108,7 +124,9 @@ export function пересчётПоExcel(page, ctx, products) {
     const сФото = Boolean(раздел) && фотоГалка.checked;
     showLoader("Готовим лист…");
     try {
-      const n = await exportStockCountSheet(products, { категория: раздел, сФото, наПрогресс: setLoaderText });
+      // Выгружаем ровно то, что на экране: выбрано «осталось посчитать» —
+      // в листе будут только они, печатать лишнее не придётся.
+      const n = await exportStockCountSheet(видимые, { категория: раздел, сФото, наПрогресс: setLoaderText });
       toast("Лист готов: " + n + " товаров" + (раздел ? " · " + раздел : ""), "ok");
     } catch (e) { toast("Не удалось: " + (e.message || e), "err"); }
     finally { hideLoader(); кнВыгрузить.disabled = false; }
@@ -139,8 +157,35 @@ export function пересчётПоExcel(page, ctx, products) {
       return;
     }
 
-    const товары = списокДляПересчёта(products, раздел);
+    const всеТовары = списокДляПересчёта(products, раздел);
     const черновик = взятьЧерновик(раздел);
+    const пройдено = взятьОбход(раздел);          // что уже посчитали и сохранили
+
+    // Полки обходят за несколько заходов. Вернувшись, владелец должен
+    // видеть ОСТАВШИЕСЯ, а не все 120 заново — иначе непонятно, где он
+    // остановился. Поэтому обход помнится, и по умолчанию показываем остаток.
+    const сделано = всеТовары.filter(p => пройдено[p.id]);
+    const осталось = всеТовары.filter(p => !пройдено[p.id]);
+    if (режим === "осталось" && !сделано.length) режим = "все";
+    const товары = режим === "осталось" ? осталось : (режим === "сделано" ? сделано : всеТовары);
+    видимые = товары.length ? товары : всеТовары;
+
+    const фильтры = el("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap", margin: "2px 0 8px" } });
+    if (сделано.length) {
+      [["осталось", "Осталось посчитать · " + осталось.length],
+       ["все", "Весь раздел · " + всеТовары.length],
+       ["сделано", "Уже посчитано · " + сделано.length]].forEach(([знач, подпись]) => {
+        фильтры.append(el("button.btn.btn-sm" + (знач === режим ? ".btn-primary" : ".btn-outline"), {
+          text: подпись, onclick: () => { режим = знач; нарисоватьСписок(); },
+        }));
+      });
+      фильтры.append(el("button.btn.btn-outline.btn-sm", {
+        text: "Начать обход заново",
+        onclick: () => confirmDialog(
+          "Снять отметки «посчитано» в разделе «" + раздел + "»? Остатки не изменятся — просто начнём обход сначала.",
+          () => { сохранитьОбход(раздел, {}); режим = "все"; нарисоватьСписок(); }),
+      }));
+    }
 
     const счётчик = el("div.muted", { style: { fontSize: "13px" } });
     const кнСохранить = el("button.btn.btn-primary", { disabled: "disabled" }, [icon("check", { size: 16 }), "Сохранить посчитанное"]);
@@ -170,7 +215,11 @@ export function пересчётПоExcel(page, ctx, products) {
         el("div", { style: { flex: "1 1 220px", minWidth: "0" } }, [
           el("div", { style: { fontWeight: "600", lineHeight: "1.25" }, text: p.name || "—" }),
           el("div.muted", { style: { fontSize: "11px" }, text: подписьКода(p) || "без кода" }),
-        ]),
+          пройдено[p.id]
+            ? el("div", { style: { fontSize: "11px", color: "var(--ok)", display: "flex", alignItems: "center", gap: "4px" } },
+                [icon("check", { size: 12 }), "посчитано " + пройдено[p.id]])
+            : null,
+        ].filter(Boolean)),
         el("div", { style: { textAlign: "right", minWidth: "92px" } }, [
           el("div.muted", { style: { fontSize: "11px" }, text: "в складе" }),
           el("div", { style: { fontWeight: "700" }, text: String(было) }),
@@ -210,15 +259,38 @@ export function пересчётПоExcel(page, ctx, products) {
         расхождения.push({ p, было, факт, разница: Math.round((факт - было) * 100) / 100 });
       });
       if (!расхождения.length) {
-        toast(сошлось ? "Всё сошлось: " + сошлось + " товаров, менять нечего" : "Ничего не вписано", сошлось ? "ok" : "err");
+        if (!сошлось) { toast("Ничего не вписано", "err"); return; }
+        // Склад менять нечего, но товары ПЕРЕСЧИТАНЫ — отмечаем, чтобы
+        // они ушли из списка «осталось посчитать».
+        const сегодня = new Date().toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+        Object.keys(черновик).forEach(id => { пройдено[id] = сегодня; });
+        сохранитьОбход(раздел, пройдено);
+        Object.keys(черновик).forEach(k => delete черновик[k]);
+        сохранитьЧерновик(раздел, черновик);
+        toast("Всё сошлось: " + сошлось + " товаров отмечены посчитанными", "ok");
+        режим = "осталось";
+        нарисоватьСписок();
         return;
       }
-      применить(кнСохранить, расхождения, раздел, () => { Object.keys(черновик).forEach(k => delete черновик[k]); сохранитьЧерновик(раздел, черновик); });
+      // Отмечаем посчитанным ВСЁ, что вписали, — и совпавшее тоже: товар
+      // пересчитан, даже если остаток сошёлся.
+      const посчитаны = Object.keys(черновик);
+      применить(кнСохранить, расхождения, раздел, () => {
+        const сегодня = new Date().toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+        посчитаны.forEach(id => { пройдено[id] = сегодня; });
+        сохранитьОбход(раздел, пройдено);
+        Object.keys(черновик).forEach(k => delete черновик[k]);
+        сохранитьЧерновик(раздел, черновик);
+        режим = "осталось";
+      });
     });
 
     списокБокс.append(
       el("div.muted", { style: { fontSize: "13px", marginBottom: "6px" },
-        text: "Раздел «" + раздел + "»: " + товары.length + " товаров. Вписывайте только то, что пересчитали." }),
+        text: "Раздел «" + раздел + "»: " + всеТовары.length + " товаров"
+          + (сделано.length ? " · посчитано " + сделано.length + ", осталось " + осталось.length : "")
+          + ". Вписывайте только то, что пересчитали." }),
+      фильтры,
       строки,
       el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" } }, [кнСохранить, кнОчистить, счётчик]),
     );
