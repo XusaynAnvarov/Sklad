@@ -2,7 +2,7 @@
 //  Экспорт накладных в Excel (.xlsx) — скачивание на компьютер с сайта.
 //  SheetJS через CDN. Без сервера и без Telegram (всё на клиенте).
 // ========================================================================
-import { CUR } from "./fx.js?v=20261006a";
+import { CUR } from "./fx.js?v=20261006b";
 
 let _xlsx = null;
 async function lib() { if (!_xlsx) _xlsx = await import("https://esm.sh/xlsx@0.18.5"); return _xlsx; }
@@ -312,4 +312,61 @@ export async function exportAllSales(sales, customers, products) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Накладные");
   XLSX.writeFile(wb, `nakladnye-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+// ========================================================================
+//  ЛИСТ ДЛЯ ПЕРЕСЧЁТА СКЛАДА.
+//  Владелец идёт по полкам и вписывает в колонку «Факт на полке» то, что
+//  реально лежит. Порядок строк — как на складе: раздел за разделом, внутри
+//  по названию, иначе лист не совпадает с полками и обход превращается в
+//  беготню. Колонка «Факт» специально пустая: пустая клетка значит
+//  «не считал» и остаток не тронет (js/stockcount.js).
+// ========================================================================
+// Сами строки листа — отдельно от записи файла, чтобы лист можно было
+// прогнать по кругу (собрать → прочитать → сверить) и проверить.
+export function листПересчёта(products) {
+  const список = [...(products || [])].filter(p => p && p.id).sort((a, b) =>
+    String(a.category || "яяя").localeCompare(String(b.category || "яяя"), "ru") ||
+    String(a.name || "").localeCompare(String(b.name || ""), "ru"));
+
+  const aoa = [
+    ["GENERAL MODERN — пересчёт склада", "", "", "", "", ""],
+    ["Лист от " + new Date().toLocaleDateString("ru-RU"), "", "", "", "", ""],
+    ["Впишите количество в колонку «Факт на полке». Пустую клетку склад не тронет.", "", "", "", "", ""],
+    [],
+    ["Код", "Артикул", "Товар", "Раздел", "Остаток в складе", "Факт на полке"],
+  ];
+  список.forEach(p => aoa.push([
+    p.code || "", p.sku || "", p.name || "", p.category || "",
+    Number(p.stock_qty) || 0, "",
+  ]));
+  return { aoa, список };
+}
+
+export async function exportStockCountSheet(products) {
+  const XLSX = await lib();
+  const { aoa, список } = листПересчёта(products);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [{ wch: 10 }, { wch: 14 }, { wch: 40 }, { wch: 20 }, { wch: 17 }, { wch: 15 }];
+  ws["!freeze"] = { xSplit: 0, ySplit: 5 };
+  ws["!autofilter"] = { ref: "A5:F" + (список.length + 5) };
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Пересчёт");
+  XLSX.writeFile(wb, `pereschet-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  return список.length;
+}
+
+// Лист расхождений — чтобы перед записью осталась бумага: что было, что
+// стало и на сколько разошлось.
+export async function exportCountDiff(расхождения) {
+  const XLSX = await lib();
+  const aoa = [["Код", "Товар", "Раздел", "Было в складе", "Факт на полке", "Разница"]];
+  (расхождения || []).forEach(({ p, было, факт, разница }) => aoa.push([
+    p.code || "", p.name || "", p.category || "", было, факт, разница,
+  ]));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [{ wch: 10 }, { wch: 40 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 10 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Расхождения");
+  XLSX.writeFile(wb, `rashozhdeniya-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }

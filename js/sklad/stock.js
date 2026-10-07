@@ -5,9 +5,9 @@
 //  Пишем ПАКЕТОМ (upsertMany): на телефоне поштучная запись 20 позиций
 //  занимала бы минуту.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20261006a";
-import { arrivalRows } from "../arrival.js?v=20261006a";
-import { KIND_SHOP } from "../purchase.js?v=20261006a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20261006b";
+import { arrivalRows } from "../arrival.js?v=20261006b";
+import { KIND_SHOP } from "../purchase.js?v=20261006b";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
@@ -128,7 +128,10 @@ export async function setStock(db, productId, want) {
     // и всплыл бы при следующем списании по FIFO.
     const positive = batches.filter(b => (Number(b.qty) || 0) > 0);
     const have = sumQty(positive);
-    next = target > have ? returnToStock(positive, target - have, cy, cu) : positive;
+    // Живого товара может быть БОЛЬШЕ вписанного факта: у товара с долгом
+    // остаток 0, а внутри «+20 и −20». Тогда лишнее списываем, иначе
+    // вписанные 12 превращались на складе в 20.
+    next = target > have ? returnToStock(positive, target - have, cy, cu) : consumeFIFO(positive, have - target).batches;
   }
   const cc = costAfter(next, p);
   await writeStock(db, [{

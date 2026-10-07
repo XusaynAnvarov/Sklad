@@ -8,14 +8,15 @@
 //  E. Новый приход дороже цены продажи
 //  F. Заказы не оформлены (склад ещё не трогали — это норма)
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261006a";
-import { icon } from "../icons.js?v=20261006a";
-import { fmt } from "../fx.js?v=20261006a";
-import { ensureBatches, sumQty, costAfter, returnToStock, currentCost, costOutlook } from "../inventory.js?v=20261006a";
-import { placeholder } from "./products.js?v=20261006a";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261006a";
-import { thumb } from "../img.js?v=20261006a";
-import { историяОстатков } from "./stock_history.js?v=20261006a";
+import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261006b";
+import { icon } from "../icons.js?v=20261006b";
+import { fmt } from "../fx.js?v=20261006b";
+import { ensureBatches, sumQty, costAfter, returnToStock, currentCost, costOutlook } from "../inventory.js?v=20261006b";
+import { placeholder } from "./products.js?v=20261006b";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261006b";
+import { thumb } from "../img.js?v=20261006b";
+import { историяОстатков } from "./stock_history.js?v=20261006b";
+import { пересчётПоExcel } from "./stock_count.js?v=20261006b";
 
 export default async function render(page, ctx) {
   const [products, sales] = await Promise.all([ctx.db.products.list(), ctx.db.sales.list()]);
@@ -32,6 +33,11 @@ export default async function render(page, ctx) {
   // Всё остальное на этой странице показывает, что разошлось СЕЙЧАС,
   // а этот раздел отвечает, КАК до этого дошло.
   историяОстатков(page, ctx, products);
+
+  // Пересчёт по листу Excel: так владелец снимает остатки с полок.
+  // Стоит рядом с историей не случайно — обход полок и журнал правок
+  // отвечают на один и тот же вопрос: сколько на самом деле лежит.
+  пересчётПоExcel(page, ctx, products);
 
   // --- считаем проблемы ---
   const unapplied = unappliedSales(sales, 0);                       // без ограничения по датам

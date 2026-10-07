@@ -7,11 +7,13 @@ let _xlsx = null;
 async function lib() { if (!_xlsx) _xlsx = await import("https://esm.sh/xlsx@0.18.5"); return _xlsx; }
 
 const HEADERS = {
+  count: ["Код", "Артикул", "Товар", "Раздел", "Остаток в складе", "Факт на полке"],
   products: ["Название", "Категория", "Количество", "Себестоимость", "Валюта"],
   purchase: ["Название", "Количество", "Себестоимость"],
   sale: ["Название", "Количество", "Цена"],
 };
 const SAMPLE = {
+  count: ["LP-017", "KDP-10", "Пример: Лапка сборка P952", "Лапки", 280, ""],
   products: ["Пример: Наушники TWS", "Электроника", 10, 50, "юань"],
   purchase: ["Пример: Наушники TWS", 10, 50],
   sale: ["Пример: Наушники TWS", 2, 80],
@@ -30,10 +32,17 @@ function pick(low, keys) { for (const k of keys) { const v = low[k]; if (v !== u
 function num(v) { const n = parseFloat(String(v).replace(",", ".").replace(/[^\d.\-]/g, "")); return isFinite(n) ? n : 0; }
 function normCur(v) { v = String(v).toLowerCase(); if (/юан|yuan|cny|¥/.test(v)) return "yuan"; if (/долл|usd|\$/.test(v)) return "usd"; if (/сум|som|uzs/.test(v)) return "som"; return "yuan"; }
 
-function normalize(row, kind) {
+export function normalize(row, kind) {
   const low = {}; for (const k in row) low[String(k).trim().toLowerCase()] = row[k];
   const name = String(pick(low, ["название", "наименование", "товар", "name"])).trim();
-  if (!name) return null;
+  // В листе пересчёта строку опознаём и по коду: имя могли стереть.
+  if (!name && !(kind === "count" && (pick(low, ["код", "code"]) || pick(low, ["артикул", "sku"])))) return null;
+  // Лист пересчёта: клетку «Факт» берём КАК ЕСТЬ. Пустую нельзя превращать
+  // в ноль — непройденные полки обнулили бы склад (см. js/stockcount.js).
+  if (kind === "count") {
+    const факт = pick(low, ["факт на полке", "факт", "фактический остаток", "посчитал", "по факту", "на полке"]);
+    return { code: String(pick(low, ["код", "code"])).trim(), sku: String(pick(low, ["артикул", "sku", "арт."])).trim(), name, факт };
+  }
   const qty = num(pick(low, ["количество", "кол-во", "колво", "qty", "остаток"]));
   if (kind === "products") return { name, category: String(pick(low, ["категория", "category"])).trim(), qty, cost: num(pick(low, ["себестоимость", "себест", "cost", "цена"])), currency: normCur(pick(low, ["валюта", "currency"])) };
   if (kind === "purchase") return { name, qty, cost: num(pick(low, ["себестоимость", "себест", "cost", "цена", "price"])) };
@@ -74,18 +83,40 @@ function positionalRow(row, kind) {
   return null;
 }
 
+// Где в листе строка заголовков. Наши же листы начинаются с шапки
+// («GENERAL MODERN — пересчёт склада», дата, пояснение), да и присланный
+// файл часто имеет свою. Без этого заголовками считалась первая строка,
+// колонок «Товар» и «Факт на полке» не находилось, и лист читался пустым.
+const СЛОВА = {
+  count: [/товар|название|наименование/i, /факт/i],
+  products: [/название|наименование|товар/i, /кол-?во|количество/i],
+  purchase: [/название|наименование|товар/i, /кол-?во|количество/i],
+  sale: [/название|наименование|товар/i, /кол-?во|количество/i],
+};
+function строкаЗаголовков(aoa, kind) {
+  const нужно = СЛОВА[kind] || [];
+  if (!нужно.length) return -1;
+  const докуда = Math.min(aoa.length, 20);
+  for (let i = 0; i < докуда; i++) {
+    const клетки = (aoa[i] || []).map(c => String(c == null ? "" : c).trim()).filter(Boolean);
+    if (клетки.length && нужно.every(re => клетки.some(c => re.test(c)))) return i;
+  }
+  return -1;
+}
+
 export async function parseRows(file, kind) {
   const XLSX = await lib();
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  // 1) по заголовкам (шаблон)
-  const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+  const aoaВсё = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  // 1) по заголовкам (шаблон) — начиная с той строки, где они нашлись
+  const шапка = строкаЗаголовков(aoaВсё, kind);
+  const rows = XLSX.utils.sheet_to_json(ws, шапка > 0 ? { defval: "", range: шапка } : { defval: "" });
   const out = rows.map(r => normalize(r, kind)).filter(Boolean);
   if (out.length) return out;
   // 2) фолбэк по позиции (файл без заголовков, напр. экспортированная накладная)
-  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-  return aoa.map(row => positionalRow(row, kind)).filter(Boolean);
+  return aoaВсё.map(row => positionalRow(row, kind)).filter(Boolean);
 }
 
 // Скрытый file-input для выбора .xlsx → onPick(File)
