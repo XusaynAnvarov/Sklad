@@ -1,18 +1,19 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20261007c";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20261007c";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20261007c";
-import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20261007c";
-import { sparkline } from "../charts.js?v=20261007c";
-import { debtByCur, onlyPositive } from "../debt.js?v=20261007c";
-import { icon } from "../icons.js?v=20261007c";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261007c";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20261007c";
-import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20261007c";
-import { buildAdvice } from "../advice.js?v=20261007c";
-import { thumb } from "../img.js?v=20261007c";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20261009a";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20261009a";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20261009a";
+import { картаДороги, вДороге, едетВместоНет, подписьДороги } from "../transit.js?v=20261009a";
+import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20261009a";
+import { sparkline } from "../charts.js?v=20261009a";
+import { debtByCur, onlyPositive } from "../debt.js?v=20261009a";
+import { icon } from "../icons.js?v=20261009a";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261009a";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20261009a";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20261009a";
+import { buildAdvice } from "../advice.js?v=20261009a";
+import { thumb } from "../img.js?v=20261009a";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
@@ -258,11 +259,15 @@ export default async function render(page, ctx) {
 
     // --- склад (себестоимость, USD) + кол-во и статусы ---
     let stockUSD = 0, stockUnits = 0, inStock = 0, onOrder = 0;
+    // Товар, которого нет на складе, но он уже едет, — это не «под заказ»:
+    // заказывать его второй раз не нужно. Считаем дорогу до обхода.
+    const дорога = картаДороги(purchases);
     products.forEach(p => {
       const bs = ensureBatches(p);
       stockUSD += bs.reduce((t, b) => t + (Number(b.qty) || 0) * (Number(b.cost_usd) || 0), 0);
       stockUnits += Number(p.stock_qty) || 0;
-      if (statusOf(p) === "in_stock") inStock++; else onOrder++;
+      if (statusOf(p) === "in_stock") inStock++;
+      else if (!едетВместоНет(дорога, p)) onOrder++;   // едущее — не «под заказ»
     });
     // --- заканчивается на складе (остаток ≤ порога) — пора заказать ---
     const LOW_STOCK = 5;
@@ -278,17 +283,13 @@ export default async function render(page, ctx) {
     const pendingOrders = sales.filter(s => ["order", "pending_confirm", "confirmed"].includes(s.status));
     // --- в дороге: приходы со статусом ≠ «пришёл» (+ карта по товарам для списка) ---
     let transitUSD = 0;
-    const transitMap = {}; // product_id → { qty, suppliers:Set }
     purchases.filter(s => s.status !== "arrived").forEach(s => (s.items || []).forEach(it => {
       transitUSD += toUSD(it.qty * it.unit_cost, it.currency || s.currency);
-      const k = String(it.product_id); if (!k) return;
-      if (!transitMap[k]) transitMap[k] = { qty: 0, suppliers: new Set() };
-      transitMap[k].qty += Number(it.qty) || 0;
-      if (s.supplier) transitMap[k].suppliers.add(s.supplier);
     }));
     const totalStockUSD = stockUSD + transitUSD;
     // нет на складе, но едет
-    const transitOOS = products.filter(p => (Number(p.stock_qty) || 0) <= 0 && transitMap[String(p.id)]);
+    const transitOOS = products.filter(p => едетВместоНет(дорога, p));
+    const вПути = products.filter(p => вДороге(дорога, p));
     // остаток не сходится с суммой партий (фантомные «1» с пустыми партиями → станут 0)
     const mismatch = products.filter(p => sumQty(ensureBatches(p)) !== (Number(p.stock_qty) || 0));
 
@@ -315,7 +316,7 @@ export default async function render(page, ctx) {
       () => { location.hash = "#stock_check"; }));
     // нет на складе, но товар уже в пути
     if (transitOOS.length) wrap.append(warnCard("truck", `В пути (нет на складе): ${transitOOS.length} товаров`, "Этих товаров нет на складе, но они уже едут. Нажмите — список с количеством и поставщиком.", "rgba(59,130,246,.5)", "rgba(59,130,246,.08)",
-      () => productListModal("В пути — нет на складе", transitOOS.slice(), editProduct, null, (p) => { const t = transitMap[String(p.id)]; return "🚚 в пути: " + (t?.qty || 0) + (t?.suppliers.size ? " · " + [...t.suppliers].join(", ") : ""); })));
+      () => productListModal("В пути — нет на складе", transitOOS.slice(), editProduct, null, (p) => "🚚 " + подписьДороги(вДороге(дорога, p)))));
     // остаток не сходится с партиями — пересчитать
     if (mismatch.length) wrap.append(warnCard("box", `Остаток не сходится с партиями: ${mismatch.length}`, "Возможны «фантомные» остатки (напр. «1», но товара нет). Нажмите — пересчитать остаток по партиям.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
       () => confirmDialog(`Пересчитать остаток по партиям у ${mismatch.length} товаров? (фантомные станут 0)`, async () => {
@@ -441,7 +442,8 @@ export default async function render(page, ctx) {
     wrap.append(el("div.stat-grid", {}, [
       miniCard("Единиц на складе", stockUnits, "hash"),
       miniCard("Есть в наличии", inStock, "check", () => productListModal("Товары в наличии", products.filter(p => statusOf(p) === "in_stock"), editProduct)),
-      miniCard("Под заказ", onOrder, "clock", () => productListModal("Товары под заказ", products.filter(p => statusOf(p) === "on_order"), editProduct)),
+      miniCard("Под заказ", onOrder, "clock", () => productListModal("Товары под заказ", products.filter(p => statusOf(p) === "on_order" && !едетВместоНет(дорога, p)), editProduct)),
+      miniCard("В дороге", вПути.length, "truck", () => productListModal("Товары в дороге", вПути.slice(), editProduct, null, (p) => "🚚 " + подписьДороги(вДороге(дорога, p)))),
     ]));
 
     // пошаговое появление карточек

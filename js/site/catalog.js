@@ -1,10 +1,10 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20261007c";
-import { t } from "./app.js?v=20261007c";
-import { openLogin } from "./auth.js?v=20261007c";
-import { thumb } from "../img.js?v=20261007c";
-import { подходит } from "../productsearch.js?v=20261007c";
-import { подписьКода } from "../catalogcode.js?v=20261007c";
+import { api, isLoggedIn } from "./api.js?v=20261009a";
+import { t } from "./app.js?v=20261009a";
+import { openLogin } from "./auth.js?v=20261009a";
+import { thumb } from "../img.js?v=20261009a";
+import { подходит } from "../productsearch.js?v=20261009a";
+import { подписьКода } from "../catalogcode.js?v=20261009a";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 

@@ -1,24 +1,25 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261007c";
-import { icon } from "../icons.js?v=20261007c";
-import { fmt, convert } from "../fx.js?v=20261007c";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261007c";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261007c";
-import { openEditor } from "./sales.js?v=20261007c";
-import { thumbAttrs, thumb } from "../img.js?v=20261007c";
-import { LOW_STOCK } from "../advice.js?v=20261007c";
-import { qrSvg, skuPayload } from "../qr.js?v=20261007c";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261009a";
+import { icon } from "../icons.js?v=20261009a";
+import { fmt, convert } from "../fx.js?v=20261009a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261009a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261009a";
+import { openEditor } from "./sales.js?v=20261009a";
+import { thumbAttrs, thumb } from "../img.js?v=20261009a";
+import { LOW_STOCK } from "../advice.js?v=20261009a";
+import { qrSvg, skuPayload } from "../qr.js?v=20261009a";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261007c";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261009a";
 // Единица измерения: товар считают штуками, пачками, коробками. Смена
 // единицы пересчитывает и остаток, и себестоимость, и все партии.
-import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261007c";
-import { подходит } from "../productsearch.js?v=20261007c";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261007c";
-import { изменениеСклада } from "../db.js?v=20261007c";
+import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261009a";
+import { подходит } from "../productsearch.js?v=20261009a";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261009a";
+import { изменениеСклада } from "../db.js?v=20261009a";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261009a";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -91,17 +92,10 @@ const freshness = p => Math.max(
 export default async function render(page, ctx) {
   const [all, allPurchases] = await Promise.all([ctx.db.products.list(), ctx.db.purchases.list()]);
   all.sort((a, b) => freshness(b) - freshness(a));
-  // сколько каждого товара сейчас «в дороге» (приходы со статусом in_transit) + у каких поставщиков
-  const transit = {};
-  allPurchases.filter(p => p.status === "in_transit").forEach(p => {
-    (p.items || []).forEach(it => {
-      const k = String(it.product_id); if (!k) return;
-      if (!transit[k]) transit[k] = { qty: 0, suppliers: new Set() };
-      transit[k].qty += Number(it.qty) || 0;
-      if (p.supplier) transit[k].suppliers.add(p.supplier);
-    });
-  });
-  const transitIds = new Set(Object.keys(transit));
+  // Что едет: считает общий js/transit.js — тем же кодом пользуются
+  // Главная и телефон, иначе «в дороге» везде показывало бы разное.
+  const дорога = картаДороги(allPurchases);
+  const transitIds = new Set(Object.keys(дорога));
 
   const search = input({ placeholder: "Поиск товара…", style: { maxWidth: "320px" } });
   const grid = el("div.grid");
@@ -209,13 +203,26 @@ export default async function render(page, ctx) {
   function renderCards(list) {
     list.forEach(p => {
       const isNew  = freshness(p) > 0 && (Date.now() - freshness(p)) / 86400000 <= WAREHOUSE_NEW_DAYS;
-      const tr = transit[String(p.id)];
-      const isSoon = !!tr && (Number(p.stock_qty) || 0) <= 0;
-      // остатка нет, но товар уже едет → примечание с количеством и поставщиком
-      const transitNote = isSoon ? el("div", {
-        title: tr.suppliers.size ? "Поставщик: " + [...tr.suppliers].join(", ") : "",
+      const tr = вДороге(дорога, p);
+      const isSoon = едетВместоНет(дорога, p);
+      // Что едет — показываем ВСЕГДА, есть товар на складе или нет:
+      // владельцу надо видеть, что докупать уже не нужно.
+      const transitNote = tr ? el("div", {
+        title: tr.поставщики.length ? "Поставщик: " + tr.поставщики.join(", ") : "",
         style: { fontSize: "11px", fontWeight: "700", color: "#b45309", background: "rgba(245,158,11,.13)", border: "1px solid rgba(245,158,11,.35)", borderRadius: "6px", padding: "3px 7px", margin: "4px 0 2px", lineHeight: "1.3" },
-        text: "🚚 В дороге: " + tr.qty + " шт" + (tr.suppliers.size ? " · " + [...tr.suppliers].join(", ") : ""),
+        text: "🚚 " + подписьДороги(tr),
+      }) : null;
+      // Едущая партия дороже той, что продаётся сейчас: после прихода
+      // себестоимость вырастет — цену продажи лучше поднять заранее.
+      const дороже = tr ? дорожеСейчас(tr, p) : null;
+      const вал = костВалюта(p);
+      const ценаБыло = дороже ? costShow(дороже.было.yuan, дороже.было.usd, вал) : "";
+      const ценаСтанет = дороже ? costShow(дороже.станет.yuan, дороже.станет.usd, вал) : "";
+      const transitPrice = дороже ? el("div", {
+        title: "Сейчас продаётся партия по " + ценаБыло + ", а едущая обойдётся в " + ценаСтанет
+          + ". Когда старый товар кончится, себестоимость вырастет — цену продажи стоит поднять заранее.",
+        style: { fontSize: "11px", fontWeight: "700", color: "var(--danger,#f87171)", background: "rgba(239,68,68,.10)", border: "1px solid rgba(239,68,68,.35)", borderRadius: "6px", padding: "3px 7px", margin: "0 0 2px", lineHeight: "1.3" },
+        text: "↑ В дороге дороже: " + ценаБыло + " → " + ценаСтанет + " (+" + дороже.процент + "%)",
       }) : null;
       // Полоска состояния слева: видно на просмотр, не читая цифру остатка.
       // Порог берём из советов, чтобы «заканчивается» означало одно и то же везде.
@@ -231,9 +238,10 @@ export default async function render(page, ctx) {
           el("div.cat", { text: p.category || "—" }),
           ...(подписьКода(p) ? [el("div.muted", { text: подписьКода(p), style: { fontSize: "11px", marginTop: "-2px" } })] : []),
           transitNote,
+          transitPrice,
           el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" } }, [
             el("div", { style: { display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" } }, [
-              isSoon ? el("span.badge.transit", {}, [icon("clock", { size: 13 }), "Скоро"]) : statusBadge(p),
+              isSoon ? el("span.badge.transit", { title: подписьДороги(tr) }, [icon("truck", { size: 13 }), "В дороге"]) : statusBadge(p),
               ...(isNew ? [el("span.badge", { style: "background:var(--gold,#e3c163);color:#1c2b4a;font-size:10px;", text: "Новинка" })] : []),
             ]),
             // минус = товара не хватило (продали больше, чем было) — показываем красным

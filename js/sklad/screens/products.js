@@ -1,23 +1,24 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20261007c";
-import { icon } from "../../icons.js?v=20261007c";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261007c";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261007c";
-import { fmt, convert } from "../../fx.js?v=20261007c";
-import { thumb } from "../../img.js?v=20261007c";
-import { LOW_STOCK } from "../../advice.js?v=20261007c";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261007c";
-import { qrSvg, skuPayload } from "../../qr.js?v=20261007c";
-import { setStock } from "../stock.js?v=20261007c";
+import { el, go } from "../app.js?v=20261009a";
+import { icon } from "../../icons.js?v=20261009a";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261009a";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261009a";
+import { fmt, convert } from "../../fx.js?v=20261009a";
+import { thumb } from "../../img.js?v=20261009a";
+import { LOW_STOCK } from "../../advice.js?v=20261009a";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261009a";
+import { qrSvg, skuPayload } from "../../qr.js?v=20261009a";
+import { setStock } from "../stock.js?v=20261009a";
 // Себестоимость показываем в той валюте, в которой её ввели. Расчёт общий
 // со складом на сайте: иначе один товар выглядит как «$33.87» на компьютере
 // и «241,94 ¥» в телефоне — цифра верная, а доверия к ней никакого.
-import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261007c";
-import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20261007c";
-import { подходит } from "../../productsearch.js?v=20261007c";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261007c";
+import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261009a";
+import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20261009a";
+import { подходит } from "../../productsearch.js?v=20261009a";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261009a";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261009a";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -25,7 +26,13 @@ const field = (label, input) => el("label.field", {}, [el("span.field-label", { 
 const inp = (props) => el("input.inp", { style: { width: "100%", minHeight: "46px", fontSize: "16px" }, ...props });
 
 export default async function render(box, ctx) {
-  const products = await ctx.db.products.list();
+  // Приходы нужны, чтобы видеть, что уже едет: товар может кончиться на
+  // полке, но быть в пути — и докупать его не надо.
+  const [products, приходы] = await Promise.all([
+    ctx.db.products.list(),
+    ctx.db.purchases.list().catch(() => []),
+  ]);
+  const дорога = картаДороги(приходы);
   let filter = ctx.params.f || "";        // low | neg | пусто
   let query = (ctx.params.q || "").toLowerCase();
 
@@ -285,7 +292,10 @@ export default async function render(box, ctx) {
 
   function row(p) {
     const q = Number(p.stock_qty) || 0;
-    const cls = q < 0 ? ".neg" : q <= LOW_STOCK ? ".low" : "";
+    const едет = вДороге(дорога, p);
+    const дороже = дорожеСейчас(едет, p);
+    // Товар кончился, но едет — это не «пусто», красным не красим.
+    const cls = едетВместоНет(дорога, p) ? ".low" : (q < 0 ? ".neg" : q <= LOW_STOCK ? ".low" : "");
     const own = currentCost(ensureBatches(p));
     const out = costOutlook(ensureBatches(p));
     const вал = костВалюта(p);
@@ -308,7 +318,10 @@ export default async function render(box, ctx) {
       el("div.info", {}, [
         el("div.nm", { text: p.name }),
         el("div.sku", { text: sub + (out && out.next ? ` · дальше ${костСтрока(out.next.cost_yuan, out.next.cost_usd, вал)}` : "") }),
-      ]),
+        едет ? el("div", { style: { fontSize: "11px", fontWeight: "700", color: "#b45309" }, text: "🚚 " + подписьДороги(едет) }) : null,
+        дороже ? el("div", { style: { fontSize: "11px", fontWeight: "700", color: "var(--danger,#f87171)" },
+          text: "↑ в дороге дороже: " + костСтрока(дороже.было.yuan, дороже.было.usd, вал) + " → " + костСтрока(дороже.станет.yuan, дороже.станет.usd, вал) }) : null,
+      ].filter(Boolean)),
       el("div.qty" + cls, { text: единица(p) === "шт" ? String(q) : подписьКол(q, p) }),
     ]);
   }
