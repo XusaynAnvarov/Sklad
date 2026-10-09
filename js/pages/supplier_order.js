@@ -3,17 +3,25 @@
 //  себестоимость) и выгрузить в PDF (с реальными фото) или Excel (с фото),
 //  чтобы отправить поставщику. Можно сохранить как «приход (в дороге)».
 // ========================================================================
-import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261009a";
-import { fmt, CUR, convert } from "../fx.js?v=20261009a";
-import { placeholder } from "./products.js?v=20261009a";
-import { icon } from "../icons.js?v=20261009a";
-import { authHeaders } from "../db.js?v=20261009a";
-import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20261009a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261009a";
-import { showNotFound } from "./purchases.js?v=20261009a";
-import { thumb, поставитьСнимок } from "../img.js?v=20261009a";
+import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261009b";
+import { fmt, CUR, convert } from "../fx.js?v=20261009b";
+import { placeholder } from "./products.js?v=20261009b";
+import { картаДороги, вДороге, подписьДороги } from "../transit.js?v=20261009b";
+import { icon } from "../icons.js?v=20261009b";
+import { authHeaders } from "../db.js?v=20261009b";
+import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20261009b";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261009b";
+import { showNotFound } from "./purchases.js?v=20261009b";
+import { thumb, поставитьСнимок } from "../img.js?v=20261009b";
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
+
+// «1 товар · 2 товара · 5 товаров» — иначе подпись режет глаз.
+const товаров = (n) => {
+  const a = Math.abs(n) % 100, b = a % 10;
+  const слово = (a > 10 && a < 20) ? "товаров" : b === 1 ? "товар" : (b > 1 && b < 5) ? "товара" : "товаров";
+  return n + " " + слово;
+};
 
 export default async function render(page, ctx) {
   const [products, purchases, allSales] = await Promise.all([ctx.db.products.list(), ctx.db.purchases.list().catch(() => []), ctx.db.sales.list().catch(() => [])]);
@@ -25,12 +33,15 @@ export default async function render(page, ctx) {
   const since30 = Date.now() - 30 * 864e5;
   const sold30 = {};
   (allSales || []).forEach(s => { if (new Date(s.date).getTime() < since30) return; (s.items || []).forEach(it => { sold30[it.product_id] = (sold30[it.product_id] || 0) + (Number(it.qty) || 0); }); });
-  // сколько каждого товара уже «в пути» (приход in_transit)
-  const transitQty = {};
-  (purchases || []).filter(p => p.status === "in_transit").forEach(p => (p.items || []).forEach(it => { const k = String(it.product_id); transitQty[k] = (transitQty[k] || 0) + (Number(it.qty) || 0); }));
-  // товары, которых нет на складе (0), первыми — по продажам за 30 дней
-  const outOfStock = products.filter(p => (Number(p.stock_qty) || 0) <= 0)
-    .sort((a, b) => (sold30[b.id] || 0) - (sold30[a.id] || 0) || (a.name || "").localeCompare(b.name || "", "ru"));
+  // что уже едет — общий счёт (js/transit.js), тот же, что в «Товарах»
+  const дорога = картаДороги(purchases);
+  const поПродажам = (a, b) => (sold30[b.id] || 0) - (sold30[a.id] || 0) || (a.name || "").localeCompare(b.name || "", "ru");
+  // Товары, которых нет на складе, — первыми по продажам за 30 дней.
+  // ТЕ, ЧТО УЖЕ ЕДУТ, сюда не попадают: они заказаны, и место им здесь
+  // только мешает — так товар заказывали по второму разу.
+  const всеБезОстатка = products.filter(p => (Number(p.stock_qty) || 0) <= 0);
+  const outOfStock = всеБезОстатка.filter(p => !вДороге(дорога, p)).sort(поПродажам);
+  const ужеЕдут = всеБезОстатка.filter(p => вДороге(дорога, p)).sort(поПродажам);
 
   const state = { supplier: "", currency: "yuan", lang: "ru", items: [] };
   const LANGS = [{ value: "ru", label: "Русский" }, { value: "uz", label: "Oʻzbekcha" }, { value: "zh", label: "中文 (хитойча)" }, { value: "en", label: "English" }];
@@ -114,19 +125,39 @@ export default async function render(page, ctx) {
     drawItems();
   }
   const oosBox = el("div", { style: { maxHeight: "300px", overflowY: "auto", marginTop: "8px", display: "none" } });
+  let показыватьЕдущие = false;
+  function строкаТовара(p, едет) {
+    const inCart = state.items.some(it => it.product_id === p.id);
+    const sold = sold30[p.id] || 0;
+    const info = [
+      sold > 0 ? "продано за 30 дн: " + sold : null,
+      едет ? "🚚 " + подписьДороги(едет) : null,
+    ].filter(Boolean).join(" · ") || "нет продаж за 30 дн";
+    return el("div.card", { style: { padding: "8px 10px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", ...(едет ? { opacity: ".75" } : {}) } }, [
+      el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", style: { width: "42px", height: "42px", cursor: "zoom-in" }, onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
+      el("div", { style: { flex: "1", minWidth: "140px" } }, [el("div", { style: { fontWeight: "600" }, text: p.name }), el("div.muted", { style: { fontSize: "11px" }, text: info })]),
+      el("button" + (inCart ? ".btn.btn-outline.btn-sm" : ".btn.btn-ok.btn-sm"), { disabled: inCart, onclick: () => { addProduct(p); drawOOS(); } }, [inCart ? "✓ в заказе" : "＋ в заказ"]),
+    ]);
+  }
   function drawOOS() {
     oosBox.innerHTML = "";
-    if (!outOfStock.length) { oosBox.append(el("div.muted", { style: { padding: "10px" }, text: "Все товары есть на складе 👍" })); return; }
-    outOfStock.forEach(p => {
-      const inCart = state.items.some(it => it.product_id === p.id);
-      const sold = sold30[p.id] || 0, tr = transitQty[String(p.id)] || 0;
-      const info = [sold > 0 ? "продано за 30 дн: " + sold : null, tr > 0 ? "в пути: " + tr : null].filter(Boolean).join(" · ") || "нет продаж за 30 дн";
-      oosBox.append(el("div.card", { style: { padding: "8px 10px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } }, [
-        el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", style: { width: "42px", height: "42px", cursor: "zoom-in" }, onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
-        el("div", { style: { flex: "1", minWidth: "140px" } }, [el("div", { style: { fontWeight: "600" }, text: p.name }), el("div.muted", { style: { fontSize: "11px" }, text: info })]),
-        el("button" + (inCart ? ".btn.btn-outline.btn-sm" : ".btn.btn-ok.btn-sm"), { disabled: inCart, onclick: () => { addProduct(p); drawOOS(); } }, [inCart ? "✓ в заказе" : "＋ в заказ"]),
-      ]));
-    });
+    if (!outOfStock.length) {
+      oosBox.append(el("div.muted", { style: { padding: "10px" },
+        text: ужеЕдут.length ? "Всё, чего нет на складе, уже заказано и едет 👍" : "Все товары есть на складе 👍" }));
+    }
+    outOfStock.forEach(p => oosBox.append(строкаТовара(p, null)));
+
+    // Уже едущие прячем, но не насовсем: иногда нужно доказать ещё партию.
+    if (!ужеЕдут.length) return;
+    oosBox.append(el("div", { style: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "4px 0 8px" } }, [
+      el("div.muted", { style: { fontSize: "12px", flex: "1", minWidth: "180px" },
+        text: "Ещё " + товаров(ужеЕдут.length) + " нет на складе, но они уже в дороге — здесь их не показываем, чтобы не заказать второй раз." }),
+      el("button.btn.btn-outline.btn-sm", {
+        text: показыватьЕдущие ? "Скрыть едущие" : "Показать едущие (" + ужеЕдут.length + ")",
+        onclick: () => { показыватьЕдущие = !показыватьЕдущие; drawOOS(); },
+      }),
+    ]));
+    if (показыватьЕдущие) ужеЕдут.forEach(p => oosBox.append(строкаТовара(p, вДороге(дорога, p))));
   }
   drawOOS();
   const oosToggle = el("button.btn.btn-outline", { style: { width: "100%", justifyContent: "space-between", display: "flex" }, onclick: () => {
