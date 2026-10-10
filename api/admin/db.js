@@ -10,11 +10,24 @@ import { getUser } from "../lib/auth.js";
 import { помнить, забыть } from "../lib/memcache.js";
 import { остаткиДо, записать as записатьВЖурнал } from "../lib/stocklog.js";
 
-// Столько секунд держим список в памяти. Свои записи память стирают сразу,
-// так что задержка возможна только для чужих: заказ из бота или правка
-// прямо в базе. Десять секунд — перебирая страницы склада, ждать базу не
-// приходится, а новый заказ виден почти сразу.
-const СЕКУНД = 10;
+// Столько секунд держим список в памяти. Любая запись через эту ручку
+// память стирает сразу, поэтому устареть ответ может лишь от правки прямо
+// в базе. Две минуты: база отвечает около секунды на таблицу, и при
+// десяти секундах склад ждал её почти на каждой странице.
+const СЕКУНД = 120;
+// id в сортировке — чтобы порядок был устойчив между страницами
+const ПОРЯДОК = "order=created_at.desc,id.asc";
+
+// После записи список забыт — и следующий, кто его попросит, снова ждал бы
+// базу. Поэтому сразу после ответа тихо читаем его заново и кладём в
+// память: к моменту, когда страница перерисуется, ответ уже готов.
+function прогреть(table, sbGet) {
+  const греем = [table];
+  if (table === "sales" || table === "purchases") греем.push("products");
+  setTimeout(() => {
+    греем.forEach(t2 => помнить(`db:${t2}:все`, СЕКУНД, () => listAll(t2, ПОРЯДОК, sbGet)).catch(() => {}));
+  }, 0);
+}
 
 const SB_URL = process.env.SUPABASE_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -121,7 +134,7 @@ export default async function handler(req, res) {
       }
       // Явная порция — для выгрузки в бэкап: ?limit=&offset=
       const lim = req.query?.limit, off = req.query?.offset;
-      const ORDER = "order=created_at.desc,id.asc";   // id — чтобы порядок был устойчив между страницами
+      const ORDER = ПОРЯДОК;
       if (lim !== undefined) {
         const rows = await sbGet(`${table}?${ORDER}&limit=${encodeURIComponent(lim)}&offset=${encodeURIComponent(off || 0)}`);
         return res.json(rows || []);
@@ -150,6 +163,11 @@ export default async function handler(req, res) {
       // и каталог: он считается из товаров и приходов.
       забыть(`db:${table}:`);
       забыть("catalog");
+      // Отвечаем и тут же тихо перечитываем список в память: страница
+      // перерисуется — а ответ для неё уже готов, ждать базу не придётся.
+      const готово = (данные) => { прогреть(table, sbGet); return res.json(данные); };
+      // Склад двигают приходы и продажи — их запись меняет и товары.
+      if (table === "sales" || table === "purchases") забыть("db:products:");
 
       // ПАКЕТНАЯ запись: data — массив записей, один запрос от браузера
       // вместо N. К базе всё равно идёт по запросу на строку, но это
@@ -166,7 +184,7 @@ export default async function handler(req, res) {
       if (op === "upsert_many") {
         if (!Array.isArray(data)) return res.status(400).json({ error: "data должен быть массивом" });
         const rows = data.filter(r => r && typeof r === "object");
-        if (!rows.length) return res.json([]);
+        if (!rows.length) return готово([]);
         if (rows.length > 500) return res.status(400).json({ error: "слишком много записей (максимум 500)" });
         if (!rows.every(r => okId(r.id))) return res.status(400).json({ error: "у каждой записи должен быть корректный id" });
         // Снимок остатков ДО записи — для журнала изменений (api/lib/stocklog.js).
@@ -178,14 +196,14 @@ export default async function handler(req, res) {
           return (Array.isArray(created) ? created[0] : created) || row;
         }));
         if (table === "products") записатьВЖурнал(rows, доЗаписи, { причина: body.причина, документ: body.документ, кто: user.role });
-        return res.json(out);
+        return готово(out);
       }
 
       if (op === "delete" || op === "remove") {
         if (!id) return res.status(400).json({ error: "id required for delete" });
         if (!okId(id)) return res.status(400).json({ error: "Неверный id" });
         await sbDelete(`${table}?id=eq.${encodeURIComponent(id)}`);
-        return res.json({ ok: true });
+        return готово({ ok: true });
       }
 
       if (op === "save" || op === "saveSettings") {
@@ -194,10 +212,10 @@ export default async function handler(req, res) {
         if (!cur) {
           // строки настроек ещё нет — создаём (singleton)
           const created = await sbPost("settings", data);
-          return res.json((Array.isArray(created) ? created[0] : created) || data);
+          return готово((Array.isArray(created) ? created[0] : created) || data);
         }
         const patched = await sbPatch(`settings?id=eq.${cur.id}`, data);
-        return res.json((patched && patched[0]) || { ...cur, ...data });
+        return готово((patched && patched[0]) || { ...cur, ...data });
       }
 
       if (!data) return res.status(400).json({ error: "data required" });
@@ -208,13 +226,13 @@ export default async function handler(req, res) {
         // обновление существующей записи; если её НЕТ (напр. восстановление из корзины) — вставляем заново с тем же id
         const rows = await sbPatch(`${table}?id=eq.${encodeURIComponent(data.id)}`, data);
         if (table === "products") записатьВЖурнал([data], доОдной, { причина: body.причина, документ: body.документ, кто: user.role });
-        if (rows && rows.length) return res.json(rows[0]);
+        if (rows && rows.length) return готово(rows[0]);
         const created = await sbPost(table, data);
-        return res.json((Array.isArray(created) ? created[0] : created) || data);
+        return готово((Array.isArray(created) ? created[0] : created) || data);
       } else {
         // вставка новой записи
         const rows = await sbPost(table, data);
-        return res.json((Array.isArray(rows) ? rows[0] : rows) || data);
+        return готово((Array.isArray(rows) ? rows[0] : rows) || data);
       }
     }
 

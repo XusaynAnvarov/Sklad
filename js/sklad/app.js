@@ -4,13 +4,13 @@
 //  тот же токен склада, что и вход по паролю. Дальше работает обычный
 //  js/db.js, поэтому база ОДНА: движение с телефона сразу видно на сайте.
 // ========================================================================
-import { db } from "../db.js?v=20261009b";
-import { el } from "../el.js?v=20261009b";
-import { setRates } from "../fx.js?v=20261009b";
-import { обновитьЕслиУстарело } from "../version.js?v=20261009b";
-import { icon } from "../icons.js?v=20261009b";
-import { toast } from "../ui.js?v=20261009b";
-import { кнопкаРазвернуть } from "../miniapp.js?v=20261009b";
+import { db } from "../db.js?v=20261010a";
+import { el } from "../el.js?v=20261010a";
+import { setRates } from "../fx.js?v=20261010a";
+import { обновитьЕслиУстарело } from "../version.js?v=20261010a";
+import { icon } from "../icons.js?v=20261010a";
+import { toast } from "../ui.js?v=20261010a";
+import { кнопкаРазвернуть } from "../miniapp.js?v=20261010a";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const TOKEN_KEY = "sklad_admin_token";
@@ -24,7 +24,7 @@ export const isGuest = () => {
 
 // Помощник переехал в js/el.js — им пользуется и мини-приложение заказа,
 // которому вход в склад не нужен. Экспорт оставлен, чтобы все экраны
-// склада продолжали брать его отсюда: import { el } from "../app.js?v=20261009b".
+// склада продолжали брать его отсюда: import { el } from "../app.js?v=20261010a".
 export { el };
 
 const root = () => document.getElementById("mini-root");
@@ -94,20 +94,41 @@ export const VERSION = ((import.meta.url.split("?v=")[1] || "").split("&")[0]) |
 
 // ---------- экраны ----------
 const SCREENS = {
-  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20261009b") },
-  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20261009b") },
-  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20261009b") },
-  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20261009b") },
-  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20261009b") },
-  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20261009b") },
-  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20261009b") },
-  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20261009b") },
-  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20261009b") },
-  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20261009b") },
-  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20261009b") },
-  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20261009b") },
-  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20261009b") },
+  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20261010a") },
+  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20261010a") },
+  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20261010a") },
+  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20261010a") },
+  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20261010a") },
+  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20261010a") },
+  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20261010a") },
+  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20261010a") },
+  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20261010a") },
+  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20261010a") },
+  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20261010a") },
+  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20261010a") },
+  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20261010a") },
+  videos:    { title: "Видео товаров",      mod: () => import("./screens/videos.js?v=20261010a") },
 };
+
+// Меню в шапке: отсюда достаётся ЛЮБОЙ раздел, не возвращаясь на главную.
+// Внизу помещается пять кнопок, а разделов тринадцать — раньше до половины
+// из них надо было идти через «Ещё».
+const МЕНЮ = [
+  { id: "home",      ic: "dashboard", title: "Главная",        sub: "остатки, долги, что сделать" },
+  { id: "products",  ic: "box",       title: "Товары",         sub: "найти, поправить, завести" },
+  { id: "sale",      ic: "cart",      title: "Продажа",        sub: "продать и выдать товар" },
+  { id: "clients",   ic: "user",      title: "Клиенты",        sub: "долги и накладные" },
+  { id: "orders",    ic: "cart",      title: "Заказы",         sub: "из бота и с сайта" },
+  { id: "purchases", ic: "truck",     title: "Приход",         sub: "что в дороге, что пришло" },
+  { id: "arrival",   ic: "plus",      title: "Приход из магазина", sub: "принять товар на месте" },
+  { id: "docs",      ic: "receipt",   title: "Накладные и оплаты", sub: "посмотреть и поправить" },
+  { id: "report",    ic: "chart",     title: "Отчёт",          sub: "обороты, прибыль, долги" },
+  { id: "check",     ic: "check",     title: "Проверка склада", sub: "что разошлось с остатками" },
+  { id: "videos",    ic: "broadcast", title: "Видео товаров",  sub: "снять и выложить ролик" },
+  { id: "labels",    ic: "hash",      title: "Наклейки",       sub: "QR-коды на товар" },
+  { id: "trash",     ic: "trash",     title: "Корзина",        sub: "вернуть удалённое" },
+  { id: "more",      ic: "menu",      title: "Ещё",            sub: "копия базы, доступ, выход" },
+];
 // Внизу помещается пять кнопок — то, за чем заходят каждый день.
 // Всё остальное живёт в «Ещё»: больше пяти в ряд на телефоне превращаются
 // в кашу, по которой не попасть пальцем.
@@ -124,6 +145,62 @@ let current = "home";
 export function go(id, params) {
   current = SCREENS[id] ? id : "home";
   location.hash = "#" + current + (params ? "?" + new URLSearchParams(params) : "");
+}
+
+// ------------------------------------------------------------------
+//  МЕНЮ РАЗДЕЛОВ (кнопка слева в шапке).
+//  Открывается поверх экрана списком: видно всё сразу и видно, где мы
+//  сейчас. Закрывается щелчком мимо, кнопкой «Закрыть» и клавишей Esc —
+//  на телефоне легко промахнуться, и запереть человека в меню нельзя.
+// ------------------------------------------------------------------
+function кнопкаМеню() {
+  const кн = el("button.mini-back", { title: "Разделы", "aria-label": "Разделы" }, [icon("menu", { size: 18 })]);
+  кн.addEventListener("click", (e) => { e.stopPropagation(); открытьМеню(); });
+  return кн;
+}
+
+function открытьМеню() {
+  const прежнее = document.querySelector(".mini-menu-back");
+  if (прежнее) { прежнее.remove(); return; }          // повторное нажатие закрывает
+
+  const список = el("div.mini-acts", { style: { padding: "10px 14px 16px" } });
+  МЕНЮ.forEach(r => {
+    const свой = r.id === current;
+    const кн = el("button.mini-act.wide" + (свой ? ".on" : ""), {
+      style: свой ? { borderColor: "var(--accent)" } : {},
+      onclick: () => { закрыть(); go(r.id); },
+    }, [
+      icon(r.ic, { size: 20 }),
+      el("div", {}, [el("div", { text: r.title }), el("div.sub", { text: r.sub })]),
+    ]);
+    список.append(кн);
+  });
+
+  const панель = el("div.mini-menu", {
+    style: {
+      position: "fixed", left: "0", right: "0", top: "0", zIndex: "60",
+      maxHeight: "86vh", overflowY: "auto",
+      background: "var(--bg)", borderBottom: "1px solid var(--border)",
+      boxShadow: "0 18px 40px rgba(0,0,0,.35)",
+    },
+  }, [
+    el("div", { style: { display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px 4px" } }, [
+      el("div", { style: { fontWeight: "700", fontSize: "16px", flex: "1" }, text: "Разделы" }),
+      el("button.mini-icon-btn", { title: "Закрыть", onclick: () => закрыть() }, [icon("x", { size: 18 })]),
+    ]),
+    список,
+  ]);
+
+  const фон = el("div.mini-menu-back", {
+    style: { position: "fixed", inset: "0", zIndex: "59", background: "rgba(0,0,0,.45)" },
+    onclick: () => закрыть(),
+  }, [панель]);
+
+  function закрыть() { фон.remove(); document.removeEventListener("keydown", поКлавише); }
+  function поКлавише(e) { if (e.key === "Escape") закрыть(); }
+  панель.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("keydown", поКлавише);
+  document.body.append(фон);
 }
 
 function shell() {
@@ -166,8 +243,9 @@ async function draw() {
   const bar = document.querySelector(".mini-bar");
   if (!head || !body) return;
 
-  // шапка: на не-главных экранах — кнопка «назад»
+  // шапка: слева меню со всеми разделами, затем «назад» и название
   head.innerHTML = "";
+  head.append(кнопкаМеню());
   if (current !== "home") {
     head.append(el("button.mini-back", { title: "Назад", onclick: () => go("home") }, [icon("arrow-left", { size: 18 })]));
   }

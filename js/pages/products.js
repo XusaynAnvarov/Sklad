@@ -1,25 +1,25 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261009b";
-import { icon } from "../icons.js?v=20261009b";
-import { fmt, convert } from "../fx.js?v=20261009b";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261009b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261009b";
-import { openEditor } from "./sales.js?v=20261009b";
-import { thumbAttrs, thumb } from "../img.js?v=20261009b";
-import { LOW_STOCK } from "../advice.js?v=20261009b";
-import { qrSvg, skuPayload } from "../qr.js?v=20261009b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261010a";
+import { icon } from "../icons.js?v=20261010a";
+import { fmt, convert } from "../fx.js?v=20261010a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261010a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261010a";
+import { openEditor } from "./sales.js?v=20261010a";
+import { thumbAttrs, thumb } from "../img.js?v=20261010a";
+import { LOW_STOCK } from "../advice.js?v=20261010a";
+import { qrSvg, skuPayload } from "../qr.js?v=20261010a";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261009b";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261010a";
 // Единица измерения: товар считают штуками, пачками, коробками. Смена
 // единицы пересчитывает и остаток, и себестоимость, и все партии.
-import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261009b";
-import { подходит } from "../productsearch.js?v=20261009b";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261009b";
-import { изменениеСклада } from "../db.js?v=20261009b";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261009b";
+import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261010a";
+import { подходит } from "../productsearch.js?v=20261010a";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261010a";
+import { изменениеСклада } from "../db.js?v=20261010a";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261010a";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -571,22 +571,33 @@ async function loadProductHistory(ctx, p, box) {
     const rows = [];
     sales.forEach(s => (s.items || []).forEach(it => {
       if (String(it.product_id) === String(pid)) {
-        rows.push({ sale: s, date: s.date, client: cmap[s.customer_id] || "—", qty: Number(it.qty) || 0, price: it.unit_price, cur: it.currency || s.currency });
+        rows.push({ sale: s, date: s.date, client: cmap[s.customer_id] || s.order_from?.name || "—", qty: Number(it.qty) || 0, price: it.unit_price, cur: it.currency || s.currency, оформлена: s.status === "final" });
       }
     }));
     rows.sort((a, b) => new Date(b.date) - new Date(a.date));
     box.innerHTML = "";
     const left = Number(fresh.stock_qty) || 0;
-    box.append(el("div.card", { style: { padding: "10px 14px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px" } }, [
+    // Считаем только ОФОРМЛЕННЫЕ накладные: заказ, который ещё не
+    // оформили, со склада не списан — складывать его с продажами нельзя.
+    const продано = rows.filter(r => r.оформлена).reduce((s, r) => s + r.qty, 0);
+    const вЗаказах = rows.filter(r => !r.оформлена).reduce((s, r) => s + r.qty, 0);
+    box.append(el("div.card", { style: { padding: "10px 14px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" } }, [
       el("span", { text: "📦" }),
       el("strong", { text: "Осталось в остатке: " + left + " шт." }),
+      rows.length ? el("span", { style: { fontWeight: "600" }, text: "· продано за всё время: " + продано + " шт." }) : null,
+      вЗаказах ? el("span.muted", { style: { fontSize: "12px" }, text: "· в заказах ещё " + вЗаказах }) : null,
       el("span.muted", { style: { fontSize: "12px" }, text: "(изменить остаток — поле «Остаток» выше)" }),
-    ]));
+    ].filter(Boolean)));
     if (!rows.length) { box.append(el("div.muted", { text: "Этот товар ещё никто не покупал", style: { fontSize: "13px", padding: "8px 0" } })); return; }
     const tb = el("tbody");
     rows.forEach(r => tb.append(el("tr", {}, [
       el("td", { text: new Date(r.date).toLocaleDateString("ru-RU") }),
-      el("td", {}, [el("strong", { text: r.client })]),
+      el("td", {}, [
+        el("strong", { text: r.client }),
+        // Заказ, который ещё не оформили, выглядел как обычная продажа —
+        // и было непонятно, почему остаток не сходится.
+        r.оформлена ? null : el("div.muted", { style: { fontSize: "11px" }, text: "заказ, не оформлен" }),
+      ].filter(Boolean)),
       el("td", { text: r.qty + " шт." }),
       el("td", {}, [el("strong", { text: r.price > 0 ? fmt(r.price, r.cur) : "—" })]),
       el("td.right", {}, [el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Изменить кол-во/цену или удалить (в накладной)", onclick: () => openEditor(ctx, r.sale, customers, products, r.sale.customer_id) }, [icon("edit", { size: 15 })])]),

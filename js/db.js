@@ -7,8 +7,8 @@
 //  не зная, какой режим активен.
 // ========================================================================
 
-import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20261009b";
-import { сверитьСОстатком } from "./inventory.js?v=20261009b";
+import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20261010a";
+import { сверитьСОстатком } from "./inventory.js?v=20261010a";
 
 const cfg = window.APP_CONFIG || {};
 const useSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
@@ -175,7 +175,10 @@ async function adminGet(table, id) {
 //  после сохранения сразу видно новое.
 // ------------------------------------------------------------------
 const списки = new Map();          // таблица → { до, обещание }
-const ПАМЯТЬ_МС = 8000;
+// Держим списки в памяти вкладки подольше: самый долгий кусок работы —
+// это запрос к базе (около секунды на таблицу), а данные меняет один
+// человек, и его собственные правки кэш сбрасывают сами.
+const ПАМЯТЬ_МС = 45000;
 
 function забытьСписок(table) {
   if (table) списки.delete(table); else списки.clear();
@@ -200,11 +203,21 @@ function списокИзПамяти(table, взять) {
 let причина = "", документ = "";
 export function изменениеСклада(текст, док = "") { причина = текст || ""; документ = док || ""; }
 
+// Что устарело после записи в эту таблицу. Раньше забывали ВСЁ, и после
+// правки одного товара заново качались все пять списков — отсюда и
+// «долго сохраняет». Приход и продажа двигают склад, поэтому вместе с
+// ними забываем товары; остальное трогать незачем.
+const ТАКЖЕ_УСТАРЕЛО = {
+  sales: ["products"],
+  purchases: ["products"],
+  products: [],
+  payments: [],
+  customers: [],
+};
+
 async function adminPost(table, op, data, id) {
   забытьСписок(table);
-  // Приход меняет и товары, и приходы; продажа — и товары, и продажи.
-  // Проще всего забыть всё: список снова скачается один раз.
-  забытьСписок();
+  (ТАКЖЕ_УСТАРЕЛО[table] || []).forEach(забытьСписок);
   const r = await fetch("/api/admin/db", { method: "POST", headers: adminHeaders(), body: JSON.stringify({ table, op, data, id, причина, документ }) });
   const j = await r.json();
   if (r.status === 401) { handleAuthError(); throw new Error("Сессия истекла"); }

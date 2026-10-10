@@ -1,23 +1,23 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261009b";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261009b";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261009b";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261009b";
-import { suggestPrice, priceNote } from "../prices.js?v=20261009b";
-import { списанные } from "../stockcheck.js?v=20261009b";
-import { пересчитатьСклад } from "../saleedit.js?v=20261009b";
-import { placeholder } from "./products.js?v=20261009b";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261009b";
-import { icon } from "../icons.js?v=20261009b";
-import { showLoader, hideLoader } from "../ui.js?v=20261009b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261009b";
-import { exportInvoice } from "../xlsx-export.js?v=20261009b";
-import { showNotFound } from "./purchases.js?v=20261009b";
-import { thumb, поставитьСнимок } from "../img.js?v=20261009b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261010a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261010a";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261010a";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261010a";
+import { suggestPrice, priceNote } from "../prices.js?v=20261010a";
+import { списанные } from "../stockcheck.js?v=20261010a";
+import { пересчитатьСклад } from "../saleedit.js?v=20261010a";
+import { placeholder } from "./products.js?v=20261010a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261010a";
+import { icon } from "../icons.js?v=20261010a";
+import { showLoader, hideLoader } from "../ui.js?v=20261010a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261010a";
+import { exportInvoice } from "../xlsx-export.js?v=20261010a";
+import { showNotFound } from "./purchases.js?v=20261010a";
+import { thumb, поставитьСнимок } from "../img.js?v=20261010a";
 // причина изменения остатка — её записывает журнал на сервере
-import { изменениеСклада } from "../db.js?v=20261009b";
+import { изменениеСклада } from "../db.js?v=20261010a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -361,28 +361,43 @@ async function readFresh(ctx, ids, out) {
   }));
 }
 
+// Пишем остатки и ВОЗВРАЩАЕМ то, что ответила база: она отдаёт сохранённые
+// строки, и это уже проверка. Перечитывать склад отдельным запросом не
+// нужно — раньше после каждой накладной шёл лишний круг «браузер → сервер
+// → база», и сохранение заметно тормозило.
 async function writeStock(ctx, rows) {
-  if (!rows.length) return;
+  if (!rows.length) return [];
   const noBatches = () => rows.map(({ batches, ...r }) => r);   // колонки batches может не быть
   if (typeof ctx.db.products.upsertMany === "function") {
-    try { await ctx.db.products.upsertMany(rows); return; }
+    try { return await ctx.db.products.upsertMany(rows); }
     catch (e) {
-      try { await ctx.db.products.upsertMany(noBatches()); return; }
+      try { return await ctx.db.products.upsertMany(noBatches()); }
       catch (e2) { console.warn("upsertMany, пишем по одному:", e2.message); }
     }
   }
-  await Promise.all(rows.map(async (r) => {
+  return Promise.all(rows.map(async (r) => {
     const { batches, ...base } = r;
-    try { await ctx.db.products.upsert(r); } catch { await ctx.db.products.upsert(base); }
+    try { return await ctx.db.products.upsert(r); } catch { return ctx.db.products.upsert(base); }
   }));
 }
 
 // вернуть названия товаров, у которых остаток так и не записался
-async function verifyStock(ctx, expected, nameOf) {
+async function verifyStock(ctx, expected, nameOf, записано) {
   const ids = Object.keys(expected);
   if (!ids.length) return [];
   const read = async () => { const o = {}; await readFresh(ctx, ids, o); return o; };
   let now = {};
+  // Сначала смотрим, что ответила сама запись: база вернула сохранённые
+  // строки, и если в них всё сходится — лишний запрос не нужен.
+  const изОтвета = {};
+  (Array.isArray(записано) ? записано : []).forEach(r => {
+    const строка = Array.isArray(r) ? r[0] : r;
+    if (строка && строка.id && строка.stock_qty !== undefined) изОтвета[строка.id] = строка;
+  });
+  if (ids.every(id => {
+    const r = изОтвета[id];
+    return r && Math.abs((Number(r.stock_qty) || 0) - expected[id]) <= 0.001;
+  })) return [];
   try { now = await read(); } catch { return ids.map(id => nameOf(id)?.name || id); }
   const off = ids.filter(id => {
     const p = now[id];
@@ -441,11 +456,11 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
       const { rows, ненайденные } = пересчитатьСклад({ товары: fresh, старая: sale, позиции: state.items, дата: obj.date });
       const notFound = ненайденные;
       const expected = Object.fromEntries(rows.map(r => [r.id, r.stock_qty]));
-      await writeStock(ctx, rows);
+      const записано = await writeStock(ctx, rows);
 
       // ПРОВЕРКА: остаток действительно изменился на сервере (раньше сбой проходил незаметно).
       // Тоже одним запросом; расходящиеся дописываем вторым пакетом и перечитываем.
-      const bad = await verifyStock(ctx, expected, P);
+      const bad = await verifyStock(ctx, expected, P, записано);
       if (notFound.length) toast("Товар не найден в базе (остаток не изменён): " + notFound.length + " поз.", "err");
       if (bad.length) toast("⚠ Остаток НЕ записался: " + bad.slice(0, 3).join(", ") + (bad.length > 3 ? " и ещё " + (bad.length - 3) : "") + ". Проверьте связь и повторите.", "err");
     }

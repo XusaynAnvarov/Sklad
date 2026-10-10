@@ -5,9 +5,9 @@
 //  Пишем ПАКЕТОМ (upsertMany): на телефоне поштучная запись 20 позиций
 //  занимала бы минуту.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20261009b";
-import { arrivalRows } from "../arrival.js?v=20261009b";
-import { KIND_SHOP } from "../purchase.js?v=20261009b";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20261010a";
+import { arrivalRows } from "../arrival.js?v=20261010a";
+import { KIND_SHOP } from "../purchase.js?v=20261010a";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
@@ -26,22 +26,34 @@ async function readFresh(db, ids) {
 // проглатывалась, и приложение бодро писало «Принято», хотя на складе
 // ничего не менялось.
 async function writeStock(db, rows) {
-  if (!rows.length) return;
+  if (!rows.length) return [];
   const noBatches = () => rows.map(({ batches, ...rest }) => rest);
-  let last;
-  try { await db.products.upsertMany(rows); return; } catch (e) { last = e; }
-  try { await db.products.upsertMany(noBatches()); return; } catch (e) { last = e; }
+  try { return await db.products.upsertMany(rows); } catch { }
+  try { return await db.products.upsertMany(noBatches()); } catch { }
+  const out = [];
   for (const r of rows) {
-    try { await db.products.upsert(r); }
-    catch { await db.products.upsert((({ batches, ...x }) => x)(r)); }
+    try { out.push(await db.products.upsert(r)); }
+    catch { out.push(await db.products.upsert((({ batches, ...x }) => x)(r))); }
   }
+  return out;
 }
 
 // Перечитать товары и сверить остаток с ожидаемым. Запись могла не дойти
 // (нет сети, отказ базы) — молчать об этом нельзя, иначе склад разъедется.
-async function verifyStock(db, expected) {
+async function verifyStock(db, expected, записано) {
   const ids = Object.keys(expected);
   if (!ids.length) return [];
+  // База возвращает сохранённые строки — это уже проверка. Лишний круг
+  // «телефон → сервер → база» на мобильном интернете стоит дорого.
+  const изОтвета = {};
+  (Array.isArray(записано) ? записано : []).forEach(r => {
+    const строка = Array.isArray(r) ? r[0] : r;
+    if (строка && строка.id && строка.stock_qty !== undefined) изОтвета[строка.id] = строка;
+  });
+  if (ids.every(id => {
+    const r = изОтвета[id];
+    return r && Math.abs((Number(r.stock_qty) || 0) - expected[id]) <= 0.001;
+  })) return [];
   let rows = [];
   try { rows = await db.products.getMany(ids); }
   catch {
@@ -91,10 +103,10 @@ export async function sellItems(db, items) {
   const missing = ids.filter(id => !fresh[id]);
   if (missing.length) throw new Error("Товар не найден на складе (" + missing.length + " поз.)");
   const { rows, cogs } = applySale(fresh, items);
-  await writeStock(db, rows);
+  const записано = await writeStock(db, rows);
   // сверяем: остаток должен стать ровно тем, что мы посчитали
   const expected = Object.fromEntries(rows.map(r => [r.id, r.stock_qty]));
-  const bad = await verifyStock(db, expected);
+  const bad = await verifyStock(db, expected, записано);
   if (bad.length) throw new Error("Остаток не записался (" + bad.length + " поз.) — проверьте связь и повторите");
   return { written: rows.length, cogs };
 }
@@ -134,11 +146,11 @@ export async function setStock(db, productId, want) {
     next = target > have ? returnToStock(positive, target - have, cy, cu) : consumeFIFO(positive, have - target).batches;
   }
   const cc = costAfter(next, p);
-  await writeStock(db, [{
+  const записано = await writeStock(db, [{
     id: p.id, stock_qty: sumQty(next),
     cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches: next,
   }]);
-  const bad = await verifyStock(db, { [p.id]: sumQty(next) });
+  const bad = await verifyStock(db, { [p.id]: sumQty(next) }, записано);
   if (bad.length) throw new Error("Остаток не записался — проверьте связь и повторите");
   return { changed: diff, stock: sumQty(next) };
 }
@@ -167,10 +179,10 @@ export async function receiveFromShop(db, items, приход) {
     date: new Date().toISOString(),
     items: items.filter(i => (Number(i.qty) || 0) > 0),
   }, Object.values(fresh));
-  await writeStock(db, rows);
+  const записано = await writeStock(db, rows);
   // сверяем: остаток должен вырасти ровно на принятое
   const expected = Object.fromEntries(rows.map(r => [r.id, r.stock_qty]));
-  const bad = await verifyStock(db, expected);
+  const bad = await verifyStock(db, expected, записано);
   if (bad.length) throw new Error("Остаток не записался (" + bad.length + " поз.) — проверьте связь и повторите");
   return { written: rows.length };
 }
@@ -196,10 +208,10 @@ export async function returnItems(db, items) {
     fresh[p.id] = { ...p, ...row };      // две строки одного товара складываются
     ожидаем[p.id] = row.stock_qty;
   }
-  await writeStock(db, rows);
+  const записано = await writeStock(db, rows);
   // Сверяем: остаток должен стать ровно тем, что посчитали. Молчать о
   // незаписанном возврате нельзя — товар потеряется.
-  const bad = await verifyStock(db, ожидаем);
+  const bad = await verifyStock(db, ожидаем, записано);
   if (bad.length) throw new Error("Возврат не записался (" + bad.length + " поз.) — проверьте связь и повторите");
   return { written: rows.length };
 }

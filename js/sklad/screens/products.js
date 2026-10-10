@@ -1,24 +1,24 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20261009b";
-import { icon } from "../../icons.js?v=20261009b";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261009b";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261009b";
-import { fmt, convert } from "../../fx.js?v=20261009b";
-import { thumb } from "../../img.js?v=20261009b";
-import { LOW_STOCK } from "../../advice.js?v=20261009b";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261009b";
-import { qrSvg, skuPayload } from "../../qr.js?v=20261009b";
-import { setStock } from "../stock.js?v=20261009b";
+import { el, go } from "../app.js?v=20261010a";
+import { icon } from "../../icons.js?v=20261010a";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261010a";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261010a";
+import { fmt, convert } from "../../fx.js?v=20261010a";
+import { thumb } from "../../img.js?v=20261010a";
+import { LOW_STOCK } from "../../advice.js?v=20261010a";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261010a";
+import { qrSvg, skuPayload } from "../../qr.js?v=20261010a";
+import { setStock } from "../stock.js?v=20261010a";
 // Себестоимость показываем в той валюте, в которой её ввели. Расчёт общий
 // со складом на сайте: иначе один товар выглядит как «$33.87» на компьютере
 // и «241,94 ¥» в телефоне — цифра верная, а доверия к ней никакого.
-import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261009b";
-import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20261009b";
-import { подходит } from "../../productsearch.js?v=20261009b";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261009b";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261009b";
+import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261010a";
+import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20261010a";
+import { подходит } from "../../productsearch.js?v=20261010a";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261010a";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261010a";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -233,9 +233,80 @@ export default async function render(box, ctx) {
           el("button.btn.btn-outline", { style: { flex: "1", justifyContent: "center", minHeight: "42px" }, text: "Остаток на полке", onclick: () => askStock(item) }),
           el("button.btn.btn-outline", { style: { flex: "1", justifyContent: "center", minHeight: "42px" }, text: "Показать QR", onclick: () => showQr(item) }),
         ]) : null,
+        !isNew ? историяПродаж(item) : null,
       ].filter(Boolean)),
       actions,
     });
+  }
+
+  // ---------- история продаж товара ----------
+  //  Кто брал этот товар, когда, сколько и почём. Собирается из накладных
+  //  на лету — отдельной таблицы «история» у нас нет. Грузим ТОЛЬКО по
+  //  нажатию: накладные весят больше полумегабайта, и тянуть их при каждом
+  //  открытии карточки на мобильном интернете незачем.
+  function историяПродаж(p) {
+    const блок = el("div", { style: { marginTop: "4px" } });
+    const кнопка = el("button.btn.btn-outline", {
+      style: { width: "100%", justifyContent: "center", minHeight: "42px" },
+      text: "История продаж",
+    });
+    блок.append(кнопка);
+
+    кнопка.addEventListener("click", async () => {
+      кнопка.disabled = true;
+      кнопка.textContent = "Читаем накладные…";
+      try {
+        const [накладные, клиенты] = await Promise.all([
+          ctx.db.sales.list(),
+          ctx.db.customers.list().catch(() => []),
+        ]);
+        const имя = Object.fromEntries((клиенты || []).map(c => [c.id, c.name]));
+        const строки = [];
+        (накладные || []).forEach(s => (s.items || []).forEach(it => {
+          if (String(it.product_id) !== String(p.id)) return;
+          строки.push({
+            дата: s.date,
+            клиент: имя[s.customer_id] || s.order_from?.name || "—",
+            кол: Number(it.qty) || 0,
+            цена: Number(it.unit_price) || 0,
+            вал: it.currency || s.currency || "som",
+            оформлена: s.status === "final",
+          });
+        }));
+        строки.sort((a, b) => new Date(b.дата) - new Date(a.дата));
+        кнопка.remove();
+
+        if (!строки.length) {
+          блок.append(el("div.mini-empty", { text: "Этот товар ещё никто не покупал" }));
+          return;
+        }
+        // В «продано» считаем только ОФОРМЛЕННЫЕ накладные: заказ, который
+        // ещё не оформили, со склада не списан, и складывать его с продажами
+        // нельзя — иначе цифра врёт.
+        const продано = строки.filter(r => r.оформлена).reduce((s, r) => s + r.кол, 0);
+        const вЗаказах = строки.filter(r => !r.оформлена).reduce((s, r) => s + r.кол, 0);
+        блок.append(el("div.sku", { style: { marginBottom: "6px" },
+          text: "Продано всего: " + продано + " " + единица(p)
+            + (вЗаказах ? " · в заказах ещё " + вЗаказах : "")
+            + " · записей: " + строки.length }));
+        const список = el("div.mini-list", { style: { maxHeight: "280px", overflowY: "auto" } });
+        строки.forEach(r => список.append(el("div.mini-row", {}, [
+          el("div.info", {}, [
+            el("div.nm", { text: r.клиент }),
+            el("div.sku", { text: new Date(r.дата).toLocaleDateString("ru-RU")
+              + (r.цена > 0 ? " · " + fmt(r.цена, r.вал) : "")
+              + (r.оформлена ? "" : " · заказ, не оформлен") }),
+          ]),
+          el("div.qty", { text: String(r.кол) }),
+        ])));
+        блок.append(список);
+      } catch (e) {
+        кнопка.disabled = false;
+        кнопка.textContent = "История продаж";
+        toast("Не удалось прочитать: " + (e.message || e), "err");
+      }
+    });
+    return блок;
   }
 
   // ---------- остаток «как на полке» ----------
