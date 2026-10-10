@@ -1,12 +1,12 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261010e";
-import { renderCatalog } from "./catalog.js?v=20261010e";
-import { renderVideos } from "./videos.js?v=20261010e";
-import { renderCabinet } from "./cabinet.js?v=20261010e";
-import { renderAdminPanel } from "./admin-panel.js?v=20261010e";
-import { renderOrder } from "./order.js?v=20261010e";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261010e";
-import { поставитьСнимок } from "../img.js?v=20261010e";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261010f";
+import { renderCatalog } from "./catalog.js?v=20261010f";
+import { renderVideos } from "./videos.js?v=20261010f";
+import { renderCabinet } from "./cabinet.js?v=20261010f";
+import { renderAdminPanel } from "./admin-panel.js?v=20261010f";
+import { renderOrder } from "./order.js?v=20261010f";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261010f";
+import { поставитьСнимок } from "../img.js?v=20261010f";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -55,6 +55,9 @@ const TRANSLATIONS = {
 };
 export function getLang() { return localStorage.getItem("gm_lang") || "ru"; }
 export function setLang(l) { localStorage.setItem("gm_lang", l); }
+// Перерисовать сайт на месте (шапка + текущий раздел). Нужна, чтобы смена
+// языка не перезагружала страницу: прокрутка и раздел остаются как были.
+let перерисоватьСайт = null;
 export function t(key) { return (TRANSLATIONS[getLang()] || TRANSLATIONS.ru)[key] || key; }
 
 // ---- Theme ----
@@ -213,7 +216,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261010e");
+        const { api: siteApi } = await import("./api.js?v=20261010f");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -256,7 +259,10 @@ function buildLangSwitcher() {
     opt.addEventListener("click", () => {
       if (getLang() === code) { dropdown.classList.remove("open"); btn.classList.remove("open"); return; }
       setLang(code);
-      location.reload();
+      dropdown.classList.remove("open"); btn.classList.remove("open");
+      // Раньше тут была перезагрузка страницы — сайт открывался заново,
+      // с самого верха каталога. Теперь просто перерисовываем на месте.
+      if (перерисоватьСайт) перерисоватьСайт(); else location.reload();
     });
     dropdown.append(opt);
   });
@@ -398,7 +404,12 @@ function buildHeader() {
     burger.classList.toggle("open", открыто);
     burger.setAttribute("aria-expanded", открыто ? "true" : "false");
   });
-  menu.addEventListener("click", (e) => { if (e.target.closest("a,button")) закрыть(); });
+  menu.addEventListener("click", (e) => {
+    // Тема и язык — настройки: после них список должен остаться открытым,
+    // иначе чтобы сменить и то и другое, меню приходится открывать дважды.
+    if (e.target.closest(".theme-toggle, .lang-switcher")) return;
+    if (e.target.closest("a,button")) закрыть();
+  });
   document.addEventListener("click", (e) => { if (!menu.contains(e.target) && e.target !== burger) закрыть(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") закрыть(); });
   window.addEventListener("hashchange", закрыть);
@@ -418,7 +429,7 @@ function getRoute() {
 
 // Волна от точки нажатия (материальный отклик). Один слушатель на весь документ.
 function initRipple() {
-  const SEL = ".btn-primary,.btn-navy,.btn-ghost,.btn-add-cart,.filter-chip,.cabinet-nav-item,.cart-btn";
+  const SEL = ".btn-primary,.btn-navy,.btn-ghost,.btn-add-cart,.filter-chip,.cabinet-nav-item,.cart-btn,.site-nav-link,.site-burger";
   document.addEventListener("pointerdown", (e) => {
     const b = e.target.closest && e.target.closest(SEL);
     if (!b || b.disabled) return;
@@ -554,6 +565,7 @@ export async function boot() {
     app.append(buildHeader(), main);
     route(main);
   }
+  перерисоватьСайт = rebuild;
   rebuild();
   window.addEventListener("hashchange", () => route(document.getElementById("site-main") || document.createElement("div")));
 
@@ -617,7 +629,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=184", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=185", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

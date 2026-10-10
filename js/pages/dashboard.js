@@ -1,19 +1,19 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20261010e";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20261010e";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20261010e";
-import { картаДороги, вДороге, едетВместоНет, подписьДороги } from "../transit.js?v=20261010e";
-import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20261010e";
-import { sparkline } from "../charts.js?v=20261010e";
-import { debtByCur, onlyPositive } from "../debt.js?v=20261010e";
-import { icon } from "../icons.js?v=20261010e";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261010e";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20261010e";
-import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20261010e";
-import { buildAdvice } from "../advice.js?v=20261010e";
-import { thumb } from "../img.js?v=20261010e";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20261010f";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20261010f";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20261010f";
+import { картаДороги, вДороге, едетВместоНет, подписьДороги } from "../transit.js?v=20261010f";
+import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20261010f";
+import { sparkline } from "../charts.js?v=20261010f";
+import { debtByCur, onlyPositive } from "../debt.js?v=20261010f";
+import { icon } from "../icons.js?v=20261010f";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261010f";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20261010f";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20261010f";
+import { buildAdvice } from "../advice.js?v=20261010f";
+import { thumb } from "../img.js?v=20261010f";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.

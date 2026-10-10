@@ -3,10 +3,10 @@
 //  со склада, показывает предпросмотр (было → станет) и списывает выбранные.
 //  Повторное списание невозможно: после проведения позиции помечаются applied.
 // ========================================================================
-import { el, toast, modal, confirmDialog, showLoader, hideLoader, input } from "../ui.js?v=20261010e";
-import { icon } from "../icons.js?v=20261010e";
-import { consumeFIFO, ensureBatches, sumQty, costAfter } from "../inventory.js?v=20261010e";
-import { isUnapplied } from "../stockcheck.js?v=20261010e";
+import { el, toast, modal, confirmDialog, showLoader, hideLoader, input } from "../ui.js?v=20261010f";
+import { icon } from "../icons.js?v=20261010f";
+import { consumeFIFO, ensureBatches, sumQty, costAfter } from "../inventory.js?v=20261010f";
+import { isUnapplied } from "../stockcheck.js?v=20261010f";
 export { isUnapplied };
 
 // Правило одно на весь склад — js/stockcheck.js. Здесь была своя копия,

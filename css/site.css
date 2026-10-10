@@ -814,7 +814,9 @@ html[data-site-theme="dark"] .btn-warehouse {
 .product-card:active { transform: translateY(-2px) scale(.99); }
 
 /* кнопки: лёгкое сжатие + волна от точки нажатия */
-.btn-primary, .btn-navy, .btn-ghost, .btn-add-cart, .filter-chip, .cabinet-nav-item {
+/* волна от нажатия рисуется внутри кнопки — ей нужны «свои границы» */
+.btn-primary, .btn-navy, .btn-ghost, .btn-add-cart, .filter-chip, .cabinet-nav-item,
+.site-nav-link, .site-burger {
   position: relative; overflow: hidden;
   transition: transform .14s ease, background .25s, color .25s, border-color .25s, box-shadow .25s;
 }
@@ -998,7 +1000,8 @@ html[data-site-theme="dark"] .site-hero {
   cursor: pointer; transition: background .18s, transform .12s;
 }
 .site-burger:hover { background: rgba(28,43,74,.06); }
-.site-burger:active { transform: scale(.94); }
+.site-burger:active { transform: scale(.96); }
+.site-burger.open { background: var(--bg2); border-color: var(--navy); }
 .site-burger .site-burger-arrow { transition: transform .2s; }
 .site-burger.open .site-burger-arrow { transform: rotate(180deg); }
 
@@ -1021,13 +1024,45 @@ html[data-site-theme="dark"] .site-hero {
 
   .site-menu {
     position: absolute; left: 12px; right: auto; top: calc(100% + 8px);
-    display: none; flex-direction: column; align-items: stretch; gap: 6px;
-    min-width: 236px; padding: 10px;
+    display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+    min-width: 238px; padding: 10px;
     background: var(--white); border: 1px solid var(--border);
     border-radius: 16px; box-shadow: 0 18px 44px rgba(28,43,74,.20);
     z-index: 120;
+    /* Появляется плавно: было резкое «моргание» списка. Пока закрыт —
+       visibility:hidden, чтобы по нему нельзя было случайно попасть. */
+    opacity: 0; visibility: hidden; transform: translateY(-10px) scale(.97);
+    transform-origin: 20px top;
+    transition: opacity .18s ease, transform .2s cubic-bezier(.2,.9,.3,1.2), visibility .18s;
   }
-  .site-menu.open { display: flex; }
+  .site-menu.open { opacity: 1; visibility: visible; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .site-menu { transition: none; }
+  }
+
+  /* каждая строка — в своей рамке, и отзывается на нажатие */
+  .site-menu > * {
+    border: 1px solid var(--border); border-radius: 11px;
+    transition: background .16s, border-color .16s, transform .12s;
+  }
+  .site-menu > *:active { transform: scale(.975); }
+  .site-menu .site-nav-link { background: var(--bg); }
+  .site-menu .site-nav-link:hover,
+  .site-menu .site-nav-link:focus-visible { background: var(--bg2); border-color: var(--navy); transform: none; }
+  /* строки появляются одна за другой — список «раскрывается», а не прыгает */
+  .site-menu.open > * { animation: gm-menu-row .22s both; }
+  .site-menu.open > *:nth-child(1) { animation-delay: .02s; }
+  .site-menu.open > *:nth-child(2) { animation-delay: .045s; }
+  .site-menu.open > *:nth-child(3) { animation-delay: .07s; }
+  .site-menu.open > *:nth-child(4) { animation-delay: .095s; }
+  .site-menu.open > *:nth-child(5) { animation-delay: .12s; }
+  .site-menu.open > *:nth-child(6) { animation-delay: .145s; }
+  .site-menu.open > *:nth-child(7) { animation-delay: .17s; }
+  .site-menu.open > *:nth-child(8) { animation-delay: .195s; }
+  @keyframes gm-menu-row { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .site-menu.open > * { animation: none; }
+  }
   .site-menu .menu-only { display: flex; }
   .site-menu > * {
     width: 100%; justify-content: flex-start;
