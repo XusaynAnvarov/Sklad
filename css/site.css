@@ -1004,10 +1004,15 @@ html[data-site-theme="dark"] .site-hero {
 
 @media (max-width: 760px) {
   .site-header-inner {
-    position: relative; flex-wrap: nowrap;
-    height: 58px; min-height: 58px; padding: 0 12px; gap: 8px;
+    position: relative;
+    /* ПЕРЕНОС РАЗРЕШЁН. Если браузер взял из кэша старый скрипт (кнопки
+       ещё не собраны в меню), при nowrap они вылезали за край экрана, и
+       телефон уменьшал всю страницу — сайт выглядел сломанным. */
+    flex-wrap: wrap;
+    min-height: 58px; padding: 0 12px; gap: 8px;
+    max-width: 100%;
   }
-  .site-header-right { gap: 8px; flex-wrap: nowrap; }
+  .site-header-right { gap: 8px; flex-wrap: wrap; margin-left: auto; min-width: 0; }
   .site-header-right > .btn-primary { padding: 9px 13px; font-size: 13px; white-space: nowrap; }
   .site-burger { display: inline-flex; }
   /* Логотип не должен выдавливать кнопки за край экрана */
@@ -1015,7 +1020,7 @@ html[data-site-theme="dark"] .site-hero {
   .site-logo-text { font-size: 14px; white-space: nowrap; }
 
   .site-menu {
-    position: absolute; right: 12px; top: calc(100% + 8px);
+    position: absolute; left: 12px; right: auto; top: calc(100% + 8px);
     display: none; flex-direction: column; align-items: stretch; gap: 6px;
     min-width: 236px; padding: 10px;
     background: var(--white); border: 1px solid var(--border);
@@ -1050,7 +1055,7 @@ html[data-site-theme="dark"] .site-hero {
   /* «RU» в шапке телефона спрятан, но в списке без него непонятно, что это */
   .site-menu .lang-btn span { display: inline; font-weight: 700; }
   .site-menu .lang-btn::before { content: "Язык"; font-size: 14px; font-weight: 600; color: var(--navy); margin-right: auto; }
-  .site-menu .lang-dropdown { right: 0; left: auto; min-width: 150px; }
+  .site-menu .lang-dropdown { left: 0; right: auto; min-width: 150px; }
 }
 @media (max-width: 430px) {
   /* 375 px: логотип словами + «Заказать» + «Меню» уже не помещаются,

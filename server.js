@@ -157,7 +157,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20261010d");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20261010e");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -211,8 +211,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261010d");
-    const { sget } = await import("./api/lib/supa.js?v=20261010d");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261010e");
+    const { sget } = await import("./api/lib/supa.js?v=20261010e");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +
@@ -236,5 +236,5 @@ app.listen(PORT, () => {
   console.log(`[GM] Server running on port ${PORT}`);
   // Греем короткую память сервера: иначе первый заход в склад после
   // выкладки ждёт базу несколько секунд на каждую таблицу.
-  import("./api/admin/db.js?v=20261010d").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
+  import("./api/admin/db.js?v=20261010e").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
 });

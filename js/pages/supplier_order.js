@@ -3,16 +3,16 @@
 //  себестоимость) и выгрузить в PDF (с реальными фото) или Excel (с фото),
 //  чтобы отправить поставщику. Можно сохранить как «приход (в дороге)».
 // ========================================================================
-import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261010d";
-import { fmt, CUR, convert } from "../fx.js?v=20261010d";
-import { placeholder } from "./products.js?v=20261010d";
-import { картаДороги, вДороге, подписьДороги } from "../transit.js?v=20261010d";
-import { icon } from "../icons.js?v=20261010d";
-import { authHeaders } from "../db.js?v=20261010d";
-import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20261010d";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261010d";
-import { showNotFound } from "./purchases.js?v=20261010d";
-import { thumb, поставитьСнимок } from "../img.js?v=20261010d";
+import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261010e";
+import { fmt, CUR, convert } from "../fx.js?v=20261010e";
+import { placeholder } from "./products.js?v=20261010e";
+import { картаДороги, вДороге, подписьДороги } from "../transit.js?v=20261010e";
+import { icon } from "../icons.js?v=20261010e";
+import { authHeaders } from "../db.js?v=20261010e";
+import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20261010e";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261010e";
+import { showNotFound } from "./purchases.js?v=20261010e";
+import { thumb, поставитьСнимок } from "../img.js?v=20261010e";
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 

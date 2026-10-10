@@ -1,12 +1,12 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261010d";
-import { renderCatalog } from "./catalog.js?v=20261010d";
-import { renderVideos } from "./videos.js?v=20261010d";
-import { renderCabinet } from "./cabinet.js?v=20261010d";
-import { renderAdminPanel } from "./admin-panel.js?v=20261010d";
-import { renderOrder } from "./order.js?v=20261010d";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261010d";
-import { поставитьСнимок } from "../img.js?v=20261010d";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261010e";
+import { renderCatalog } from "./catalog.js?v=20261010e";
+import { renderVideos } from "./videos.js?v=20261010e";
+import { renderCabinet } from "./cabinet.js?v=20261010e";
+import { renderAdminPanel } from "./admin-panel.js?v=20261010e";
+import { renderOrder } from "./order.js?v=20261010e";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261010e";
+import { поставитьСнимок } from "../img.js?v=20261010e";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -213,7 +213,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261010d");
+        const { api: siteApi } = await import("./api.js?v=20261010e");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -383,7 +383,7 @@ function buildHeader() {
     menu.append(loginBtn);
   }
 
-  right.append(menu, burger);
+  right.append(menu);
 
   // Меню закрывается щелчком мимо, по Esc и при переходе в раздел —
   // иначе оно остаётся висеть поверх каталога.
@@ -403,7 +403,9 @@ function buildHeader() {
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") закрыть(); });
   window.addEventListener("hashchange", закрыть);
 
-  inner.append(logo, nav, right);
+  // Кнопка меню — слева, как в складе на телефоне: большой палец достаёт
+  // до левого верхнего угла, и порядок одинаковый в обоих приложениях.
+  inner.append(burger, logo, nav, right);
   header.append(inner);
   return header;
 }
@@ -615,7 +617,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=183", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=184", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
