@@ -14,7 +14,7 @@
 //     названию. Названия у нас похожие («Кайчи (10) KDP» и «Кайчи (11) KDP»),
 //     и по имени легко попасть не в тот товар.
 // ========================================================================
-import { ensureBatches, sumQty, consumeFIFO, returnToStock, currentCost, costAfter } from "./inventory.js?v=20261010b";
+import { ensureBatches, sumQty, consumeFIFO, returnToStock, currentCost, costAfter } from "./inventory.js?v=20261010c";
 
 const чисто = (s) => String(s == null ? "" : s).trim();
 const ключКода = (s) => чисто(s).toUpperCase().replace(/[^A-Z0-9]/g, "");

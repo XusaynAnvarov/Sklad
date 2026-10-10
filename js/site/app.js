@@ -1,12 +1,12 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261010b";
-import { renderCatalog } from "./catalog.js?v=20261010b";
-import { renderVideos } from "./videos.js?v=20261010b";
-import { renderCabinet } from "./cabinet.js?v=20261010b";
-import { renderAdminPanel } from "./admin-panel.js?v=20261010b";
-import { renderOrder } from "./order.js?v=20261010b";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261010b";
-import { поставитьСнимок } from "../img.js?v=20261010b";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261010c";
+import { renderCatalog } from "./catalog.js?v=20261010c";
+import { renderVideos } from "./videos.js?v=20261010c";
+import { renderCabinet } from "./cabinet.js?v=20261010c";
+import { renderAdminPanel } from "./admin-panel.js?v=20261010c";
+import { renderOrder } from "./order.js?v=20261010c";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261010c";
+import { поставитьСнимок } from "../img.js?v=20261010c";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -213,7 +213,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261010b");
+        const { api: siteApi } = await import("./api.js?v=20261010c");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -314,6 +314,15 @@ function buildHeader() {
   });
 
   const right = document.createElement("div"); right.className = "site-header-right";
+  // На телефоне в шапке остаётся только логотип, «Заказать» и кнопка меню.
+  // Всё остальное — внутри меню: раньше кнопки переносились на вторую и
+  // третью строку, шапка занимала треть экрана и выглядела неопрятно.
+  const menu = document.createElement("div"); menu.className = "site-menu";
+  const burger = document.createElement("button");
+  burger.className = "site-burger"; burger.type = "button";
+  burger.setAttribute("aria-label", "Меню"); burger.setAttribute("aria-expanded", "false");
+  burger.title = "Меню";
+  burger.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>`;
 
   // Кнопка «Заказать» (вместо корзины) — ведёт на страницу-форму заказа
   const orderBtn = document.createElement("button"); orderBtn.className = "btn-primary"; orderBtn.style.cssText = "padding:8px 16px;font-size:13px;font-weight:600";
@@ -321,13 +330,21 @@ function buildHeader() {
   orderBtn.addEventListener("click", () => { location.hash = "#order"; });
 
   right.append(orderBtn);
+  // Те же ссылки, что в строке меню на компьютере: на телефоне строка
+  // спрятана, и попасть в «Каталог» или «Кабинет» было неоткуда.
+  // «Панель» и «Кабинет» ниже есть кнопками — в списке они не нужны дважды.
+  links.filter(l => l.hash !== "#admin-panel" && l.hash !== "#cabinet").forEach(l => {
+    const a = document.createElement("a");
+    a.className = "site-nav-link menu-only"; a.href = l.hash; a.textContent = l.label;
+    menu.append(a);
+  });
 
   // Кнопка "Склад" — только для администратора (доступ по JWT phone)
   if (isAdmin()) {
     const skladBtn = document.createElement("a"); skladBtn.href = "/admin";
     skladBtn.className = "btn-warehouse";
     skladBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg> ${t("warehouse")}`;
-    right.append(skladBtn);
+    menu.append(skladBtn);
   }
 
   // Telegram-бот — иконка-ссылка (видна всем)
@@ -336,33 +353,48 @@ function buildHeader() {
   tgLink.target = "_blank"; tgLink.rel = "noopener";
   tgLink.className = "site-tg-link"; tgLink.title = "Наш Telegram-бот"; tgLink.setAttribute("aria-label", "Telegram-бот");
   tgLink.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.14-3.05-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>`;
-  right.append(tgLink);
+  menu.append(tgLink);
 
   // Theme + Lang
-  right.append(buildThemeToggle(), buildLangSwitcher());
+  menu.append(buildThemeToggle(), buildLangSwitcher());
 
   if (isLoggedIn()) {
     if (isAdmin()) {
       const panelBtn = document.createElement("button"); panelBtn.className = "btn-navy"; panelBtn.style.cssText = "padding:8px 16px;font-size:13px";
       panelBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> ${t("adminPanel")}`;
       panelBtn.addEventListener("click", () => { location.hash = "#admin-panel"; });
-      right.append(panelBtn);
+      menu.insertBefore(panelBtn, menu.firstChild && menu.querySelector(".btn-warehouse, .site-tg-link"));
     } else {
       const cabinetBtn = document.createElement("button"); cabinetBtn.className = "btn-navy"; cabinetBtn.style.cssText = "padding:8px 16px;font-size:13px";
       cabinetBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${t("cabinet")}`;
       cabinetBtn.addEventListener("click", () => { location.hash = "#cabinet"; });
-      right.append(cabinetBtn);
+      menu.insertBefore(cabinetBtn, menu.querySelector(".site-tg-link"));
     }
     const logoutBtn = document.createElement("button"); logoutBtn.className = "btn-ghost"; logoutBtn.style.cssText = "padding:8px 14px;font-size:13px";
     logoutBtn.textContent = t("logout");
     logoutBtn.addEventListener("click", () => { _logout(); location.hash = "#catalog"; location.reload(); });
-    right.append(logoutBtn);
+    menu.append(logoutBtn);
   } else {
     const loginBtn = document.createElement("button"); loginBtn.className = "btn-primary"; loginBtn.style.cssText = "padding:9px 18px;font-size:13px";
     loginBtn.textContent = t("login");
     loginBtn.addEventListener("click", openLogin);
-    right.append(loginBtn);
+    menu.append(loginBtn);
   }
+
+  right.append(menu, burger);
+
+  // Меню закрывается щелчком мимо, по Esc и при переходе в раздел —
+  // иначе оно остаётся висеть поверх каталога.
+  const закрыть = () => { menu.classList.remove("open"); burger.setAttribute("aria-expanded", "false"); };
+  burger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const открыто = menu.classList.toggle("open");
+    burger.setAttribute("aria-expanded", открыто ? "true" : "false");
+  });
+  menu.addEventListener("click", (e) => { if (e.target.closest("a,button")) закрыть(); });
+  document.addEventListener("click", (e) => { if (!menu.contains(e.target) && e.target !== burger) закрыть(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") закрыть(); });
+  window.addEventListener("hashchange", закрыть);
 
   inner.append(logo, nav, right);
   header.append(inner);
@@ -576,7 +608,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=181", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=182", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
