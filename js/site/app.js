@@ -1,12 +1,13 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261010f";
-import { renderCatalog } from "./catalog.js?v=20261010f";
-import { renderVideos } from "./videos.js?v=20261010f";
-import { renderCabinet } from "./cabinet.js?v=20261010f";
-import { renderAdminPanel } from "./admin-panel.js?v=20261010f";
-import { renderOrder } from "./order.js?v=20261010f";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261010f";
-import { поставитьСнимок } from "../img.js?v=20261010f";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261010g";
+import { renderCatalog } from "./catalog.js?v=20261010g";
+import { renderVideos } from "./videos.js?v=20261010g";
+import { renderCabinet } from "./cabinet.js?v=20261010g";
+import { renderAdminPanel } from "./admin-panel.js?v=20261010g";
+import { renderOrder } from "./order.js?v=20261010g";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261010g";
+import { поставитьСнимок } from "../img.js?v=20261010g";
+import { обновитьЕслиУстарело } from "../version.js?v=20261010g";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -216,7 +217,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261010f");
+        const { api: siteApi } = await import("./api.js?v=20261010g");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -538,8 +539,54 @@ function resumeRegistration() {
   if (pending) openLogin(pending);
 }
 
+// ------------------------------------------------------------------
+//  СТАРАЯ СТРАНИЦА В ТЕЛЕФОНЕ.
+//  Сервер отдаёт страницу без кэша, но телефон держит её в своей памяти:
+//  вкладка висит сутками, человек возвращается к ней из Telegram — и
+//  видит вчерашний сайт, хотя на сервере уже новый. Склад и приложение
+//  это давно ловят (js/version.js), а публичный сайт — нет.
+//  Теперь ловит: при запуске и при каждом возврате во вкладку сверяем
+//  версию страницы с выложенной и, если разошлись, перезагружаемся один
+//  раз. Если перезагрузка не помогла (держит кэш браузера) — показываем
+//  полоску с кнопкой.
+// ------------------------------------------------------------------
+function полоскаОбновления() {
+  if (document.getElementById("gm-update-bar")) return;
+  const бар = document.createElement("div");
+  бар.id = "gm-update-bar";
+  бар.style.cssText = "position:fixed;left:12px;right:12px;bottom:14px;z-index:300;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:14px;background:var(--navy,#16233b);color:#fff;box-shadow:0 14px 34px rgba(0,0,0,.28);font-size:14px";
+  const текст = document.createElement("span");
+  текст.textContent = "Вышла новая версия сайта";
+  const кнопка = document.createElement("button");
+  кнопка.textContent = "Обновить";
+  кнопка.style.cssText = "flex:0 0 auto;padding:9px 16px;border-radius:10px;border:0;background:var(--gold,#d9b45a);color:#1c2b4a;font-weight:700;font-size:14px;cursor:pointer";
+  кнопка.addEventListener("click", async () => {
+    кнопка.disabled = true; кнопка.textContent = "Обновляем…";
+    try { if (window.caches) { const k = await caches.keys(); await Promise.all(k.map(x => caches.delete(x))); } } catch {}
+    try {
+      const r = await navigator.serviceWorker?.getRegistration();
+      if (r) await r.unregister();
+    } catch {}
+    const u = new URL(location.href);
+    u.searchParams.set("v", String(Date.now()));
+    location.replace(u.toString());
+  });
+  бар.append(текст, кнопка);
+  document.body.append(бар);
+}
+
+async function следитьЗаВерсией() {
+  try { if (await обновитьЕслиУстарело({ onStale: полоскаОбновления })) return true; } catch {}
+  return false;
+}
+
 // ---- Boot ----
 export async function boot() {
+  // Страница могла пролежать во вкладке со вчера — проверяем версию ДО всего
+  // остального: перезагрузка всё равно отменит начатую работу.
+  if (await следитьЗаВерсией()) return;
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) следитьЗаВерсией(); });
+
   // Применяем сохранённую тему сразу
   const savedTheme = getTheme();
   document.documentElement.setAttribute("data-site-theme", savedTheme);
@@ -629,7 +676,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=185", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=186", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
