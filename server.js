@@ -157,7 +157,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20261010a");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20261010b");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -211,8 +211,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261010a");
-    const { sget } = await import("./api/lib/supa.js?v=20261010a");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261010b");
+    const { sget } = await import("./api/lib/supa.js?v=20261010b");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +
@@ -232,4 +232,9 @@ setInterval(async () => {
   } catch (e) { console.error("[GM] Итоги дня не ушли:", e.message); }
 }, 60000);
 
-app.listen(PORT, () => console.log(`[GM] Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`[GM] Server running on port ${PORT}`);
+  // Греем короткую память сервера: иначе первый заход в склад после
+  // выкладки ждёт базу несколько секунд на каждую таблицу.
+  import("./api/admin/db.js?v=20261010b").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
+});
