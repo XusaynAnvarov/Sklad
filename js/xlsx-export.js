@@ -2,8 +2,8 @@
 //  Экспорт накладных в Excel (.xlsx) — скачивание на компьютер с сайта.
 //  SheetJS через CDN. Без сервера и без Telegram (всё на клиенте).
 // ========================================================================
-import { CUR } from "./fx.js?v=20261010g";
-import { thumb } from "./img.js?v=20261010g";
+import { CUR } from "./fx.js?v=20261010h";
+import { thumb } from "./img.js?v=20261010h";
 
 let _xlsx = null;
 async function lib() { if (!_xlsx) _xlsx = await import("https://esm.sh/xlsx@0.18.5"); return _xlsx; }
