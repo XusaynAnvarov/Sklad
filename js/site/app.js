@@ -1,12 +1,12 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261010c";
-import { renderCatalog } from "./catalog.js?v=20261010c";
-import { renderVideos } from "./videos.js?v=20261010c";
-import { renderCabinet } from "./cabinet.js?v=20261010c";
-import { renderAdminPanel } from "./admin-panel.js?v=20261010c";
-import { renderOrder } from "./order.js?v=20261010c";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261010c";
-import { поставитьСнимок } from "../img.js?v=20261010c";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261010d";
+import { renderCatalog } from "./catalog.js?v=20261010d";
+import { renderVideos } from "./videos.js?v=20261010d";
+import { renderCabinet } from "./cabinet.js?v=20261010d";
+import { renderAdminPanel } from "./admin-panel.js?v=20261010d";
+import { renderOrder } from "./order.js?v=20261010d";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261010d";
+import { поставитьСнимок } from "../img.js?v=20261010d";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -213,7 +213,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261010c");
+        const { api: siteApi } = await import("./api.js?v=20261010d");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -322,7 +322,9 @@ function buildHeader() {
   burger.className = "site-burger"; burger.type = "button";
   burger.setAttribute("aria-label", "Меню"); burger.setAttribute("aria-expanded", "false");
   burger.title = "Меню";
-  burger.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>`;
+  // Подписываем словом, а не только значком: по трём полоскам не всем
+  // очевидно, что внутри «Склад» и «Панель».
+  burger.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg><span>Меню</span><svg class="site-burger-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><polyline points="6 9 12 15 18 9"/></svg>`;
 
   // Кнопка «Заказать» (вместо корзины) — ведёт на страницу-форму заказа
   const orderBtn = document.createElement("button"); orderBtn.className = "btn-primary"; orderBtn.style.cssText = "padding:8px 16px;font-size:13px;font-weight:600";
@@ -385,10 +387,15 @@ function buildHeader() {
 
   // Меню закрывается щелчком мимо, по Esc и при переходе в раздел —
   // иначе оно остаётся висеть поверх каталога.
-  const закрыть = () => { menu.classList.remove("open"); burger.setAttribute("aria-expanded", "false"); };
+  const закрыть = () => {
+    menu.classList.remove("open");
+    burger.classList.remove("open");
+    burger.setAttribute("aria-expanded", "false");
+  };
   burger.addEventListener("click", (e) => {
     e.stopPropagation();
     const открыто = menu.classList.toggle("open");
+    burger.classList.toggle("open", открыто);
     burger.setAttribute("aria-expanded", открыто ? "true" : "false");
   });
   menu.addEventListener("click", (e) => { if (e.target.closest("a,button")) закрыть(); });
@@ -608,7 +615,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=182", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=183", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
