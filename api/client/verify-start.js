@@ -3,6 +3,7 @@
 // Returns: { token, bot_url }
 import { normPhone, genVerifToken } from "../lib/clientauth.js";
 import { sget, supsert } from "../lib/supa.js";
+import { sdelete } from "../lib/supa.js";
 
 const BOT = process.env.CLIENT_BOT_USERNAME || "generalmodernbot";
 
@@ -24,10 +25,7 @@ export default async function handler(req, res) {
     if (exists.length) return res.status(409).json({ error: "Аккаунт с таким номером уже существует" });
 
     // удаляем старые верификации для этого телефона
-    try { await fetch(process.env.SUPABASE_URL + "/rest/v1/site_verifications?phone=eq." + encodeURIComponent(phone), {
-      method: "DELETE",
-      headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: "Bearer " + process.env.SUPABASE_SERVICE_KEY },
-    }); } catch {}
+    try { await sdelete("site_verifications?phone=eq." + encodeURIComponent(phone)); } catch {}
 
     const token = genVerifToken();
     const expires_at = new Date(Date.now() + 3600 * 1000).toISOString(); // 1 час

@@ -11,6 +11,7 @@
 // ========================================================================
 import { getUser } from "../lib/auth.js";
 
+import { СВОЯ_БАЗА, pgGet } from "../lib/pg.js";
 const SB_URL = process.env.SUPABASE_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY;
 const заголовки = { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY };
@@ -34,6 +35,10 @@ export default async function handler(req, res) {
   if (товар) условия.push(`product_id=eq.${encodeURIComponent(товар)}`);
 
   try {
+    if (СВОЯ_БАЗА) {
+      const изменения = await pgGet(`stock_log?${условия.join("&")}`);
+      return res.json({ ведётся: true, записей: изменения.length, изменения });
+    }
     const r = await fetch(`${SB_URL}/rest/v1/stock_log?${условия.join("&")}`, { headers: заголовки });
     const текст = await r.text();
     if (!r.ok) {

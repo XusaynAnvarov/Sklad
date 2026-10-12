@@ -1,7 +1,7 @@
 // POST /api/site-order — заказ с сайта (source:"site")
 // JWT клиента обязателен; unit_price:0 (владелец выставит цены в складе)
 import { getValidClient } from "./lib/clientauth.js";
-import { sget } from "./lib/supa.js";
+import { sget, sinsert, spatch } from "./lib/supa.js";
 import { слить, описание } from "./lib/mergeorder.js";
 
 async function notifyAdmin(text) {
@@ -68,27 +68,31 @@ export default async function handler(req, res) {
     if (existingId) {
       const слитые = слить(existing.items, saleItems);
       добавлено = описание(existing.items, слитые, Object.fromEntries(prods.map(p => [String(p.id), p.name])));
-      const r = await fetch(SUPA + "/rest/v1/sales?id=eq." + encodeURIComponent(existingId), {
-        method: "PATCH", headers: H,
-        body: JSON.stringify(былиЦены
+      let upd;
+      try {
+        upd = await spatch("sales?id=eq." + encodeURIComponent(existingId), былиЦены
           ? { items: слитые, date: new Date().toISOString(), status: "order" }   // новым товарам нужна цена
-          : { items: слитые, date: new Date().toISOString() }),
-      });
-      if (!r.ok) { console.error("site-order patch error", await r.text()); return res.status(500).json({ error: "Не удалось обновить заказ" }); }
-      const upd = await r.json(); sale = Array.isArray(upd) ? upd[0] : upd;
+          : { items: слитые, date: new Date().toISOString() });
+      } catch (e) {
+        console.error("site-order patch error", e.message || e);
+        return res.status(500).json({ error: "Не удалось обновить заказ" });
+      }
+      sale = Array.isArray(upd) ? upd[0] : upd;
     } else {
-      const r = await fetch(SUPA + "/rest/v1/sales", {
-        method: "POST", headers: H,
-        body: JSON.stringify({
+      let created;
+      try {
+        created = await sinsert("sales", {
           customer_id: client.customer_id,
           date: new Date().toISOString(), currency: "som",
           status: "order", source: "site",
           items: saleItems,
           order_from: { phone: client.phone, account_id: client.sub },
-        }),
-      });
-      if (!r.ok) { console.error("site-order supabase error", await r.text()); return res.status(500).json({ error: "Не удалось создать заказ" }); }
-      const created = await r.json(); sale = Array.isArray(created) ? created[0] : created;
+        });
+      } catch (e) {
+        console.error("site-order create error", e.message || e);
+        return res.status(500).json({ error: "Не удалось создать заказ" });
+      }
+      sale = Array.isArray(created) ? created[0] : created;
     }
 
     // уведомление владельцу

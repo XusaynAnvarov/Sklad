@@ -3,6 +3,7 @@
 // Returns: { token } (JWT для входа)
 import { normPhone, hashPassword, signToken, genSessionId } from "../lib/clientauth.js";
 import { sget, supsert, spatch } from "../lib/supa.js";
+import { sinsert, sdelete } from "../lib/supa.js";
 
 const MIN_PASS = 6;
 
@@ -50,14 +51,8 @@ export default async function handler(req, res) {
       const SUPA = process.env.SUPABASE_URL;
       const KEY = process.env.SUPABASE_SERVICE_KEY;
       const H = { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json", Prefer: "return=representation" };
-      const r = await fetch(SUPA + "/rest/v1/customers", {
-        method: "POST", headers: H,
-        body: JSON.stringify({ name: phone, contact: phone, tg_chat_id: v.chat_id ? String(v.chat_id) : null }),
-      });
-      if (r.ok) {
-        const created = await r.json();
-        customer_id = (Array.isArray(created) ? created[0] : created)?.id || null;
-      }
+      const created = await sinsert("customers", { name: phone, contact: phone, tg_chat_id: v.chat_id ? String(v.chat_id) : null });
+      customer_id = (Array.isArray(created) ? created[0] : created)?.id || null;
     }
 
     const password_hash = await hashPassword(password);
@@ -71,10 +66,7 @@ export default async function handler(req, res) {
 
     // удаляем использованный токен верификации
     try {
-      await fetch(process.env.SUPABASE_URL + "/rest/v1/site_verifications?token=eq." + encodeURIComponent(verif_token), {
-        method: "DELETE",
-        headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: "Bearer " + process.env.SUPABASE_SERVICE_KEY },
-      });
+      await sdelete("site_verifications?token=eq." + encodeURIComponent(verif_token));
     } catch {}
 
     const accounts = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id`);

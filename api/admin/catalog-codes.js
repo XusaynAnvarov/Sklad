@@ -18,11 +18,14 @@ import { getUser } from "../lib/auth.js";
 import { listAll } from "./db.js";
 import { раздатьКоды, таблицаПоТоварам, БУКВЫ } from "../../js/catalogcode.js";
 
+import { СВОЯ_БАЗА, pgGet, pgPatch } from "../lib/pg.js";
 const SB_URL = process.env.SUPABASE_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY;
 const заголовки = (extra = {}) => ({ apikey: SB_KEY, Authorization: "Bearer " + SB_KEY, "Content-Type": "application/json", ...extra });
 
 async function sbGet(path) {
+  // Со своей базой ходим через общий переходник (api/lib/pg.js)
+  if (СВОЯ_БАЗА) return pgGet(path);
   const r = await fetch(SB_URL + "/rest/v1/" + path, { headers: заголовки() });
   if (!r.ok) {
     const e = new Error("DB GET " + r.status + ": " + (await r.text()).slice(0, 300));
@@ -64,12 +67,21 @@ async function записать(выдать) {
     while (i < выдать.length) {
       const x = выдать[i++];
       try {
-        const r = await fetch(`${SB_URL}/rest/v1/products?id=eq.${encodeURIComponent(x.id)}&code=is.null`, {
-          method: "PATCH", headers: заголовки({ Prefer: "return=representation" }),
-          body: JSON.stringify({ code: x.code }),
-        });
-        if (!r.ok) throw new Error((await r.text()).slice(0, 200));
-        const строки = await r.json();
+        // Условие code=is.null тут важно: код, который успели выдать в
+        // карточке товара, перезаписывать нельзя. Поэтому правим именно
+        // «у кого кода ещё нет» и смотрим, сколько строк поменялось.
+        const путь = `products?id=eq.${encodeURIComponent(x.id)}&code=is.null`;
+        let строки;
+        if (СВОЯ_БАЗА) {
+          строки = await pgPatch(путь, { code: x.code });
+        } else {
+          const r = await fetch(`${SB_URL}/rest/v1/${путь}`, {
+            method: "PATCH", headers: заголовки({ Prefer: "return=representation" }),
+            body: JSON.stringify({ code: x.code }),
+          });
+          if (!r.ok) throw new Error((await r.text()).slice(0, 200));
+          строки = await r.json();
+        }
         // пусто — код успели выдать в карточке товара, пока шла раздача
         if (Array.isArray(строки) && строки.length) записано++;
         else ошибки.push({ id: x.id, name: x.name, code: x.code, ошибка: "у товара уже есть код — пропущен" });

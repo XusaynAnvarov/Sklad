@@ -232,8 +232,23 @@ setInterval(async () => {
   } catch (e) { console.error("[GM] Итоги дня не ушли:", e.message); }
 }, 60000);
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`[GM] Server running on port ${PORT}`);
+  // Какая база сейчас используется — видно сразу в журнале сервера.
+  // Если своя база не поднялась, лучше узнать здесь, а не на первой
+  // продаже: сообщение будет крупным и с подсказкой, как откатиться.
+  if (String(process.env.DB_MODE || "").toLowerCase() === "local") {
+    try {
+      const { проверитьСвязь } = await import("./api/lib/pg.js");
+      const товаров = await проверитьСвязь();
+      console.log(`[GM] База: СВОЯ (PostgreSQL здесь же), товаров в ней: ${товаров}`);
+    } catch (e) {
+      console.error("[GM] !!! СВОЯ БАЗА НЕ ОТВЕЧАЕТ:", e.message);
+      console.error("[GM] !!! Поставьте DB_MODE=supabase в .env и перезапустите — склад заработает как раньше.");
+    }
+  } else {
+    console.log("[GM] База: Supabase (облако)");
+  }
   // Греем короткую память сервера: иначе первый заход в склад после
   // выкладки ждёт базу несколько секунд на каждую таблицу.
   import("./api/admin/db.js?v=20261010h").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});

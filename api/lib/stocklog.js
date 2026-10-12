@@ -1,3 +1,4 @@
+import { СВОЯ_БАЗА, pgGet, pgВставить } from "./pg.js";
 // ========================================================================
 //  ЖУРНАЛ ИЗМЕНЕНИЙ ОСТАТКОВ.
 //
@@ -27,9 +28,15 @@ export async function остаткиДо(ids) {
   const чистые = [...new Set((ids || []).map(String).filter(id => /^[\w-]{1,64}$/.test(id)))];
   if (!чистые.length || таблицаЕсть === false) return {};
   try {
-    const r = await fetch(`${SB_URL}/rest/v1/products?id=in.(${чистые.map(x => `"${x}"`).join(",")})&select=id,name,stock_qty`, { headers: заголовки });
-    if (!r.ok) return {};
-    const rows = await r.json();
+    const путь = `products?id=in.(${чистые.map(x => `"${x}"`).join(",")})&select=id,name,stock_qty`;
+    let rows;
+    if (СВОЯ_БАЗА) {
+      rows = await pgGet(путь);
+    } else {
+      const r = await fetch(`${SB_URL}/rest/v1/${путь}`, { headers: заголовки });
+      if (!r.ok) return {};
+      rows = await r.json();
+    }
     return Object.fromEntries(rows.map(p => [String(p.id), p]));
   } catch { return {}; }
 }
@@ -53,6 +60,12 @@ export async function записать(rows, было, { причина = "", д
   }
   if (!строки.length) return 0;
   try {
+    if (СВОЯ_БАЗА) {
+      // У журнала свой id на каждую запись — это вставка, а не перезапись.
+      await pgВставить("stock_log", строки);
+      таблицаЕсть = true;
+      return строки.length;
+    }
     const r = await fetch(`${SB_URL}/rest/v1/stock_log`, {
       method: "POST", headers: { ...заголовки, Prefer: "return=minimal" }, body: JSON.stringify(строки),
     });

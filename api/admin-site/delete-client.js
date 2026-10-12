@@ -1,6 +1,7 @@
 // POST /api/admin-site/delete-client { account_id } — удалить клиента + заблокировать телефон
 import { getSiteAdmin } from "../lib/siteadmin.js";
 import { sget, supsert } from "../lib/supa.js";
+import { sdelete } from "../lib/supa.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -25,10 +26,7 @@ export default async function handler(req, res) {
 
     const SUPA = process.env.SUPABASE_URL;
     const KEY = process.env.SUPABASE_SERVICE_KEY;
-    await fetch(`${SUPA}/rest/v1/site_accounts?id=eq.${encodeURIComponent(account_id)}`, {
-      method: "DELETE",
-      headers: { apikey: KEY, Authorization: "Bearer " + KEY },
-    });
+    await sdelete(`site_accounts?id=eq.${encodeURIComponent(account_id)}`);
 
     return res.status(200).json({ ok: true });
   } catch (e) {

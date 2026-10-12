@@ -9,6 +9,9 @@
 import { getUser } from "../lib/auth.js";
 import { помнить, забыть } from "../lib/memcache.js";
 import { остаткиДо, записать as записатьВЖурнал } from "../lib/stocklog.js";
+// Своя база на этом же сервере (DB_MODE=local). Пока выключена — всё
+// идёт в Supabase, как раньше; включается одной строкой в .env.
+import { СВОЯ_БАЗА, pgGet, pgUpsert, pgPatch, pgDelete, ключТаблицы } from "../lib/pg.js";
 
 // Столько секунд держим список в памяти. Любая запись — из склада, с сайта
 // или заказ из бота — стирает её сразу, поэтому устареть ответ может лишь
@@ -55,11 +58,15 @@ const TABLES = new Set(["products", "customers", "sales", "purchases", "payments
 const okId = (v) => /^[\w-]{1,64}$/.test(String(v || ""));
 
 async function sbGet(path) {
+  if (СВОЯ_БАЗА) return pgGet(path);
   const r = await fetch(SB_URL + "/rest/v1/" + path, { headers: sbHeaders() });
   if (!r.ok) throw new Error("DB GET " + r.status + ": " + (await r.text()).slice(0, 300));
   return r.json();
 }
 async function sbPost(path, body) {
+  // В Supabase сюда уходит имя таблицы (иногда с ?on_conflict=…) —
+  // своей базе достаточно самого имени и её главного ключа.
+  if (СВОЯ_БАЗА) { const таблица = String(path).split("?")[0]; return pgUpsert(таблица, body); }
   const r = await fetch(SB_URL + "/rest/v1/" + path, {
     method: "POST", headers: sbHeaders({ Prefer: "return=representation" }), body: JSON.stringify(body),
   });
@@ -67,6 +74,7 @@ async function sbPost(path, body) {
   const txt = await r.text(); return txt ? JSON.parse(txt) : null;
 }
 async function sbPatch(path, body) {
+  if (СВОЯ_БАЗА) return pgPatch(path, body);
   const r = await fetch(SB_URL + "/rest/v1/" + path, {
     method: "PATCH", headers: sbHeaders({ Prefer: "return=representation" }), body: JSON.stringify(body),
   });
@@ -74,6 +82,7 @@ async function sbPatch(path, body) {
   const txt = await r.text(); return txt ? JSON.parse(txt) : null;
 }
 async function sbDelete(path) {
+  if (СВОЯ_БАЗА) { await pgDelete(path); return; }
   const r = await fetch(SB_URL + "/rest/v1/" + path, { method: "DELETE", headers: sbHeaders() });
   if (!r.ok) throw new Error("DB DELETE " + r.status + ": " + (await r.text()).slice(0, 300));
 }

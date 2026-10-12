@@ -1,6 +1,7 @@
 // DELETE /api/admin/unblock — снять блокировку телефона
 // Body: { phone }
 import { getUser } from "../lib/auth.js";
+import { sdelete } from "../lib/supa.js";
 
 export default async function handler(req, res) {
   if (req.method !== "DELETE" && req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -15,10 +16,7 @@ export default async function handler(req, res) {
   try {
     const SUPA = process.env.SUPABASE_URL;
     const KEY = process.env.SUPABASE_SERVICE_KEY;
-    await fetch(SUPA + `/rest/v1/blocked_phones?phone=eq.${encodeURIComponent(phone)}`, {
-      method: "DELETE",
-      headers: { apikey: KEY, Authorization: "Bearer " + KEY },
-    });
+    await sdelete(`blocked_phones?phone=eq.${encodeURIComponent(phone)}`);
     return res.status(200).json({ ok: true, unblocked: phone });
   } catch (e) {
     console.error("admin/unblock error", e);
