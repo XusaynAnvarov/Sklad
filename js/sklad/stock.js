@@ -5,9 +5,9 @@
 //  Пишем ПАКЕТОМ (upsertMany): на телефоне поштучная запись 20 позиций
 //  занимала бы минуту.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20261010h";
-import { arrivalRows } from "../arrival.js?v=20261010h";
-import { KIND_SHOP } from "../purchase.js?v=20261010h";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter, currentCost } from "../inventory.js?v=20261025a";
+import { arrivalRows } from "../arrival.js?v=20261025a";
+import { KIND_SHOP } from "../purchase.js?v=20261025a";
 
 // Свежие карточки товаров одним запросом (иначе спишем по устаревшему остатку)
 async function readFresh(db, ids) {
@@ -201,7 +201,12 @@ export async function returnItems(db, items) {
   const ожидаем = {};
   for (const it of items) {
     const p = fresh[it.product_id];
-    const batches = returnToStock(ensureBatches(p), Number(it.qty) || 0, p.cost_yuan, p.cost_usd);
+    const кол = Number(it.qty) || 0;
+    // Минус приходит от накладной-ВОЗВРАТА: тогда товар на складе
+    // появился, и «вернуть» его значит снять обратно.
+    const batches = кол < 0
+      ? consumeFIFO(ensureBatches(p), -кол).batches
+      : returnToStock(ensureBatches(p), кол, p.cost_yuan, p.cost_usd);
     const cc = costAfter(batches, p);
     const row = { id: p.id, stock_qty: sumQty(batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd, batches };
     rows.push(row);

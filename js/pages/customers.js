@@ -1,18 +1,19 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261010h";
-import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20261010h";
-import { openEditor, buildText, deleteSale } from "./sales.js?v=20261010h";
-import { exportCustomerInvoice } from "../xlsx-export.js?v=20261010h";
-import { placeholder as placeholderImg } from "./products.js?v=20261010h";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20261010h";
-import { authHeaders } from "../db.js?v=20261010h";
-import { icon } from "../icons.js?v=20261010h";
-import { thumb } from "../img.js?v=20261010h";
-import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20261010h";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261025a";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20261025a";
+import { openEditor, buildText, deleteSale } from "./sales.js?v=20261025a";
+import { exportCustomerInvoice } from "../xlsx-export.js?v=20261025a";
+import { placeholder as placeholderImg } from "./products.js?v=20261025a";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20261025a";
+import { authHeaders } from "../db.js?v=20261025a";
+import { icon } from "../icons.js?v=20261025a";
+import { thumb } from "../img.js?v=20261025a";
+import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20261025a";
 // Расчёт долга общий со складом в телефоне — иначе цифры расходятся.
-import { debtByCur, openingDebt, onlyPositive, coverageMap, issuedOnly } from "../debt.js?v=20261010h";
+import { debtByCur, openingDebt, onlyPositive, coverageMap, issuedOnly } from "../debt.js?v=20261025a";
+import { openRefund } from "./refund_dialog.js?v=20261025a";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
 const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);
@@ -152,6 +153,7 @@ async function renderCard(page, ctx, id) {
       el("button.btn.btn-outline", { title: "Привязать Telegram клиента (если он написал боту, но не подвязался)", onclick: () => linkTelegram(ctx, c) }, ["🔗 Telegram"]),
       el("button.btn.btn-outline", { title: "Акт сверки: оплаты и отгрузки по датам, с PDF", onclick: () => openActSverki(ctx, c, sales, payments) }, ["📋 Акт сверки"]),
       el("button.btn.btn-ok", { onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 16 }), "Оплата"]),
+      el("button.btn.btn-outline", { title: "Клиент вернул товар: склад пополнится, долг уменьшится", onclick: () => openRefund(ctx, c, sales, products) }, [icon("undo", { size: 16 }), "Возврат"]),
       el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products, c.id) }, [icon("plus", { size: 16 }), "Накладная"]),
       el("button.btn.btn-danger", { onclick: () => confirmDialog("Удалить клиента «" + c.name + "»? Он также выйдет из Telegram-бота. Накладные сохранятся, но без привязки к нему.", async () => {
         const chatIds = [c.tg_chat_id, ...(Array.isArray(c.tg_chat_ids) ? c.tg_chat_ids : [])].map(x => String(x || "")).filter(Boolean);

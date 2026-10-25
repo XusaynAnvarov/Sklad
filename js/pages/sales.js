@@ -1,23 +1,24 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261010h";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261010h";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261010h";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261010h";
-import { suggestPrice, priceNote } from "../prices.js?v=20261010h";
-import { списанные } from "../stockcheck.js?v=20261010h";
-import { пересчитатьСклад } from "../saleedit.js?v=20261010h";
-import { placeholder } from "./products.js?v=20261010h";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261010h";
-import { icon } from "../icons.js?v=20261010h";
-import { showLoader, hideLoader } from "../ui.js?v=20261010h";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261010h";
-import { exportInvoice } from "../xlsx-export.js?v=20261010h";
-import { showNotFound } from "./purchases.js?v=20261010h";
-import { thumb, поставитьСнимок } from "../img.js?v=20261010h";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261025a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261025a";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261025a";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261025a";
+import { suggestPrice, priceNote } from "../prices.js?v=20261025a";
+import { списанные } from "../stockcheck.js?v=20261025a";
+import { этоВозврат } from "../refund.js?v=20261025a";
+import { пересчитатьСклад } from "../saleedit.js?v=20261025a";
+import { placeholder } from "./products.js?v=20261025a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261025a";
+import { icon } from "../icons.js?v=20261025a";
+import { showLoader, hideLoader } from "../ui.js?v=20261025a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261025a";
+import { exportInvoice } from "../xlsx-export.js?v=20261025a";
+import { showNotFound } from "./purchases.js?v=20261025a";
+import { thumb, поставитьСнимок } from "../img.js?v=20261025a";
 // причина изменения остатка — её записывает журнал на сервере
-import { изменениеСклада } from "../db.js?v=20261010h";
+import { изменениеСклада } from "../db.js?v=20261025a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -42,7 +43,10 @@ export default async function render(page, ctx) {
     const curs = [...new Set((s.items || []).map(i => i.currency || s.currency))].map(c => CUR[c]?.sign || c).join(" ");
     tbody.append(el("tr", {}, [
       el("td", { text: new Date(s.date).toLocaleDateString("ru-RU") }),
-      el("td", {}, [el("strong", { text: cmap[s.customer_id]?.name || "—" })]),
+      el("td", {}, [
+        el("strong", { text: cmap[s.customer_id]?.name || "—" }),
+        этоВозврат(s) ? el("div", { style: { fontSize: "11px", fontWeight: "700", color: "var(--warn,#b45309)" }, text: "↩ возврат" }) : null,
+      ].filter(Boolean)),
       el("td", {}, [el("span.badge.cur", { text: curs || "—" })]),
       el("td", { text: (s.items || []).length + " поз." }),
       el("td", {}, [el("strong", { text: curStr(by) })]),
@@ -66,6 +70,13 @@ export default async function render(page, ctx) {
 
 // ---------- Редактор накладной (стиль «Оформить продажу») ----------
 export function openEditor(ctx, sale, customers, products, preselectId) {
+  // Накладную-ВОЗВРАТ править нельзя: количества в ней с минусом, и
+  // пересчёт склада принял бы их за новую продажу. Чтобы поправить —
+  // удалите возврат (товар снимется со склада) и примите заново.
+  if (sale && этоВозврат(sale)) {
+    toast("Возврат не правится. Удалите его и примите заново — так склад и долг останутся верными.", "err");
+    return;
+  }
   const isNew = !sale;
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
   const nameToId = {}; products.forEach(p => { nameToId[(p.name || "").toLowerCase()] = p.id; }); // поиск товара в накладной — ТОЛЬКО по названию (не по артикулу)
@@ -524,9 +535,14 @@ export async function deleteSale(ctx, sale, products, кто = "") {
     const wasDeducted = вернуть.length > 0;
     for (const it of вернуть) {
       const p = products.find(x => x.id === it.product_id); if (!p) continue;
-      const perY = it.qty ? (Number(it.cogs_yuan) || 0) / it.qty : (Number(p.cost_yuan) || 0);
-      const perU = it.qty ? (Number(it.cogs_usd) || 0) / it.qty : (Number(p.cost_usd) || 0);
-      p.batches = returnToStock(ensureBatches(p), it.qty, perY, perU, sale.date);
+      const кол = Number(it.qty) || 0;
+      const perY = кол ? (Number(it.cogs_yuan) || 0) / кол : (Number(p.cost_yuan) || 0);
+      const perU = кол ? (Number(it.cogs_usd) || 0) / кол : (Number(p.cost_usd) || 0);
+      // У накладной-ВОЗВРАТА количества отрицательные: товар тогда пришёл
+      // на склад, и при удалении его надо снять обратно, а не добавить ещё.
+      p.batches = кол < 0
+        ? consumeFIFO(ensureBatches(p), -кол).batches
+        : returnToStock(ensureBatches(p), кол, perY, perU, sale.date);
       const cc = costAfter(p.batches, p);
       const base = { id: p.id, stock_qty: sumQty(p.batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
       try { await ctx.db.products.upsert({ ...base, batches: p.batches }); } catch (e) { await ctx.db.products.upsert(base); }
@@ -548,7 +564,9 @@ export function buildText(s, cust, products) {
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
   const lines = (s.items || []).map((i, n) => {
     const c = i.currency || s.currency;
-    return `${n + 1}. ${pmap[i.product_id]?.name || "?"} — ${i.qty} × ${fmt(i.unit_price, c)} = ${fmt(i.qty * i.unit_price, c)}`;
+    // У возврата деньгами товара нет вовсе — название лежит в самой позиции
+    const имя = pmap[i.product_id]?.name || i.name || "?";
+    return `${n + 1}. ${имя} — ${i.qty} × ${fmt(i.unit_price, c)} = ${fmt(i.qty * i.unit_price, c)}`;
   });
   return [
     "🧾 *НАКЛАДНАЯ*",

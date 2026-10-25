@@ -2,13 +2,14 @@
 // Долг считает js/debt.js — то же самое место, что и склад на сайте.
 // Раньше здесь была своя копия расчёта, и она забывала старый долг клиента:
 // один и тот же человек показывал разные цифры в телефоне и на компьютере.
-import { el } from "../app.js?v=20261010h";
-import { icon } from "../../icons.js?v=20261010h";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20261010h";
-import { fmt } from "../../fx.js?v=20261010h";
-import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20261010h";
-import { debtByCur, onlyPositive, turnoverByCur, hasDebt, coverageMap, openingDebt, issuedOnly, CURS, zero } from "../../debt.js?v=20261010h";
-import { lastForCustomerMap, freshFirst } from "../../prices.js?v=20261010h";
+import { el, go } from "../app.js?v=20261025a";
+import { icon } from "../../icons.js?v=20261025a";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20261025a";
+import { fmt } from "../../fx.js?v=20261025a";
+import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20261025a";
+import { debtByCur, onlyPositive, turnoverByCur, hasDebt, coverageMap, openingDebt, issuedOnly, CURS, zero } from "../../debt.js?v=20261025a";
+import { lastForCustomerMap, freshFirst } from "../../prices.js?v=20261025a";
+import { openRefund } from "../../pages/refund_dialog.js?v=20261025a";
 
 const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const curStr = (m) => {
@@ -212,6 +213,12 @@ export default async function render(box, ctx) {
       title: c.name, wide: true, body,
       actions: [
         { label: "Изменить", kind: "btn-outline", onClick: (close) => { close(); openEditClient(c); } },
+        // Возврат принимают прямо у прилавка, поэтому кнопка нужна и здесь.
+        // Окно общее со складом на компьютере — считает одно и то же место.
+        { label: "↩ Возврат", kind: "btn-outline", onClick: (close) => {
+          close();
+          openRefund({ db: ctx.db, refresh: () => go("clients") }, c, sales, products);
+        } },
         { label: "Внести оплату", kind: "btn-primary", onClick: (close) => { close(); openPayment(c); } },
       ],
     });
