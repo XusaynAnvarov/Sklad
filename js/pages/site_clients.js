@@ -1,9 +1,9 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ САЙТА» — просмотр, удаление, блок/разблок
 // ========================================================================
-import { el, toast, confirmDialog } from "../ui.js?v=20261025b";
-import { icon } from "../icons.js?v=20261025b";
-import { authHeaders } from "../db.js?v=20261025b";
+import { el, toast, confirmDialog } from "../ui.js?v=20261025c";
+import { icon } from "../icons.js?v=20261025c";
+import { authHeaders } from "../db.js?v=20261025c";
 
 const BASE = "/api/admin";
 

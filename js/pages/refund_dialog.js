@@ -15,13 +15,13 @@
 //      появляется «Аванс: мы должны клиенту». Следующая выдача товара
 //      этот аванс съедает.
 // ========================================================================
-import { el, toast, modal, input, select, field, showLoader, hideLoader } from "../ui.js?v=20261025b";
-import { icon } from "../icons.js?v=20261025b";
-import { fmt, CUR } from "../fx.js?v=20261025b";
-import { покупки, составить, подписьВозврата, выплаты } from "../refund.js?v=20261025b";
-import { подходит } from "../productsearch.js?v=20261025b";
-import { изменениеСклада } from "../db.js?v=20261025b";
-import { подписьКода } from "../catalogcode.js?v=20261025b";
+import { el, toast, modal, input, select, field, showLoader, hideLoader } from "../ui.js?v=20261025c";
+import { icon } from "../icons.js?v=20261025c";
+import { fmt, CUR } from "../fx.js?v=20261025c";
+import { покупки, составить, подписьВозврата, выплаты } from "../refund.js?v=20261025c";
+import { подходит } from "../productsearch.js?v=20261025c";
+import { изменениеСклада } from "../db.js?v=20261025c";
+import { подписьКода } from "../catalogcode.js?v=20261025c";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -58,14 +58,33 @@ export function openRefund(ctx, клиент, sales, products) {
         el("p", { text: "У этого клиента ещё нет выданных накладных — возвращать нечего. Воспользуйтесь вкладкой «Суммой»." }),
       ]);
     }
-    const поиск = input({ type: "search", placeholder: "Найти товар среди его покупок…", style: { marginBottom: "10px" } });
-    const строки = el("div", { style: { display: "flex", flexDirection: "column", gap: "6px", maxHeight: "46vh", overflowY: "auto" } });
+    // Сколько всего у него куплено — чтобы было видно, что список полный
+    const всегоШтук = список.reduce((s, п) => s + п.куплено, 0);
+    const вернулось = список.reduce((s, п) => s + п.возвращено, 0);
+    const шапкаСписка = el("div.muted", { style: { fontSize: "13px", marginBottom: "8px" },
+      text: "Клиент купил " + список.length + " наименований, всего " + всегоШтук + " шт"
+        + (вернулось ? " · уже вернул " + вернулось + " шт" : "") });
+
+    // Поиск с лупой и кнопкой «очистить»: у постоянных клиентов список
+    // на полсотни позиций, и листать его пальцем — долго.
+    const поиск = input({ type: "search", placeholder: "Поиск: название, артикул или код…",
+      style: { flex: "1", minHeight: "42px", fontSize: "15px" } });
+    const очистить = el("button.btn.btn-outline.btn-sm", { title: "Очистить поиск", onclick: () => { поиск.value = ""; нарисоватьСтроки(); поиск.focus(); } }, [icon("x", { size: 15 })]);
+    const строкаПоиска = el("div", { style: { display: "flex", gap: "6px", alignItems: "center", marginBottom: "10px" } }, [
+      el("span", { style: { display: "flex", color: "var(--muted)" } }, [icon("search", { size: 18 })]),
+      поиск, очистить,
+    ]);
+    const счётНайденных = el("div.muted", { style: { fontSize: "12px", marginBottom: "6px" } });
+    const строки = el("div", { style: { display: "flex", flexDirection: "column", gap: "6px", maxHeight: "44vh", overflowY: "auto" } });
 
     const нарисоватьСтроки = () => {
       const q = поиск.value.trim().toLowerCase();
       строки.innerHTML = "";
       const видимые = список.filter(п => !q || подходит(п.товар || { name: п.name }, q));
-      if (!видимые.length) { строки.append(el("div.muted", { style: { padding: "8px" }, text: "Ничего не найдено" })); return; }
+      счётНайденных.textContent = q
+        ? "Найдено: " + видимые.length + " из " + список.length
+        : (выбрано.size ? "Выбрано к возврату: " + выбрано.size : "");
+      if (!видимые.length) { строки.append(el("div.muted", { style: { padding: "8px" }, text: "Ничего не найдено — проверьте название или вкладку «Суммой»" })); return; }
 
       видимые.forEach(п => {
         const уже = выбрано.get(п.product_id);
@@ -86,14 +105,19 @@ export function openRefund(ctx, клиент, sales, products) {
             });
           }
           обновитьИтог();
+          счётНайденных.textContent = поиск.value.trim()
+            ? счётНайденных.textContent
+            : (выбрано.size ? "Выбрано к возврату: " + выбрано.size : "");
         });
         строки.append(el("div.card", { style: { display: "flex", alignItems: "center", gap: "10px", padding: "8px 10px" } }, [
           el("div", { style: { flex: "1 1 200px", minWidth: "0" } }, [
             el("div", { style: { fontWeight: "600" }, text: п.name }),
             el("div.muted", { style: { fontSize: "11px" },
               text: (подписьКода(п.товар || {}) ? подписьКода(п.товар) + " · " : "")
-                + "куплено " + п.куплено + (п.возвращено ? " · возвращено " + п.возвращено : "")
-                + " · по " + fmt(п.цена, п.валюта) }),
+                + "куплено " + п.куплено + " шт"
+                + (п.возвращено ? " · уже вернул " + п.возвращено : "")
+                + " · по " + fmt(п.цена, п.валюта)
+                + " · " + new Date(п.когда).toLocaleDateString("ru-RU") }),
           ]),
           el("div", { style: { textAlign: "right", minWidth: "86px" } }, [
             el("div.muted", { style: { fontSize: "11px" }, text: "можно вернуть" }),
@@ -105,7 +129,9 @@ export function openRefund(ctx, клиент, sales, products) {
     };
     поиск.addEventListener("input", нарисоватьСтроки);
     нарисоватьСтроки();
-    return el("div", {}, [поиск, строки]);
+    // Курсор сразу в поиске: чаще всего нужный товар ищут, а не листают.
+    setTimeout(() => { try { поиск.focus(); } catch { } }, 50);
+    return el("div", {}, [шапкаСписка, строкаПоиска, счётНайденных, строки]);
   }
 
   // ---------- вкладка 2: суммой ----------

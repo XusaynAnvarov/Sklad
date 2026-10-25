@@ -8,9 +8,9 @@
 //  старую партию. Иначе прибыль по старому товару считалась бы по новой
 //  цене и врала.
 // ========================================================================
-import { ensureBatches, sumQty, costAfter, currentCost } from "./inventory.js?v=20261025b";
-import { convert } from "./fx.js?v=20261025b";
-import { isShop } from "./purchase.js?v=20261025b";
+import { ensureBatches, sumQty, costAfter, currentCost } from "./inventory.js?v=20261025c";
+import { convert } from "./fx.js?v=20261025c";
+import { isShop } from "./purchase.js?v=20261025c";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 

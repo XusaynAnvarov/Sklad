@@ -1,10 +1,10 @@
 // ========================================================================
 //  НАСТРОЙКИ — курсы валют, Telegram, доступ, демо-данные
 // ========================================================================
-import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261025b";
-import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20261025b";
-import { authHeaders } from "../db.js?v=20261025b";
-import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20261025b";
+import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261025c";
+import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20261025c";
+import { authHeaders } from "../db.js?v=20261025c";
+import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20261025c";
 
 const cfg = window.APP_CONFIG || {};
 
