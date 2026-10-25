@@ -1,19 +1,19 @@
 // ========================================================================
 //  СТРАНИЦА «КЛИЕНТЫ» + КАРТОЧКА КЛИЕНТА (оборот, долг, оплаты, накладные)
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261025a";
-import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20261025a";
-import { openEditor, buildText, deleteSale } from "./sales.js?v=20261025a";
-import { exportCustomerInvoice } from "../xlsx-export.js?v=20261025a";
-import { placeholder as placeholderImg } from "./products.js?v=20261025a";
-import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20261025a";
-import { authHeaders } from "../db.js?v=20261025a";
-import { icon } from "../icons.js?v=20261025a";
-import { thumb } from "../img.js?v=20261025a";
-import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20261025a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261025b";
+import { fmt, toUSD, convert, CUR, sumByCur } from "../fx.js?v=20261025b";
+import { openEditor, buildText, deleteSale } from "./sales.js?v=20261025b";
+import { exportCustomerInvoice } from "../xlsx-export.js?v=20261025b";
+import { placeholder as placeholderImg } from "./products.js?v=20261025b";
+import { sendInvoice, sendInvoicePDF, sendToClient, sendInvoicePDFToClient, sendActToClient, sendActToChannel, logoutClientFromBot } from "../telegram.js?v=20261025b";
+import { authHeaders } from "../db.js?v=20261025b";
+import { icon } from "../icons.js?v=20261025b";
+import { thumb } from "../img.js?v=20261025b";
+import { methodOptions, methodText, DEFAULT_METHOD } from "../payment.js?v=20261025b";
 // Расчёт долга общий со складом в телефоне — иначе цифры расходятся.
-import { debtByCur, openingDebt, onlyPositive, coverageMap, issuedOnly } from "../debt.js?v=20261025a";
-import { openRefund } from "./refund_dialog.js?v=20261025a";
+import { debtByCur, openingDebt, onlyPositive, coverageMap, issuedOnly } from "../debt.js?v=20261025b";
+import { openRefund } from "./refund_dialog.js?v=20261025b";
 
 const saleTotal = (s) => (s.items || []).reduce((t, i) => t + i.qty * i.unit_price, 0);
 const saleUSD = (s) => (s.items || []).reduce((t, i) => t + toUSD(i.qty * i.unit_price, s.currency), 0);
@@ -183,9 +183,12 @@ async function renderCard(page, ctx, id) {
       payments.forEach(p => {
         tbp.append(el("tr", {}, [
           el("td", { text: new Date(p.date).toLocaleDateString("ru-RU") }),
-          el("td", {}, [el("strong", { text: fmt(p.amount, p.currency) })]),
+          el("td", {}, [el("strong", {
+            text: fmt(p.amount, p.currency),
+            style: (Number(p.amount) || 0) < 0 ? { color: "var(--warn,#b45309)" } : {},
+          })]),
           el("td", {}, [el("span.badge.cur", { text: CUR[p.currency].label })]),
-          el("td", { text: methodText(p.method) }),
+          el("td", { text: (Number(p.amount) || 0) < 0 ? "↩ Возврат денег" : methodText(p.method) }),
           el("td", { text: p.note || "—" }),
           el("td.right", {}, [el("div.row-actions", {}, [
             el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Изменить оплату", onclick: () => openPayment(ctx, c, p) }, [icon("edit", { size: 15 })]),
@@ -447,9 +450,19 @@ function openActSverki(ctx, c, sales, payments) {
     const events = [];
     finals.forEach(s => {
       let sum = 0; (s.items || []).forEach(it => { const cc = it.currency || s.currency; if (cc === cur) sum += (it.qty || 0) * (it.unit_price || 0); });
+      // У накладной-возврата сумма отрицательная: это не отгрузка, а
+      // возврат товара — показываем отдельной строкой, иначе в акте он
+      // просто пропадал бы, и остаток не сходился с долгом.
       if (sum > 0.0001) events.push({ date: s.date, type: "ship", amount: sum });
+      else if (sum < -0.0001) events.push({ date: s.date, type: "refund", amount: -sum });
     });
-    (payments || []).forEach(p => { if ((p.currency || "som") === cur && (Number(p.amount) || 0) > 0.0001) events.push({ date: p.date, type: "pay", amount: Number(p.amount) }); });
+    (payments || []).forEach(p => {
+      if ((p.currency || "som") !== cur) return;
+      const сумма = Number(p.amount) || 0;
+      if (сумма > 0.0001) events.push({ date: p.date, type: "pay", amount: сумма });
+      // Оплата с минусом — это деньги, отданные клиенту при возврате.
+      else if (сумма < -0.0001) events.push({ date: p.date, type: "cash_back", amount: -сумма });
+    });
     const open = Number(opening[cur]) || 0;
     if (!events.length && Math.abs(open) < (cur === "som" ? 1 : 0.01)) return;
     any = true;
@@ -458,12 +471,16 @@ function openActSverki(ctx, c, sales, payments) {
     body.append(el("div.hint", { text: "Начальный долг: " + fmt(open, cur) }));
     const tb = el("tbody");
     let bal = open;
+    const НАЗВАНИЕ = { ship: "Накладная", pay: "Оплата", refund: "↩ Возврат товара", cash_back: "↩ Возврат денег" };
     events.forEach(ev => {
       let ship = "", paid2 = "";
-      if (ev.type === "ship") { bal += ev.amount; ship = fmt(ev.amount, cur); } else { bal -= ev.amount; paid2 = fmt(ev.amount, cur); }
+      if (ev.type === "ship") { bal += ev.amount; ship = fmt(ev.amount, cur); }
+      else if (ev.type === "refund") { bal -= ev.amount; ship = "−" + fmt(ev.amount, cur); }      // товар вернулся: отгружено меньше
+      else if (ev.type === "cash_back") { bal += ev.amount; paid2 = "−" + fmt(ev.amount, cur); }  // деньги ушли клиенту
+      else { bal -= ev.amount; paid2 = fmt(ev.amount, cur); }
       tb.append(el("tr", {}, [
         el("td", { text: new Date(ev.date).toLocaleDateString("ru-RU") }),
-        el("td", { text: ev.type === "ship" ? "Накладная" : "Оплата" }),
+        el("td", { text: НАЗВАНИЕ[ev.type] || "Операция" }),
         el("td.right", { text: ship }),
         el("td.right", { text: paid2 }),
         el("td.right", {}, [el("strong", { text: fmt(bal, cur) })]),

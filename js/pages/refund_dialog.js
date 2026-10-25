@@ -15,13 +15,13 @@
 //      появляется «Аванс: мы должны клиенту». Следующая выдача товара
 //      этот аванс съедает.
 // ========================================================================
-import { el, toast, modal, input, select, field, showLoader, hideLoader } from "../ui.js?v=20261025a";
-import { icon } from "../icons.js?v=20261025a";
-import { fmt, CUR } from "../fx.js?v=20261025a";
-import { покупки, составить, подписьВозврата } from "../refund.js?v=20261025a";
-import { подходит } from "../productsearch.js?v=20261025a";
-import { изменениеСклада } from "../db.js?v=20261025a";
-import { подписьКода } from "../catalogcode.js?v=20261025a";
+import { el, toast, modal, input, select, field, showLoader, hideLoader } from "../ui.js?v=20261025b";
+import { icon } from "../icons.js?v=20261025b";
+import { fmt, CUR } from "../fx.js?v=20261025b";
+import { покупки, составить, подписьВозврата, выплаты } from "../refund.js?v=20261025b";
+import { подходит } from "../productsearch.js?v=20261025b";
+import { изменениеСклада } from "../db.js?v=20261025b";
+import { подписьКода } from "../catalogcode.js?v=20261025b";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -34,6 +34,17 @@ export function openRefund(ctx, клиент, sales, products) {
   const вкладки = el("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" } });
   const тело = el("div");
   const итогСтрока = el("div", { style: { fontWeight: "700", fontSize: "15px", marginTop: "10px" } });
+
+  // Чем рассчитались с клиентом. По умолчанию — в счёт долга: так возврат
+  // уменьшает его долг, а если долга нет, мы остаёмся должны ему. Если
+  // деньги отданы на руки — ставим вторую отметку, иначе клиент навсегда
+  // останется «авансом», хотя расчёт уже закрыт.
+  const деньгамиГалка = el("input", { type: "checkbox" });
+  const деньгамиПоле = el("label", {
+    style: { display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", fontSize: "14px" },
+  }, [деньгамиГалка, el("span", { text: "Вернули деньгами (отдали наличные/перевод)" })]);
+  const деньгамиПодсказка = el("div.hint", { style: { marginTop: "4px" },
+    text: "Без отметки возврат уменьшит долг клиента, а если долга нет — мы останемся должны ему. С отметкой расчёт закрывается: в оплатах появится строка «Возврат денег»." });
 
   const кнопкаВкладки = (ид, текст) => el("button.btn.btn-sm" + (режим === ид ? ".btn-primary" : ".btn-outline"), {
     text: текст,
@@ -176,7 +187,7 @@ export function openRefund(ctx, клиент, sales, products) {
   modal({
     title: "Возврат — " + клиент.name,
     wide: true,
-    body: el("div", {}, [вкладки, тело, итогСтрока]),
+    body: el("div", {}, [вкладки, тело, итогСтрока, деньгамиПоле, деньгамиПодсказка]),
     actions: [
       { label: "Отмена", kind: "btn-outline", onClick: x => x() },
       {
@@ -200,8 +211,22 @@ export function openRefund(ctx, клиент, sales, products) {
               catch { for (const r of строки) { try { await ctx.db.products.upsert(r); } catch { await ctx.db.products.upsert((({ batches, ...x }) => x)(r)); } } }
             }
             await ctx.db.sales.upsert(накладная);
+
+            // Отдали деньги на руки — записываем выплату (оплата с минусом),
+            // иначе клиент остался бы «авансом» при закрытом расчёте.
+            if (деньгамиГалка.checked) {
+              const строкиВыплат = выплаты({
+                customer_id: клиент.id, сумма, дата: накладная.date,
+                комментарий: режим === "сумма" ? fПричина.value.trim() : "",
+              });
+              for (const в of строкиВыплат) {
+                try { await ctx.db.payments.upsert(в); }
+                catch { const { method, ...без } = в; await ctx.db.payments.upsert(без); }
+              }
+            }
+
             hideLoader();
-            toast(подписьВозврата(накладная, сумма) + " — принят", "ok");
+            toast(подписьВозврата(накладная, сумма) + (деньгамиГалка.checked ? " — принят, деньги возвращены" : " — принят"), "ok");
             close();
             ctx.refresh();
           } catch (e) {

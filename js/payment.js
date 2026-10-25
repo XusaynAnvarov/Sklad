@@ -9,6 +9,9 @@
 
 export const PAY_METHODS = [
   { value: "cash", label: "Наличные", icon: "💵" },
+  // Возврат денег клиенту: такая «оплата» записана с минусом — деньги
+  // ушли от нас. Выбирать её вручную не нужно, её ставит окно возврата.
+  { value: "refund_cash", label: "Возврат денег клиенту", icon: "↩" },
   { value: "card_transfer", label: "Перевод на карту", icon: "📲" },
   { value: "card", label: "Пластиковая карта", icon: "💳" },
   { value: "transfer", label: "Перечисление", icon: "🏦" },
@@ -27,9 +30,10 @@ export function methodText(v) {
   const m = BY_VALUE[String(v || "").trim()];
   return m ? `${m.icon} ${m.label}` : "— Не указан";
 }
-// Варианты для select() из js/ui.js
+// Варианты для select() из js/ui.js. Возврат денег сюда не попадает:
+// его ставит окно возврата, а руками выбирать нечего.
 export function methodOptions() {
-  return PAY_METHODS.map(m => ({ value: m.value, label: `${m.icon} ${m.label}` }));
+  return PAY_METHODS.filter(m => m.value !== "refund_cash").map(m => ({ value: m.value, label: `${m.icon} ${m.label}` }));
 }
 // Известен ли способ (для проверки перед сохранением)
 export function isKnownMethod(v) { return !!BY_VALUE[String(v || "").trim()]; }
