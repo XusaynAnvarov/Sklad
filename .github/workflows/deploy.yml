@@ -13,19 +13,19 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          # Адрес новой базы — НЕ секрет (он и так виден в браузере).
-          # ПЕРЕЕЗД БАЗЫ: пока он идёт, ключ из секрета и адрес новой базы
-          # пишем в ОТДЕЛЬНЫЕ переменные (…_NEW). Рабочие SUPABASE_URL и
-          # SUPABASE_SERVICE_KEY не трогаем — склад продолжает работать на
-          # старой базе, пока данные не догнаны и переключение не одобрено.
-          SUPABASE_URL_NEW: https://juhnnhwjnmxnamqekwjy.supabase.co
+          # Адрес базы — НЕ секрет (он и так виден в браузере). При переезде
+          # на другую базу меняется в ДВУХ местах: здесь (для сервера и
+          # ботов) и в config.js (для браузера). Ключ к этому адресу лежит
+          # в GitHub Secrets → SUPABASE_SERVICE_KEY: меняются оба вместе,
+          # иначе база отвечает 401 «Invalid API key».
+          SUPABASE_URL: https://juhnnhwjnmxnamqekwjy.supabase.co
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: SUPABASE_SERVICE_KEY,SUPABASE_URL_NEW
+          envs: SUPABASE_SERVICE_KEY,SUPABASE_URL
           script: |
-            echo "=== доступы к новой базе (переезд) ==="
+            echo "=== доступы к базе ==="
             if [ -z "$SUPABASE_SERVICE_KEY" ]; then
               echo "ВНИМАНИЕ: секрет SUPABASE_SERVICE_KEY пуст — добавьте его в GitHub Secrets."
             else
@@ -33,18 +33,23 @@ jobs:
               # реальный .env приложения (НЕ .env.example)
               ENVFILE="/var/www/skladanvarov/.env"
               if [ ! -f "$ENVFILE" ]; then
-                ENVFILE="$(grep -rl '^SUPABASE_SERVICE_KEY=' /var/www /root /home /opt 2>/dev/null | grep -v node_modules | grep -v '\.example' | head -1)"
+                ENVFILE="$(grep -rl 'SUPABASE_SERVICE_KEY=' /var/www /root /home /opt 2>/dev/null | grep -v node_modules | grep -v '\.example' | head -1)"
               fi
               if [ -z "$ENVFILE" ]; then
                 echo "ОШИБКА: не нашёл реальный .env"
               else
                 touch "$ENVFILE"
                 cp -f "$ENVFILE" "$ENVFILE.bak"
-                sed -i '/^SUPABASE_SERVICE_KEY_NEW=/d;/^SUPABASE_URL_NEW=/d' "$ENVFILE"
-                printf 'SUPABASE_URL_NEW=%s\n' "$SUPABASE_URL_NEW" >> "$ENVFILE"
-                printf 'SUPABASE_SERVICE_KEY_NEW=%s\n' "$SUPABASE_SERVICE_KEY" >> "$ENVFILE"
-                echo "Записано в: $ENVFILE (рабочая база не тронута)"
-                echo "сейчас работаем на: $(grep -o '^SUPABASE_URL=.*' "$ENVFILE")"
+                # Невидимый символ в начале файла (BOM) ломает поиск по
+                # началу строки: без этого sed ниже «выполняется», но первую
+                # строку не заменяет. Срезаем его.
+                sed -i '1s/^\xef\xbb\xbf//' "$ENVFILE"
+                # Адрес и ключ пишем ВМЕСТЕ — порознь они дают 401.
+                sed -i '/^SUPABASE_URL=/d;/^SUPABASE_SERVICE_KEY=/d;/^SUPABASE_URL_NEW=/d;/^SUPABASE_SERVICE_KEY_NEW=/d' "$ENVFILE"
+                printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL" >> "$ENVFILE"
+                printf 'SUPABASE_SERVICE_KEY=%s\n' "$SUPABASE_SERVICE_KEY" >> "$ENVFILE"
+                echo "Записано в: $ENVFILE"
+                echo "работаем на базе: $(grep -o '^SUPABASE_URL=.*' "$ENVFILE")"
                 # на всякий случай уберём ключ из .env.example, если туда попал раньше
                 [ -f /var/www/skladanvarov/.env.example ] && sed -i '/^SUPABASE_SERVICE_KEY=./d' /var/www/skladanvarov/.env.example || true
               fi
