@@ -14,3 +14,9 @@ _import/_*.cjs
 _guide/*.gif
 _guide/*.png
 .cache/
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
+
+entities.json
