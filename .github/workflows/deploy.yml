@@ -13,13 +13,19 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Адрес новой базы — НЕ секрет (он и так виден в браузере).
+          # ПЕРЕЕЗД БАЗЫ: пока он идёт, ключ из секрета и адрес новой базы
+          # пишем в ОТДЕЛЬНЫЕ переменные (…_NEW). Рабочие SUPABASE_URL и
+          # SUPABASE_SERVICE_KEY не трогаем — склад продолжает работать на
+          # старой базе, пока данные не догнаны и переключение не одобрено.
+          SUPABASE_URL_NEW: https://juhnnhwjnmxnamqekwjy.supabase.co
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: SUPABASE_SERVICE_KEY
+          envs: SUPABASE_SERVICE_KEY,SUPABASE_URL_NEW
           script: |
-            echo "=== SUPABASE_SERVICE_KEY setup ==="
+            echo "=== доступы к новой базе (переезд) ==="
             if [ -z "$SUPABASE_SERVICE_KEY" ]; then
               echo "ВНИМАНИЕ: секрет SUPABASE_SERVICE_KEY пуст — добавьте его в GitHub Secrets."
             else
@@ -33,9 +39,12 @@ jobs:
                 echo "ОШИБКА: не нашёл реальный .env"
               else
                 touch "$ENVFILE"
-                sed -i '/^SUPABASE_SERVICE_KEY=/d' "$ENVFILE"
-                printf 'SUPABASE_SERVICE_KEY=%s\n' "$SUPABASE_SERVICE_KEY" >> "$ENVFILE"
-                echo "Записано в: $ENVFILE"
+                cp -f "$ENVFILE" "$ENVFILE.bak"
+                sed -i '/^SUPABASE_SERVICE_KEY_NEW=/d;/^SUPABASE_URL_NEW=/d' "$ENVFILE"
+                printf 'SUPABASE_URL_NEW=%s\n' "$SUPABASE_URL_NEW" >> "$ENVFILE"
+                printf 'SUPABASE_SERVICE_KEY_NEW=%s\n' "$SUPABASE_SERVICE_KEY" >> "$ENVFILE"
+                echo "Записано в: $ENVFILE (рабочая база не тронута)"
+                echo "сейчас работаем на: $(grep -o '^SUPABASE_URL=.*' "$ENVFILE")"
                 # на всякий случай уберём ключ из .env.example, если туда попал раньше
                 [ -f /var/www/skladanvarov/.env.example ] && sed -i '/^SUPABASE_SERVICE_KEY=./d' /var/www/skladanvarov/.env.example || true
               fi
