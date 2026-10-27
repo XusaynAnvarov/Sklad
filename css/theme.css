@@ -681,3 +681,139 @@ tr.month-active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   .navitem { padding: 13px 14px; }
   .inp, .cselect { min-height: 42px; }
 }
+
+/* ===================================================================
+   СТЕКЛО — ТОЛЬКО НА ГЛАВНОЙ (дашборд).
+   Карточки становятся матовым стеклом: сквозь них просвечивает тёплое
+   свечение фона, края подсвечены, тень глубокая. Остальные разделы —
+   товары, накладные, отчёты — остаются строгими: там таблицы и мелкие
+   цифры, им прозрачность только мешает.
+
+   Читаемость важнее вида, поэтому:
+     • сами цифры и подписи НЕ прозрачные — прозрачна только подложка;
+     • если браузер не умеет размытие, подложка становится сплошной
+       (@supports ниже) — текст остаётся читаемым, просто без эффекта;
+     • на телефоне размытие слабее: сильное съедает плавность прокрутки;
+     • при включённой в системе настройке «меньше прозрачности» стекло
+       выключается само.
+   =================================================================== */
+
+/* Тёплое свечение под стеклом. Без него стекло не видно: размывать
+   нечего, и карточки выглядят просто серыми. */
+.page-dashboard { position: relative; }
+/* z-index 0, а не -1: с -1 слой уходит ЗА фон страницы и свечения не
+   видно совсем. Ноль ставит его над фоном, но под карточками — они идут
+   следом по порядку и перекрывают его сами. */
+.page-dashboard::before {
+  content: ""; position: fixed; inset: -10%; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(42% 38% at 14% 12%, rgba(217,180,90,.26), transparent 70%),
+    radial-gradient(38% 34% at 88% 22%, rgba(240,220,164,.17), transparent 72%),
+    radial-gradient(46% 40% at 62% 92%, rgba(168,135,60,.19), transparent 70%);
+  filter: blur(42px);
+  animation: стекло-дыхание 26s ease-in-out infinite;
+}
+/* Содержимое — поверх свечения. */
+.page-dashboard > * { position: relative; z-index: 1; }
+@keyframes стекло-дыхание {
+  50% { transform: translate3d(2%, -2%, 0) scale(1.07); }
+}
+
+/* Сами стеклянные поверхности. */
+.page-dashboard .stat-card,
+.page-dashboard .card,
+.page-dashboard .advice {
+  background: linear-gradient(152deg, rgba(18,18,22,.52), rgba(18,18,22,.30)),
+              linear-gradient(152deg, rgba(255,255,255,.10), rgba(255,255,255,.035));
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 18px;
+  backdrop-filter: blur(18px) saturate(155%);
+  -webkit-backdrop-filter: blur(18px) saturate(155%);
+  box-shadow: 0 18px 38px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.20);
+}
+
+/* Блик по верхнему краю — то, от чего стекло читается как стекло. */
+.page-dashboard .stat-card { overflow: hidden; }
+.page-dashboard .stat-card::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: radial-gradient(120% 70% at 0% 0%, rgba(255,255,255,.16), transparent 58%);
+}
+.page-dashboard .stat-card .st-ic { opacity: .65; }
+
+.page-dashboard .stat-card:hover,
+.page-dashboard .card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(217,180,90,.55);
+  box-shadow: 0 24px 50px rgba(0,0,0,.46), inset 0 1px 0 rgba(255,255,255,.28);
+}
+
+/* Карточка-акцент (с золотой заливкой) стеклом не становится: её смысл —
+   быть сплошной и выделяться. */
+.page-dashboard .stat-card.grad { background: var(--grad2); border: none; backdrop-filter: none; }
+.page-dashboard .stat-card.grad::after { display: none; }
+
+/* ---------- Светлая тема: стекло белое, текст остаётся чернильным ---------- */
+html[data-theme="light"] .page-dashboard::before {
+  background:
+    radial-gradient(42% 38% at 14% 12%, rgba(216,178,106,.34), transparent 70%),
+    radial-gradient(38% 34% at 88% 22%, rgba(143,103,32,.16), transparent 72%),
+    radial-gradient(46% 40% at 62% 92%, rgba(216,178,106,.26), transparent 70%);
+}
+html[data-theme="light"] .page-dashboard .stat-card,
+html[data-theme="light"] .page-dashboard .card,
+html[data-theme="light"] .page-dashboard .advice {
+  background: linear-gradient(152deg, rgba(255,255,255,.72), rgba(255,255,255,.52));
+  border: 1px solid rgba(255,255,255,.85);
+  box-shadow: 0 16px 34px rgba(16,24,40,.12), inset 0 1px 0 rgba(255,255,255,.95);
+}
+html[data-theme="light"] .page-dashboard .stat-card::after {
+  background: radial-gradient(120% 70% at 0% 0%, rgba(255,255,255,.75), transparent 58%);
+}
+/* Золотая карточка остаётся золотой и в светлой теме. Без этой строки
+   правило выше (оно «сильнее» по весу) закрашивало её белым стеклом, и
+   белый текст на ней пропадал. */
+html[data-theme="light"] .page-dashboard .stat-card.grad {
+  background: var(--grad2); border: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: 0 16px 34px rgba(143,103,32,.22);
+}
+html[data-theme="light"] .page-dashboard .stat-card:hover,
+html[data-theme="light"] .page-dashboard .card:hover {
+  border-color: rgba(143,103,32,.45);
+  box-shadow: 0 22px 44px rgba(16,24,40,.16), inset 0 1px 0 #fff;
+}
+
+/* ---------- Телефон: размытие слабее, иначе прокрутка дёргается ---------- */
+@media (max-width: 760px) {
+  .page-dashboard .stat-card,
+  .page-dashboard .card,
+  .page-dashboard .advice {
+    backdrop-filter: blur(11px) saturate(140%);
+    -webkit-backdrop-filter: blur(11px) saturate(140%);
+    border-radius: 15px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.16);
+  }
+  .page-dashboard::before { filter: blur(34px); }
+}
+
+/* ---------- Если размытия нет — подложка сплошная ---------- */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .page-dashboard .stat-card,
+  .page-dashboard .card,
+  .page-dashboard .advice { background: var(--panel); border-color: var(--border); }
+  .page-dashboard::before { display: none; }
+}
+
+/* ---------- Системные пожелания пользователя важнее красоты ---------- */
+@media (prefers-reduced-transparency: reduce) {
+  .page-dashboard .stat-card,
+  .page-dashboard .card,
+  .page-dashboard .advice {
+    background: var(--panel); border-color: var(--border);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  .page-dashboard::before { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-dashboard::before { animation: none; }
+}
