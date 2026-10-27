@@ -1392,3 +1392,36 @@ html[data-site-theme="dark"] .loader-progress { background: rgba(255,255,255,.12
   .site-main, .product-grid.gm-smena > .product-card { animation: none; }
   .site-header.zanyato .gm-znak .gm-koltso { animation: none; }
 }
+
+/* ---------- 12. Чтобы не лагало ---------- */
+/* Размытие на КАЖДОЙ карточке — главный тормоз: карточек на странице
+   бывает восемь сотен, и браузер пересчитывает восемьсот размытий при
+   любом движении. Подложка остаётся полупрозрачной, вид тот же, а цена
+   почти нулевая. Размытие оставлено там, где поверхностей единицы:
+   шапка, лента категорий, витрина, корзина, меню, загрузка. */
+.product-card, .skeleton-card, .s-empty {
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  background: linear-gradient(152deg, rgba(255,255,255,.88), rgba(255,255,255,.74));
+}
+html[data-site-theme="dark"] .product-card,
+html[data-site-theme="dark"] .skeleton-card,
+html[data-site-theme="dark"] .s-empty {
+  background: linear-gradient(152deg, rgba(26,26,32,.92), rgba(20,20,26,.80));
+}
+/* Карточки за пределами экрана браузер может не отрисовывать вовсе.
+   Высоту подсказываем заранее, иначе полоса прокрутки будет прыгать. */
+.product-card { content-visibility: auto; contain-intrinsic-size: 340px; }
+
+/* Переход раздела: только прозрачность и сдвиг. Анимация размытия на
+   контейнере со всеми карточками — самое дорогое, что бывает, и именно
+   она дёргалась на телефоне. */
+@keyframes сайт-переход {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Свечение: градиенты и так мягкие, дополнительное размытие в 60px
+   браузер пересчитывал на каждом кадре. Двигаем только смещение —
+   это делает видеокарта. */
+.gm-glow { filter: none; will-change: transform; }
+.gm-loader-glow { filter: blur(40px); }

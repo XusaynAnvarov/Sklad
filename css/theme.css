@@ -1005,3 +1005,18 @@ html[data-theme="light"] .toast {
   .toast .gm-galka { animation: none; stroke-dashoffset: 0; }
   .gm-loader .glr { animation: none; }
 }
+
+/* ---------- Чтобы не лагало ---------- */
+/* Переход раздела: только прозрачность и сдвиг, без анимации размытия —
+   в товарах под тысячу строк, и размытие всего списка дёргалось. */
+@keyframes gmPageGlass {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+/* Свечение двигаем смещением, без пересчёта размытия на каждом кадре. */
+.gm-glow { filter: none; will-change: transform; }
+/* Таблица: размытие на контейнере с сотнями строк тоже дорого. */
+.tbl { backdrop-filter: none; -webkit-backdrop-filter: none;
+  background: linear-gradient(152deg, rgba(22,22,28,.86), rgba(18,18,24,.74)); }
+html[data-theme="light"] .tbl {
+  background: linear-gradient(152deg, rgba(255,255,255,.90), rgba(255,255,255,.78)); }

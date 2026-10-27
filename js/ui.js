@@ -2,7 +2,7 @@
 //  UI-ХЕЛПЕРЫ: создание элементов, тосты, модалки, диалоги, анимации
 // ========================================================================
 // img.js ничего не импортирует, поэтому круга зависимостей не возникает.
-import { full } from "./img.js?v=20261027c";
+import { full } from "./img.js?v=20261027d";
 
 // Краткое создание элемента: el("div.card", {onclick}, [children])
 export function el(tag, props = {}, children = []) {
@@ -85,15 +85,55 @@ export function confirmDialog(message, onYes) {
 }
 
 // ---------- Анимация числа (счётчик) ----------
+// Число не появляется разом, а набегает от нуля и тормозит у конца.
+const мéньшеДвижения = () => {
+  try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; }
+};
+
 export function animateCount(node, to, formatter = (n) => Math.round(n).toLocaleString("ru-RU")) {
-  const from = 0, dur = 900, start = performance.now();
+  node.dataset.gmSchet = "1";          // чтобы общий сборщик ниже не завёл второй счётчик
+  if (мéньшеДвижения()) { node.textContent = formatter(to); return; }
+  const from = 0, dur = 1100, start = performance.now();
   function step(now) {
     const t = Math.min(1, (now - start) / dur);
-    const eased = 1 - Math.pow(1 - t, 3);
+    const eased = 1 - Math.pow(1 - t, 4);
     node.textContent = formatter(from + (to - from) * eased);
     if (t < 1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
+}
+
+// ---------- Оживить числа на всём экране ----------
+// Раньше счётчик стоял только на дашборде: в отчётах, у клиентов и в
+// телефоне числа просто появлялись. Эта функция проходит по готовому
+// экрану, находит крупные числа и запускает тот же счётчик — разметку
+// страниц менять не нужно, достаточно позвать её после отрисовки.
+//
+// Разбираем УЖЕ показанный текст («¥ 48 300», «18 450 000 сум», «$12 480»),
+// чтобы сохранить валюту и подпись как есть: формат у каждой страницы свой,
+// и переписывать его в одном месте было бы неверно.
+const ЧИСЛА_ГДЕ = ".st-value, .mini-num .v, .big-num, [data-schet]";
+
+export function оживитьЧисла(корень) {
+  const где = корень || document;
+  if (мéньшеДвижения()) return;
+  где.querySelectorAll(ЧИСЛА_ГДЕ).forEach(узел => {
+    if (узел.dataset.gmSchet) return;
+    const текст = (узел.textContent || "").trim();
+    const найдено = текст.match(/-?\d[\d\s .,]*/);
+    if (!найдено) return;
+    const сырое = найдено[0].trim();
+    const цифры = сырое.replace(/[\s ]/g, "").replace(",", ".");
+    const знач = Number(цифры);
+    // Мелкие числа (остаток «3 шт», номер) не крутим — это выглядит суетой.
+    if (!isFinite(знач) || Math.abs(знач) < 10) return;
+    const дробных = Math.min(2, (цифры.split(".")[1] || "").length);
+    const до = текст.slice(0, найдено.index);
+    const после = текст.slice(найдено.index + найдено[0].length);
+    animateCount(узел, знач, n => до + n.toLocaleString("ru-RU", {
+      minimumFractionDigits: дробных, maximumFractionDigits: дробных,
+    }) + после);
+  });
 }
 
 // ---------- Поле ввода (для форм) ----------
