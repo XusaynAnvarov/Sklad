@@ -1,10 +1,10 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20261027b";
-import { t } from "./app.js?v=20261027b";
-import { openLogin } from "./auth.js?v=20261027b";
-import { thumb } from "../img.js?v=20261027b";
-import { подходит } from "../productsearch.js?v=20261027b";
-import { подписьКода } from "../catalogcode.js?v=20261027b";
+import { api, isLoggedIn } from "./api.js?v=20261027c";
+import { t } from "./app.js?v=20261027c";
+import { openLogin } from "./auth.js?v=20261027c";
+import { thumb } from "../img.js?v=20261027c";
+import { подходит } from "../productsearch.js?v=20261027c";
+import { подписьКода } from "../catalogcode.js?v=20261027c";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
@@ -47,20 +47,35 @@ let currentLoadMore = null;
 export async function renderCatalog(container) {
   container.innerHTML = "";
 
-  // ---- Витрина: первый экран для того, кто нас ещё не знает ----
-  // Как только клиент начал искать или выбрал категорию — он уже работает,
-  // и витрина убирается, чтобы не отодвигать товар вниз (см. renderCards).
-  const hero = mkEl("div", "site-hero");
-  const heroEyebrow = mkEl("div", "hero-eyebrow"); heroEyebrow.textContent = "General Modern";
+  // ---- Витрина: слева лента категорий, справа товар ----
+  // Категорий у нас больше двадцати: в строку они не помещаются и занимали
+  // три ряда, отодвигая товар вниз. В ленте они стоят столбиком со счётчиком,
+  // а на телефоне лента ложится горизонтальной полосой (css/site.css).
+  const layout = mkEl("div", "cat-layout");
+  const rail = mkEl("aside", "cat-rail");
+  rail.setAttribute("aria-label", "Категории товара");
+  const railTitle = mkEl("div", "cat-rail-title"); railTitle.textContent = "Категории";
+  rail.append(railTitle);
+  const main = mkEl("div", "cat-main");
+  layout.append(rail, main);
+  container.append(layout);
+
+  // Витрина первого экрана. Как только клиент начал искать или выбрал
+  // категорию — она убирается, чтобы не отодвигать товар вниз (renderCards).
+  const hero = mkEl("section", "feature-tile");
+  const heroText = mkEl("div", "feature-text");
+  const heroEyebrow = mkEl("div", "feature-eyebrow"); heroEyebrow.textContent = "General Modern";
   const heroH1 = document.createElement("h1"); heroH1.textContent = t("heroTitle");
   const heroP = document.createElement("p"); heroP.textContent = t("heroSub");
-  const heroBtns = mkEl("div", "hero-btns");
+  const heroBtns = mkEl("div", "feature-btns");
   const heroBtn = document.createElement("button");
   heroBtn.className = "btn-primary"; heroBtn.textContent = t("heroCta");
   heroBtn.addEventListener("click", () => toolbar.scrollIntoView({ behavior: "smooth", block: "start" }));
   heroBtns.append(heroBtn);
-  hero.append(heroEyebrow, heroH1, heroP, heroBtns);
-  container.append(hero);
+  heroText.append(heroEyebrow, heroH1, heroP, heroBtns);
+  const heroImg = mkEl("div", "feature-img");
+  hero.append(heroText, heroImg);
+  main.append(hero);
 
   // Toolbar
   const toolbar = mkEl("div", "catalog-toolbar");
@@ -69,12 +84,24 @@ export async function renderCatalog(container) {
   const searchInput = document.createElement("input");
   searchInput.className = "search-input"; searchInput.placeholder = "Поиск по названию или артикулу…"; searchInput.type = "search";
   searchWrap.append(searchInput);
-  const filterChips = mkEl("div", "filter-chips");
-  toolbar.append(searchWrap, filterChips);
-  container.append(toolbar);
+  toolbar.append(searchWrap);
+  main.append(toolbar);
 
   const grid = mkEl("div", "product-grid");
-  container.append(grid);
+  main.append(grid);
+
+  // Фото в витрину — хит недели, иначе первый товар с фотографией.
+  function оформитьВитрину() {
+    if (heroImg.childElementCount) return;
+    const свой = products.find(p => p.hit && (p.photo_url || (p.photos && p.photos[0])))
+      || products.find(p => p.photo_url || (p.photos && p.photos[0]));
+    if (!свой) return;
+    const img = document.createElement("img");
+    img.src = thumb(свой.photo_url || свой.photos[0], 640);
+    img.alt = свой.name || "";
+    img.loading = "lazy"; img.decoding = "async";
+    heroImg.append(img);
+  }
 
   // Карточки рисуем ПОРЦИЯМИ по PAGE штук: на телефоне 800+ карточек с фото разом
   // съедали всю память и Safari «падал». Остальные догружаются при прокрутке.
@@ -91,8 +118,13 @@ export async function renderCatalog(container) {
   if (products.length) { drawChips(); renderCards(); restoreScroll(); }
   else for (let i = 0; i < 8; i++) grid.append(buildSkeleton()); // первый заход — скелетоны
 
+  // Пока каталог грузится, кольцо на знаке в шапке медленно идёт по кругу —
+  // человек видит, что сайт работает, а не завис.
+  const занято = (да) => { const ш = document.querySelector(".site-header"); if (ш) ш.classList.toggle("zanyato", да); };
+
   // данные тянем всегда, но если кэш свежий — в фоне (экран не мигает и место не теряется)
   const load = async () => {
+    занято(true);
     try {
       const res = await api.catalog();
       const list = Array.isArray(res) ? res : (res.products || []);
@@ -105,26 +137,46 @@ export async function renderCatalog(container) {
       requestAnimationFrame(() => window.scrollTo(0, y));
     } catch (e) {
       if (!products.length) { grid.innerHTML = ""; grid.append(buildEmpty("Не удалось загрузить каталог. Попробуйте позже.")); }
+    } finally {
+      занято(false);
     }
   };
   if (fresh) load(); else await load();
 
+  // Лента категорий со счётчиками: сразу видно, где товара много, а где две
+  // позиции. Счёт — по тому же списку, что и карточки, поэтому цифры всегда
+  // сходятся с тем, что откроется по нажатию.
   function drawChips() {
-    const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
+    const счёт = {};
+    products.forEach(p => { if (p.category) счёт[p.category] = (счёт[p.category] || 0) + 1; });
+    const cats = Object.keys(счёт).sort((a, b) => a.localeCompare(b, "ru"));
     const categories = ["Все", ...cats];
     if (!categories.includes(activeCategory)) activeCategory = "Все";
-    filterChips.innerHTML = "";
+
+    rail.innerHTML = "";
+    rail.append(railTitle);
     categories.forEach(cat => {
-      const chip = mkEl("button", "filter-chip");
-      chip.textContent = cat;
-      if (cat === activeCategory) chip.classList.add("active");
-      chip.addEventListener("click", () => {
+      const item = mkEl("button", "rail-item");
+      item.type = "button";
+      const имя = document.createElement("span");
+      имя.textContent = cat === "Все" ? "Все товары" : cat;
+      const число = mkEl("span", "rail-count");
+      число.textContent = cat === "Все" ? String(products.length) : String(счёт[cat] || 0);
+      item.append(имя, число);
+      if (cat === activeCategory) { item.classList.add("active"); item.setAttribute("aria-current", "true"); }
+      item.addEventListener("click", () => {
+        if (activeCategory === cat) return;
         activeCategory = cat;
         catState.category = cat; catState.scrollY = 0; saveUi();
-        filterChips.querySelectorAll(".filter-chip").forEach(c => c.classList.toggle("active", c.textContent === cat));
-        renderCards();
+        rail.querySelectorAll(".rail-item").forEach(c => {
+          const свой = c === item;
+          c.classList.toggle("active", свой);
+          if (свой) c.setAttribute("aria-current", "true"); else c.removeAttribute("aria-current");
+        });
+        renderCards({ волной: true });
+        window.scrollTo({ top: Math.max(0, toolbar.offsetTop - 80), behavior: "smooth" });
       });
-      filterChips.append(chip);
+      rail.append(item);
     });
   }
 
@@ -189,11 +241,17 @@ export async function renderCatalog(container) {
     }
   }
 
-  function renderCards() {
+  function renderCards(как = {}) {
     grid.innerHTML = "";
     shown = 0;
+    // Смена категории — карточки выезжают волной. Класс снимаем после
+    // анимации, иначе следующее нажатие её не запустит: браузер считает
+    // анимацию уже проигранной.
+    grid.classList.remove("gm-smena");
+    if (как.волной) { void grid.offsetWidth; grid.classList.add("gm-smena"); }
     // клиент ищет или выбрал категорию — витрина уходит, товар поднимается вверх
     hero.style.display = (searchQuery || activeCategory !== "Все") ? "none" : "";
+    if (hero.style.display === "") оформитьВитрину();
     if (io) { io.disconnect(); io = null; }
     filteredList = products.filter(p => {
       const matchCat = activeCategory === "Все" || p.category === activeCategory;

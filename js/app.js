@@ -1,30 +1,30 @@
 // ========================================================================
 //  ТОЧКА ВХОДА АДМИНКИ: авторизация → каркас → роутер
 // ========================================================================
-import { el, $, reveal, showLoader, hideLoader, toast } from "./ui.js?v=20261027b";
-import { обновитьЕслиУстарело } from "./version.js?v=20261027b";
-import { icon } from "./icons.js?v=20261027b";
-import { db, rawClient } from "./db.js?v=20261027b";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261027b";
-import { setRates } from "./fx.js?v=20261027b";
+import { el, $, reveal, showLoader, hideLoader, toast } from "./ui.js?v=20261027c";
+import { обновитьЕслиУстарело } from "./version.js?v=20261027c";
+import { icon } from "./icons.js?v=20261027c";
+import { db, rawClient } from "./db.js?v=20261027c";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261027c";
+import { setRates } from "./fx.js?v=20261027c";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261027b";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261027b";
+import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261027c";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261027c";
 
-import dashboard from "./pages/dashboard.js?v=20261027b";
-import products from "./pages/products.js?v=20261027b";
-import sales from "./pages/sales.js?v=20261027b";
-import purchases from "./pages/purchases.js?v=20261027b";
-import customers from "./pages/customers.js?v=20261027b";
-import orders from "./pages/orders.js?v=20261027b";
-import reports from "./pages/reports.js?v=20261027b";
-import catalogPage from "./pages/catalog_admin.js?v=20261027b";
-import settings from "./pages/settings.js?v=20261027b";
-import siteClients from "./pages/site_clients.js?v=20261027b";
-import trash from "./pages/trash.js?v=20261027b";
-import videosAdmin from "./pages/videos_admin.js?v=20261027b";
-import supplierOrder from "./pages/supplier_order.js?v=20261027b";
-import stockCheck from "./pages/stock_check.js?v=20261027b";
+import dashboard from "./pages/dashboard.js?v=20261027c";
+import products from "./pages/products.js?v=20261027c";
+import sales from "./pages/sales.js?v=20261027c";
+import purchases from "./pages/purchases.js?v=20261027c";
+import customers from "./pages/customers.js?v=20261027c";
+import orders from "./pages/orders.js?v=20261027c";
+import reports from "./pages/reports.js?v=20261027c";
+import catalogPage from "./pages/catalog_admin.js?v=20261027c";
+import settings from "./pages/settings.js?v=20261027c";
+import siteClients from "./pages/site_clients.js?v=20261027c";
+import trash from "./pages/trash.js?v=20261027c";
+import videosAdmin from "./pages/videos_admin.js?v=20261027c";
+import supplierOrder from "./pages/supplier_order.js?v=20261027c";
+import stockCheck from "./pages/stock_check.js?v=20261027c";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -208,7 +208,7 @@ setTimeout(() => { if (!document.querySelector(".app")) showBootError(new Error(
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=193", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=194", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

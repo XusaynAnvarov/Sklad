@@ -2,7 +2,7 @@
 //  UI-ХЕЛПЕРЫ: создание элементов, тосты, модалки, диалоги, анимации
 // ========================================================================
 // img.js ничего не импортирует, поэтому круга зависимостей не возникает.
-import { full } from "./img.js?v=20261027b";
+import { full } from "./img.js?v=20261027c";
 
 // Краткое создание элемента: el("div.card", {onclick}, [children])
 export function el(tag, props = {}, children = []) {
@@ -28,10 +28,21 @@ export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 // ---------- Тосты ----------
+// Значок у сообщения: галочка рисуется сама (stroke-dashoffset в
+// css/theme.css), у ошибки — восклицательный знак. По значку видно итог
+// раньше, чем прочитан текст.
+const ЗНАЧОК = {
+  ok: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="gm-galka" d="m5 12.5 4.5 4.5L19 7.5"/></svg>`,
+  err: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 6v8"/><path d="M12 18h.01"/></svg>`,
+};
+
 export function toast(msg, type = "ok") {
   let wrap = $("#toasts");
   if (!wrap) { wrap = el("div", { id: "toasts" }); document.body.append(wrap); }
-  const t = el("div.toast." + type, { text: msg });
+  const t = el("div.toast." + type);
+  const знак = el("span.toast-ic", { html: ЗНАЧОК[type] || ЗНАЧОК.ok });
+  const текст = el("span.toast-txt", { text: msg });
+  t.append(знак, текст);
   wrap.append(t);
   requestAnimationFrame(() => t.classList.add("show"));
   setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 300); }, 2800);
@@ -223,20 +234,32 @@ export function reveal(root = document) {
 }
 
 // ---------- Глобальный лоадер с анимированным логотипом GENERAL MODERN ----------
-const LOADER_SVG = `<svg viewBox="0 0 512 512" width="84" height="84" aria-label="Загрузка">
+// Знак «стеклянная печать» — тот же, что в icon.svg и в шапке сайта:
+// перламутровая плитка с косым бликом, золотое кольцо из двух дуг (оно и
+// крутится, класс .glr в css/theme.css) и монограмма чернилами.
+const LOADER_SVG = `<svg viewBox="0 0 512 512" width="88" height="88" role="img" aria-label="Загрузка">
   <defs>
-    <linearGradient id="glnv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/></linearGradient>
-    <linearGradient id="glgd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".45" stop-color="#e3c163"/><stop offset=".75" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/></linearGradient>
+    <linearGradient id="glst" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#dfe4ee"/></linearGradient>
+    <linearGradient id="glzl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/><stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/></linearGradient>
+    <linearGradient id="glbl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".92"/><stop offset=".55" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <clipPath id="glpl"><rect width="512" height="512" rx="112"/></clipPath>
   </defs>
-  <rect width="512" height="512" rx="116" fill="url(#glnv)"/>
-  <circle class="glr" cx="256" cy="256" r="182" fill="none" stroke="url(#glgd)" stroke-width="14" stroke-linecap="round" stroke-dasharray="300 1144"/>
-  <text x="256" y="312" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="172" font-weight="700" letter-spacing="-6" fill="url(#glgd)">GM</text>
+  <rect width="512" height="512" rx="112" fill="url(#glst)"/>
+  <g clip-path="url(#glpl)"><path d="M-120 300 L300 -120 L430 10 L10 430 Z" fill="url(#glbl)"/></g>
+  <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#c8cedd" stroke-width="5"/>
+  <g class="glr" fill="none" stroke="url(#glzl)" stroke-width="14" stroke-linecap="round">
+    <path d="M256 74a182 182 0 0 1 182 182"/>
+    <path d="M256 438A182 182 0 0 1 74 256"/>
+  </g>
+  <text x="256" y="314" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="166" font-weight="800" letter-spacing="-8" fill="#16203a">GM</text>
 </svg>`;
 let _loaderEl = null, _loaderCount = 0, _loaderTimer = null;
 export function showLoader(text) {
   _loaderCount++;
   if (!_loaderEl) {
-    _loaderEl = el("div.gm-loader", { html: `<div class="gm-loader-box">${LOADER_SVG}<div class="gm-loader-txt"></div></div>` });
+    // Полоска под подписью бежит сама: по ней видно, что работа идёт, даже
+    // когда шагов не считают и подпись не меняется.
+    _loaderEl = el("div.gm-loader", { html: `<div class="gm-loader-box">${LOADER_SVG}<div class="gm-loader-txt"></div><div class="gm-loader-bar" aria-hidden="true"></div></div>` });
     document.body.append(_loaderEl);
     void _loaderEl.offsetWidth;   // форс-рефлоу, чтобы сработал transition (надёжнее rAF)
   }

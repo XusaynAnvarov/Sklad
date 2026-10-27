@@ -1,13 +1,13 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261027b";
-import { renderCatalog } from "./catalog.js?v=20261027b";
-import { renderVideos } from "./videos.js?v=20261027b";
-import { renderCabinet } from "./cabinet.js?v=20261027b";
-import { renderAdminPanel } from "./admin-panel.js?v=20261027b";
-import { renderOrder } from "./order.js?v=20261027b";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261027b";
-import { поставитьСнимок } from "../img.js?v=20261027b";
-import { обновитьЕслиУстарело } from "../version.js?v=20261027b";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261027c";
+import { renderCatalog } from "./catalog.js?v=20261027c";
+import { renderVideos } from "./videos.js?v=20261027c";
+import { renderCabinet } from "./cabinet.js?v=20261027c";
+import { renderAdminPanel } from "./admin-panel.js?v=20261027c";
+import { renderOrder } from "./order.js?v=20261027c";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261027c";
+import { поставитьСнимок } from "../img.js?v=20261027c";
+import { обновитьЕслиУстарело } from "../version.js?v=20261027c";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -62,17 +62,18 @@ let перерисоватьСайт = null;
 export function t(key) { return (TRANSLATIONS[getLang()] || TRANSLATIONS.ru)[key] || key; }
 
 // ---- Theme ----
-// по умолчанию — тёмная тема («чёрный и золото»).
-// Разовый переход на новый дизайн: у тех, кто раньше выбрал светлую, включаем тёмную
-// один раз (метка gm_theme_v2), дальше выбор пользователя снова уважается.
+// По умолчанию — светлая тема: главный цвет сайта теперь белое прозрачное
+// стекло. Разовый переход на новый вид: у тех, кто раньше сидел на тёмной,
+// один раз включаем светлую (метка gm_theme_v3), дальше выбор человека
+// снова уважается — переключатель в шапке никуда не делся.
 export function getTheme() {
   try {
-    if (!localStorage.getItem("gm_theme_v2")) {
-      localStorage.setItem("gm_site_theme", "dark");
-      localStorage.setItem("gm_theme_v2", "1");
+    if (!localStorage.getItem("gm_theme_v3")) {
+      localStorage.setItem("gm_site_theme", "light");
+      localStorage.setItem("gm_theme_v3", "1");
     }
   } catch {}
-  return localStorage.getItem("gm_site_theme") || "dark";
+  return localStorage.getItem("gm_site_theme") || "light";
 }
 export function setTheme(theme) {
   localStorage.setItem("gm_site_theme", theme);
@@ -217,7 +218,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261027b");
+        const { api: siteApi } = await import("./api.js?v=20261027c");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -685,7 +686,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=193", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=194", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -693,6 +694,24 @@ if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "http
   });
 }
 
+// Знак «стеклянная печать» — тот же, что в icon.svg: перламутровая плитка,
+// косой блик, золотое кольцо из двух дуг и монограмма чернилами. Кольцо
+// медленно поворачивается, когда страница чем-то занята (класс .zanyato).
 function logoSvg() {
-  return `<svg width="36" height="36" viewBox="0 0 512 512"><defs><linearGradient id="hnv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/></linearGradient><linearGradient id="hgd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".5" stop-color="#e3c163"/><stop offset="1" stop-color="#a87b1f"/></linearGradient></defs><rect width="512" height="512" rx="100" fill="url(#hnv)"/><circle cx="256" cy="256" r="182" fill="none" stroke="url(#hgd)" stroke-width="10"/><text x="256" y="312" text-anchor="middle" font-family="Georgia,serif" font-size="168" font-weight="700" fill="url(#hgd)">GM</text></svg>`;
+  return `<svg class="gm-znak" width="36" height="36" viewBox="0 0 512 512" aria-hidden="true">
+    <defs>
+      <linearGradient id="hst" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#dfe4ee"/></linearGradient>
+      <linearGradient id="hzl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/><stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/></linearGradient>
+      <linearGradient id="hbl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".92"/><stop offset=".55" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <clipPath id="hpl"><rect width="512" height="512" rx="112"/></clipPath>
+    </defs>
+    <rect width="512" height="512" rx="112" fill="url(#hst)"/>
+    <g clip-path="url(#hpl)"><path d="M-120 300 L300 -120 L430 10 L10 430 Z" fill="url(#hbl)"/></g>
+    <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#c8cedd" stroke-width="5"/>
+    <g class="gm-koltso" fill="none" stroke="url(#hzl)" stroke-width="14" stroke-linecap="round">
+      <path d="M256 74a182 182 0 0 1 182 182"/>
+      <path d="M256 438A182 182 0 0 1 74 256"/>
+    </g>
+    <text x="256" y="314" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="166" font-weight="800" letter-spacing="-8" fill="#16203a">GM</text>
+  </svg>`;
 }

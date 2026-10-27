@@ -5,12 +5,12 @@
   <!-- Версия кода. Читается из САМОЙ страницы: служебный работник (sw.js)
        подменяет адреса файлов, и версию из адреса модуля брать нельзя —
        оттуда приходит имя кэша, а не версия сборки. -->
-  <meta name="gm-build" content="20261027b" />
+  <meta name="gm-build" content="20261027c" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>General Modern — оптовые поставки</title>
   <meta name="description" content="General Modern — профессиональный B2B каталог товаров. Оформляйте заказы онлайн." />
   <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#0b0b0d" />
+  <meta name="theme-color" content="#eef1f7" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -20,56 +20,55 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
-  <link rel="stylesheet" href="css/site.css?v=20261027b" />
+  <link rel="stylesheet" href="css/site.css?v=20261027c" />
 </head>
 <body>
 
-<!-- GM Loader — анимированный логотип при загрузке -->
+<!-- Загрузка: стеклянная плитка со знаком, золотое кольцо чертится по кругу,
+     по плитке проходит блик. Светлый фон — как и весь сайт. -->
 <div id="gm-loader">
-  <svg width="96" height="96" viewBox="0 0 512 512">
-    <defs>
-      <linearGradient id="lnv" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#22324f"/>
-        <stop offset="1" stop-color="#141f33"/>
-      </linearGradient>
-      <linearGradient id="lgd" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#f7e9a6"/>
-        <stop offset=".45" stop-color="#e3c163"/>
-        <stop offset=".75" stop-color="#c79a33"/>
-        <stop offset="1" stop-color="#a87b1f"/>
-      </linearGradient>
-      <linearGradient id="lsh" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="#fff" stop-opacity="0"/>
-        <stop offset=".5" stop-color="#fff" stop-opacity=".5"/>
-        <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-      </linearGradient>
-      <clipPath id="lcb"><rect width="512" height="512" rx="116"/></clipPath>
-      <style>
-        @keyframes lpop{0%{transform:scale(.55);opacity:0}60%{transform:scale(1.05);opacity:1}100%{transform:scale(1);opacity:1}}
-        @keyframes ldraw{0%{stroke-dashoffset:1098}100%{stroke-dashoffset:0}}
-        @keyframes llet{0%{opacity:0;transform:translateY(22px) scale(.88)}100%{opacity:1;transform:none}}
-        @keyframes lsweep{0%{transform:translateX(-540px) rotate(18deg)}100%{transform:translateX(540px) rotate(18deg)}}
-        #lbadge{animation:lpop .7s cubic-bezier(.2,.85,.25,1) both;transform-box:fill-box;transform-origin:center}
-        #lring{stroke-dasharray:1062 1144;animation:ldraw 1.1s ease .25s both}
-        #lgm{animation:llet .6s ease .55s both;transform-box:fill-box;transform-origin:center}
-        #lshine{animation:lsweep 2.8s ease-in-out 1.3s infinite}
-      </style>
-    </defs>
-    <g id="lbadge">
-      <rect width="512" height="512" rx="116" fill="url(#lnv)"/>
-      <circle id="lring" cx="256" cy="256" r="182" fill="none" stroke="url(#lgd)" stroke-width="10" stroke-linecap="round" transform="rotate(-96 256 256)"/>
-      <text id="lgm" x="256" y="312" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="172" font-weight="700" letter-spacing="-6" fill="url(#lgd)">GM</text>
-      <g clip-path="url(#lcb)"><rect id="lshine" x="226" y="-130" width="60" height="772" fill="url(#lsh)"/></g>
-    </g>
-  </svg>
-  <span class="loader-text">General Modern</span>
+  <div class="gm-loader-glow" aria-hidden="true"></div>
+  <div class="gm-loader-card">
+    <svg width="104" height="104" viewBox="0 0 512 512" role="img" aria-label="GENERAL MODERN">
+      <defs>
+        <linearGradient id="lst" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#dfe4ee"/></linearGradient>
+        <linearGradient id="lzl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/><stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/></linearGradient>
+        <linearGradient id="lsh" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+        <clipPath id="lpl"><rect width="512" height="512" rx="112"/></clipPath>
+        <style>
+          @keyframes lpop{0%{transform:scale(.6);opacity:0}62%{transform:scale(1.04);opacity:1}100%{transform:scale(1);opacity:1}}
+          @keyframes ldraw{0%{stroke-dashoffset:600}100%{stroke-dashoffset:0}}
+          @keyframes lturn{100%{transform:rotate(360deg)}}
+          @keyframes llet{0%{opacity:0;transform:translateY(20px) scale(.9)}100%{opacity:1;transform:none}}
+          @keyframes lsweep{0%{transform:translateX(-560px) rotate(16deg)}100%{transform:translateX(560px) rotate(16deg)}}
+          #lznak{animation:lpop .62s cubic-bezier(.2,.85,.25,1) both;transform-box:fill-box;transform-origin:center}
+          #lkoltso{stroke-dasharray:572 572;animation:ldraw .9s ease .2s both,lturn 2.6s linear 1.1s infinite;transform-box:fill-box;transform-origin:center}
+          #lgm{animation:llet .55s ease .5s both;transform-box:fill-box;transform-origin:center}
+          #lblik{animation:lsweep 2.6s ease-in-out 1.2s infinite}
+          @media (prefers-reduced-motion:reduce){#lznak,#lkoltso,#lgm,#lblik{animation:none}}
+        </style>
+      </defs>
+      <g id="lznak">
+        <rect width="512" height="512" rx="112" fill="url(#lst)"/>
+        <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#c8cedd" stroke-width="5"/>
+        <g id="lkoltso" fill="none" stroke="url(#lzl)" stroke-width="14" stroke-linecap="round">
+          <path d="M256 74a182 182 0 0 1 182 182"/>
+          <path d="M256 438A182 182 0 0 1 74 256"/>
+        </g>
+        <text id="lgm" x="256" y="314" text-anchor="middle" font-family="Inter, &apos;Segoe UI&apos;, system-ui, sans-serif" font-size="166" font-weight="800" letter-spacing="-8" fill="#16203a">GM</text>
+        <g clip-path="url(#lpl)"><rect id="lblik" x="226" y="-130" width="72" height="772" fill="url(#lsh)"/></g>
+      </g>
+    </svg>
+    <span class="loader-text">General Modern</span>
+    <span class="loader-progress" aria-hidden="true"></span>
+  </div>
 </div>
 
 <!-- Приложение -->
 <div id="site-app"></div>
 
 <script type="module">
-  import { boot } from "./js/site/app.js?v=20261027b";
+  import { boot } from "./js/site/app.js?v=20261027c";
   boot();
 </script>
 </body>
