@@ -235,3 +235,63 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
   .mini-bar { grid-template-columns: 1fr; }
   .mini-tab { font-size: 14.5px; padding: 12px 14px; gap: 11px; }
 }
+
+/* ================================================================
+   СТЕКЛО — ТЕЛЕФОННАЯ ВЕРСИЯ СКЛАДА.
+   Этот файл подключается ПОСЛЕ theme.css, поэтому общие стеклянные
+   правила оттуда здесь перебиваются сплошным var(--panel) — и экраны
+   телефона остались бы матовыми. Повторяем их для телефонных частей.
+
+   Размытие здесь слабее, чем на компьютере: списки длинные (900 с лишним
+   товаров), и сильное размытие заметно дёргает прокрутку.
+   ================================================================ */
+.mini-act, .mini-num, .mini-back, .mini-icon-btn, .mini-empty, .mini-row {
+  background:
+    linear-gradient(152deg, rgba(18,18,22,.52), rgba(18,18,22,.30)),
+    linear-gradient(152deg, rgba(255,255,255,.10), rgba(255,255,255,.035));
+  border: 1px solid rgba(255,255,255,.13);
+  backdrop-filter: blur(11px) saturate(140%);
+  -webkit-backdrop-filter: blur(11px) saturate(140%);
+  box-shadow: 0 10px 24px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.15);
+}
+/* Шапка и нижняя панель — стекло, под которым едет список. */
+.mini-head, .mini-bar {
+  background: rgba(14,14,18,.62);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-color: rgba(255,255,255,.12);
+}
+.mini-row:active, .mini-act:active { border-color: rgba(217,180,90,.45); }
+
+/* Строки списка — БЕЗ размытия. Их на экране бывает под тысячу, и
+   размытие на каждой заметно дёргает прокрутку. Полупрозрачная
+   подложка выглядит так же, а стоит почти ничего. */
+.mini-row { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+html[data-theme="light"] .mini-row,
+html[data-theme="light"] .mini-act,
+html[data-theme="light"] .mini-num,
+html[data-theme="light"] .mini-back,
+html[data-theme="light"] .mini-icon-btn,
+html[data-theme="light"] .mini-empty {
+  background: linear-gradient(152deg, rgba(255,255,255,.74), rgba(255,255,255,.54));
+  border-color: rgba(255,255,255,.85);
+  box-shadow: 0 10px 24px rgba(16,24,40,.10), inset 0 1px 0 rgba(255,255,255,.95);
+}
+html[data-theme="light"] .mini-head,
+html[data-theme="light"] .mini-bar {
+  background: rgba(255,255,255,.72);
+  border-color: rgba(16,24,40,.10);
+}
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .mini-row, .mini-act, .mini-num, .mini-back, .mini-icon-btn, .mini-empty,
+  .mini-head, .mini-bar { background: var(--panel); border-color: var(--border); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .mini-row, .mini-act, .mini-num, .mini-back, .mini-icon-btn, .mini-empty,
+  .mini-head, .mini-bar {
+    background: var(--panel); border-color: var(--border);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+}

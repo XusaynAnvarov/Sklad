@@ -683,29 +683,28 @@ tr.month-active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 }
 
 /* ===================================================================
-   СТЕКЛО — ТОЛЬКО НА ГЛАВНОЙ (дашборд).
-   Карточки становятся матовым стеклом: сквозь них просвечивает тёплое
-   свечение фона, края подсвечены, тень глубокая. Остальные разделы —
-   товары, накладные, отчёты — остаются строгими: там таблицы и мелкие
-   цифры, им прозрачность только мешает.
+   СТЕКЛО — ВЕСЬ СКЛАД.
+   Поверхности становятся матовым стеклом: сквозь них просвечивает
+   тёплое свечение фона, края подсвечены, тени глубокие. Боковое меню
+   «плавает» отдельной панелью, разделы сменяются плавно.
 
-   Читаемость важнее вида, поэтому:
-     • сами цифры и подписи НЕ прозрачные — прозрачна только подложка;
-     • если браузер не умеет размытие, подложка становится сплошной
-       (@supports ниже) — текст остаётся читаемым, просто без эффекта;
-     • на телефоне размытие слабее: сильное съедает плавность прокрутки;
-     • при включённой в системе настройке «меньше прозрачности» стекло
-       выключается само.
+   Что сделано ради того, чтобы работать было по-прежнему удобно:
+     • прозрачна ТОЛЬКО подложка — цифры и подписи остаются плотными;
+     • размытие вешается на контейнеры (таблица, окно, меню), а не на
+       каждую строку: иначе при 900 товарах прокрутка начинает дёргаться;
+     • на телефоне размытие слабее по той же причине;
+     • если браузер не умеет размытие — подложка сплошная (@supports);
+     • если в системе включено «уменьшить прозрачность» или «уменьшить
+       движение» — стекло и анимации выключаются сами.
    =================================================================== */
 
-/* Тёплое свечение под стеклом. Без него стекло не видно: размывать
-   нечего, и карточки выглядят просто серыми. */
-.page-dashboard { position: relative; }
-/* z-index 0, а не -1: с -1 слой уходит ЗА фон страницы и свечения не
-   видно совсем. Ноль ставит его над фоном, но под карточками — они идут
-   следом по порядку и перекрывают его сами. */
-.page-dashboard::before {
-  content: ""; position: fixed; inset: -10%; z-index: 0; pointer-events: none;
+/* ---------- 1. Свечение за стеклом ---------- */
+/* Без него стекло не видно: размывать нечего, карточки выглядят серыми.
+   z-index 0, а не -1: с -1 слой уходит за фон страницы. */
+body::before, body::after { opacity: .20; }
+
+.gm-glow {
+  position: fixed; inset: -10%; z-index: 0; pointer-events: none;
   background:
     radial-gradient(42% 38% at 14% 12%, rgba(217,180,90,.26), transparent 70%),
     radial-gradient(38% 34% at 88% 22%, rgba(240,220,164,.17), transparent 72%),
@@ -713,107 +712,218 @@ tr.month-active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   filter: blur(42px);
   animation: стекло-дыхание 26s ease-in-out infinite;
 }
-/* Содержимое — поверх свечения. */
-.page-dashboard > * { position: relative; z-index: 1; }
-@keyframes стекло-дыхание {
-  50% { transform: translate3d(2%, -2%, 0) scale(1.07); }
-}
+@keyframes стекло-дыхание { 50% { transform: translate3d(2%, -2%, 0) scale(1.07); } }
 
-/* Сами стеклянные поверхности. */
-.page-dashboard .stat-card,
-.page-dashboard .card,
-.page-dashboard .advice {
-  background: linear-gradient(152deg, rgba(18,18,22,.52), rgba(18,18,22,.30)),
-              linear-gradient(152deg, rgba(255,255,255,.10), rgba(255,255,255,.035));
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 18px;
-  backdrop-filter: blur(18px) saturate(155%);
-  -webkit-backdrop-filter: blur(18px) saturate(155%);
-  box-shadow: 0 18px 38px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.20);
+/* Содержимое — поверх свечения. */
+/* Только .app: у окон, подсказок и выпадающих списков уже есть своё
+   position:fixed и z-index выше — если переписать им position, окно
+   перестанет открываться поверх страницы (проверено на стенде). */
+.app { position: relative; z-index: 1; }
+
+/* ---------- 2. Общее стекло поверхностей ---------- */
+.card, .stat-card, .advice, .tbl, .modal, .combo-panel, .toast,
+.profile-chip, .pill-tabs, .mini-row, .mini-act, .mini-empty {
+  background:
+    linear-gradient(152deg, rgba(18,18,22,.52), rgba(18,18,22,.30)),
+    linear-gradient(152deg, rgba(255,255,255,.10), rgba(255,255,255,.035));
+  border: 1px solid rgba(255,255,255,.13);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: 0 16px 34px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.17);
 }
+.card, .stat-card, .advice { border-radius: 18px; }
+.tbl, .modal { border-radius: 18px; }
 
 /* Блик по верхнему краю — то, от чего стекло читается как стекло. */
-.page-dashboard .stat-card { overflow: hidden; }
-.page-dashboard .stat-card::after {
+.stat-card { overflow: hidden; }
+.stat-card::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
   background: radial-gradient(120% 70% at 0% 0%, rgba(255,255,255,.16), transparent 58%);
 }
-.page-dashboard .stat-card .st-ic { opacity: .65; }
-
-.page-dashboard .stat-card:hover,
-.page-dashboard .card:hover {
-  transform: translateY(-4px);
+.card:hover, .stat-card:hover {
   border-color: rgba(217,180,90,.55);
   box-shadow: 0 24px 50px rgba(0,0,0,.46), inset 0 1px 0 rgba(255,255,255,.28);
 }
 
-/* Карточка-акцент (с золотой заливкой) стеклом не становится: её смысл —
-   быть сплошной и выделяться. */
-.page-dashboard .stat-card.grad { background: var(--grad2); border: none; backdrop-filter: none; }
-.page-dashboard .stat-card.grad::after { display: none; }
+/* Карточка-акцент остаётся сплошной: её смысл — выделяться. */
+.stat-card.grad { background: var(--grad2); border: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.stat-card.grad::after { display: none; }
 
-/* ---------- Светлая тема: стекло белое, текст остаётся чернильным ---------- */
-html[data-theme="light"] .page-dashboard::before {
+/* Строки таблицы прозрачные: размытие уже сделал контейнер. */
+.tbl th { background: rgba(255,255,255,.05); }
+
+/* Строки списка в телефоне — без размытия: их бывает под тысячу, и
+   размытие на каждой дёргает прокрутку (подложка остаётся стеклянной). */
+.mini-row { backdrop-filter: none; -webkit-backdrop-filter: none; }
+.tbl td { border-bottom-color: rgba(255,255,255,.06); }
+
+/* Поля ввода — лёгкое стекло, но плотнее карточек: в них печатают. */
+.inp, .cselect, .search-input {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.14);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.inp:focus, .cselect:focus { background: rgba(255,255,255,.11); border-color: rgba(217,180,90,.55); }
+.btn-outline, .filter-chip {
+  background: rgba(255,255,255,.06);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+
+/* Окно поверх страницы: за ним всё размывается сильнее — так окно
+   выходит на первый план, а страница уходит на второй. */
+.modal-overlay { background: rgba(3,3,12,.52); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.modal { box-shadow: 0 30px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.18); }
+.modal-head, .modal-foot { border-color: rgba(255,255,255,.10); }
+
+/* ---------- 3. Боковое меню — плавающая стеклянная панель ---------- */
+.app { gap: 0; }
+.sidebar {
+  margin: 14px 0 14px 14px;
+  height: calc(100vh - 28px);
+  padding: 20px 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 22px;
+  background:
+    linear-gradient(170deg, rgba(18,18,22,.58), rgba(18,18,22,.34)),
+    linear-gradient(170deg, rgba(255,255,255,.11), rgba(255,255,255,.04));
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  box-shadow: 0 24px 50px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.22);
+}
+.navitem {
+  border-radius: 13px;
+  border: 1px solid transparent;
+  transition: background .22s, color .22s, border-color .22s, transform .14s, box-shadow .22s;
+}
+.navitem:hover {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.12);
+  padding-left: 14px;
+}
+/* Активный раздел — светлее стекло, золотая кромка и мягкое свечение. */
+.navitem.active {
+  background: linear-gradient(100deg, rgba(217,180,90,.26), rgba(217,180,90,.07));
+  border-color: rgba(217,180,90,.45);
+  box-shadow: 0 8px 20px rgba(217,180,90,.18), inset 0 1px 0 rgba(255,255,255,.22);
+}
+.navitem.active::before { box-shadow: 0 0 12px rgba(217,180,90,.75); }
+
+/* ---------- 4. Плавные переходы между разделами ---------- */
+/* Раздел не просто появляется, а «наводится на резкость»: так переход
+   читается как смена стекла, а не как перерисовка. */
+.page-enter { animation: gmPageGlass .42s cubic-bezier(.2,.8,.25,1) both; }
+@keyframes gmPageGlass {
+  from { opacity: 0; transform: translateY(14px) scale(.995); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+/* Карточки внутри раздела подхватывают движение с небольшой задержкой. */
+.page-enter > .stat-grid > *, .page-enter > .card, .page-enter > .advice {
+  animation: gmCardGlass .46s cubic-bezier(.2,.8,.25,1) both;
+}
+@keyframes gmCardGlass {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.page-enter > .stat-grid > *:nth-child(2) { animation-delay: .05s; }
+.page-enter > .stat-grid > *:nth-child(3) { animation-delay: .10s; }
+.page-enter > .stat-grid > *:nth-child(4) { animation-delay: .15s; }
+.page-enter > .stat-grid > *:nth-child(5) { animation-delay: .20s; }
+.page-enter > .stat-grid > *:nth-child(n+6) { animation-delay: .24s; }
+
+/* ---------- 5. Светлая тема: стекло белое, текст чернильный ---------- */
+html[data-theme="light"] .gm-glow {
   background:
     radial-gradient(42% 38% at 14% 12%, rgba(216,178,106,.34), transparent 70%),
     radial-gradient(38% 34% at 88% 22%, rgba(143,103,32,.16), transparent 72%),
     radial-gradient(46% 40% at 62% 92%, rgba(216,178,106,.26), transparent 70%);
 }
-html[data-theme="light"] .page-dashboard .stat-card,
-html[data-theme="light"] .page-dashboard .card,
-html[data-theme="light"] .page-dashboard .advice {
-  background: linear-gradient(152deg, rgba(255,255,255,.72), rgba(255,255,255,.52));
-  border: 1px solid rgba(255,255,255,.85);
+html[data-theme="light"] .card,
+html[data-theme="light"] .stat-card,
+html[data-theme="light"] .advice,
+html[data-theme="light"] .tbl,
+html[data-theme="light"] .modal,
+html[data-theme="light"] .combo-panel,
+html[data-theme="light"] .toast,
+html[data-theme="light"] .profile-chip,
+html[data-theme="light"] .pill-tabs,
+html[data-theme="light"] .mini-row,
+html[data-theme="light"] .mini-act,
+html[data-theme="light"] .mini-empty {
+  background: linear-gradient(152deg, rgba(255,255,255,.74), rgba(255,255,255,.54));
+  border-color: rgba(255,255,255,.85);
   box-shadow: 0 16px 34px rgba(16,24,40,.12), inset 0 1px 0 rgba(255,255,255,.95);
 }
-html[data-theme="light"] .page-dashboard .stat-card::after {
+html[data-theme="light"] .sidebar {
+  background: linear-gradient(170deg, rgba(255,255,255,.80), rgba(255,255,255,.58));
+  border-color: rgba(255,255,255,.9);
+  box-shadow: 0 22px 44px rgba(16,24,40,.14), inset 0 1px 0 #fff;
+}
+html[data-theme="light"] .stat-card::after {
   background: radial-gradient(120% 70% at 0% 0%, rgba(255,255,255,.75), transparent 58%);
 }
-/* Золотая карточка остаётся золотой и в светлой теме. Без этой строки
-   правило выше (оно «сильнее» по весу) закрашивало её белым стеклом, и
-   белый текст на ней пропадал. */
-html[data-theme="light"] .page-dashboard .stat-card.grad {
+/* Золотая карточка остаётся золотой: правило выше «сильнее» по весу и
+   без этой строки закрасило бы её белым, а белый текст на ней пропал бы. */
+html[data-theme="light"] .stat-card.grad {
   background: var(--grad2); border: none;
   backdrop-filter: none; -webkit-backdrop-filter: none;
   box-shadow: 0 16px 34px rgba(143,103,32,.22);
 }
-html[data-theme="light"] .page-dashboard .stat-card:hover,
-html[data-theme="light"] .page-dashboard .card:hover {
-  border-color: rgba(143,103,32,.45);
-  box-shadow: 0 22px 44px rgba(16,24,40,.16), inset 0 1px 0 #fff;
+html[data-theme="light"] .tbl th { background: rgba(255,255,255,.55); }
+html[data-theme="light"] .tbl td { border-bottom-color: rgba(16,24,40,.07); }
+html[data-theme="light"] .inp,
+html[data-theme="light"] .cselect {
+  background: rgba(255,255,255,.80); border-color: rgba(16,24,40,.12);
 }
+html[data-theme="light"] .btn-outline,
+html[data-theme="light"] .filter-chip { background: rgba(255,255,255,.66); }
+html[data-theme="light"] .modal-overlay { background: rgba(28,34,48,.34); }
+html[data-theme="light"] .navitem:hover { background: rgba(16,24,40,.05); border-color: rgba(16,24,40,.08); }
+html[data-theme="light"] .navitem.active {
+  background: linear-gradient(100deg, rgba(143,103,32,.18), rgba(143,103,32,.05));
+  border-color: rgba(143,103,32,.38);
+  box-shadow: 0 8px 20px rgba(143,103,32,.14), inset 0 1px 0 #fff;
+}
+html[data-theme="light"] .modal-head,
+html[data-theme="light"] .modal-foot { border-color: rgba(16,24,40,.09); }
 
-/* ---------- Телефон: размытие слабее, иначе прокрутка дёргается ---------- */
+/* ---------- 6. Телефон: легче размытие, меню — обычной панелью ---------- */
+@media (max-width: 860px) {
+  .sidebar { margin: 0; height: 100vh; border-radius: 0 22px 22px 0; }
+}
 @media (max-width: 760px) {
-  .page-dashboard .stat-card,
-  .page-dashboard .card,
-  .page-dashboard .advice {
+  .card, .stat-card, .advice, .tbl, .modal,
+  .mini-row, .mini-act, .mini-empty {
     backdrop-filter: blur(11px) saturate(140%);
     -webkit-backdrop-filter: blur(11px) saturate(140%);
     border-radius: 15px;
-    box-shadow: 0 10px 24px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.16);
+    box-shadow: 0 10px 24px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.15);
   }
-  .page-dashboard::before { filter: blur(34px); }
+  .gm-glow { filter: blur(34px); }
+  /* Переход короче: на телефоне длинная анимация ощущается как тормоза. */
+  .page-enter { animation-duration: .3s; }
+  .page-enter > .stat-grid > * { animation: none; }
 }
 
-/* ---------- Если размытия нет — подложка сплошная ---------- */
+/* ---------- 7. Если размытия нет — подложка сплошная ---------- */
 @supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
-  .page-dashboard .stat-card,
-  .page-dashboard .card,
-  .page-dashboard .advice { background: var(--panel); border-color: var(--border); }
-  .page-dashboard::before { display: none; }
+  .card, .stat-card, .advice, .tbl, .modal, .combo-panel, .toast,
+  .profile-chip, .pill-tabs, .sidebar, .inp, .cselect,
+  .mini-row, .mini-act, .mini-empty { background: var(--panel); border-color: var(--border); }
+  .gm-glow { display: none; }
+  .modal-overlay { background: rgba(3,3,12,.82); }
 }
 
-/* ---------- Системные пожелания пользователя важнее красоты ---------- */
+/* ---------- 8. Пожелания пользователя важнее красоты ---------- */
 @media (prefers-reduced-transparency: reduce) {
-  .page-dashboard .stat-card,
-  .page-dashboard .card,
-  .page-dashboard .advice {
+  .card, .stat-card, .advice, .tbl, .modal, .combo-panel, .toast,
+  .profile-chip, .pill-tabs, .sidebar, .inp, .cselect,
+  .mini-row, .mini-act, .mini-empty {
     background: var(--panel); border-color: var(--border);
     backdrop-filter: none; -webkit-backdrop-filter: none;
   }
-  .page-dashboard::before { display: none; }
+  .gm-glow { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .page-dashboard::before { animation: none; }
+  .gm-glow { animation: none; }
+  .page-enter, .page-enter > .stat-grid > *, .page-enter > .card, .page-enter > .advice { animation: none; }
 }
