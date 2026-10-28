@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-10-28T11:07:14.082Z",
+        "reason": "Шрифт проекта: Inter задан в дизайн-системе склада владельцем (css/theme.css, css/site.css, печатные формы и каталог PDF) — менять его значит менять фирменный стиль"
+      }
+    ]
+  }
+}

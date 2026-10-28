@@ -190,9 +190,10 @@ select.inp{appearance:none;cursor:pointer;}
 .toast{padding:14px 20px;border-radius:14px;font-size:14px;font-weight:600;color:var(--text);box-shadow:var(--shadow);
   max-width:min(86vw,360px);transform:translateX(140%);transition:transform .3s;border:1px solid var(--border);background:var(--panel);}
 .toast.show{transform:none;}
-.toast.ok{border-left:4px solid var(--ok);}
-.toast.err{border-left:4px solid var(--danger);}
-.toast.info{border-left:4px solid var(--accent2);}
+/* Цветной полосы слева больше нет: с тех пор как у сообщения появился
+   значок (галочка, восклицательный знак), полоса повторяла то же самое
+   вторым способом. Цвет остался в значке — там он и нужен. */
+.toast.ok, .toast.err, .toast.info { border-left: none; }
 
 /* ---------- Прочее ---------- */
 .empty{text-align:center;padding:60px 20px;color:var(--muted);}
