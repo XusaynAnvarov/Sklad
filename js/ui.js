@@ -2,7 +2,10 @@
 //  UI-ХЕЛПЕРЫ: создание элементов, тосты, модалки, диалоги, анимации
 // ========================================================================
 // img.js ничего не импортирует, поэтому круга зависимостей не возникает.
-import { full } from "./img.js?v=20261028f";
+import { full } from "./img.js?v=20261028h";
+// Пружина, бросок, сопротивление на краю и ведение пальцем — js/spring.js.
+// Там только расчёт, он проверяется тестом _tools/tests/t-spring.mjs.
+import { пустить, проекция, резинка, вести } from "./spring.js?v=20261028h";
 
 // Краткое создание элемента: el("div.card", {onclick}, [children])
 export function el(tag, props = {}, children = []) {
@@ -192,15 +195,70 @@ export function lightbox(src) {
   if (photos.length > 1) {
     const counter = el("div", { style: { position: "absolute", bottom: "16px", left: "0", right: "0", textAlign: "center", color: "#fff", fontSize: "14px" } });
     const show = () => { img.src = photos[idx]; counter.textContent = (idx + 1) + " / " + photos.length; };
-    const go = (d, e) => { if (e) e.stopPropagation(); idx = (idx + d + photos.length) % photos.length; show(); };
+
+    // ---- Ведение пальцем ----
+    // Фото тянется за пальцем один к одному, а на отпускании долетает туда,
+    // куда его бросили. Раньше здесь было «сдвинул больше 40 px — листаем»:
+    // палец вёл, а фото стояло, и до отпускания было не видно, сработает ли.
+    let тяга = null, сдвиг = 0;
+    const ширина = () => Math.max(1, ov.clientWidth || window.innerWidth);
+    const поставить = (x) => { сдвиг = x; img.style.transform = "translate3d(" + x + "px,0,0)"; };
+
+    const долететь = (куда, скорость, послеТого) => {
+      if (тяга) тяга.стоп();
+      тяга = пустить({
+        от: сдвиг, к: куда, скорость, затухание: 1, отклик: 0.32,
+        наКадр: поставить,
+        наКонец: () => { тяга = null; if (послеТого) послеТого(); },
+      });
+    };
+
+    const go = (d, e) => {
+      if (e) e.stopPropagation();
+      idx = (idx + d + photos.length) % photos.length;
+      // Уводим в сторону, меняем снимок и впускаем с другой стороны —
+      // путь туда и обратно одинаковый, как и положено.
+      const край = ширина();
+      долететь(-d * край * 0.6, 0, () => {
+        show();
+        поставить(d * край * 0.6);
+        долететь(0, 0);
+      });
+    };
     const prev = el("button", { text: "‹", onclick: (e) => go(-1, e) });
     const next = el("button", { text: "›", onclick: (e) => go(1, e) });
     [prev, next].forEach(b => b.style.cssText = "position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.16);color:#fff;border:none;font-size:42px;width:54px;height:74px;border-radius:12px;cursor:pointer;line-height:1");
     prev.style.left = "12px"; next.style.right = "12px";
     ov.append(prev, next, counter);
-    let sx = 0;
-    ov.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; }, { passive: true });
-    ov.addEventListener("touchend", (e) => { const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
+    // После перетаскивания браузер всё равно шлёт клик — а клик по фону
+    // закрывает галерею. Без этой отметки пролистывание пальцем закрывало
+    // бы её каждый раз.
+    let вели = 0;
+    ov.addEventListener("click", (e) => { if (Date.now() - вели < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+    вести(ov, {
+      наНачало: () => { if (тяга) { тяга.стоп(); тяга = null; } },   // поймали на лету
+      наДвижение: ({ дх }) => {
+        // У края (первый и последний снимок) идём за пальцем всё хуже:
+        // жёсткий упор читается как «зависло», сопротивление — как «дальше
+        // ничего нет».
+        const край = (idx === 0 && дх > 0) || (idx === photos.length - 1 && дх < 0);
+        поставить(край ? резинка(дх, ширина()) : дх);
+      },
+      наОтпускание: ({ дх, скорость }) => {
+        вели = Date.now();
+        // Листаем не от места отпускания, а от того, куда бросок летит.
+        const долёт = дх + проекция(скорость.x);
+        const порог = ширина() * 0.28;
+        if (долёт < -порог && idx < photos.length - 1) {
+          долететь(-ширина() * 0.6, скорость.x, () => { idx++; show(); поставить(ширина() * 0.6); долететь(0, 0); });
+        } else if (долёт > порог && idx > 0) {
+          долететь(ширина() * 0.6, скорость.x, () => { idx--; show(); поставить(-ширина() * 0.6); долететь(0, 0); });
+        } else {
+          долететь(0, скорость.x);     // не долетел — возвращаем, подхватив скорость
+        }
+      },
+    });
     // навигация клавишами (ноутбук): ← → и Esc
     onKey = (e) => { if (e.key === "ArrowLeft") go(-1); else if (e.key === "ArrowRight") go(1); else if (e.key === "Escape") close(); };
     document.addEventListener("keydown", onKey);

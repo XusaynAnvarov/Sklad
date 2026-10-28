@@ -1,13 +1,15 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261028f";
-import { renderCatalog } from "./catalog.js?v=20261028f";
-import { renderVideos } from "./videos.js?v=20261028f";
-import { renderCabinet } from "./cabinet.js?v=20261028f";
-import { renderAdminPanel } from "./admin-panel.js?v=20261028f";
-import { renderOrder } from "./order.js?v=20261028f";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261028f";
-import { поставитьСнимок } from "../img.js?v=20261028f";
-import { обновитьЕслиУстарело } from "../version.js?v=20261028f";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261028h";
+import { renderCatalog } from "./catalog.js?v=20261028h";
+import { renderVideos } from "./videos.js?v=20261028h";
+import { renderCabinet } from "./cabinet.js?v=20261028h";
+import { renderAdminPanel } from "./admin-panel.js?v=20261028h";
+import { renderOrder } from "./order.js?v=20261028h";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261028h";
+import { поставитьСнимок } from "../img.js?v=20261028h";
+// Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261028h";
+import { обновитьЕслиУстарело } from "../version.js?v=20261028h";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -163,8 +165,51 @@ function buildCartDrawer() {
   cartOverlay.append(cartDrawer);
   document.body.append(cartOverlay);
   cartOverlay.addEventListener("click", (e) => { if (e.target === cartOverlay) closeCartDrawer(); });
+
+  // Корзину можно смахнуть вправо — туда же, откуда она выехала. Ящик идёт
+  // за пальцем один к одному, а на отпускании решает не место, где палец
+  // оторвался, а куда бросок летит: короткий резкий смах закрывает так же,
+  // как долгое протаскивание. На полпути его можно поймать и вернуть.
+  let тягаЯщика = null, сдвигЯщика = 0;
+  const ширинаЯщика = () => Math.max(1, cartDrawer.offsetWidth || 380);
+  const поставитьЯщик = (x) => { сдвигЯщика = x; cartDrawer.style.transform = "translate3d(" + x + "px,0,0)"; };
+  // Возвращаем ящик под управление стилей: пока мы его вели, переход был
+  // выключен — иначе CSS-переход и пружина тянули бы его каждый в свою
+  // сторону и движение дёргалось.
+  const отпуститьЯщик = () => { cartDrawer.style.transform = ""; cartDrawer.style.transition = ""; сдвигЯщика = 0; };
+
+  вести(cartDrawer, {
+    наНачало: () => {
+      if (тягаЯщика) { тягаЯщика.стоп(); тягаЯщика = null; }
+      cartDrawer.style.transition = "none";
+    },
+    наДвижение: ({ дх }) => {
+      // Влево ящику ехать некуда — там стена, поэтому сопротивление.
+      поставитьЯщик(дх >= 0 ? дх : резинка(дх, ширинаЯщика()));
+      cartOverlay.style.setProperty("--задёрнутость", String(Math.max(0, 1 - дх / ширинаЯщика())));
+    },
+    наОтпускание: ({ дх, скорость }) => {
+      const долёт = дх + проекция(скорость.x);
+      const закрыть = долёт > ширинаЯщика() * 0.35;
+      тягаЯщика = пустить({
+        от: сдвигЯщика, к: закрыть ? ширинаЯщика() : 0, скорость: скорость.x,
+        затухание: 1, отклик: 0.3,
+        наКадр: поставитьЯщик,
+        наКонец: () => {
+          тягаЯщика = null;
+          cartOverlay.style.removeProperty("--задёрнутость");
+          if (закрыть) { closeCartDrawer(); отпуститьЯщик(); } else отпуститьЯщик();
+        },
+      });
+    },
+  });
+  cartOverlay.__сброс = отпуститьЯщик;
 }
-function openCartDrawer() { renderCartDrawerContent(); cartOverlay.classList.add("open"); }
+function openCartDrawer() {
+  renderCartDrawerContent();
+  if (cartOverlay.__сброс) cartOverlay.__сброс();     // открываем с чистого места
+  cartOverlay.classList.add("open");
+}
 function closeCartDrawer() { cartOverlay.classList.remove("open"); }
 export function renderCartDrawer() { if (cartOverlay?.classList.contains("open")) renderCartDrawerContent(); }
 
@@ -218,7 +263,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261028f");
+        const { api: siteApi } = await import("./api.js?v=20261028h");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -697,7 +742,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=201", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=203", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

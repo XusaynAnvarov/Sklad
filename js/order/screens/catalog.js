@@ -4,14 +4,14 @@
 //  Цен здесь нет: цену выставляет владелец после заказа.
 //  Нет в наличии — заказать нельзя, кнопка не нажимается.
 // ========================================================================
-import { el } from "../../el.js?v=20261028f";
-import { icon } from "../../icons.js?v=20261028f";
-import { toast } from "../../ui.js?v=20261028f";
-import { идти } from "../app.js?v=20261028f";
-import { снимки, картинка, открытьФото } from "../photo.js?v=20261028f";
-import { счётчик } from "../stepper.js?v=20261028f";
-import { подходит } from "../../productsearch.js?v=20261028f";
-import { подписьКода } from "../../catalogcode.js?v=20261028f";
+import { el } from "../../el.js?v=20261028h";
+import { icon } from "../../icons.js?v=20261028h";
+import { toast } from "../../ui.js?v=20261028h";
+import { идти } from "../app.js?v=20261028h";
+import { снимки, картинка, открытьФото } from "../photo.js?v=20261028h";
+import { счётчик } from "../stepper.js?v=20261028h";
+import { подходит } from "../../productsearch.js?v=20261028h";
+import { подписьКода } from "../../catalogcode.js?v=20261028h";
 
 const ВСЕ = "all";
 const категория = (p) => (p.category && String(p.category).trim()) || "Без категории";

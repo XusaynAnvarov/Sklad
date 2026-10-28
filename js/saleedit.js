@@ -10,8 +10,8 @@
 //
 //  Здесь только расчёт, без записи — поэтому проверяется тестом.
 // ========================================================================
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter } from "./inventory.js?v=20261028f";
-import { списанные } from "./stockcheck.js?v=20261028f";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, costAfter } from "./inventory.js?v=20261028h";
+import { списанные } from "./stockcheck.js?v=20261028h";
 
 // товары   — карточки со склада (свежие), { id → товар }
 // старая   — накладная ДО правки (или null, если накладная новая)

@@ -16,15 +16,15 @@
 //  4. Каждая правка идёт в журнал с причиной «Пересчёт: Лапки» — потом
 //     видно, откуда взялось число (js/pages/stock_history.js).
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261028f";
-import { icon } from "../icons.js?v=20261028f";
-import { изменениеСклада } from "../db.js?v=20261028f";
-import { сверитьЛист, строкаПересчёта } from "../stockcount.js?v=20261028f";
-import { exportStockCountSheet, exportCountDiff, списокДляПересчёта } from "../xlsx-export.js?v=20261028f";
-import { parseRows, pickFile } from "../xlsx-import.js?v=20261028f";
-import { подписьКода } from "../catalogcode.js?v=20261028f";
-import { поставитьСнимок } from "../img.js?v=20261028f";
-import { placeholder } from "./products.js?v=20261028f";
+import { el, toast, input, confirmDialog, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261028h";
+import { icon } from "../icons.js?v=20261028h";
+import { изменениеСклада } from "../db.js?v=20261028h";
+import { сверитьЛист, строкаПересчёта } from "../stockcount.js?v=20261028h";
+import { exportStockCountSheet, exportCountDiff, списокДляПересчёта } from "../xlsx-export.js?v=20261028h";
+import { parseRows, pickFile } from "../xlsx-import.js?v=20261028h";
+import { подписьКода } from "../catalogcode.js?v=20261028h";
+import { поставитьСнимок } from "../img.js?v=20261028h";
+import { placeholder } from "./products.js?v=20261028h";
 
 const знак = (n) => (n > 0 ? "+" : "") + (Math.round(n * 100) / 100);
 const ПАЧКА = 150;                       // товаров в одном запросе на запись
