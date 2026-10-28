@@ -23,10 +23,10 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
   animation: mspin .8s linear infinite;
 }
 @keyframes mspin { to { transform: rotate(360deg); } }
-.mini-boot-t { color: var(--muted); font-size: 14px; }
+.mini-boot-t { color: var(--muted); font-size: 0.875rem; }
 .mini-deny { min-height: 100dvh; display: grid; place-items: center; align-content: center; gap: 12px; padding: 24px; text-align: center; }
-.mini-deny .t { font-size: 18px; font-weight: 700; }
-.mini-deny .s { color: var(--muted); font-size: 14px; max-width: 34ch; line-height: 1.5; }
+.mini-deny .t { font-size: 1.125rem; font-weight: 700; }
+.mini-deny .s { color: var(--muted); font-size: 0.875rem; max-width: 34ch; line-height: 1.5; }
 
 /* ---------- шапка экрана ---------- */
 .mini-head {
@@ -35,7 +35,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
   padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
   display: flex; align-items: center; gap: 10px;
 }
-.mini-head h1 { font-size: 18px; font-weight: 700; flex: 1; min-width: 0; }
+.mini-head h1 { font-size: 1.125rem; font-weight: 700; flex: 1; min-width: 0; }
 .mini-back {
   width: 38px; height: 38px; flex: none; border-radius: 10px; border: 1px solid var(--border);
   background: var(--panel); color: var(--text); display: grid; place-items: center; cursor: pointer;
@@ -46,10 +46,10 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 .mini-num {
   background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 11px 10px;
 }
-.mini-num .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.mini-num .l { font-size: 0.6563rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .mini-num .v {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; margin-top: 3px;
+  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 0.9375rem; margin-top: 3px;
 }
 .mini-num.good .v { color: var(--ok); }
 .mini-num.warn .v { color: var(--warn); }
@@ -59,13 +59,13 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 .mini-act {
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-  padding: 15px 14px; min-height: 84px; cursor: pointer; text-align: left;
-  color: var(--text); font-size: 15px; font-weight: 600;
+  padding: 15px 14px; min-height: 5.25rem; cursor: pointer; text-align: left;
+  color: var(--text); font-size: 0.9375rem; font-weight: 600;
   transition: border-color .15s, transform .12s;
 }
 .mini-act:active { transform: scale(.98); }
 .mini-act .ic-svg { color: var(--accent); }
-.mini-act .sub { font-size: 12px; font-weight: 400; color: var(--muted); }
+.mini-act .sub { font-size: 0.75rem; font-weight: 400; color: var(--muted); }
 .mini-act.wide { grid-column: 1 / -1; flex-direction: row; align-items: center; min-height: 0; }
 .mini-act.wide .ic-svg { flex: none; }
 
@@ -82,14 +82,14 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 .mini-row.low::before { background: var(--warn); }
 .mini-row.neg::before { background: var(--danger); }
 .mini-row .info { flex: 1; min-width: 0; }
-.mini-row .nm { font-weight: 600; font-size: 14.5px; line-height: 1.3; }
+.mini-row .nm { font-weight: 600; font-size: 0.9063rem; line-height: 1.3; }
 .mini-row .sku {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-size: 11px; color: var(--muted); margin-top: 2px;
+  font-size: 0.6875rem; color: var(--muted); margin-top: 2px;
 }
 .mini-row .qty {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; white-space: nowrap;
+  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 0.9375rem; white-space: nowrap;
 }
 .mini-row .qty.low { color: var(--warn); }
 .mini-row .qty.neg { color: var(--danger); }
@@ -100,7 +100,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 
 /* ---------- поиск ---------- */
 .mini-search { display: flex; gap: 8px; margin-bottom: 12px; }
-.mini-search .inp { flex: 1; min-height: 44px; font-size: 16px; }
+.mini-search .inp { flex: 1; min-height: 2.75rem; font-size: 1rem; }
 .mini-icon-btn {
   width: 44px; height: 44px; flex: none; border-radius: 10px; border: 1px solid var(--border);
   background: var(--panel); color: var(--text); display: grid; place-items: center; cursor: pointer;
@@ -115,8 +115,8 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 }
 .mini-tab {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 9px 4px 8px; font-size: 11px; color: var(--muted);
-  background: none; border: none; cursor: pointer; min-height: 56px;
+  padding: 9px 4px 8px; font-size: 0.6875rem; color: var(--muted);
+  background: none; border: none; cursor: pointer; min-height: 3.5rem;
 }
 .mini-tab.on { color: var(--accent); }
 .mini-tab.on .ic-svg { transform: translateY(-1px); }
@@ -127,10 +127,10 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
   padding: 10px 14px; background: linear-gradient(to top, var(--bg) 70%, transparent);
   z-index: 25;
 }
-.mini-cta .btn { width: 100%; justify-content: center; min-height: 48px; font-size: 15px; }
+.mini-cta .btn { width: 100%; justify-content: center; min-height: 3rem; font-size: 0.9375rem; }
 
-.mini-empty { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 14px; }
-.mini-sec { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 8px; }
+.mini-empty { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 0.875rem; }
+.mini-sec { font-size: 0.75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 8px; }
 
 /* ================================================================
    КОМПЬЮТЕР — от 900px. То же приложение, но шире: меню слева
@@ -149,7 +149,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
   }
   .mini-tab {
     flex-direction: row; justify-content: flex-start; gap: 11px;
-    padding: 12px 14px; border-radius: 9px; font-size: 14.5px; min-height: 46px;
+    padding: 12px 14px; border-radius: 9px; font-size: 0.9063rem; min-height: 2.875rem;
   }
   .mini-tab.on { background: var(--brass-wash, rgba(143,103,32,.09)); }
 
@@ -165,7 +165,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
   /* больше на экран */
   .mini-nums { grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .mini-num { padding: 15px 16px; }
-  .mini-num .v { font-size: 20px; }
+  .mini-num .v { font-size: 1.25rem; }
   .mini-acts { grid-template-columns: repeat(4, 1fr); }
   .mini-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .mini-row { padding: 13px 15px; }
@@ -191,14 +191,14 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 }
 .qr-card.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .qr-card svg { display: block; margin: 0 auto 8px; width: 100%; height: auto; max-width: 132px; }
-.qr-card .nm { font-size: 12.5px; font-weight: 600; line-height: 1.25; word-break: break-word; }
+.qr-card .nm { font-size: 0.7813rem; font-weight: 600; line-height: 1.25; word-break: break-word; }
 .qr-card .sku {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-size: 10.5px; color: var(--muted); margin-top: 3px;
+  font-size: 0.6563rem; color: var(--muted); margin-top: 3px;
 }
 .qr-card .tick {
   position: absolute; top: 7px; right: 7px; width: 21px; height: 21px; border-radius: 50%;
-  background: var(--accent); color: #fff; display: none; place-items: center; font-size: 13px;
+  background: var(--accent); color: #fff; display: none; place-items: center; font-size: 0.8125rem;
 }
 .qr-card.on .tick { display: grid; }
 
@@ -215,9 +215,9 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 /* ---------- Меню: пять вкладок в одну строку ---------- */
 /* Было четыре колонки на пять пунктов — «Отчёт» падал на вторую строку. */
 .mini-bar { grid-template-columns: repeat(5, 1fr); }
-.mini-tab { font-size: 10px; padding: 8px 2px 7px; gap: 2px; }
+.mini-tab { font-size: 0.625rem; padding: 8px 2px 7px; gap: 2px; }
 .mini-tab span { white-space: nowrap; }
-@media (max-width: 360px) { .mini-tab { font-size: 9px; } }
+@media (max-width: 360px) { .mini-tab { font-size: 0.5625rem; } }
 
 /* «Развернуть» — только на компьютере: на телефоне приложение и так во весь экран */
 .mini-full {
@@ -233,7 +233,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 @media (min-width: 900px) {
   /* в широком макете меню снова колонкой, пять пунктов помещаются свободно */
   .mini-bar { grid-template-columns: 1fr; }
-  .mini-tab { font-size: 14.5px; padding: 12px 14px; gap: 11px; }
+  .mini-tab { font-size: 0.9063rem; padding: 12px 14px; gap: 11px; }
 }
 
 /* ================================================================

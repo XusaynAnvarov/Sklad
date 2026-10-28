@@ -10,21 +10,21 @@
 
 /* ---------- нижние вкладки: их три, а не пять ---------- */
 .ord-bar { grid-template-columns: repeat(4, 1fr); }
-.ord-bar .mini-tab { font-size: 11px; padding: 9px 4px 8px; gap: 3px; }
+.ord-bar .mini-tab { font-size: 0.6875rem; padding: 9px 4px 8px; gap: 3px; }
 
 /* значок на вкладке: сколько в корзине, сколько заказов ждут ответа */
 .ord-ic { position: relative; display: inline-flex; }
 .ord-badge {
   position: absolute; top: -6px; right: -9px; min-width: 17px; height: 17px;
   padding: 0 4px; border-radius: 9px; background: var(--danger); color: #fff;
-  font-size: 10px; font-weight: 700; font-style: normal; line-height: 17px;
+  font-size: 0.625rem; font-weight: 700; font-style: normal; line-height: 17px;
   text-align: center; display: none;
 }
 .ord-badge.on { display: block; }
 
 /* имя клиента в шапке — чтобы было видно, чей это заказ */
 .ord-who {
-  font-size: 12px; color: var(--muted); max-width: 45%;
+  font-size: 0.75rem; color: var(--muted); max-width: 45%;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -51,23 +51,23 @@
 .ord-ph-n {
   position: absolute; left: 7px; bottom: 7px; display: inline-flex; align-items: center; gap: 3px;
   padding: 2px 7px; border-radius: 20px; background: rgba(20, 24, 30, .62);
-  color: #fff; font-size: 11px; font-weight: 600; pointer-events: none;
+  color: #fff; font-size: 0.6875rem; font-weight: 600; pointer-events: none;
 }
 .ord-new {
   position: absolute; right: 7px; top: 7px; padding: 2px 8px; border-radius: 20px;
-  background: var(--accent); color: #fff; font-size: 10.5px; font-weight: 700;
+  background: var(--accent); color: #fff; font-size: 0.6563rem; font-weight: 700;
 }
 
 .ord-body { display: flex; flex-direction: column; gap: 5px; padding: 9px 10px 11px; flex: 1; }
 .ord-nm {
-  font-size: 13px; font-weight: 600; line-height: 1.28;
+  font-size: 0.8125rem; font-weight: 600; line-height: 1.28;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .ord-sku {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-size: 10.5px; color: var(--muted);
+  font-size: 0.6563rem; color: var(--muted);
 }
-.ord-incart { font-size: 11px; font-weight: 700; color: var(--accent); min-height: 14px; }
+.ord-incart { font-size: 0.6875rem; font-weight: 700; color: var(--accent); min-height: 0.875rem; }
 
 /* ---------- метки состояния ---------- */
 .ord-mark {
@@ -75,7 +75,7 @@
      строки и читается как полоса, а не как ярлык. */
   display: inline-block; align-self: flex-start;
   padding: 2px 9px; border-radius: 20px;
-  font-size: 11px; font-weight: 700; white-space: nowrap; margin-top: 2px;
+  font-size: 0.6875rem; font-weight: 700; white-space: nowrap; margin-top: 2px;
 }
 .ord-mark.ok   { color: var(--ok);     background: color-mix(in srgb, var(--ok) 12%, transparent); }
 .ord-mark.soon { color: var(--warn);   background: color-mix(in srgb, var(--warn) 14%, transparent); }
@@ -90,7 +90,7 @@
 .ord-qty .q {
   width: 34px; height: 34px; flex: none; border-radius: 9px;
   border: 1px solid var(--border); background: var(--panel); color: var(--text);
-  font-size: 19px; font-weight: 700; line-height: 1; cursor: pointer;
+  font-size: 1.1875rem; font-weight: 700; line-height: 1; cursor: pointer;
   display: grid; place-items: center;
 }
 .ord-qty .q:active { transform: scale(.93); }
@@ -99,7 +99,7 @@
    при заходе в поле, и вёрстка уезжает. */
 .ord-qty .n {
   width: 54px; min-width: 0; flex: 1 1 auto; text-align: center;
-  font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;
+  font-weight: 700; font-size: 1rem; font-variant-numeric: tabular-nums;
   padding: 6px 2px; border-radius: 9px;
   border: 1px solid var(--border); background: var(--bg2, #eef0f3); color: var(--text);
   -moz-appearance: textfield; appearance: textfield;
@@ -118,9 +118,9 @@
 /* ---------- кнопка «в корзину» ---------- */
 .ord-add {
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-  width: 100%; min-height: 38px; margin-top: 6px;
+  width: 100%; min-height: 2.375rem; margin-top: 6px;
   border: none; border-radius: 10px; cursor: pointer;
-  background: var(--grad); color: #fff; font-size: 13px; font-weight: 700;
+  background: var(--grad); color: #fff; font-size: 0.8125rem; font-weight: 700;
 }
 html[data-theme="light"] .ord-add { color: #fff; }
 .ord-add:active { transform: scale(.97); }
@@ -144,7 +144,7 @@ html[data-theme="light"] .ord-add { color: #fff; }
   padding: 11px 13px; margin-bottom: 10px; border-radius: 12px;
   background: color-mix(in srgb, var(--warn) 9%, transparent);
   border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent);
-  font-size: 13px; line-height: 1.45;
+  font-size: 0.8125rem; line-height: 1.45;
 }
 .ord-note .ic-svg { color: var(--warn); flex: none; margin-top: 1px; }
 .ord-note.ask {
@@ -154,11 +154,11 @@ html[data-theme="light"] .ord-add { color: #fff; }
 .ord-note.ask .ic-svg { color: var(--accent); }
 
 .ord-sum {
-  text-align: right; font-weight: 700; font-size: 15px; margin: 12px 0 4px;
+  text-align: right; font-weight: 700; font-size: 0.9375rem; margin: 12px 0 4px;
   font-variant-numeric: tabular-nums;
 }
 .ord-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.ord-head .t { font-size: 16px; font-weight: 700; }
+.ord-head .t { font-size: 1rem; font-weight: 700; }
 .ord-head .ord-mark { margin-top: 0; }
 
 /* две кнопки в ряд: «не подходит» и «подтвердить» */
@@ -167,7 +167,7 @@ html[data-theme="light"] .ord-add { color: #fff; }
   display: flex; gap: 10px; padding: 10px 14px; z-index: 25;
   background: linear-gradient(to top, var(--bg) 70%, transparent);
 }
-.ord-actions .btn { flex: 1; justify-content: center; min-height: 48px; font-size: 15px; }
+.ord-actions .btn { flex: 1; justify-content: center; min-height: 3rem; font-size: 0.9375rem; }
 @media (min-width: 900px) {
   .ord-actions { left: 210px; bottom: 0; padding: 14px 24px; max-width: 948px; }
 }
@@ -184,7 +184,7 @@ body.ord { padding-bottom: calc(132px + env(safe-area-inset-bottom)); }
 .ord-lb img { max-width: 100%; max-height: 82vh; object-fit: contain; border-radius: 10px; }
 .ord-lb-n {
   position: absolute; left: 0; right: 0; bottom: 20px; text-align: center;
-  color: #fff; font-size: 13px; padding: 0 20px;
+  color: #fff; font-size: 0.8125rem; padding: 0 20px;
 }
 
 /* ---------- строки списков в приложении заказа ---------- */
@@ -193,12 +193,12 @@ body.ord { padding-bottom: calc(132px + env(safe-area-inset-bottom)); }
    помещаться на экран. Показываем две строки, остальное — многоточием. */
 body.ord .mini-row .nm {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden; font-size: 14px;
+  overflow: hidden; font-size: 0.875rem;
 }
 body.ord .mini-row { gap: 9px; padding: 10px 11px; }
 body.ord .mini-row .info { flex: 1 1 auto; }
-body.ord .mini-row .ord-qty .q { width: 31px; height: 31px; font-size: 17px; }
-body.ord .mini-row .ord-qty .n { width: 48px; flex: none; font-size: 16px; padding: 5px 2px; }
+body.ord .mini-row .ord-qty .q { width: 31px; height: 31px; font-size: 1.0625rem; }
+body.ord .mini-row .ord-qty .n { width: 48px; flex: none; font-size: 1rem; padding: 5px 2px; }
 body.ord .mini-row .ord-del { width: 32px; height: 32px; }
 
 /* ================================================================
@@ -214,14 +214,14 @@ body.ord .mini-row .ord-del { width: 32px; height: 32px; }
   .ord-bar { grid-template-columns: 1fr; }
   .ord-bar .mini-tab {
     flex-direction: row; justify-content: flex-start; gap: 11px;
-    padding: 12px 14px; font-size: 14.5px; min-height: 46px; border-radius: 9px;
+    padding: 12px 14px; font-size: 0.9063rem; min-height: 2.875rem; border-radius: 9px;
   }
   .ord-badge { position: static; margin-left: auto; }
 
   /* Сетка товаров тянется во всю ширину рабочей области. */
   .ord-grid { gap: 14px; }
-  .ord-nm { font-size: 14px; }
-  .ord-add { min-height: 40px; font-size: 14px; }
+  .ord-nm { font-size: 0.875rem; }
+  .ord-add { min-height: 2.5rem; font-size: 0.875rem; }
 
   /* Списки корзины и заказов на широком экране — в две колонки
      (правило из css/sklad.css). Итог и пояснения должны занимать
@@ -249,26 +249,26 @@ body.ord .mini-row .ord-del { width: 32px; height: 32px; }
   background: var(--panel);
 }
 .inv-sum.debt { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
-.inv-sum .l { font-size: 12.5px; color: var(--muted); }
-.inv-sum .v { font-size: 22px; font-weight: 700; color: var(--danger); margin-top: 2px; }
-.inv-sum.paid .l { color: var(--ok); font-weight: 600; font-size: 14px; }
-.inv-sum .s { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.inv-sum .l { font-size: 0.7813rem; color: var(--muted); }
+.inv-sum .v { font-size: 1.375rem; font-weight: 700; color: var(--danger); margin-top: 2px; }
+.inv-sum.paid .l { color: var(--ok); font-weight: 600; font-size: 0.875rem; }
+.inv-sum .s { font-size: 0.7813rem; color: var(--muted); margin-top: 4px; }
 
 .inv-filter { display: flex; gap: 6px; margin-bottom: 6px; }
 .inv-filter button {
-  flex: 1 1 0; min-height: 38px; border-radius: 9px; font: inherit; font-size: 14px; font-weight: 600;
+  flex: 1 1 0; min-height: 2.375rem; border-radius: 9px; font: inherit; font-size: 0.875rem; font-weight: 600;
   background: var(--panel); color: var(--text); border: 1px solid var(--border); cursor: pointer;
 }
 .inv-filter button.on { background: var(--accent); border-color: var(--accent); color: #15151a; }
 
 .inv-month {
   display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap;
-  margin: 16px 2px 8px; font-weight: 700; font-size: 14.5px;
+  margin: 16px 2px 8px; font-weight: 700; font-size: 0.9063rem;
 }
-.inv-month .s { font-weight: 500; font-size: 12.5px; color: var(--muted); }
+.inv-month .s { font-weight: 500; font-size: 0.7813rem; color: var(--muted); }
 
 .inv-row .inv-date {
-  flex: none; min-width: 46px; text-align: center; font-weight: 700; font-size: 14px;
+  flex: none; min-width: 46px; text-align: center; font-weight: 700; font-size: 0.875rem;
   padding: 6px 4px; border-radius: 8px; background: color-mix(in srgb, var(--muted) 12%, transparent);
 }
 .inv-row .info .ord-mark { margin-top: 4px; }
