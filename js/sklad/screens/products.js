@@ -1,24 +1,24 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20261028d";
-import { icon } from "../../icons.js?v=20261028d";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261028d";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261028d";
-import { fmt, convert } from "../../fx.js?v=20261028d";
-import { thumb } from "../../img.js?v=20261028d";
-import { LOW_STOCK } from "../../advice.js?v=20261028d";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261028d";
-import { qrSvg, skuPayload } from "../../qr.js?v=20261028d";
-import { setStock } from "../stock.js?v=20261028d";
+import { el, go } from "../app.js?v=20261028e";
+import { icon } from "../../icons.js?v=20261028e";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261028e";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261028e";
+import { fmt, convert } from "../../fx.js?v=20261028e";
+import { thumb } from "../../img.js?v=20261028e";
+import { LOW_STOCK } from "../../advice.js?v=20261028e";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261028e";
+import { qrSvg, skuPayload } from "../../qr.js?v=20261028e";
+import { setStock } from "../stock.js?v=20261028e";
 // Себестоимость показываем в той валюте, в которой её ввели. Расчёт общий
 // со складом на сайте: иначе один товар выглядит как «$33.87» на компьютере
 // и «241,94 ¥» в телефоне — цифра верная, а доверия к ней никакого.
-import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261028d";
-import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20261028d";
-import { подходит } from "../../productsearch.js?v=20261028d";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261028d";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261028d";
+import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261028e";
+import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20261028e";
+import { подходит } from "../../productsearch.js?v=20261028e";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261028e";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261028e";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);

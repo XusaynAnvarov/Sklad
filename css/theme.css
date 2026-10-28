@@ -175,9 +175,15 @@ select.inp{appearance:none;cursor:pointer;}
 .modal-overlay.show{opacity:1;}
 .modal{width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;
   background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);
-  transform:translateY(20px) scale(.98);transition:transform .25s;overflow:hidden;}
+  /* Точку, из которой растёт окно, ставит js/ui.js — это место нажатия.
+     Масштаб заметнее прежнего (.94 против .98): иначе рост от кнопки не
+     читается. Прозрачность в паре с ним — окно «проявляется», а не
+     прыгает. */
+  transform:translateY(8px) scale(.94);opacity:.35;
+  transition:transform .26s cubic-bezier(.2,.8,.25,1), opacity .18s ease;
+  overflow:hidden;}
 .modal.wide{max-width:840px;}
-.modal-overlay.show .modal{transform:none;}
+.modal-overlay.show .modal{transform:none;opacity:1;}
 .modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);}
 .modal-head h3{font-size:19px;font-weight:700;}
 .modal-x{background:none;border:none;color:var(--muted);font-size:26px;cursor:pointer;line-height:1;transition:color .2s;}
@@ -1125,3 +1131,35 @@ body, p, .card, .tbl td, .inp, .cselect, .btn { letter-spacing: 0; }
 
 /* Цифры, которые читают, а не разглядывают: чуть теснее — колонка ровнее. */
 .st-value, .big-num, .mini-num .v { letter-spacing: -.012em; }
+
+/* ===================================================================
+   МЯГКИЕ СТЫКИ И ОТКЛИК НА НАЖАТИЕ (аудит apple-design, пункты 6 и 12).
+   =================================================================== */
+
+/* 6. Там, где содержимое уезжает под стекло, линия в 1 px выглядит
+   приклеенной. Вместо неё — короткая растушёвка того же цвета: край
+   читается, но не режет. */
+@media (min-width: 861px) {
+  .sidebar { border-bottom: none; position: relative; }
+  .sidebar::after {
+    content: ""; position: absolute; left: 14px; right: 14px; bottom: -14px; height: 14px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(0,0,0,.22), transparent);
+  }
+  html[data-theme="light"] .sidebar::after {
+    background: linear-gradient(to bottom, rgba(16,24,40,.10), transparent);
+  }
+  /* Полоса разделов отделяется тенью, а не чертой. */
+  .navrow { border-top: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
+  html[data-theme="light"] .navrow { box-shadow: inset 0 1px 0 rgba(16,24,40,.05); }
+}
+
+/* 12. Нажимается — значит отзывается. Строки накладных и карточки советов
+   кликабельны, но под пальцем не менялись. Строку таблицы не двигаем
+   (сдвиг ячеек заметен как дрожь) — подсвечиваем. */
+.tbl tbody tr { transition: background .14s; }
+.tbl tbody tr:active { background: rgba(217,180,90,.14); }
+html[data-theme="light"] .tbl tbody tr:active { background: rgba(143,103,32,.10); }
+.advice { transition: transform .12s cubic-bezier(.34,1.56,.64,1), border-color .2s, box-shadow .2s; }
+.advice:active { transform: scale(.985); }
+.mini-list .mini-row:active { transform: scale(.985); }

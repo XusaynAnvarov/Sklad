@@ -1435,3 +1435,21 @@ html[data-site-theme="dark"] .s-empty {
 .product-name { letter-spacing: -.006em; }
 .product-category, .rail-count, .cat-rail-title,
 .s-empty p, .skeleton-line { letter-spacing: .01em; }
+
+/* ===================================================================
+   МЯГКИЙ СТЫК ПОД ШАПКОЙ (аудит apple-design, пункт 6).
+   Содержимое уезжает под стекло шапки — линия в 1 px там выглядит
+   приклеенной. Короткая растушёвка отделяет мягче и честнее.
+   =================================================================== */
+.site-header { border-bottom: none; }
+.site-header::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -14px; height: 14px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(28,43,74,.10), transparent);
+}
+html[data-site-theme="dark"] .site-header::after {
+  background: linear-gradient(to bottom, rgba(0,0,0,.34), transparent);
+}
+
+/* Карточка товара тоже нажимается — пусть отзывается. */
+.product-card:active { transform: scale(.99); }

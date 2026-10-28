@@ -2,7 +2,7 @@
 //  UI-ХЕЛПЕРЫ: создание элементов, тосты, модалки, диалоги, анимации
 // ========================================================================
 // img.js ничего не импортирует, поэтому круга зависимостей не возникает.
-import { full } from "./img.js?v=20261028d";
+import { full } from "./img.js?v=20261028e";
 
 // Краткое создание элемента: el("div.card", {onclick}, [children])
 export function el(tag, props = {}, children = []) {
@@ -49,6 +49,28 @@ export function toast(msg, type = "ok") {
 }
 
 // ---------- Модальное окно ----------
+// ---------- Откуда растёт окно ----------
+// Запоминаем точку последнего нажатия: окно должно разворачиваться оттуда,
+// где человек нажал, а не из центра экрана. Тогда видно связь между кнопкой
+// и тем, что она открыла, — и закрывается окно туда же.
+let точкаНажатия = null;
+try {
+  document.addEventListener("pointerdown", (e) => {
+    if (e.clientX || e.clientY) точкаНажатия = { x: e.clientX, y: e.clientY, когда: Date.now() };
+  }, { capture: true, passive: true });
+} catch {}
+
+function растиИзТочки(узел) {
+  // Нажатие старше трёх секунд — окно открыли не кнопкой (горячая клавиша,
+  // ответ сервера). Тогда обычный рост из центра честнее.
+  if (!точкаНажатия || Date.now() - точкаНажатия.когда > 3000) return;
+  const к = узел.getBoundingClientRect();
+  if (!к.width || !к.height) return;
+  const x = Math.min(Math.max(точкаНажатия.x - к.left, 0), к.width);
+  const y = Math.min(Math.max(точкаНажатия.y - к.top, 0), к.height);
+  узел.style.transformOrigin = Math.round(x) + "px " + Math.round(y) + "px";
+}
+
 export function modal({ title, body, actions, wide }) {
   const overlay = el("div.modal-overlay");
   const win = el("div.modal" + (wide ? ".wide" : ""));
@@ -67,6 +89,7 @@ export function modal({ title, body, actions, wide }) {
   overlay.append(win);
   overlay.addEventListener("mousedown", e => { if (e.target === overlay) close(); });
   document.body.append(overlay);
+  растиИзТочки(win);
   requestAnimationFrame(() => overlay.classList.add("show"));
   function close() { overlay.classList.remove("show"); setTimeout(() => overlay.remove(), 250); }
   return { close, content };
