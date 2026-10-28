@@ -17,7 +17,10 @@ html.no-theme-anim, html.no-theme-anim *, html.no-theme-anim *::before, html.no-
   font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 html{scroll-behavior:smooth;}
-body{font-feature-settings:"cv11","ss01";letter-spacing:-0.01em;}
+/* Трекинг (расстояние между буквами) задаётся НЕ здесь, а по размеру текста —
+   см. блок «ТРЕКИНГ ПО РАЗМЕРУ» в конце файла. Один общий -0.01em на всё
+   был ошибкой: крупному заголовку этого мало, а подписи в 11 px он слипает. */
+body{font-feature-settings:"cv11","ss01";}
 body{background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;position:relative;}
 
 /* плавающие орбы на фоне */
@@ -1093,3 +1096,31 @@ html[data-theme="light"] .tbl {
 @media (max-width: 860px) {
   .navrow { display: flex; flex-direction: column; gap: 4px; }
 }
+
+/* ===================================================================
+   ТРЕКИНГ ПО РАЗМЕРУ.
+   Буквы в крупном тексте кажутся расставленными шире, чем в мелком, —
+   это свойство глаза, а не шрифта. Поэтому заголовки сжимаем, обычный
+   текст оставляем как есть, а мелкие подписи чуть раздвигаем: при 11 px
+   они иначе слипаются, особенно на стекле.
+
+   Раньше на body стоял один -0.01em на весь текст сразу: заголовку этого
+   было мало, подписи — вредно.
+   =================================================================== */
+
+/* Крупное — теснее. */
+h1, .topbar h1 { letter-spacing: -.022em; }
+h2, .modal-head h3 { letter-spacing: -.016em; }
+h3 { letter-spacing: -.012em; }
+
+/* Обычный текст — около нуля, как задумано в шрифте. */
+body, p, .card, .tbl td, .inp, .cselect, .btn { letter-spacing: 0; }
+
+/* Мелкое — чуть просторнее, иначе сливается. */
+.sub, .hint, .st-label, .st-sub, .muted, .sku,
+.mini-row .sku, .mini-num .l, .mini-act .sub,
+.ptag, .mode-tag, .nav-badge, .badge, .rail-count,
+.advice-s, .toast-txt { letter-spacing: .01em; }
+
+/* Цифры, которые читают, а не разглядывают: чуть теснее — колонка ровнее. */
+.st-value, .big-num, .mini-num .v { letter-spacing: -.012em; }

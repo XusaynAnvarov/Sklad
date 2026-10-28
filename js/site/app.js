@@ -1,13 +1,13 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261028b";
-import { renderCatalog } from "./catalog.js?v=20261028b";
-import { renderVideos } from "./videos.js?v=20261028b";
-import { renderCabinet } from "./cabinet.js?v=20261028b";
-import { renderAdminPanel } from "./admin-panel.js?v=20261028b";
-import { renderOrder } from "./order.js?v=20261028b";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261028b";
-import { поставитьСнимок } from "../img.js?v=20261028b";
-import { обновитьЕслиУстарело } from "../version.js?v=20261028b";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261028c";
+import { renderCatalog } from "./catalog.js?v=20261028c";
+import { renderVideos } from "./videos.js?v=20261028c";
+import { renderCabinet } from "./cabinet.js?v=20261028c";
+import { renderAdminPanel } from "./admin-panel.js?v=20261028c";
+import { renderOrder } from "./order.js?v=20261028c";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261028c";
+import { поставитьСнимок } from "../img.js?v=20261028c";
+import { обновитьЕслиУстарело } from "../version.js?v=20261028c";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -218,7 +218,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261028b");
+        const { api: siteApi } = await import("./api.js?v=20261028c");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -592,8 +592,14 @@ export async function boot() {
   const savedTheme = getTheme();
   document.documentElement.setAttribute("data-site-theme", savedTheme);
 
+  // Заставка уходит, когда первый экран ГОТОВ, а не по таймеру. Раньше тут
+  // стояли жёсткие 600 мс: на быстром соединении человек ждал их впустую,
+  // на медленном — всё равно видел пустоту после них. Прячем в rebuild(),
+  // сразу после отрисовки. Здесь — только страховка: если что-то пойдёт не
+  // так и до отрисовки дело не дойдёт, заставка не останется навсегда.
   const loader = document.getElementById("gm-loader");
-  if (loader) setTimeout(() => loader.classList.add("hide"), 600);
+  const убратьЗаставку = () => { if (loader) loader.classList.add("hide"); };
+  if (loader) setTimeout(убратьЗаставку, 8000);
 
   setAuthChangeCallback(() => { location.reload(); });
 
@@ -620,7 +626,12 @@ export async function boot() {
     app.innerHTML = "";
     const main = document.createElement("div"); main.id = "site-main";
     app.append(buildHeader(), main);
-    route(main);
+    const готово = route(main);
+    // Шапка и каркас уже в странице — заставке больше нечего закрывать.
+    // Без requestAnimationFrame: в фоновой вкладке браузер кадры не рисует,
+    // и заставка висела бы до страховочного таймера (проверено — 8 секунд).
+    убратьЗаставку();
+    return готово;
   }
   перерисоватьСайт = rebuild;
   rebuild();
@@ -686,7 +697,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=197", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=198", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

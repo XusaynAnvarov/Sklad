@@ -2,7 +2,7 @@
 //  UI-ХЕЛПЕРЫ: создание элементов, тосты, модалки, диалоги, анимации
 // ========================================================================
 // img.js ничего не импортирует, поэтому круга зависимостей не возникает.
-import { full } from "./img.js?v=20261028b";
+import { full } from "./img.js?v=20261028c";
 
 // Краткое создание элемента: el("div.card", {onclick}, [children])
 export function el(tag, props = {}, children = []) {
@@ -93,7 +93,10 @@ const мéньшеДвижения = () => {
 export function animateCount(node, to, formatter = (n) => Math.round(n).toLocaleString("ru-RU")) {
   node.dataset.gmSchet = "1";          // чтобы общий сборщик ниже не завёл второй счётчик
   if (мéньшеДвижения()) { node.textContent = formatter(to); return; }
-  const from = 0, dur = 1100, start = performance.now();
+  // 0.6 с, не 1.1: цифру на дашборде читают сразу, и длинный счётчик
+  // держит её нечитаемой дольше, чем приятно. Короткий — виден как
+  // движение, но не мешает работать.
+  const from = 0, dur = 600, start = performance.now();
   function step(now) {
     const t = Math.min(1, (now - start) / dur);
     const eased = 1 - Math.pow(1 - t, 4);

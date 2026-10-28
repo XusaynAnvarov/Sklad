@@ -1425,3 +1425,13 @@ html[data-site-theme="dark"] .s-empty {
    это делает видеокарта. */
 .gm-glow { filter: none; will-change: transform; }
 .gm-loader-glow { filter: blur(40px); }
+
+/* ===================================================================
+   ТРЕКИНГ ПО РАЗМЕРУ (как в css/theme.css).
+   Крупное — теснее, мелкое — просторнее: при 11–12 px буквы иначе
+   слипаются, особенно поверх стекла.
+   =================================================================== */
+.site-hero h1, .feature-tile h1 { letter-spacing: -.022em; }
+.product-name { letter-spacing: -.006em; }
+.product-category, .rail-count, .cat-rail-title,
+.s-empty p, .skeleton-line { letter-spacing: .01em; }
