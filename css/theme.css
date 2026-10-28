@@ -1020,3 +1020,76 @@ html[data-theme="light"] .toast {
   background: linear-gradient(152deg, rgba(22,22,28,.86), rgba(18,18,24,.74)); }
 html[data-theme="light"] .tbl {
   background: linear-gradient(152deg, rgba(255,255,255,.90), rgba(255,255,255,.78)); }
+
+/* ===================================================================
+   МЕНЮ СВЕРХУ (вариант 7).
+   Разделы уезжают из левой колонки в полосу под шапкой, и вся ширина
+   экрана достаётся цифрам и таблицам: на ноутбуке помещается заметно
+   больше. Разметка та же — поменялась только раскладка, поэтому на
+   телефоне меню по-прежнему выезжает ящиком слева (ниже 861 px всё
+   остаётся как было).
+   =================================================================== */
+@media (min-width: 861px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+
+  /* Шапка: знак слева, служебные кнопки справа, разделы — строкой ниже. */
+  .sidebar {
+    position: sticky; top: 0; z-index: 60;
+    height: auto; max-height: none; overflow: visible;
+    margin: 12px 16px 0; padding: 10px 14px 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    border-radius: 20px;
+  }
+  .sidebar .brand { padding: 0 10px 0 2px; font-size: 19px; }
+
+  /* Всё служебное прижимаем вправо: первый из них забирает свободное место. */
+  .sidebar .profile-chip { order: 2; margin: 0 0 0 auto; padding: 6px 10px; }
+  .sidebar .profile-chip .avatar { width: 30px; height: 30px; }
+  .sidebar .mode-tag,
+  .sidebar .lang-switch,
+  .sidebar .theme-toggle { order: 3; margin: 0; }
+  /* Эти кнопки в столбике были во всю ширину — в строке им нужна своя. */
+  .sidebar .theme-toggle { width: auto; margin: 0; padding: 7px 12px; font-size: 13px; }
+  .sidebar .lang-switch { width: auto; margin: 0; }
+  .sidebar .mode-tag { width: auto; margin: 0; padding: 7px 11px; }
+  .app, .sidebar, .main { min-width: 0; }
+  .sidebar .theme-toggle { padding: 7px 11px; }
+
+  /* Полоса разделов. Их четырнадцать — в строку не помещаются, поэтому
+     полоса прокручивается вбок, а не переносится на три ряда. */
+  /* min-width:0 обязателен: без него строка меню не даёт шапке сжиматься,
+     страница расползается шире экрана и всё уезжает вбок. */
+  .navrow {
+    order: 4; flex: 1 1 100%; width: 100%; min-width: 0;
+    display: flex; gap: 4px;
+    margin-top: 10px; padding: 8px 0 2px;
+    border-top: 1px solid rgba(255,255,255,.10);
+    overflow-x: auto; scrollbar-width: thin;
+  }
+  html[data-theme="light"] .navrow { border-top-color: rgba(16,24,40,.10); }
+  .navrow .navitem {
+    margin: 0; white-space: nowrap; flex: none;
+    padding: 9px 14px; font-size: 14px;
+  }
+  .navrow .navitem:hover { padding-left: 14px; }   /* сдвиг вправо тут ни к чему */
+  /* Золотая полоска слева была рассчитана на столбик — в строке её место
+     под пунктом. */
+  .navrow .navitem.active::before {
+    left: 10px; right: 10px; top: auto; bottom: 2px;
+    width: auto; height: 3px; border-radius: 3px;
+  }
+  .navrow .navitem.active { box-shadow: 0 6px 16px rgba(217,180,90,.16), inset 0 1px 0 rgba(255,255,255,.22); }
+
+  /* Содержимому — вся ширина. */
+  /* width:100% обязателен: у элемента сетки поля auto без явной ширины
+     ужимают его по содержимому — главная область получалась узкой. */
+  .main { width: 100%; padding: 20px 26px 70px; max-width: 1480px; margin: 0 auto; }
+  .stat-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+  .stat-card { padding: 16px 18px; }
+  .stat-card .st-value { font-size: 26px; }
+}
+
+/* На телефоне всё как было: ящик слева, пункты столбиком. */
+@media (max-width: 860px) {
+  .navrow { display: flex; flex-direction: column; gap: 4px; }
+}

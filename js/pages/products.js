@@ -1,25 +1,25 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261027d";
-import { icon } from "../icons.js?v=20261027d";
-import { fmt, convert } from "../fx.js?v=20261027d";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261027d";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261027d";
-import { openEditor } from "./sales.js?v=20261027d";
-import { thumbAttrs, thumb } from "../img.js?v=20261027d";
-import { LOW_STOCK } from "../advice.js?v=20261027d";
-import { qrSvg, skuPayload } from "../qr.js?v=20261027d";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261028a";
+import { icon } from "../icons.js?v=20261028a";
+import { fmt, convert } from "../fx.js?v=20261028a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261028a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261028a";
+import { openEditor } from "./sales.js?v=20261028a";
+import { thumbAttrs, thumb } from "../img.js?v=20261028a";
+import { LOW_STOCK } from "../advice.js?v=20261028a";
+import { qrSvg, skuPayload } from "../qr.js?v=20261028a";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261027d";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261028a";
 // Единица измерения: товар считают штуками, пачками, коробками. Смена
 // единицы пересчитывает и остаток, и себестоимость, и все партии.
-import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261027d";
-import { подходит } from "../productsearch.js?v=20261027d";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261027d";
-import { изменениеСклада } from "../db.js?v=20261027d";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261027d";
+import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261028a";
+import { подходит } from "../productsearch.js?v=20261028a";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261028a";
+import { изменениеСклада } from "../db.js?v=20261028a";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261028a";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,

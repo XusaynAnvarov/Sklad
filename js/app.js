@@ -1,30 +1,30 @@
 // ========================================================================
 //  ТОЧКА ВХОДА АДМИНКИ: авторизация → каркас → роутер
 // ========================================================================
-import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261027d";
-import { обновитьЕслиУстарело } from "./version.js?v=20261027d";
-import { icon } from "./icons.js?v=20261027d";
-import { db, rawClient } from "./db.js?v=20261027d";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261027d";
-import { setRates } from "./fx.js?v=20261027d";
+import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261028a";
+import { обновитьЕслиУстарело } from "./version.js?v=20261028a";
+import { icon } from "./icons.js?v=20261028a";
+import { db, rawClient } from "./db.js?v=20261028a";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261028a";
+import { setRates } from "./fx.js?v=20261028a";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261027d";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261027d";
+import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261028a";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261028a";
 
-import dashboard from "./pages/dashboard.js?v=20261027d";
-import products from "./pages/products.js?v=20261027d";
-import sales from "./pages/sales.js?v=20261027d";
-import purchases from "./pages/purchases.js?v=20261027d";
-import customers from "./pages/customers.js?v=20261027d";
-import orders from "./pages/orders.js?v=20261027d";
-import reports from "./pages/reports.js?v=20261027d";
-import catalogPage from "./pages/catalog_admin.js?v=20261027d";
-import settings from "./pages/settings.js?v=20261027d";
-import siteClients from "./pages/site_clients.js?v=20261027d";
-import trash from "./pages/trash.js?v=20261027d";
-import videosAdmin from "./pages/videos_admin.js?v=20261027d";
-import supplierOrder from "./pages/supplier_order.js?v=20261027d";
-import stockCheck from "./pages/stock_check.js?v=20261027d";
+import dashboard from "./pages/dashboard.js?v=20261028a";
+import products from "./pages/products.js?v=20261028a";
+import sales from "./pages/sales.js?v=20261028a";
+import purchases from "./pages/purchases.js?v=20261028a";
+import customers from "./pages/customers.js?v=20261028a";
+import orders from "./pages/orders.js?v=20261028a";
+import reports from "./pages/reports.js?v=20261028a";
+import catalogPage from "./pages/catalog_admin.js?v=20261028a";
+import settings from "./pages/settings.js?v=20261028a";
+import siteClients from "./pages/site_clients.js?v=20261028a";
+import trash from "./pages/trash.js?v=20261028a";
+import videosAdmin from "./pages/videos_admin.js?v=20261028a";
+import supplierOrder from "./pages/supplier_order.js?v=20261028a";
+import stockCheck from "./pages/stock_check.js?v=20261028a";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -92,12 +92,16 @@ function buildShell() {
       el("div.ptag", {}, [el("span.dot"), "Online · PRO"]),
     ]),
   ]));
+  // Пункты меню лежат в своей строке: на компьютере она идёт полосой под
+  // шапкой и прокручивается вбок, на телефоне остаётся столбиком в ящике.
+  const navrow = el("nav.navrow", { "aria-label": "Разделы склада" });
   NAV.forEach(n => {
-    sidebar.append(el("div.navitem", {
+    navrow.append(el("div.navitem", {
       "data-id": n.id,
       onclick: () => { location.hash = "#/" + n.id; if (window.innerWidth <= 860) sidebar.classList.remove("open"); },
     }, [el("span.ic", {}, [icon(n.ic, { size: 18 })]), el("span", { text: n.label }), el("span.nav-badge", { "data-badge": n.id, style: { display: "none" } })]));
   });
+  sidebar.append(navrow);
   sidebar.append(el("div.mode-tag", {}, [icon(db.mode === "supabase" ? "cloud" : "database", { size: 13 }), " ", db.mode === "supabase" ? "Онлайн (Supabase)" : "Локальный режим"]));
   sidebar.append(makeLangSwitcher(() => applyI18n(document.body)));
   sidebar.append(makeThemeToggle());
@@ -210,7 +214,7 @@ setTimeout(() => { if (!document.querySelector(".app")) showBootError(new Error(
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=195", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=196", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
