@@ -1,30 +1,30 @@
 // ========================================================================
 //  ТОЧКА ВХОДА АДМИНКИ: авторизация → каркас → роутер
 // ========================================================================
-import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261028a";
-import { обновитьЕслиУстарело } from "./version.js?v=20261028a";
-import { icon } from "./icons.js?v=20261028a";
-import { db, rawClient } from "./db.js?v=20261028a";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261028a";
-import { setRates } from "./fx.js?v=20261028a";
+import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261028b";
+import { обновитьЕслиУстарело } from "./version.js?v=20261028b";
+import { icon } from "./icons.js?v=20261028b";
+import { db, rawClient } from "./db.js?v=20261028b";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261028b";
+import { setRates } from "./fx.js?v=20261028b";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261028a";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261028a";
+import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261028b";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261028b";
 
-import dashboard from "./pages/dashboard.js?v=20261028a";
-import products from "./pages/products.js?v=20261028a";
-import sales from "./pages/sales.js?v=20261028a";
-import purchases from "./pages/purchases.js?v=20261028a";
-import customers from "./pages/customers.js?v=20261028a";
-import orders from "./pages/orders.js?v=20261028a";
-import reports from "./pages/reports.js?v=20261028a";
-import catalogPage from "./pages/catalog_admin.js?v=20261028a";
-import settings from "./pages/settings.js?v=20261028a";
-import siteClients from "./pages/site_clients.js?v=20261028a";
-import trash from "./pages/trash.js?v=20261028a";
-import videosAdmin from "./pages/videos_admin.js?v=20261028a";
-import supplierOrder from "./pages/supplier_order.js?v=20261028a";
-import stockCheck from "./pages/stock_check.js?v=20261028a";
+import dashboard from "./pages/dashboard.js?v=20261028b";
+import products from "./pages/products.js?v=20261028b";
+import sales from "./pages/sales.js?v=20261028b";
+import purchases from "./pages/purchases.js?v=20261028b";
+import customers from "./pages/customers.js?v=20261028b";
+import orders from "./pages/orders.js?v=20261028b";
+import reports from "./pages/reports.js?v=20261028b";
+import catalogPage from "./pages/catalog_admin.js?v=20261028b";
+import settings from "./pages/settings.js?v=20261028b";
+import siteClients from "./pages/site_clients.js?v=20261028b";
+import trash from "./pages/trash.js?v=20261028b";
+import videosAdmin from "./pages/videos_admin.js?v=20261028b";
+import supplierOrder from "./pages/supplier_order.js?v=20261028b";
+import stockCheck from "./pages/stock_check.js?v=20261028b";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -46,6 +46,18 @@ const NAV = [
 const root = document.getElementById("root");
 let ctx;
 
+// Ждём ответа, но не вечно. Любой из шагов ниже может повиснуть: старый
+// служебный работник (Service Worker) отдаёт запрос из кэша и не отвечает,
+// сеть в Telegram отваливается, сторонний клиент Supabase не грузится. Без
+// ограничения весь склад останавливался на надписи «Загрузка…» — экран,
+// который владелец и видел. Теперь шаг просто бросается, а склад строится.
+function неЖдатьДольше(обещание, мс, что) {
+  return Promise.race([
+    Promise.resolve(обещание).catch(e => { console.warn(что + ":", e && e.message || e); return null; }),
+    new Promise(готово => setTimeout(() => { console.warn(что + ": не ответило за " + мс + " мс, идём дальше"); готово(null); }, мс)),
+  ]);
+}
+
 async function boot() {
   // Открыто вчерашнее? Страницы кэширует сам браузер, поэтому проверяем
   // версию у сервера и один раз перезагружаемся. Иначе человек смотрит на
@@ -57,17 +69,20 @@ async function boot() {
   initTheme();
   initCursorGlow();
   initStarfield();
-  await db.ready;
+  await неЖдатьДольше(db.ready, 5000, "Клиент базы");
   // Кастомный admin JWT (вход через /api/admin-auth) — сессии Supabase нет и не нужна
   const hasAdminToken = !!localStorage.getItem("sklad_admin_token");
   if (db.mode === "supabase" && !hasAdminToken) {
-    try { const { data } = await rawClient().auth.getSession(); if (!data || !data.session) { localStorage.removeItem("sklad_authed"); } } catch { localStorage.removeItem("sklad_authed"); }
+    try {
+      const ответ = await неЖдатьДольше(rawClient().auth.getSession(), 3000, "Проверка сессии");
+      if (!ответ || !ответ.data || !ответ.data.session) { localStorage.removeItem("sklad_authed"); }
+    } catch { localStorage.removeItem("sklad_authed"); }
   }
   if (!alreadyAuthed()) await ensureAccess(root);
   // загрузка настроек и курсов (после логина — есть токен)
   try {
-    const s = await db.getSettings();
-    setRates(s);
+    const s = await неЖдатьДольше(db.getSettings(), 8000, "Настройки");
+    if (s) setRates(s);
     // канал для накладных кладём рядом: отправка в Telegram берёт его отсюда,
     // чтобы не тянуть настройки из облака на каждое нажатие «Отправить»
     if (s && s.telegram_channel) { try { localStorage.setItem("gm_tg_channel", String(s.telegram_channel).trim()); } catch { } }
@@ -209,12 +224,20 @@ function showBootError(err) {
 }
 
 boot().catch(showBootError);
-// сторож: если за 15с приложение не построилось (завис await в boot) — показываем ошибку
-setTimeout(() => { if (!document.querySelector(".app")) showBootError(new Error("Загрузка зависла. Нажмите «Сбросить кэш» — это очистит устаревший кэш и Service Worker.")); }, 15000);
+// Сторож: если за 15 с склад не построился (завис await в boot) — показываем
+// ошибку. Но не трогаем экран входа: человек там просто вводит пароль, и
+// раньше поверх формы вылезало «Загрузка зависла», хотя всё было в порядке.
+setTimeout(() => {
+  const собрался = document.querySelector(".app");
+  const ждётВхода = document.querySelector(".login-wrap input");
+  if (!собрался && !ждётВхода) {
+    showBootError(new Error("Загрузка зависла. Нажмите «Сбросить кэш» — это очистит устаревший кэш и Service Worker."));
+  }
+}, 15000);
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=196", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=197", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
