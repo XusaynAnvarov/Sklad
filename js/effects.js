@@ -3,7 +3,7 @@
 //  Используется и в админке, и в каталоге.
 // ========================================================================
 
-import { iconSvg } from "./icons.js?v=20261029e";
+import { iconSvg } from "./icons.js?v=20261029f";
 
 const THEME_KEY = "sklad_theme";
 
@@ -140,7 +140,18 @@ export function toggleTheme() {
 export function makeThemeToggle(onChange) {
   const btn = document.createElement("button");
   btn.className = "theme-toggle";
-  const sync = () => { btn.innerHTML = currentTheme() === "dark" ? iconSvg("sun", { size: 16 }) + " Светлая" : iconSvg("moon", { size: 16 }) + " Тёмная"; };
+  // Отступ между значком и подписью — такой же, как у «На сайт» и «Выход».
+  // Ставим прямо на кнопке: в общем стиле он 8px, и правило из шапки его
+  // не всегда перебивало.
+  btn.style.gap = "6px";
+  // Значок 15 и подпись в своей обёртке — как у соседних «На сайт» и
+  // «Выход». Раньше значок был 16, а подпись шла простым текстом после
+  // пробела: отступ получался больше, и кнопка выбивалась из ряда.
+  const sync = () => {
+    const тёмная = currentTheme() === "dark";
+    btn.innerHTML = iconSvg(тёмная ? "sun" : "moon", { size: 15 })
+      + "<span>" + (тёмная ? "Светлая" : "Тёмная") + "</span>";
+  };
   sync();
   btn.addEventListener("click", () => { toggleTheme(); sync(); onChange?.(); });
   return btn;

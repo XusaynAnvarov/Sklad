@@ -1,12 +1,12 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20261029e";
-import { t } from "./app.js?v=20261029e";
-import { openLogin } from "./auth.js?v=20261029e";
-import { thumb } from "../img.js?v=20261029e";
-import { подходит } from "../productsearch.js?v=20261029e";
-import { подписьКода } from "../catalogcode.js?v=20261029e";
+import { api, isLoggedIn } from "./api.js?v=20261029f";
+import { t } from "./app.js?v=20261029f";
+import { openLogin } from "./auth.js?v=20261029f";
+import { thumb } from "../img.js?v=20261029f";
+import { подходит } from "../productsearch.js?v=20261029f";
+import { подписьКода } from "../catalogcode.js?v=20261029f";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261029e";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261029f";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 

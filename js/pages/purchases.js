@@ -1,19 +1,19 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261029e";
-import { fmt, CUR, convert } from "../fx.js?v=20261029e";
-import { placeholder } from "./products.js?v=20261029e";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261029e";
-import { icon } from "../icons.js?v=20261029e";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261029e";
-import { notifyOwner } from "../telegram.js?v=20261029e";
-import { authHeaders } from "../db.js?v=20261029e";
-import { thumb, поставитьСнимок } from "../img.js?v=20261029e";
-import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261029e";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261029f";
+import { fmt, CUR, convert } from "../fx.js?v=20261029f";
+import { placeholder } from "./products.js?v=20261029f";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261029f";
+import { icon } from "../icons.js?v=20261029f";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261029f";
+import { notifyOwner } from "../telegram.js?v=20261029f";
+import { authHeaders } from "../db.js?v=20261029f";
+import { thumb, поставитьСнимок } from "../img.js?v=20261029f";
+import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261029f";
 // Оприходование общее со складом в телефоне — иначе остатки разойдутся.
-import { applyArrival, записатьПачкой, откатитьПриход } from "../arrival.js?v=20261029e";
-import { изменениеСклада } from "../db.js?v=20261029e";
+import { applyArrival, записатьПачкой, откатитьПриход } from "../arrival.js?v=20261029f";
+import { изменениеСклада } from "../db.js?v=20261029f";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {

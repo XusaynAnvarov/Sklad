@@ -1219,6 +1219,8 @@ html[data-theme="light"] .mini-row .ph { background: rgba(16,24,40,.04); }
     display: inline-flex; align-items: center; justify-content: center;
     border-radius: 11px; font-size: 0.8125rem; line-height: 1;
   }
+  /* Один и тот же отступ между значком и подписью у всех трёх кнопок. */
+  .sidebar .theme-toggle { gap: 6px; }
   .sidebar .lang-switch { gap: 2px; align-items: center; }
   .sidebar .lang-switch button { padding: 0 0.6rem; min-width: 2.25rem; }
   .sidebar .mode-tag { white-space: nowrap; }

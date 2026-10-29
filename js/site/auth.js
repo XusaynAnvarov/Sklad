@@ -1,6 +1,6 @@
 // Модуль авторизации: вход, регистрация, верификация через Telegram
-import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261029e";
-import { sToast, openModal, closeModal } from "./app.js?v=20261029e";
+import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261029f";
+import { sToast, openModal, closeModal } from "./app.js?v=20261029f";
 
 let onAuthChange = null;
 export function setAuthChangeCallback(fn) { onAuthChange = fn; }

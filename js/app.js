@@ -1,30 +1,30 @@
 // ========================================================================
 //  ТОЧКА ВХОДА АДМИНКИ: авторизация → каркас → роутер
 // ========================================================================
-import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261029e";
-import { обновитьЕслиУстарело } from "./version.js?v=20261029e";
-import { icon } from "./icons.js?v=20261029e";
-import { db, rawClient } from "./db.js?v=20261029e";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261029e";
-import { setRates } from "./fx.js?v=20261029e";
+import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261029f";
+import { обновитьЕслиУстарело } from "./version.js?v=20261029f";
+import { icon } from "./icons.js?v=20261029f";
+import { db, rawClient } from "./db.js?v=20261029f";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261029f";
+import { setRates } from "./fx.js?v=20261029f";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261029e";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261029e";
+import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261029f";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261029f";
 
-import dashboard from "./pages/dashboard.js?v=20261029e";
-import products from "./pages/products.js?v=20261029e";
-import sales from "./pages/sales.js?v=20261029e";
-import purchases from "./pages/purchases.js?v=20261029e";
-import customers from "./pages/customers.js?v=20261029e";
-import orders from "./pages/orders.js?v=20261029e";
-import reports from "./pages/reports.js?v=20261029e";
-import catalogPage from "./pages/catalog_admin.js?v=20261029e";
-import settings from "./pages/settings.js?v=20261029e";
-import siteClients from "./pages/site_clients.js?v=20261029e";
-import trash from "./pages/trash.js?v=20261029e";
-import videosAdmin from "./pages/videos_admin.js?v=20261029e";
-import supplierOrder from "./pages/supplier_order.js?v=20261029e";
-import stockCheck from "./pages/stock_check.js?v=20261029e";
+import dashboard from "./pages/dashboard.js?v=20261029f";
+import products from "./pages/products.js?v=20261029f";
+import sales from "./pages/sales.js?v=20261029f";
+import purchases from "./pages/purchases.js?v=20261029f";
+import customers from "./pages/customers.js?v=20261029f";
+import orders from "./pages/orders.js?v=20261029f";
+import reports from "./pages/reports.js?v=20261029f";
+import catalogPage from "./pages/catalog_admin.js?v=20261029f";
+import settings from "./pages/settings.js?v=20261029f";
+import siteClients from "./pages/site_clients.js?v=20261029f";
+import trash from "./pages/trash.js?v=20261029f";
+import videosAdmin from "./pages/videos_admin.js?v=20261029f";
+import supplierOrder from "./pages/supplier_order.js?v=20261029f";
+import stockCheck from "./pages/stock_check.js?v=20261029f";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -121,7 +121,9 @@ function buildShell() {
   sidebar.append(makeLangSwitcher(() => applyI18n(document.body)));
   sidebar.append(makeThemeToggle());
   sidebar.append(el("a.theme-toggle", { href: "/", style: { marginTop: "6px", textDecoration: "none", display: "flex", alignItems: "center", gap: "6px" } }, [icon("globe", { size: 15 }), el("span", { text: "На сайт" })]));
-  sidebar.append(el("button.theme-toggle", { text: "Выход", onclick: logout, style: { marginTop: "4px" } }));
+  // Со значком — как у соседей: без него кнопка выбивалась из набора.
+  sidebar.append(el("button.theme-toggle", { onclick: logout, style: { marginTop: "4px", display: "flex", alignItems: "center", gap: "6px" } },
+    [icon("logout", { size: 15 }), el("span", { text: "Выход" })]));
 
   const main = el("main.main", { id: "view" });
   const app = el("div.app", {}, [sidebar, main]);
@@ -237,7 +239,7 @@ setTimeout(() => {
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=208", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=209", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
