@@ -393,17 +393,24 @@ html[data-site-theme="dark"] .btn-warehouse {
 
 .product-card-img {
   width: 100%; aspect-ratio: 1/1;
-  background: #fff;
+  background: #fff no-repeat center / cover;
   position: relative; overflow: hidden;
 }
-.product-card-img img { width: 100%; height: 100%; object-fit: contain; transition: transform .35s ease; }
+.product-card-img::before {
+  content: '';
+  position: absolute; inset: -12px;
+  background: inherit;
+  filter: blur(18px) brightness(.92) saturate(1.1);
+  z-index: 0;
+}
+.product-card-img img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; transition: transform .35s ease; }
 .product-card-img-placeholder {
   width: 100%; aspect-ratio: 1/1; background: var(--bg2);
   display: flex; align-items: center; justify-content: center; color: var(--border);
 }
 
 .product-badge {
-  position: absolute; top: 10px; left: 10px;
+  position: absolute; top: 10px; left: 10px; z-index: 2;
   padding: 5px 10px; border-radius: 6px; font-size: 0.6875rem; font-weight: 700;
   backdrop-filter: blur(6px); letter-spacing: .02em;
   box-shadow: 0 1px 4px rgba(0,0,0,.15);
