@@ -68,7 +68,11 @@ export function поставитьСнимок(img, url, запасной = "", 
   if (ленивое) img.loading = "lazy";
   img.decoding = "async";
   img.onerror = function () {
-    if (url && this.src !== url) { this.src = url; return; }
+    // Откат — полный размер, но тоже через свой сервер. Прямой адрес из базы
+    // у товаров, заведённых до переезда, ведёт на прежний проект Supabase,
+    // который больше не отвечает: такой откат фото не возвращал.
+    const оригинал = url ? full(url) : "";
+    if (оригинал && this.src !== оригинал) { this.src = оригинал; return; }
     if (запасной && this.src !== запасной) this.src = запасной;
     else this.onerror = null;
   };
@@ -84,7 +88,8 @@ export function thumbAttrs(url, placeholderUrl, width = 300) {
     src,
     loading: "lazy",
     decoding: "async",
-    "data-full": url || "",
+    // тоже через свой сервер — см. поставитьСнимок выше
+    "data-full": url ? full(url) : "",
     "data-ph": placeholderUrl || "",
     onerror: function () {
       // сперва пробуем оригинал, и только потом заглушку — чтобы не терять фото

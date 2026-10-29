@@ -219,8 +219,22 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
 
 // ---- Заказ поставщику: фото товара + название + кол-во + себестоимость ----
 // Фото тянутся из публичного бакета и встраиваются в PDF (тяжелее обычной накладной).
+// Ссылка на снимок всегда перестраивается под ту базу, на которой сервер
+// работает сейчас. В товарах, заведённых до переезда, лежит адрес прежнего
+// проекта Supabase — он не отвечает, и фото в накладной просто не печаталось.
+function адресСнимка(url) {
+  const s = String(url || "");
+  const база = String(process.env.SUPABASE_URL || "").replace(/\/+$/, "");
+  const i = s.indexOf("/object/public/");
+  const путь = i >= 0 ? s.slice(i + "/object/public/".length).split("?")[0]
+             : (s.startsWith("product-photos/") ? encodeURI(s) : "");
+  if (!путь || !база) return s;
+  return `${база}/storage/v1/object/public/${путь}`;
+}
+
 async function embedPhoto(doc, url) {
   if (!url) return null;
+  url = адресСнимка(url);
   try {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 5000);

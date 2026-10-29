@@ -1,9 +1,9 @@
 // Страница «Заказать»: товары карточками (как в каталоге) + ручной ввод количества,
 // и отдельный экран «Мои заказанные товары» (проверить / удалить / добавить ещё).
-import { api, isLoggedIn } from "./api.js?v=20261029f";
-import { sToast, t } from "./app.js?v=20261029f";
-import { openLogin } from "./auth.js?v=20261029f";
-import { поставитьСнимок } from "../img.js?v=20261029f";
+import { api, isLoggedIn } from "./api.js?v=20261029h";
+import { sToast, t } from "./app.js?v=20261029h";
+import { openLogin } from "./auth.js?v=20261029h";
+import { поставитьСнимок } from "../img.js?v=20261029h";
 
 function mkEl(tag, cls = "") {
   const e = document.createElement(tag);
@@ -124,8 +124,12 @@ export async function renderOrder(container) {
       if (canOrder) { cls = "in-stock"; txt = t("inStockBadge"); }
       else if (p.status === "soon") { cls = "soon"; txt = t("soonBadge"); }
       else { cls = "out-stock"; txt = t("noStockBadge"); }
-      const badge = mkEl("span", "product-badge " + cls); badge.textContent = txt; imgWrap.append(badge);
-      if (p.is_new) { const nb = mkEl("span", "product-badge new-badge"); nb.textContent = t("newBadge"); imgWrap.append(nb); }
+      // одна строка на оба бейджа — иначе на узкой карточке телефона
+      // «Нет в наличии» и «Новинка» налезают друг на друга
+      const бейджи = mkEl("div", "product-badges");
+      const badge = mkEl("span", "product-badge " + cls); badge.textContent = txt; бейджи.append(badge);
+      if (p.is_new) { const nb = mkEl("span", "product-badge new-badge"); nb.textContent = t("newBadge"); бейджи.append(nb); }
+      imgWrap.append(бейджи);
     }
     reBadges();
 

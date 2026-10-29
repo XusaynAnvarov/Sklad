@@ -6,19 +6,21 @@
 //  здесь же, мобильный вид приходилось выбивать заплатками поверх
 //  десктопных стилей — и в итоге страдало и то, и другое.
 // ========================================================================
-import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20261029f";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261029f";
-import { iconSvg } from "./icons.js?v=20261029f";
-import { thumb } from "./img.js?v=20261029f";
-import { подходит } from "./productsearch.js?v=20261029f";
-import { подписьКода } from "./catalogcode.js?v=20261029f";
+import { initCursorGlow, initTheme, initStarfield, makeThemeToggle } from "./effects.js?v=20261029h";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261029h";
+import { iconSvg } from "./icons.js?v=20261029h";
+import { thumb, full } from "./img.js?v=20261029h";
+import { подходит } from "./productsearch.js?v=20261029h";
+import { подписьКода } from "./catalogcode.js?v=20261029h";
 
 // увеличение фото по клику (повторный клик — закрыть)
 function openLightbox(src) {
   const box = document.createElement("div");
   box.className = "lightbox";
   const img = document.createElement("img");
-  img.src = src; box.append(img);
+  // через свой сервер: адрес из базы у старых товаров ведёт на прежний
+  // проект Supabase, который уже не отвечает
+  img.src = full(src); box.append(img);
   box.addEventListener("click", () => { box.classList.remove("show"); setTimeout(() => box.remove(), 250); });
   document.body.append(box);
   requestAnimationFrame(() => box.classList.add("show"));
@@ -39,7 +41,7 @@ function openGallery(photos, start, name) {
   const next = document.createElement("button"); next.textContent = "›";
   [prev, next].forEach(b => b.style.cssText = "position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.16);color:#fff;border:none;font-size:42px;width:54px;height:74px;border-radius:12px;cursor:pointer;line-height:1;z-index:2");
   prev.style.left = "12px"; next.style.right = "12px";
-  function show() { img.src = photos[idx]; counter.textContent = (name ? name + " · " : "") + (idx + 1) + " / " + photos.length; }
+  function show() { img.src = full(photos[idx]); counter.textContent = (name ? name + " · " : "") + (idx + 1) + " / " + photos.length; }
   function go(d, e) { if (e) e.stopPropagation(); idx = (idx + d + photos.length) % photos.length; show(); }
   prev.addEventListener("click", (e) => go(-1, e)); next.addEventListener("click", (e) => go(1, e));
   function close() { document.removeEventListener("keydown", onKey); box.classList.remove("show"); setTimeout(() => box.remove(), 250); }
@@ -118,7 +120,7 @@ function cardHtml(p, i) {
   const mainPhoto = (p.photos && p.photos.length) ? p.photos[0] : p.photo_url;
   return `<div class="prod reveal" data-id="${id}" style="animation-delay:${(i % 12) * 0.03}s">
       <div style="position:relative">
-        <img class="ph" loading="lazy" decoding="async" style="cursor:zoom-in" src="${escapeHtml(mainPhoto ? thumb(mainPhoto, 320) : placeholder(p.name))}" data-full="${escapeHtml(mainPhoto || "")}" data-ph="${escapeHtml(placeholder(p.name))}" onerror="if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full}else{this.src=this.dataset.ph}" />
+        <img class="ph" loading="lazy" decoding="async" style="cursor:zoom-in" src="${escapeHtml(mainPhoto ? thumb(mainPhoto, 320) : placeholder(p.name))}" data-full="${escapeHtml(mainPhoto ? full(mainPhoto) : "")}" data-ph="${escapeHtml(placeholder(p.name))}" onerror="if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full}else{this.src=this.dataset.ph}" />
         ${np >= 1 ? `<span style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;pointer-events:none">📷 ${np}</span>` : ""}
         ${p.is_new ? `<span style="position:absolute;right:8px;top:8px;background:var(--accent,#4f7cf0);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">Новый</span>` : ""}
       </div>
@@ -214,7 +216,7 @@ function wirePdfButton() {
     if (!items.length) return;
     btn.disabled = true;
     try {
-      const m = await import("./catalog-pdf.js?v=20261029f");
+      const m = await import("./catalog-pdf.js?v=20261029h");
       await m.downloadCatalogPDF(groupByCategory(items), (done, total) => {   // PDF — всегда все товары
         btn.textContent = `Готовим PDF… ${done}/${total}`;
       });
@@ -228,7 +230,7 @@ function wirePdfButton() {
 
 // PWA: service worker (не в Telegram-мини-аппе)
 if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=209", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=211", { updateViaCache: "none" }).catch(() => {}));
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (_swRefreshing) return; _swRefreshing = true; location.reload();

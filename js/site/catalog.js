@@ -1,12 +1,12 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20261029f";
-import { t } from "./app.js?v=20261029f";
-import { openLogin } from "./auth.js?v=20261029f";
-import { thumb } from "../img.js?v=20261029f";
-import { подходит } from "../productsearch.js?v=20261029f";
-import { подписьКода } from "../catalogcode.js?v=20261029f";
+import { api, isLoggedIn } from "./api.js?v=20261029h";
+import { t } from "./app.js?v=20261029h";
+import { openLogin } from "./auth.js?v=20261029h";
+import { thumb, full } from "../img.js?v=20261029h";
+import { подходит } from "../productsearch.js?v=20261029h";
+import { подписьКода } from "../catalogcode.js?v=20261029h";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261029f";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261029h";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
@@ -313,7 +313,11 @@ function buildCard(p) {
     img.src = thumb(photos[0], 480); img.alt = p.name;
     img.loading = "lazy"; img.decoding = "async"; img.style.cursor = "zoom-in";
     img.onerror = () => {
-      if (img.src !== photos[0]) { img.src = photos[0]; return; }   // миниатюра не вышла — берём оригинал
+      // Миниатюра не вышла — пробуем полный размер, но тоже через свой сервер.
+      // Прямой адрес из базы брать нельзя: у большей части товаров там
+      // остался адрес прежнего проекта Supabase, и он больше не отвечает.
+      const запасной = full(photos[0]);
+      if (img.src !== запасной) { img.src = запасной; return; }
       imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`;
     };
     img.addEventListener("click", (e) => { e.stopPropagation(); openGallery(photos, 0, p.name); });
@@ -337,16 +341,22 @@ function buildCard(p) {
   if (inStock)       { badgeCls = "in-stock";  badgeText = t("inStockBadge"); }
   else if (isSoon)   { badgeCls = "soon";       badgeText = t("soonBadge"); }
   else               { badgeCls = "out-stock";  badgeText = t("noStockBadge"); }
+  // Оба бейджа живут в одной строке-обёртке. Раньше каждый стоял сам по себе
+  // (один прижат влево, другой вправо), и на телефоне, где карточка вдвое уже,
+  // «Нет в наличии» и «Новинка» налезали друг на друга. В строке они либо
+  // расходятся по краям, либо переносятся — но никогда не перекрываются.
+  const бейджи = mkEl("div", "product-badges");
   const badge = mkEl("span", "product-badge " + badgeCls);
   badge.textContent = badgeText;
-  imgWrap.append(badge);
+  бейджи.append(badge);
 
   // Бейдж «Новинка» — поверх угла
   if (p.is_new) {
     const newBadge = mkEl("span", "product-badge new-badge");
     newBadge.textContent = t("newBadge");
-    imgWrap.append(newBadge);
+    бейджи.append(newBadge);
   }
+  imgWrap.append(бейджи);
 
   const body = mkEl("div", "product-card-body");
   const name = mkEl("div", "product-name"); name.textContent = p.name;
@@ -413,7 +423,11 @@ function openGallery(photos, start, name) {
   img.style.cssText = "max-width:92vw;max-height:80vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6);object-fit:contain";
   img.addEventListener("click", (e) => e.stopPropagation());
   const counter = mkEl("div"); counter.style.cssText = "position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-size:14px";
-  function show() { img.src = photos[idx]; counter.textContent = (name ? name + " · " : "") + (idx + 1) + " / " + photos.length; }
+  // Снимок берём через свой сервер (full), а не по адресу из базы: у большей
+  // части товаров там лежит адрес прежнего проекта Supabase, который уже не
+  // отвечает — на телефоне вместо фото открывался значок «картинка не
+  // загрузилась». /api/img ходит в ту базу, на которой сервер работает сейчас.
+  function show() { img.src = full(photos[idx]); counter.textContent = (name ? name + " · " : "") + (idx + 1) + " / " + photos.length; }
 
   // Фото тянется за пальцем один к одному и долетает туда, куда брошено.
   // Раньше было «сдвинул больше 40 px — листаем»: палец вёл, а фото стояло.
