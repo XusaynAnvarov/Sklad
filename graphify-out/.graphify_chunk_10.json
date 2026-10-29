@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    {
+      "id": "icon_192_gm_pwa_icon",
+      "label": "GM PWA App Icon (192x192)",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\icon-192.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "PWA home-screen icon 192×192px for the GeneralModern warehouse/inventory management application. Depicts the initials 'GM' in a bold, serif-style gold typeface centred on a dark navy background, surrounded by an incomplete golden circular arc (open at the top-right). The overall aesthetic is minimalist, premium and luxury-leaning — echoing a high-end brand monogram. Primary colors: deep navy (#0d1a2e approx) background and metallic gold (#c9a030 approx) lettering and arc ring. The icon communicates professionalism, authority and a modern business-management identity suitable for the generalmodern.uz SaaS platform.",
+      "design_style": "minimalist monogram, premium/luxury brand aesthetic",
+      "colors": ["dark navy", "metallic gold"],
+      "text_content": "GM",
+      "brand": "GeneralModern",
+      "purpose": "PWA install icon (192x192) for warehouse/inventory management SaaS",
+      "confidence_score": 1.0
+    }
+  ],
+  "edges": [],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "coverage": {
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\icon-192.png": 1
+  }
+}
