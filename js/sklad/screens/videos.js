@@ -9,12 +9,12 @@
 //  о чём ролик. Поиск товара здесь тот же, что в продаже и приходе
 //  (js/productsearch.js), чтобы искалось одинаково везде.
 // ========================================================================
-import { el, go } from "../app.js?v=20261029c";
-import { icon } from "../../icons.js?v=20261029c";
-import { toast, modal, confirmDialog, showLoader, hideLoader } from "../../ui.js?v=20261029c";
-import { thumb } from "../../img.js?v=20261029c";
-import { подходит } from "../../productsearch.js?v=20261029c";
-import { подписьКода } from "../../catalogcode.js?v=20261029c";
+import { el, go } from "../app.js?v=20261029e";
+import { icon } from "../../icons.js?v=20261029e";
+import { toast, modal, confirmDialog, showLoader, hideLoader } from "../../ui.js?v=20261029e";
+import { thumb } from "../../img.js?v=20261029e";
+import { подходит } from "../../productsearch.js?v=20261029e";
+import { подписьКода } from "../../catalogcode.js?v=20261029e";
 
 const дата = (d) => { const t = new Date(d); return isFinite(t) ? t.toLocaleDateString("ru-RU") : "—"; };
 
