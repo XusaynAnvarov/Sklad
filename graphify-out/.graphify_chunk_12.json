@@ -1,0 +1,154 @@
+{
+  "nodes": [
+    {
+      "id": "icon_general_modern",
+      "label": "GENERAL MODERN App Icon",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\icon.svg",
+      "source_location": "lines 1-48",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "properties": {
+        "depicts": "GENERAL MODERN brand monogram — 'GM' letters on a glass-tile with gold ring",
+        "design_style": "Glass seal (стеклянная печать) — pearlescent glass tile, gold broken ring, dark ink monogram",
+        "canvas_size": "512x512",
+        "viewbox": "0 0 512 512",
+        "corner_radius": 112,
+        "brand": "GENERAL MODERN",
+        "purpose": "App icon / brand mark for the GENERAL MODERN warehouse management system",
+        "confidence_score": 1.0
+      }
+    },
+    {
+      "id": "icon_gm_monogram",
+      "label": "GM Monogram Text",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\icon.svg",
+      "source_location": "lines 45-47",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "properties": {
+        "text": "GM",
+        "font_family": "Inter, Segoe UI, system-ui, -apple-system, Helvetica Neue, Arial, sans-serif",
+        "font_size": 166,
+        "font_weight": 800,
+        "letter_spacing": -8,
+        "fill_color": "#16203a",
+        "color_description": "Very dark navy / ink color",
+        "anchor": "middle",
+        "position_x": 256,
+        "position_y": 314,
+        "confidence_score": 1.0
+      }
+    },
+    {
+      "id": "icon_gold_ring",
+      "label": "Gold Broken Ring Arcs",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\icon.svg",
+      "source_location": "lines 38-42",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "properties": {
+        "description": "Gold ring composed of two arcs with gap — creates sensation of movement",
+        "radius": 182,
+        "stroke_width": 14,
+        "stroke_linecap": "round",
+        "gradient_id": "gmZoloto",
+        "gradient_stops": [
+          {"offset": "0", "color": "#f7e9a6"},
+          {"offset": "0.42", "color": "#e3c163"},
+          {"offset": "0.74", "color": "#c79a33"},
+          {"offset": "1", "color": "#a87b1f"}
+        ],
+        "arc_1": "M256 74a182 182 0 0 1 182 182",
+        "arc_2": "M256 438A182 182 0 0 1 74 256",
+        "confidence_score": 1.0
+      }
+    },
+    {
+      "id": "icon_glass_background",
+      "label": "Glass Tile Background",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\icon.svg",
+      "source_location": "lines 6-36",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "properties": {
+        "description": "Pearlescent glass tile background with diagonal highlight blik and light border",
+        "background_gradient": "gmSteklo",
+        "background_colors": ["#ffffff", "#f2f4f9", "#dfe4ee"],
+        "highlight_type": "diagonal blik (glass shine)",
+        "highlight_colors": ["rgba(255,255,255,0.92)", "rgba(255,255,255,0.16)", "rgba(255,255,255,0)"],
+        "border_color": "#c8cedd",
+        "border_stroke_width": 5,
+        "confidence_score": 1.0
+      }
+    },
+    {
+      "id": "icon_brand_identity",
+      "label": "GENERAL MODERN Brand Identity",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\icon.svg",
+      "source_location": "lines 1-4",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "properties": {
+        "brand_name": "GENERAL MODERN",
+        "icon_concept": "Glass seal — светлая перламутровая плитка, золотое кольцо из двух дуг, монограмма чернилами",
+        "aria_label": "GENERAL MODERN",
+        "role": "img",
+        "design_language": "Premium / professional — glass, gold, dark ink",
+        "confidence_score": 1.0
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "icon_general_modern",
+      "to": "icon_gm_monogram",
+      "label": "contains"
+    },
+    {
+      "from": "icon_general_modern",
+      "to": "icon_gold_ring",
+      "label": "contains"
+    },
+    {
+      "from": "icon_general_modern",
+      "to": "icon_glass_background",
+      "label": "contains"
+    },
+    {
+      "from": "icon_general_modern",
+      "to": "icon_brand_identity",
+      "label": "represents"
+    },
+    {
+      "from": "icon_gm_monogram",
+      "to": "icon_brand_identity",
+      "label": "encodes"
+    },
+    {
+      "from": "icon_gold_ring",
+      "to": "icon_brand_identity",
+      "label": "decorates"
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 320,
+  "output_tokens": 580,
+  "coverage": {
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\icon.svg": 48
+  }
+}

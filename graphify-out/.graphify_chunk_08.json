@@ -1,0 +1,118 @@
+{
+  "nodes": [
+    {
+      "id": "guide_guide_ru_user_guide_animation",
+      "label": "Russian User Guide Animated GIF",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-ru.gif",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "Animated GIF guide in Russian (9 steps) for generalmodern.uz website. Shows step-by-step user onboarding flow.",
+      "confidence_score": 1.0,
+      "tags": ["guide", "russian", "animated", "onboarding", "login-flow", "generalmodern.uz"]
+    },
+    {
+      "id": "guide_guide_ru_step1_open_site",
+      "label": "Step 1: Open Site and Click Login",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-ru.gif",
+      "source_location": "frame:1",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "Step 1/9: 'Откройте сайт generalmodern.uz' — instructs user to open generalmodern.uz and click the 'Войти' (Login) button in the top-right corner. Shows a catalog page mockup with the Login button highlighted.",
+      "confidence_score": 1.0,
+      "tags": ["step-1", "login", "войти", "catalog", "generalmodern.uz"]
+    },
+    {
+      "id": "guide_guide_ru_generalmodern_website",
+      "label": "generalmodern.uz Website",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-ru.gif",
+      "source_location": null,
+      "source_url": "https://generalmodern.uz",
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "The generalmodern.uz public catalog/storefront site shown in the guide. Features product catalog grid layout and a 'Войти' (Login) button in the top-right corner.",
+      "confidence_score": 1.0,
+      "tags": ["website", "catalog", "storefront", "generalmodern.uz"]
+    },
+    {
+      "id": "guide_guide_ru_login_flow",
+      "label": "User Login Flow (9 Steps)",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-ru.gif",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "Complete 9-step login/authentication flow for generalmodern.uz in Russian. Based on the known system architecture, this covers: opening the site, clicking Login, entering phone/username, receiving a Telegram 2FA code, entering a password, and completing authentication. The guide section is labeled 'Сайт' (Site).",
+      "confidence_score": 0.85,
+      "tags": ["login", "2fa", "telegram", "authentication", "9-steps", "russian-guide"]
+    },
+    {
+      "id": "guide_guide_ru_brand_header",
+      "label": "GENERAL MODERN Brand Header",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-ru.gif",
+      "source_location": "frame:1/header",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "The guide uses a dark navy background with gold 'GENERAL MODERN' title and decorative underline. Consistent with the warehouse system's design system: dark theme, Inter/gold accent palette.",
+      "confidence_score": 1.0,
+      "tags": ["brand", "design-system", "dark-theme", "gold-accent"]
+    }
+  ],
+  "edges": [
+    {
+      "from": "guide_guide_ru_user_guide_animation",
+      "to": "guide_guide_ru_step1_open_site",
+      "relation": "contains_step",
+      "weight": 1.0
+    },
+    {
+      "from": "guide_guide_ru_user_guide_animation",
+      "to": "guide_guide_ru_login_flow",
+      "relation": "demonstrates",
+      "weight": 1.0
+    },
+    {
+      "from": "guide_guide_ru_user_guide_animation",
+      "to": "guide_guide_ru_generalmodern_website",
+      "relation": "documents",
+      "weight": 1.0
+    },
+    {
+      "from": "guide_guide_ru_user_guide_animation",
+      "to": "guide_guide_ru_brand_header",
+      "relation": "uses_branding",
+      "weight": 1.0
+    },
+    {
+      "from": "guide_guide_ru_step1_open_site",
+      "to": "guide_guide_ru_generalmodern_website",
+      "relation": "navigates_to",
+      "weight": 1.0
+    },
+    {
+      "from": "guide_guide_ru_login_flow",
+      "to": "guide_guide_ru_generalmodern_website",
+      "relation": "authenticates_into",
+      "weight": 0.85
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 1200,
+  "output_tokens": 600,
+  "coverage": {
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-ru.gif": 1
+  }
+}

@@ -1,0 +1,766 @@
+{
+  "nodes": [
+    {
+      "id": "setup",
+      "label": "System Setup Guide (SETUP.md)",
+      "file_type": "document",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "admin",
+      "label": "Admin Panel (admin.html)",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\admin.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "brand_botfather",
+      "label": "Bot Setup Guide (brand/BOTFATHER.md)",
+      "file_type": "document",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "catalog",
+      "label": "Product Catalog Page (catalog.html)",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\catalog.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "db_perekhod_na_svoyu_bazu",
+      "label": "Database Migration to Local PostgreSQL",
+      "file_type": "document",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\db\\ПЕРЕХОД-НА-СВОЮ-БАЗУ.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "index",
+      "label": "Public Landing Page (index.html)",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\index.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "order",
+      "label": "Order Page (order.html)",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\order.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "sklad",
+      "label": "Warehouse Mini-App Page (sklad.html)",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "vosstanovlenie",
+      "label": "Recovery & Disaster Guide (ВОССТАНОВЛЕНИЕ.md)",
+      "file_type": "document",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\ВОССТАНОВЛЕНИЕ.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "supabase",
+      "label": "Supabase (Cloud Database & Storage)",
+      "file_type": "concept",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "vercel",
+      "label": "Vercel Hosting",
+      "file_type": "concept",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "telegram_bot",
+      "label": "Telegram Bot & Messaging (@generalmodernbot)",
+      "file_type": "concept",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "config_js",
+      "label": "config.js Project Configuration",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "postgresql_local",
+      "label": "Local PostgreSQL Database (same-server)",
+      "file_type": "concept",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\db\\ПЕРЕХОД-НА-СВОЮ-БАЗУ.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "general_modern",
+      "label": "General Modern Brand (generalmodern.uz)",
+      "file_type": "concept",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "github_sklad",
+      "label": "GitHub Repository (XusaynAnvarov/Sklad)",
+      "file_type": "concept",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\ВОССТАНОВЛЕНИЕ.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "api_bot_js",
+      "label": "api/bot.js Telegram Webhook Handler",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "js_app_js",
+      "label": "js/app.js Admin Application Module",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\admin.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "js_catalog_js",
+      "label": "js/catalog.js Catalog Module",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\catalog.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "js_site_app_js",
+      "label": "js/site/app.js Public Site Module",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\index.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "js_order_app_js",
+      "label": "js/order/app.js Order Module",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\order.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "js_sklad_app_js",
+      "label": "js/sklad/app.js Warehouse Module",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "js_db_js",
+      "label": "js/db.js Database Abstraction Module",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "css_theme_css",
+      "label": "css/theme.css Design Tokens & Theme",
+      "file_type": "code",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\admin.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "brand_bot_avatar_png",
+      "label": "brand/bot-avatar.png Bot Avatar (512x512)",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "brand_bot_intro_gif",
+      "label": "brand/bot-intro.gif Bot Intro Animation",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "admin",
+      "target": "config_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\admin.html",
+      "source_location": "line 63",
+      "weight": 1.0
+    },
+    {
+      "source": "admin",
+      "target": "js_app_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\admin.html",
+      "source_location": "line 64",
+      "weight": 1.0
+    },
+    {
+      "source": "admin",
+      "target": "css_theme_css",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\admin.html",
+      "source_location": "line 24",
+      "weight": 1.0
+    },
+    {
+      "source": "catalog",
+      "target": "config_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\catalog.html",
+      "source_location": "line 126",
+      "weight": 1.0
+    },
+    {
+      "source": "catalog",
+      "target": "js_catalog_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\catalog.html",
+      "source_location": "line 127",
+      "weight": 1.0
+    },
+    {
+      "source": "catalog",
+      "target": "css_theme_css",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\catalog.html",
+      "source_location": "line 22",
+      "weight": 1.0
+    },
+    {
+      "source": "catalog",
+      "target": "telegram_bot",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\catalog.html",
+      "source_location": "line 21",
+      "weight": 1.0
+    },
+    {
+      "source": "index",
+      "target": "js_site_app_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\index.html",
+      "source_location": "line 71",
+      "weight": 1.0
+    },
+    {
+      "source": "index",
+      "target": "general_modern",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\index.html",
+      "source_location": "line 10",
+      "weight": 1.0
+    },
+    {
+      "source": "order",
+      "target": "config_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\order.html",
+      "source_location": "line 22",
+      "weight": 1.0
+    },
+    {
+      "source": "order",
+      "target": "js_order_app_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\order.html",
+      "source_location": "line 34",
+      "weight": 1.0
+    },
+    {
+      "source": "order",
+      "target": "telegram_bot",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\order.html",
+      "source_location": "line 20",
+      "weight": 1.0
+    },
+    {
+      "source": "sklad",
+      "target": "config_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html",
+      "source_location": "line 25",
+      "weight": 1.0
+    },
+    {
+      "source": "sklad",
+      "target": "js_sklad_app_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html",
+      "source_location": "line 36",
+      "weight": 1.0
+    },
+    {
+      "source": "sklad",
+      "target": "telegram_bot",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html",
+      "source_location": "line 20",
+      "weight": 1.0
+    },
+    {
+      "source": "sklad",
+      "target": "js_db_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html",
+      "source_location": "line 22",
+      "weight": 1.0
+    },
+    {
+      "source": "setup",
+      "target": "supabase",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": "line 7",
+      "weight": 1.0
+    },
+    {
+      "source": "setup",
+      "target": "vercel",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": "line 26",
+      "weight": 1.0
+    },
+    {
+      "source": "setup",
+      "target": "telegram_bot",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": "line 47",
+      "weight": 1.0
+    },
+    {
+      "source": "setup",
+      "target": "config_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": "line 14",
+      "weight": 1.0
+    },
+    {
+      "source": "setup",
+      "target": "catalog",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": "line 60",
+      "weight": 1.0
+    },
+    {
+      "source": "setup",
+      "target": "admin",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": "line 59",
+      "weight": 1.0
+    },
+    {
+      "source": "brand_botfather",
+      "target": "telegram_bot",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": "line 3",
+      "weight": 1.0
+    },
+    {
+      "source": "brand_botfather",
+      "target": "api_bot_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": "line 43",
+      "weight": 1.0
+    },
+    {
+      "source": "brand_botfather",
+      "target": "brand_bot_avatar_png",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": "line 59",
+      "weight": 1.0
+    },
+    {
+      "source": "brand_botfather",
+      "target": "brand_bot_intro_gif",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": "line 60",
+      "weight": 1.0
+    },
+    {
+      "source": "brand_botfather",
+      "target": "general_modern",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": "line 1",
+      "weight": 1.0
+    },
+    {
+      "source": "db_perekhod_na_svoyu_bazu",
+      "target": "supabase",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\db\\ПЕРЕХОД-НА-СВОЮ-БАЗУ.md",
+      "source_location": "line 6",
+      "weight": 1.0
+    },
+    {
+      "source": "db_perekhod_na_svoyu_bazu",
+      "target": "postgresql_local",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\db\\ПЕРЕХОД-НА-СВОЮ-БАЗУ.md",
+      "source_location": "line 17",
+      "weight": 1.0
+    },
+    {
+      "source": "db_perekhod_na_svoyu_bazu",
+      "target": "config_js",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\db\\ПЕРЕХОД-НА-СВОЮ-БАЗУ.md",
+      "source_location": "line 128",
+      "weight": 1.0
+    },
+    {
+      "source": "db_perekhod_na_svoyu_bazu",
+      "target": "telegram_bot",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\db\\ПЕРЕХОД-НА-СВОЮ-БАЗУ.md",
+      "source_location": "line 117",
+      "weight": 1.0
+    },
+    {
+      "source": "supabase",
+      "target": "postgresql_local",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\db\\ПЕРЕХОД-НА-СВОЮ-БАЗУ.md",
+      "source_location": "line 12",
+      "weight": 1.0
+    },
+    {
+      "source": "vosstanovlenie",
+      "target": "supabase",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\ВОССТАНОВЛЕНИЕ.md",
+      "source_location": "line 16",
+      "weight": 1.0
+    },
+    {
+      "source": "vosstanovlenie",
+      "target": "github_sklad",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\ВОССТАНОВЛЕНИЕ.md",
+      "source_location": "line 15",
+      "weight": 1.0
+    },
+    {
+      "source": "vosstanovlenie",
+      "target": "telegram_bot",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\ВОССТАНОВЛЕНИЕ.md",
+      "source_location": "line 93",
+      "weight": 1.0
+    },
+    {
+      "source": "vosstanovlenie",
+      "target": "general_modern",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\ВОССТАНОВЛЕНИЕ.md",
+      "source_location": "line 62",
+      "weight": 1.0
+    },
+    {
+      "source": "vosstanovlenie",
+      "target": "admin",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\ВОССТАНОВЛЕНИЕ.md",
+      "source_location": "line 62",
+      "weight": 1.0
+    },
+    {
+      "source": "setup",
+      "target": "vosstanovlenie",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "catalog",
+      "target": "order",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\catalog.html",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "admin",
+      "target": "sklad",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\admin.html",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "sklad",
+      "target": "catalog",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html",
+      "source_location": null,
+      "weight": 0.75
+    },
+    {
+      "source": "js_db_js",
+      "target": "supabase",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html",
+      "source_location": "line 22",
+      "weight": 0.85
+    },
+    {
+      "source": "js_db_js",
+      "target": "postgresql_local",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html",
+      "source_location": null,
+      "weight": 0.75
+    },
+    {
+      "source": "api_bot_js",
+      "target": "telegram_bot",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md",
+      "source_location": "line 43",
+      "weight": 0.95
+    },
+    {
+      "source": "setup",
+      "target": "github_sklad",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "db_perekhod_na_svoyu_bazu",
+      "target": "vosstanovlenie",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\db\\ПЕРЕХОД-НА-СВОЮ-БАЗУ.md",
+      "source_location": null,
+      "weight": 0.75
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "coverage": {
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\SETUP.md": 95,
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\admin.html": 66,
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\brand\\BOTFATHER.md": 63,
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\catalog.html": 130,
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\db\\ПЕРЕХОД-НА-СВОЮ-БАЗУ.md": 138,
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\index.html": 76,
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\order.html": 38,
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\sklad.html": 38,
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\ВОССТАНОВЛЕНИЕ.md": 128
+  }
+}

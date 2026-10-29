@@ -1202,3 +1202,55 @@ html[data-theme="light"] .tbl tbody tr:active { background: rgba(143,103,32,.10)
 html[data-theme="light"] .prod .ph,
 html[data-theme="light"] .thumb,
 html[data-theme="light"] .mini-row .ph { background: rgba(16,24,40,.04); }
+
+/* ===================================================================
+   1. РљРќРћРџРљР Р’ РЁРђРџРљР• вЂ” РћР”РќРРњ Р РЇР”РћРњ.
+   РЇР·С‹РєРё, С‚РµРјР°, В«РќР° СЃР°Р№С‚В» Рё В«Р’С‹С…РѕРґВ» РґРѕСЃС‚Р°Р»РёСЃСЊ СЃС‚СЂРѕРєРµ РёР· СЃС‚РѕР»Р±РёРєР°, РіРґРµ Сѓ
+   РєР°Р¶РґРѕР№ Р±С‹Р» СЃРІРѕР№ СЂР°Р·РјРµСЂ. Р’ СЂСЏРґ РѕРЅРё РІСЃС‚Р°Р»Рё СЂР°Р·РЅРѕР№ РІС‹СЃРѕС‚С‹ Рё РЅР° СЂР°Р·РЅРѕР№
+   Р»РёРЅРёРё. Р—Р°РґР°С‘Рј РёРј РѕР±С‰СѓСЋ РІС‹СЃРѕС‚Сѓ Рё РѕР±С‰РµРµ СЃРєСЂСѓРіР»РµРЅРёРµ вЂ” С‚РѕРіРґР° РѕРЅРё С‡РёС‚Р°СЋС‚СЃСЏ
+   РєР°Рє РѕРґРёРЅ РЅР°Р±РѕСЂ, Р° РЅРµ РєР°Рє СЃР»СѓС‡Р°Р№РЅС‹Рµ РєРЅРѕРїРєРё.
+   =================================================================== */
+@media (min-width: 861px) {
+  .sidebar { align-items: center; }
+  .sidebar .theme-toggle,
+  .sidebar .mode-tag,
+  .sidebar .lang-switch button {
+    height: 2.25rem; min-height: 2.25rem; padding: 0 0.75rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 11px; font-size: 0.8125rem; line-height: 1;
+  }
+  .sidebar .lang-switch { gap: 2px; align-items: center; }
+  .sidebar .lang-switch button { padding: 0 0.6rem; min-width: 2.25rem; }
+  .sidebar .mode-tag { white-space: nowrap; }
+  .sidebar .profile-chip { height: 2.25rem; padding: 0 0.7rem; align-items: center; }
+  .sidebar .profile-chip .avatar { width: 1.6rem; height: 1.6rem; }
+}
+
+/* ===================================================================
+   2. Р¤РћРўРћ Р‘Р•Р— Р—РђР—РћР РћР’.
+   РўРѕРІР°СЂ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РІРёРґРµРЅ С†РµР»РёРєРѕРј вЂ” Р·РЅР°С‡РёС‚ СЃРЅРёРјРѕРє РІРїРёСЃС‹РІР°РµС‚СЃСЏ, Р° РЅРµ
+   РѕР±СЂРµР·Р°РµС‚СЃСЏ, Рё РїРѕ РєСЂР°СЏРј РѕСЃС‚Р°СЋС‚СЃСЏ РїРѕР»СЏ. РџСѓСЃС‚С‹РјРё РёС… РѕСЃС‚Р°РІР»СЏС‚СЊ РЅРµРєСЂР°СЃРёРІРѕ,
+   РїРѕСЌС‚РѕРјСѓ РїРѕР»СЏ Р·Р°РїРѕР»РЅСЏРµС‚ СЂР°Р·РјС‹С‚Р°СЏ РєРѕРїРёСЏ С‚РѕРіРѕ Р¶Рµ СЃРЅРёРјРєР°: С‚РѕРІР°СЂ РІРёРґРµРЅ
+   РїРѕР»РЅРѕСЃС‚СЊСЋ Рё РІ РїРѕР»РЅРѕРј РєР°С‡РµСЃС‚РІРµ, Р° РєР°СЂС‚РѕС‡РєР° РІС‹РіР»СЏРґРёС‚ Р·Р°РїРѕР»РЅРµРЅРЅРѕР№.
+   =================================================================== */
+.product-card-img { position: relative; overflow: hidden; }
+.product-card-img::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: var(--С„РѕС‚Рѕ); background-size: cover; background-position: center;
+  filter: blur(18px) saturate(1.2); transform: scale(1.25); opacity: .55;
+}
+.product-card-img img { position: relative; z-index: 1; padding: 0; }
+
+.prod { position: relative; }
+.prod::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; aspect-ratio: 1 / 1;
+  pointer-events: none; border-radius: inherit;
+  background-image: var(--С„РѕС‚Рѕ); background-size: cover; background-position: center;
+  filter: blur(18px) saturate(1.2); transform: scale(1.1); opacity: .5;
+}
+.prod .ph { position: relative; z-index: 1; padding: 0; }
+
+/* РЎС‚СЂРѕРєР° РІ С‚РµР»РµС„РѕРЅРµ: С‚Р°Рј РєРІР°РґСЂР°С‚ РјР°Р»РµРЅСЊРєРёР№, СЂР°Р·РјС‹РІР°С‚СЊ РЅРµС‡РµРіРѕ вЂ” РїСЂРѕСЃС‚Рѕ
+   СѓР±РёСЂР°РµРј РїРѕР»СЏ Рё РґР°С‘Рј СЃРїРѕРєРѕР№РЅСѓСЋ РїРѕРґР»РѕР¶РєСѓ. */
+.mini-row .ph { padding: 0; }
+

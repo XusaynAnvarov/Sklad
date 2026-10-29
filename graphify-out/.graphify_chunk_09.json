@@ -1,0 +1,148 @@
+{
+  "nodes": [
+    {
+      "id": "guide_guide_uz_animated_guide",
+      "label": "Uzbek User Guide (Animated GIF)",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-uz.gif",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "9-step animated guide in Uzbek language for generalmodern.uz. Step 1/9 visible: instructs user to open generalmodern.uz website and click the 'Kirish' (Login) button in the upper right corner. Shows a mockup of the public catalog page with 4 product cards and a highlighted Kirish button.",
+      "confidence_score": 1.0,
+      "entity_type": "guide_document",
+      "language": "uz",
+      "total_steps": 9,
+      "current_step_visible": 1
+    },
+    {
+      "id": "guide_guide_uz_step1_open_website",
+      "label": "Step 1: Open generalmodern.uz Website",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-uz.gif",
+      "source_location": "frame:1",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "First step of the Uzbek guide. Heading: 'generalmodern.uz saytini oching' (Open the generalmodern.uz website). Instruction: 'O\u02bfng yuqoridagi \u00abKirish\u00bb tugmasini bosing' (Click the Login button in the upper right). The tab label is 'Sayt' (Website). Progress indicator shows 1/9.",
+      "confidence_score": 1.0,
+      "entity_type": "guide_step",
+      "step_number": 1,
+      "step_label": "Sayt",
+      "step_title_uz": "generalmodern.uz saytini oching",
+      "step_instruction_uz": "O\u02bfng yuqoridagi \u00abKirish\u00bb tugmasini bosing"
+    },
+    {
+      "id": "guide_guide_uz_kirish_button",
+      "label": "Kirish (Login) Button",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-uz.gif",
+      "source_location": "frame:1/ui:top-right-button",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "Dark-colored 'Kirish' button (Uzbek for 'Login' or 'Enter') located in the upper-right corner of the generalmodern.uz website. Highlighted with an animated cursor pointer indicator in the guide to draw user attention.",
+      "confidence_score": 1.0,
+      "entity_type": "ui_element",
+      "ui_element_type": "button",
+      "label_uz": "Kirish",
+      "label_ru": "\u0412\u0445\u043e\u0434"
+    },
+    {
+      "id": "guide_guide_uz_public_catalog_screen",
+      "label": "Public Product Catalog Screen",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-uz.gif",
+      "source_location": "frame:1/screen:catalog",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "The generalmodern.uz public-facing catalog page shown in the guide mockup. Displays a 2x2 grid of product cards with placeholder images and text. URL bar shows 'generalmodern.uz'. This is the landing page before login.",
+      "confidence_score": 1.0,
+      "entity_type": "ui_screen",
+      "screen_name": "public_catalog",
+      "url": "generalmodern.uz"
+    },
+    {
+      "id": "guide_guide_uz_login_flow",
+      "label": "User Login Flow (Uzbek Guide)",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-uz.gif",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "9-step user flow covered by this animated Uzbek guide. Step 1 shows opening the site and clicking Kirish. Remaining 8 steps (not visible in this frame) likely cover: entering phone/password, receiving Telegram code, completing 2FA login, and accessing the customer portal.",
+      "confidence_score": 0.75,
+      "entity_type": "user_flow",
+      "flow_name": "login_flow",
+      "inferred": true
+    },
+    {
+      "id": "guide_guide_uz_general_modern_branding",
+      "label": "GENERAL MODERN Brand Header",
+      "file_type": "image",
+      "source_file": "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-uz.gif",
+      "source_location": "frame:1/header",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "description": "Guide header showing 'GENERAL MODERN' in gold/yellow uppercase text on dark navy background with a horizontal gold underline separator. Consistent with the warehouse system brand identity.",
+      "confidence_score": 1.0,
+      "entity_type": "branding",
+      "brand_name": "GENERAL MODERN",
+      "color_scheme": "gold on dark navy"
+    }
+  ],
+  "edges": [
+    {
+      "from": "guide_guide_uz_animated_guide",
+      "to": "guide_guide_uz_step1_open_website",
+      "relation": "contains_step",
+      "confidence_score": 1.0
+    },
+    {
+      "from": "guide_guide_uz_animated_guide",
+      "to": "guide_guide_uz_login_flow",
+      "relation": "documents_flow",
+      "confidence_score": 0.95
+    },
+    {
+      "from": "guide_guide_uz_step1_open_website",
+      "to": "guide_guide_uz_kirish_button",
+      "relation": "highlights_element",
+      "confidence_score": 1.0
+    },
+    {
+      "from": "guide_guide_uz_step1_open_website",
+      "to": "guide_guide_uz_public_catalog_screen",
+      "relation": "shows_screen",
+      "confidence_score": 1.0
+    },
+    {
+      "from": "guide_guide_uz_public_catalog_screen",
+      "to": "guide_guide_uz_kirish_button",
+      "relation": "contains_element",
+      "confidence_score": 1.0
+    },
+    {
+      "from": "guide_guide_uz_animated_guide",
+      "to": "guide_guide_uz_general_modern_branding",
+      "relation": "displays_branding",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "coverage": {
+    "C:\\Users\\ASUS\\Desktop\\VIBE KODING\\guide\\guide-uz.gif": 1
+  }
+}
