@@ -9,14 +9,14 @@
 //  сразу — цена за штуку согласована. Добавит новый товар — на него нужна
 //  цена, и заказ вернётся к владельцу на расчёт.
 // ========================================================================
-import { el } from "../../el.js?v=20261029b";
-import { icon } from "../../icons.js?v=20261029b";
-import { toast, confirmDialog } from "../../ui.js?v=20261029b";
-import { fmt } from "../../fx.js?v=20261029b";
-import { идти } from "../app.js?v=20261029b";
-import { мои } from "../api.js?v=20261029b";
-import { картинка } from "../photo.js?v=20261029b";
-import { счётчик } from "../stepper.js?v=20261029b";
+import { el } from "../../el.js?v=20261029c";
+import { icon } from "../../icons.js?v=20261029c";
+import { toast, confirmDialog } from "../../ui.js?v=20261029c";
+import { fmt } from "../../fx.js?v=20261029c";
+import { идти } from "../app.js?v=20261029c";
+import { мои } from "../api.js?v=20261029c";
+import { картинка } from "../photo.js?v=20261029c";
+import { счётчик } from "../stepper.js?v=20261029c";
 
 const СОСТОЯНИЕ = {
   order:           { метка: "Считаем цену",   cls: "wait",  что: "Мы готовим цену. Пока можно поправить заказ." },
