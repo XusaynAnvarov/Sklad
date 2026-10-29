@@ -1,25 +1,25 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261028h";
-import { icon } from "../icons.js?v=20261028h";
-import { fmt, convert } from "../fx.js?v=20261028h";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261028h";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261028h";
-import { openEditor } from "./sales.js?v=20261028h";
-import { thumbAttrs, thumb } from "../img.js?v=20261028h";
-import { LOW_STOCK } from "../advice.js?v=20261028h";
-import { qrSvg, skuPayload } from "../qr.js?v=20261028h";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261029a";
+import { icon } from "../icons.js?v=20261029a";
+import { fmt, convert } from "../fx.js?v=20261029a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261029a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261029a";
+import { openEditor } from "./sales.js?v=20261029a";
+import { thumbAttrs, thumb } from "../img.js?v=20261029a";
+import { LOW_STOCK } from "../advice.js?v=20261029a";
+import { qrSvg, skuPayload } from "../qr.js?v=20261029a";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261028h";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261029a";
 // Единица измерения: товар считают штуками, пачками, коробками. Смена
 // единицы пересчитывает и остаток, и себестоимость, и все партии.
-import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261028h";
-import { подходит } from "../productsearch.js?v=20261028h";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261028h";
-import { изменениеСклада } from "../db.js?v=20261028h";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261028h";
+import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261029a";
+import { подходит } from "../productsearch.js?v=20261029a";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261029a";
+import { изменениеСклада } from "../db.js?v=20261029a";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261029a";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -231,7 +231,7 @@ export default async function render(page, ctx) {
       const card = el("div.prod.reveal" + stateCls, { "data-id": p.id, onclick: () => { запомнитьМесто(shown, p.id); openForm(ctx, p, cats); } }, [
         // в списке — миниатюра (иначе сотни полноразмерных фото вешают телефон);
         // при увеличении открываются оригиналы
-        el("img.ph", { ...thumbAttrs(p.photo_url, placeholder(p.name), 320), alt: p.name, title: "Нажмите для увеличения",
+        el("img.ph", { ...thumbAttrs(p.photo_url, placeholder(p.name), 480), alt: p.name, title: "Нажмите для увеличения",
           onclick: (e) => { const ph = (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []); if (ph.length) { e.stopPropagation(); lightbox(ph); } } }),
         el("div.body", {}, [
           el("div.nm", { text: p.name }),

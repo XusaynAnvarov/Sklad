@@ -94,7 +94,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 .mini-row .qty.low { color: var(--warn); }
 .mini-row .qty.neg { color: var(--danger); }
 .mini-row .ph {
-  width: 42px; height: 42px; flex: none; border-radius: 9px; object-fit: cover;
+  width: 64px; height: 64px; flex: none; border-radius: 10px; object-fit: contain; padding: 3px;
   background: var(--bg2); border: 1px solid var(--border);
 }
 

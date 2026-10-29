@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     if (blocked.length) return res.status(403).json({ error: "Этот номер заблокирован. Обратитесь к продавцу." });
 
     let rows;
-    try { rows = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id,chat_id,known_devices`); }
+    try { rows = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id,chat_id,known_devices,login_code_exp`); }
     catch { rows = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id,chat_id`); }
     const acc = rows[0];
     if (!acc) return res.status(404).json({ error: "Аккаунт не найден. Сначала зарегистрируйтесь." });
@@ -42,6 +42,19 @@ export default async function handler(req, res) {
     }
     if (!chatId) return res.status(409).json({ error: `Откройте Telegram-бота @${BOT} и нажмите /start, затем повторите вход.` });
     if (!CLIENT_TOKEN) return res.status(500).json({ error: "CLIENT_BOT_TOKEN не задан на сервере" });
+
+    // НЕ ЧАЩЕ ОДНОГО КОДА В МИНУТУ.
+    // Без этого любой человек мог вбить чужой номер и жать «Получить код»
+    // сколько угодно: владельцу номера летел поток сообщений от бота, а
+    // самого бота Telegram мог временно заблокировать за рассылку.
+    // Отдельная колонка не нужна: срок действия уже лежит в login_code_exp
+    // и равен «выдали + 5 минут». Если до конца осталось больше четырёх
+    // минут — значит код выдан меньше минуты назад.
+    const доКонца = acc.login_code_exp ? (new Date(acc.login_code_exp).getTime() - Date.now()) : 0;
+    if (доКонца > 4 * 60 * 1000) {
+      const ждать = Math.max(1, Math.ceil((доКонца - 4 * 60 * 1000) / 1000));
+      return res.status(429).json({ error: `Код уже отправлен в Telegram. Повторить можно через ${ждать} с.` });
+    }
 
     const code = genCode();
     const exp = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 минут

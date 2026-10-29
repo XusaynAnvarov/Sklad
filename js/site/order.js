@@ -1,9 +1,9 @@
 // Страница «Заказать»: товары карточками (как в каталоге) + ручной ввод количества,
 // и отдельный экран «Мои заказанные товары» (проверить / удалить / добавить ещё).
-import { api, isLoggedIn } from "./api.js?v=20261028h";
-import { sToast, t } from "./app.js?v=20261028h";
-import { openLogin } from "./auth.js?v=20261028h";
-import { поставитьСнимок } from "../img.js?v=20261028h";
+import { api, isLoggedIn } from "./api.js?v=20261029a";
+import { sToast, t } from "./app.js?v=20261029a";
+import { openLogin } from "./auth.js?v=20261029a";
+import { поставитьСнимок } from "../img.js?v=20261029a";
 
 function mkEl(tag, cls = "") {
   const e = document.createElement(tag);

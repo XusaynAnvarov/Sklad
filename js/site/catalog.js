@@ -1,12 +1,12 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20261028h";
-import { t } from "./app.js?v=20261028h";
-import { openLogin } from "./auth.js?v=20261028h";
-import { thumb } from "../img.js?v=20261028h";
-import { подходит } from "../productsearch.js?v=20261028h";
-import { подписьКода } from "../catalogcode.js?v=20261028h";
+import { api, isLoggedIn } from "./api.js?v=20261029a";
+import { t } from "./app.js?v=20261029a";
+import { openLogin } from "./auth.js?v=20261029a";
+import { thumb } from "../img.js?v=20261029a";
+import { подходит } from "../productsearch.js?v=20261029a";
+import { подписьКода } from "../catalogcode.js?v=20261029a";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261028h";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261029a";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
@@ -287,7 +287,7 @@ function buildCard(p) {
     const img = document.createElement("img");
     // в сетке — миниатюра: сотни полноразмерных фото занимают в памяти телефона
     // гигабайты и браузер зависает. В галерее по клику открываются оригиналы.
-    img.src = thumb(photos[0], 320); img.alt = p.name;
+    img.src = thumb(photos[0], 480); img.alt = p.name;
     img.loading = "lazy"; img.decoding = "async"; img.style.cursor = "zoom-in";
     img.onerror = () => {
       if (img.src !== photos[0]) { img.src = photos[0]; return; }   // миниатюра не вышла — берём оригинал

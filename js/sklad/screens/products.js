@@ -1,24 +1,24 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20261028h";
-import { icon } from "../../icons.js?v=20261028h";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261028h";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261028h";
-import { fmt, convert } from "../../fx.js?v=20261028h";
-import { thumb } from "../../img.js?v=20261028h";
-import { LOW_STOCK } from "../../advice.js?v=20261028h";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261028h";
-import { qrSvg, skuPayload } from "../../qr.js?v=20261028h";
-import { setStock } from "../stock.js?v=20261028h";
+import { el, go } from "../app.js?v=20261029a";
+import { icon } from "../../icons.js?v=20261029a";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261029a";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261029a";
+import { fmt, convert } from "../../fx.js?v=20261029a";
+import { thumb } from "../../img.js?v=20261029a";
+import { LOW_STOCK } from "../../advice.js?v=20261029a";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261029a";
+import { qrSvg, skuPayload } from "../../qr.js?v=20261029a";
+import { setStock } from "../stock.js?v=20261029a";
 // Себестоимость показываем в той валюте, в которой её ввели. Расчёт общий
 // со складом на сайте: иначе один товар выглядит как «$33.87» на компьютере
 // и «241,94 ¥» в телефоне — цифра верная, а доверия к ней никакого.
-import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261028h";
-import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20261028h";
-import { подходит } from "../../productsearch.js?v=20261028h";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261028h";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261028h";
+import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261029a";
+import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20261029a";
+import { подходит } from "../../productsearch.js?v=20261029a";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261029a";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261029a";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -375,7 +375,7 @@ export default async function render(box, ctx) {
       .filter(Boolean).join(" · ");
     return el("div.mini-row" + cls, { onclick: () => openEdit(p) }, [
       p.photo_url
-        ? el("img.ph", { src: thumb(p.photo_url, 84), loading: "lazy", decoding: "async", alt: "",
+        ? el("img.ph", { src: thumb(p.photo_url, 192), loading: "lazy", decoding: "async", alt: "",
             style: { cursor: "zoom-in" }, "data-full": p.photo_url,
             onerror: function () {
               // сперва оригинал, потом просто пустая рамка — «битая картинка»

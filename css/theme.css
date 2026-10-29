@@ -132,7 +132,7 @@ html[data-theme="light"] .bg-stars{opacity:.45;}
 .tbl tr:last-child td{border-bottom:none;}
 .tbl tr{transition:background .2s;}
 .tbl tbody tr:hover{background:rgba(217,180,90,.06);}
-.thumb{width:46px;height:46px;border-radius:10px;object-fit:cover;background:#1a1a2e;border:1px solid var(--border);}
+.thumb{width:46px;height:46px;border-radius:10px;object-fit:contain;padding:2px;background:rgba(255,255,255,.05);border:1px solid var(--border);}
 .row-actions{display:flex;gap:6px;justify-content:flex-end;}
 
 /* ---------- Сетка товаров ---------- */
@@ -142,7 +142,7 @@ html[data-theme="light"] .bg-stars{opacity:.45;}
 .prod{border-radius:var(--radius);overflow:hidden;background:var(--panel);border:1px solid var(--border);
   transition:transform .3s,border-color .3s,box-shadow .3s;cursor:pointer;display:flex;flex-direction:column;}
 .prod:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 6px 18px rgba(16,24,40,.08);}
-.prod .ph{aspect-ratio:1/1;width:100%;object-fit:cover;background:#12122a;}
+.prod .ph{aspect-ratio:1/1;width:100%;object-fit:contain;padding:10px;background:rgba(255,255,255,.05);}
 .prod .body{padding:14px;flex:1;display:flex;flex-direction:column;gap:6px;}
 .prod .nm{font-weight:600;font-size: 0.9375rem;line-height:1.3;}
 .prod .cat{color:var(--muted);font-size: 0.75rem;}
@@ -1192,3 +1192,13 @@ html[data-theme="light"] .tbl tbody tr:active { background: rgba(143,103,32,.10)
    повышенного контраста особенно. */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 @media (prefers-contrast: more) { :focus-visible { outline-width: 3px; } }
+
+/* ===================================================================
+   ФОТО ЦЕЛИКОМ.
+   Снимок вписывается в квадрат целиком, а не обрезается по центру:
+   у длинной лапки или ремня иначе видно середину, а не товар. Поля
+   вокруг — спокойная подложка, в светлой теме она светлая.
+   =================================================================== */
+html[data-theme="light"] .prod .ph,
+html[data-theme="light"] .thumb,
+html[data-theme="light"] .mini-row .ph { background: rgba(16,24,40,.04); }

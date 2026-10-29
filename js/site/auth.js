@@ -1,6 +1,6 @@
 // Модуль авторизации: вход, регистрация, верификация через Telegram
-import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261028h";
-import { sToast, openModal, closeModal } from "./app.js?v=20261028h";
+import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261029a";
+import { sToast, openModal, closeModal } from "./app.js?v=20261029a";
 
 let onAuthChange = null;
 export function setAuthChangeCallback(fn) { onAuthChange = fn; }
@@ -94,13 +94,41 @@ function buildAuthModal(start) {
 
   function stopPoll() { if (pollInterval) { clearInterval(pollInterval); pollInterval = null; } }
 
+  // Левая половина карточки — приветствие и переход «вход ↔ регистрация».
+  // Текст меняется вместе с режимом, поэтому строится здесь же, а не в
+  // оболочке окна. На телефоне половины не помещаются: стили (css/site.css,
+  // .auth-grid) кладут её сверху одной строкой.
+  function buildSide() {
+    const вход = mode !== "register";
+    const бок = el("div.auth-side");
+    const знак = el("div.auth-side-logo");
+    знак.innerHTML = `<span>GM</span><b>GENERAL MODERN</b>`;
+    // Класс задаётся в имени тега: местный el() свойство class не читает.
+    const h = el("h3.auth-side-title", { text: вход ? "С возвращением!" : "Здравствуйте!" });
+    const p = el("p.auth-side-text", { text: вход
+      ? "Нет доступа? Оставьте номер — пришлём код в Telegram, и вы сразу увидите цены."
+      : "Уже есть доступ? Войдите по номеру телефона и коду из Telegram." });
+    const b = el("button.auth-side-btn", { text: вход ? "Регистрация →" : "Войти →" });
+    b.type = "button";
+    b.addEventListener("click", () => { loginStep = "phone"; mode = вход ? "register" : "login"; render(); });
+    бок.append(знак, h, p, b);
+    return бок;
+  }
+
   function render() {
     wrap.innerHTML = "";
     stopPoll();
-    if (mode === "login") wrap.append(buildLogin());
-    else if (mode === "register") wrap.append(buildRegister());
-    else if (mode === "verify") wrap.append(buildVerify());
-    wrap.append(guideLink());   // «Как зарегистрироваться?» — видео-инструкция
+    const грид = el("div.auth-grid");
+    const форма = el("div.auth-form");
+    if (mode === "login") форма.append(buildLogin());
+    else if (mode === "register") форма.append(buildRegister());
+    else if (mode === "verify") форма.append(buildVerify());
+    форма.append(guideLink());   // «Как зарегистрироваться?» — видео-инструкция
+    // Во время подтверждения (ждём нажатия в боте) переключать режим нечем —
+    // показываем только форму, чтобы не сбить человека с толку.
+    if (mode !== "verify") грид.append(buildSide());
+    грид.append(форма);
+    wrap.append(грид);
   }
 
   // 2 шага: 1) телефон → код в Telegram; 2) код + пароль → вход.

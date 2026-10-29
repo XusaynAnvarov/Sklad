@@ -396,7 +396,7 @@ html[data-site-theme="dark"] .btn-warehouse {
   background: var(--bg2);
   position: relative; overflow: hidden;
 }
-.product-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease; }
+.product-card-img img { width: 100%; height: 100%; object-fit: contain; padding: 8px; transition: transform .35s ease; }
 .product-card-img-placeholder {
   width: 100%; aspect-ratio: 1/1; background: var(--bg2);
   display: flex; align-items: center; justify-content: center; color: var(--border);
@@ -1477,3 +1477,114 @@ html[data-site-theme="dark"] .site-header::after {
 
 :focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; border-radius: 6px; }
 @media (prefers-contrast: more) { :focus-visible { outline-width: 3px; } }
+
+/* ===================================================================
+   ВХОД И РЕГИСТРАЦИЯ — стеклянная карточка из двух половин.
+   Как в ролике: слева приветствие и переход «вход ↔ регистрация»,
+   справа сама форма. Поля наши — телефон, код из Telegram, пароль:
+   почты у нас нет, и код в Telegram надёжнее.
+   На телефоне половины не помещаются — приветствие ложится сверху
+   одной строкой, форма под ним.
+   =================================================================== */
+.s-overlay:has(.auth-grid) .s-modal,
+#mo-auth-modal .s-modal {
+  max-width: 820px;
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(152deg, rgba(255,255,255,.80), rgba(255,255,255,.60));
+  border: 1px solid rgba(255,255,255,.9);
+  backdrop-filter: blur(26px) saturate(160%);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  box-shadow: 0 34px 80px rgba(28,43,74,.22), inset 0 1px 0 #fff;
+}
+html[data-site-theme="dark"] #mo-auth-modal .s-modal {
+  background:
+    linear-gradient(152deg, rgba(18,18,22,.62), rgba(18,18,22,.40)),
+    linear-gradient(152deg, rgba(255,255,255,.10), rgba(255,255,255,.035));
+  border-color: rgba(255,255,255,.14);
+  box-shadow: 0 34px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.18);
+}
+/* Заголовок окна карточке не нужен — у неё свой. Крестик оставляем. */
+#mo-auth-modal .s-modal-head {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  padding: 0; border: none; background: none;
+}
+#mo-auth-modal .s-modal-head h2 { display: none; }
+#mo-auth-modal .s-modal-body { padding: 0; }
+
+.auth-grid { display: flex; flex-wrap: wrap; align-items: stretch; min-height: 440px; }
+
+/* ---------- левая половина ---------- */
+.auth-side {
+  flex: 1 1 300px; min-width: 0;
+  padding: 40px 34px;
+  display: flex; flex-direction: column; justify-content: center;
+  border-right: 1px solid rgba(16,24,40,.08);
+  background: linear-gradient(160deg, rgba(255,255,255,.55), rgba(255,255,255,.18));
+}
+html[data-site-theme="dark"] .auth-side {
+  border-right-color: rgba(255,255,255,.10);
+  background: linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+}
+.auth-side-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+.auth-side-logo span {
+  width: 2.125rem; height: 2.125rem; border-radius: 10px; display: grid; place-items: center;
+  font: 800 0.78rem 'Inter', sans-serif; color: #16203a;
+  background: linear-gradient(135deg, #ffffff, #dfe4ee); border: 1px solid #c8cedd;
+}
+.auth-side-logo b { font-size: 0.8rem; font-weight: 700; letter-spacing: .06em; color: var(--muted); }
+.auth-side-title {
+  margin: 0 0 10px; font-size: 1.75rem; line-height: 1.1; font-weight: 800;
+  letter-spacing: -.022em; color: var(--text);
+}
+.auth-side-text { margin: 0 0 24px; font-size: 0.875rem; line-height: 1.6; color: var(--muted); max-width: 32ch; }
+.auth-side-btn {
+  align-self: flex-start; min-height: 2.75rem; padding: 0 1.4rem;
+  border-radius: 13px; border: 1px solid var(--border);
+  background: rgba(255,255,255,.66); color: var(--text);
+  font: 600 0.9rem 'Inter', sans-serif; cursor: pointer;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1), background .2s, border-color .2s;
+}
+.auth-side-btn:hover { background: rgba(255,255,255,.9); border-color: var(--navy); }
+.auth-side-btn:active { transform: scale(.955); }
+html[data-site-theme="dark"] .auth-side-btn { background: rgba(255,255,255,.07); }
+html[data-site-theme="dark"] .auth-side-btn:hover { background: rgba(255,255,255,.12); }
+
+/* ---------- правая половина: форма ---------- */
+.auth-form { flex: 1 1 340px; min-width: 0; padding: 36px 34px; display: flex; flex-direction: column; justify-content: center; }
+.auth-form .s-form { gap: 14px; }
+
+/* Поля — подчёркнутые, как в ролике: рамка вокруг на стекле выглядит тяжело. */
+#mo-auth-modal .s-input {
+  background: none; border: none; border-bottom: 1px solid var(--border);
+  border-radius: 0; padding-left: 2px; padding-right: 2px;
+  transition: border-color .2s, background .2s;
+}
+#mo-auth-modal .s-input:focus {
+  border-bottom-color: var(--navy);
+  box-shadow: 0 1px 0 0 var(--navy);
+  outline: none;
+}
+
+/* ---------- телефон ---------- */
+@media (max-width: 720px) {
+  .auth-grid { display: block; min-height: 0; }
+  .auth-side {
+    padding: 24px 22px 18px;
+    border-right: none; border-bottom: 1px solid rgba(16,24,40,.08);
+  }
+  html[data-site-theme="dark"] .auth-side { border-bottom-color: rgba(255,255,255,.10); }
+  .auth-side-title { font-size: 1.4rem; }
+  .auth-side-text { margin-bottom: 16px; }
+  .auth-form { padding: 22px 22px 24px; }
+}
+
+/* ---------- без размытия и при повышенном контрасте ---------- */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  #mo-auth-modal .s-modal { background: var(--white); }
+}
+@media (prefers-contrast: more) {
+  #mo-auth-modal .s-modal { background: var(--white); backdrop-filter: none; -webkit-backdrop-filter: none; border: 1px solid var(--text); }
+  .auth-side { background: none; }
+}
