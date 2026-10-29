@@ -2,9 +2,9 @@
 //  СТРАНИЦА «ЗАКАЗЫ» — новые заказы из бота и с сайта (status='order').
 //  Разделены по вкладкам: «С сайта» | «Из бота» | «Подтверждённые».
 // ========================================================================
-import { el, toast, confirmDialog } from "../ui.js?v=20261029a";
-import { icon } from "../icons.js?v=20261029a";
-import { openEditor, deleteSale } from "./sales.js?v=20261029a";
+import { el, toast, confirmDialog } from "../ui.js?v=20261029b";
+import { icon } from "../icons.js?v=20261029b";
+import { openEditor, deleteSale } from "./sales.js?v=20261029b";
 
 export default async function render(page, ctx) {
   const [sales, customers, products] = await Promise.all([

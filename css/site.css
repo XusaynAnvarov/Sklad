@@ -1588,3 +1588,14 @@ html[data-site-theme="dark"] .auth-side-btn:hover { background: rgba(255,255,255
   #mo-auth-modal .s-modal { background: var(--white); backdrop-filter: none; -webkit-backdrop-filter: none; border: 1px solid var(--text); }
   .auth-side { background: none; }
 }
+
+/* Переключение «вход ↔ регистрация» — как в ролике: содержимое
+   расплывается и гаснет, в невидимости меняется местами и собирается
+   обратно. Длительность здесь и ПОЛПУТИ в js/site/auth.js должны
+   совпадать, иначе подмена будет видна. */
+.auth-grid { transition: opacity .21s ease, filter .21s ease; }
+.auth-уходит, .auth-приходит { opacity: 0; filter: blur(8px); }
+@media (prefers-reduced-motion: reduce) {
+  .auth-grid { transition: none; }
+  .auth-уходит, .auth-приходит { opacity: 1; filter: none; }
+}

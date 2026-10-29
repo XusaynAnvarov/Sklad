@@ -8,15 +8,15 @@
 //  E. Новый приход дороже цены продажи
 //  F. Заказы не оформлены (склад ещё не трогали — это норма)
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261029a";
-import { icon } from "../icons.js?v=20261029a";
-import { fmt } from "../fx.js?v=20261029a";
-import { ensureBatches, sumQty, costAfter, returnToStock, currentCost, costOutlook } from "../inventory.js?v=20261029a";
-import { placeholder } from "./products.js?v=20261029a";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261029a";
-import { thumb } from "../img.js?v=20261029a";
-import { историяОстатков } from "./stock_history.js?v=20261029a";
-import { пересчётПоExcel } from "./stock_count.js?v=20261029a";
+import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261029b";
+import { icon } from "../icons.js?v=20261029b";
+import { fmt } from "../fx.js?v=20261029b";
+import { ensureBatches, sumQty, costAfter, returnToStock, currentCost, costOutlook } from "../inventory.js?v=20261029b";
+import { placeholder } from "./products.js?v=20261029b";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261029b";
+import { thumb } from "../img.js?v=20261029b";
+import { историяОстатков } from "./stock_history.js?v=20261029b";
+import { пересчётПоExcel } from "./stock_count.js?v=20261029b";
 
 export default async function render(page, ctx) {
   const [products, sales] = await Promise.all([ctx.db.products.list(), ctx.db.sales.list()]);

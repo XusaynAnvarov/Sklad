@@ -1,6 +1,6 @@
 // Модуль авторизации: вход, регистрация, верификация через Telegram
-import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261029a";
-import { sToast, openModal, closeModal } from "./app.js?v=20261029a";
+import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261029b";
+import { sToast, openModal, closeModal } from "./app.js?v=20261029b";
 
 let onAuthChange = null;
 export function setAuthChangeCallback(fn) { onAuthChange = fn; }
@@ -86,6 +86,11 @@ function guideLink() {
   return d;
 }
 
+// Системное «меньше движения»: переключаем сразу, без размытия.
+function меньшеДвижения() {
+  try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; }
+}
+
 function buildAuthModal(start) {
   const wrap = document.createElement("div");
   let mode = (start && start.mode) || "login"; // login | register | verify
@@ -110,9 +115,33 @@ function buildAuthModal(start) {
       : "Уже есть доступ? Войдите по номеру телефона и коду из Telegram." });
     const b = el("button.auth-side-btn", { text: вход ? "Регистрация →" : "Войти →" });
     b.type = "button";
-    b.addEventListener("click", () => { loginStep = "phone"; mode = вход ? "register" : "login"; render(); });
+    b.addEventListener("click", () => { loginStep = "phone"; mode = вход ? "register" : "login"; renderПлавно(); });
     бок.append(знак, h, p, b);
     return бок;
+  }
+
+  // Переход между «входом» и «регистрацией» — как в ролике: содержимое
+  // расплывается и гаснет, в невидимости меняется местами и собирается
+  // обратно. Половины НЕ едут: в ролике на 1.56 с всё размыто, на 1.64 с
+  // карточка почти пуста, а на 1.72 с панель уже на другой стороне.
+  const ПОЛПУТИ = 210;   // мс до подмены — столько же занимает сбор обратно
+
+  function renderПлавно() {
+    const старое = wrap.firstElementChild;
+    if (!старое || меньшеДвижения()) { render(); return; }
+    старое.classList.add("auth-уходит");
+    setTimeout(() => {
+      render();
+      const новое = wrap.firstElementChild;
+      if (!новое) return;
+      новое.classList.add("auth-приходит");
+      // Заставляем браузер ПРЯМО СЕЙЧАС посчитать размытое состояние —
+      // иначе переход не запустится и содержимое просто возникнет.
+      // Через requestAnimationFrame делать нельзя: в фоновой вкладке кадры
+      // не рисуются, и форма осталась бы размытой (проверено).
+      void новое.offsetWidth;
+      новое.classList.remove("auth-приходит");
+    }, ПОЛПУТИ);
   }
 
   function render() {
@@ -142,7 +171,7 @@ function buildAuthModal(start) {
     let err = el("div.s-error", { style: "display:none" });
     const reg = el("div", { style: "text-align:center;margin-top:10px" });
     reg.innerHTML = `<span style="color:var(--muted);font-size:13px">Нет аккаунта? </span><a href="#" style="font-size:13px;color:var(--navy);font-weight:600">Зарегистрироваться</a>`;
-    reg.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); loginStep = "phone"; mode = "register"; render(); });
+    reg.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); loginStep = "phone"; mode = "register"; renderПлавно(); });
 
     if (loginStep === "phone") {
       const phone = input("tel", "Номер телефона", "+998 90 123 45 67");
@@ -219,7 +248,7 @@ function buildAuthModal(start) {
     const btn = button("Продолжить", "btn-primary", { style: "width:100%;margin-top:4px" });
     const login = el("div", { style: "text-align:center;margin-top:10px" });
     login.innerHTML = `<a href="#" style="font-size:13px;color:var(--navy);font-weight:600">Уже есть аккаунт? Войти</a>`;
-    login.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); mode = "login"; render(); });
+    login.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); mode = "login"; renderПлавно(); });
     btn.addEventListener("click", async () => {
       err.style.display = "none";
       btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';
