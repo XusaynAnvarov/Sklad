@@ -8,6 +8,15 @@
         "value": "inter",
         "createdAt": "2026-10-28T11:07:14.082Z",
         "reason": "Шрифт проекта: Inter задан в дизайн-системе склада владельцем (css/theme.css, css/site.css, печатные формы и каталог PDF) — менять его значит менять фирменный стиль"
+      },
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "css/site.css"
+        ],
+        "createdAt": "2026-10-29T12:00:09.981Z",
+        "reason": "intentional design: color-coded accent stripe on stat cards (navy/warn/danger variants)"
       }
     ]
   }
