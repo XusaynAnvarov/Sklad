@@ -1612,3 +1612,19 @@ html[data-site-theme="dark"] .auth-side-btn:hover { background: rgba(255,255,255
   filter: blur(18px) saturate(1.2); transform: scale(1.25); opacity: .55;
 }
 .product-card-img img { position: relative; z-index: 1; padding: 0; }
+
+/* Знак в витрине вместо фотографии товара: тёплый свет и фирменная плитка. */
+.hero-znak {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background:
+    radial-gradient(60% 70% at 70% 30%, rgba(201,168,76,.34), transparent 70%),
+    radial-gradient(70% 80% at 25% 80%, rgba(104,134,196,.28), transparent 72%),
+    linear-gradient(152deg, rgba(255,255,255,.55), rgba(255,255,255,.18));
+}
+.hero-znak svg { filter: drop-shadow(0 18px 36px rgba(28,43,74,.22)); }
+html[data-site-theme="dark"] .hero-znak {
+  background:
+    radial-gradient(60% 70% at 70% 30%, rgba(217,180,90,.30), transparent 70%),
+    radial-gradient(70% 80% at 25% 80%, rgba(120,100,210,.24), transparent 72%),
+    linear-gradient(152deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+}
