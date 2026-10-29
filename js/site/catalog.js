@@ -92,17 +92,40 @@ export async function renderCatalog(container) {
   const grid = mkEl("div", "product-grid");
   main.append(grid);
 
-  // Фото в витрину — хит недели, иначе первый товар с фотографией.
+  // В витрине — фирменный знак, а не фотография товара.
+  // Снимок одного случайного товара рядом с надписью «Оборудование для
+  // вашего бизнеса» обещал не то: человек думал, что речь про эту вещь.
+  // Знак на тёплом свете ничего не обещает и не устаревает.
   function оформитьВитрину() {
     if (heroImg.childElementCount) return;
-    const свой = products.find(p => p.hit && (p.photo_url || (p.photos && p.photos[0])))
-      || products.find(p => p.photo_url || (p.photos && p.photos[0]));
-    if (!свой) return;
-    const img = document.createElement("img");
-    img.src = thumb(свой.photo_url || свой.photos[0], 640);
-    img.alt = свой.name || "";
-    img.loading = "lazy"; img.decoding = "async";
-    heroImg.append(img);
+    const знак = document.createElement("div");
+    знак.className = "hero-znak";
+    знак.setAttribute("aria-hidden", "true");
+    знак.innerHTML = `
+      <svg viewBox="0 0 512 512" width="150" height="150" role="img" aria-label="GENERAL MODERN">
+        <defs>
+          <linearGradient id="hzst" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#dfe4ee"/>
+          </linearGradient>
+          <linearGradient id="hzzl" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/>
+            <stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/>
+          </linearGradient>
+          <linearGradient id="hzbl" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#fff" stop-opacity=".92"/><stop offset=".55" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+          </linearGradient>
+          <clipPath id="hzpl"><rect width="512" height="512" rx="112"/></clipPath>
+        </defs>
+        <rect width="512" height="512" rx="112" fill="url(#hzst)"/>
+        <g clip-path="url(#hzpl)"><path d="M-120 300 L300 -120 L430 10 L10 430 Z" fill="url(#hzbl)"/></g>
+        <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#c8cedd" stroke-width="5"/>
+        <g fill="none" stroke="url(#hzzl)" stroke-width="14" stroke-linecap="round">
+          <path d="M256 74a182 182 0 0 1 182 182"/><path d="M256 438A182 182 0 0 1 74 256"/>
+        </g>
+        <text x="256" y="314" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, sans-serif"
+              font-size="166" font-weight="800" letter-spacing="-8" fill="#16203a">GM</text>
+      </svg>`;
+    heroImg.append(знак);
   }
 
   // Карточки рисуем ПОРЦИЯМИ по PAGE штук: на телефоне 800+ карточек с фото разом
@@ -294,6 +317,10 @@ function buildCard(p) {
       imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`;
     };
     img.addEventListener("click", (e) => { e.stopPropagation(); openGallery(photos, 0, p.name); });
+    // Поля по краям вписанного снимка заполняет его же размытая копия
+    // (css/site.css, .product-card-img::before). Берём самую мелкую
+    // миниатюру — её всё равно размывает, зато грузится мгновенно.
+    imgWrap.style.setProperty("--фото", "url('" + thumb(photos[0], 64) + "')");
     imgWrap.append(img);
     {
       const pb = mkEl("span");

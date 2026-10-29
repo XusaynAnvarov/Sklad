@@ -229,6 +229,8 @@ export default async function render(page, ctx) {
       const qty = Number(p.stock_qty) || 0;
       const stateCls = qty < 0 ? ".neg" : (qty <= LOW_STOCK ? ".low" : "");
       const card = el("div.prod.reveal" + stateCls, { "data-id": p.id, onclick: () => { запомнитьМесто(shown, p.id); openForm(ctx, p, cats); } }, [
+        // Поля по краям вписанного снимка заполняет его же размытая копия
+        // (css/theme.css, .prod::before) — переменная ставится ниже.
         // в списке — миниатюра (иначе сотни полноразмерных фото вешают телефон);
         // при увеличении открываются оригиналы
         el("img.ph", { ...thumbAttrs(p.photo_url, placeholder(p.name), 480), alt: p.name, title: "Нажмите для увеличения",
@@ -257,6 +259,10 @@ export default async function render(page, ctx) {
             c.note ? el("span.muted", { text: c.note, style: { fontSize: "11px", fontWeight: "500" } }) : null]); })(),
         ]),
       ]);
+      // Размытая копия снимка заполняет поля по краям (css/theme.css,
+      // .prod::before). Берём самую мелкую миниатюру: её всё равно
+      // размывает, зато грузится мгновенно и памяти не ест.
+      if (p.photo_url) card.style.setProperty("--фото", "url('" + thumb(p.photo_url, 64) + "')");
       grid.append(card);
     });
     // анимация появления — только у новой порции, иначе на телефоне это тысячи таймеров
