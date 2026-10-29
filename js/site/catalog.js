@@ -289,7 +289,6 @@ function buildCard(p) {
     // гигабайты и браузер зависает. В галерее по клику открываются оригиналы.
     img.src = thumb(photos[0], 480); img.alt = p.name;
     img.loading = "lazy"; img.decoding = "async"; img.style.cursor = "zoom-in";
-    imgWrap.style.backgroundImage = `url(${thumb(photos[0], 480)})`;
     img.onerror = () => {
       if (img.src !== photos[0]) { img.src = photos[0]; return; }   // миниатюра не вышла — берём оригинал
       imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`;
