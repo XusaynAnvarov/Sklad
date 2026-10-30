@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   try {
     const ids = [...new Set(items.map(i => i.product_id).filter(Boolean))];
     let products = [];
-    if (ids.length) products = await sget(`products?id=in.(${ids.map(encodeURIComponent).join(",")})&select=id,name,photo_url,photos`);
+    if (ids.length) products = await sget(`products?id=in.(${ids.map(encodeURIComponent).join(",")})&select=id,name,sku,code,photo_url,photos`);
     const bytes = await buildSupplierOrderPDF({ items, supplier, currency, products, lang });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="zakaz-postavshiku-${new Date().toISOString().slice(0, 10)}.pdf"`);

@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       if (c) customer = c;
     }
 
-    const products = await sget("products?select=id,name,sku");
+    const products = await sget("products?select=id,name,sku,code,photo_url,photos");
 
     // Долг и оплата показываются только для продаж настоящему клиенту:
     // у обычной продажи долга нет по определению.

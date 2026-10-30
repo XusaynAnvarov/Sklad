@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       sget(`customers?id=eq.${sale.customer_id}&select=*`),
       sget(`sales?customer_id=eq.${sale.customer_id}&select=id,date,currency,items,status`),
       sget(`payments?customer_id=eq.${sale.customer_id}&select=amount,currency,date`),
-      sget("products?select=id,name,sku"),
+      sget("products?select=id,name,sku,code,photo_url,photos"),
     ]);
     const customer = customers[0] || { name: "—" };
     const status = invoiceCoverageStatus(sale.id, allSales, payments, customer.opening_debt);

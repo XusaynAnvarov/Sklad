@@ -6,6 +6,10 @@ import fontkit from "@pdf-lib/fontkit";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+// Подпись артикула — тот же модуль, что у склада и печатного каталога:
+// формат «LP-017 · Арт.: KDP-10» должен совпадать везде.
+import { подписьКода } from "../../js/catalogcode.js";
+import { снимок } from "./imgproxy.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SIGN = { yuan: "¥", usd: "$", som: "сум" };
@@ -172,7 +176,9 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
   // НИЗ — граница, ниже которой содержимое не опускается. Строки подписи
   // стоят на 96, поэтому запас обязателен: иначе последняя строка таблицы
   // или итог упрутся прямо в «Отпустил / Получил».
-  const PAD = 7, ROW = 19, HEAD = 22, НИЗ = 132;
+  // Позиции идут плитками, поэтому высота строки и шапки таблицы больше
+  // не нужны — PAD остался ради расчёта колонки суммы в итоге.
+  const PAD = 7, НИЗ = 132;
 
   let pg = doc.addPage([W, H]);
   const ш = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
@@ -203,16 +209,14 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
   const кол = колонкиНакладной({ позиции, reg, bold, M, R, PAD });
 
   // Снимки тянем параллельно — последовательно 27 штук ждались бы долго.
+  // И по одному разу на товар: один и тот же товар попадает в накладную
+  // несколькими строками (разные цены, разные партии), а вложенный дважды
+  // снимок удваивает вес файла, который потом уходит клиенту в Telegram.
   const сетка = сеткаПлиток(позиции.length, M, R);
-  const снимки = await Promise.all(позиции.map(п => embedPhoto(doc, п.снимок)));
-
-  // Название обрезаем по ширине, а не по числу букв: буквы разной ширины.
-  const вместить = (s, предел, size) => {
-    let t = String(s || "");
-    if (ш(t, size, reg) <= предел) return t;
-    while (t.length > 1 && ш(t + "…", size, reg) > предел) t = t.slice(0, -1);
-    return t + "…";
-  };
+  const путиСнимков = [...new Set(позиции.map(п => п.снимок).filter(Boolean))];
+  const вложенные = new Map();
+  await Promise.all(путиСнимков.map(async (путь) => вложенные.set(путь, await embedPhoto(doc, путь))));
+  const снимки = позиции.map(п => (п.снимок ? вложенные.get(п.снимок) : null) || null);
 
   // ---------------- шапка ----------------
   function шапкаДокумента(y) {
@@ -223,19 +227,6 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
     TR("от " + new Date(sale.date).toLocaleDateString("ru-RU"), R, y, 9, reg, GREY);
     y -= 12;
     линия(M, y, R, 1.2, DARK);
-    return y;
-  }
-
-  // ---------------- шапка таблицы ----------------
-  function шапкаТаблицы(y) {
-    const b = y - 15;
-    T("№", кол.n, b, 8.5, bold, GREY);
-    T("НАИМЕНОВАНИЕ", кол.имя, b, 8.5, bold, GREY);
-    TR("КОЛ-ВО", кол.квоR, b, 8.5, bold, GREY);
-    TR("ЦЕНА", кол.ценаR, b, 8.5, bold, GREY);
-    TR("СУММА", кол.суммаR, b, 8.5, bold, GREY);
-    y -= HEAD;
-    линия(M, y, R, 0.9, LINE);
     return y;
   }
 
@@ -328,36 +319,32 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
 
 // ---- Заказ поставщику: фото товара + название + кол-во + себестоимость ----
 // Фото тянутся из публичного бакета и встраиваются в PDF (тяжелее обычной накладной).
-// Ссылка на снимок всегда перестраивается под ту базу, на которой сервер
-// работает сейчас. В товарах, заведённых до переезда, лежит адрес прежнего
-// проекта Supabase — он не отвечает, и фото в накладной просто не печаталось.
-function адресСнимка(url) {
+// Путь снимка в хранилище из того, что записано у товара. В товарах,
+// заведённых до переезда, лежит адрес прежнего проекта Supabase — он уже
+// не отвечает, поэтому адрес из базы не используется вовсе: берём из него
+// только путь, а базу подставляет сам уменьшитель.
+export function путьСнимкаPDF(url) {
   const s = String(url || "");
-  const база = String(process.env.SUPABASE_URL || "").replace(/\/+$/, "");
   const i = s.indexOf("/object/public/");
-  const путь = i >= 0 ? s.slice(i + "/object/public/".length).split("?")[0]
-             : (s.startsWith("product-photos/") ? encodeURI(s) : "");
-  // Чужой адрес — не берём вовсе. Раньше здесь стояло «return s», и
-  // любой адрес из поля photo_url уходил прямо в fetch с нашего сервера:
-  // подменив его в базе на внутренний (например на адрес метаданных
-  // облака), можно было заставить сервер сходить туда и вложить ответ
-  // в накладную. Снимки лежат только в своём хранилище — больше никуда
-  // ходить не за чем.
-  if (!путь || !база) return "";
-  return `${база}/storage/v1/object/public/${путь}`;
+  if (i >= 0) return decodeURIComponent(s.slice(i + "/object/public/".length).split("?")[0]);
+  return s.startsWith("product-photos/") ? s : "";
 }
 
+// Снимок для документа берём через свой уменьшитель (api/lib/imgproxy.js):
+//   • 480 px вместо оригинала — накладная на 20 позиций весила 4,7 МБ,
+//     а её ещё отправлять клиенту в Telegram;
+//   • тот же кэш на диске, что у сайта, — второй раз снимок не качается;
+//   • путь проверяется (путьДопустим), и наружу уходит только обращение
+//     в своё хранилище. Раньше здесь стоял fetch по адресу прямо из поля
+//     photo_url: подменив его в базе на внутренний, можно было заставить
+//     сервер сходить туда и вложить ответ в накладную.
 async function embedPhoto(doc, url) {
-  if (!url) return null;
-  url = адресСнимка(url);
-  if (!url) return null;
+  const путь = путьСнимкаPDF(url);
+  if (!путь) return null;
   try {
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 5000);
-    const r = await fetch(url, { signal: ctrl.signal }).catch(() => null);
-    clearTimeout(to);
-    if (!r || !r.ok) return null;
-    const buf = new Uint8Array(await r.arrayBuffer());
+    const взято = await снимок(путь, 480);
+    if (!взято || !взято.байты || !взято.байты.length) return null;
+    const buf = new Uint8Array(взято.байты);
     try { return await doc.embedJpg(buf); } catch { try { return await doc.embedPng(buf); } catch { return null; } }
   } catch { return null; }
 }
@@ -396,16 +383,17 @@ export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan"
     imgs[id] = await embedPhoto(doc, url);
   }));
 
-  const HEADBG = rgb(0.93, 0.93, 0.97), ZEBRA = rgb(0.975, 0.975, 0.99), WHITE = rgb(1, 1, 1);
+  // Колонок у заказа больше нет — позиции идут плитками. Из прежней
+  // раскладки осталось только то, на чём стоит итоговая плашка.
+  const WHITE = rgb(1, 1, 1);
   const tableX = M, tableR = W - M;
-  const cx = { l: tableX, name: tableX + 112, qty: tableX + 300, cost: tableX + 378, sum: tableX + 455, r: tableR };
-  const padR = 8, rowH = 104, headH = 24, BOTTOM = 70, PHOTO = 90;
+  const cx = { qty: tableX + 300, r: tableR };
+  const padR = 8, BOTTOM = 70;
   const tw = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
 
   let pg = doc.addPage([W, H]);
   const PT = (s, x, yy, size, f = reg, c = DARK) => pg.drawText(String(s == null ? "" : s), { x, y: yy, size, font: f, color: c });
   const PRT = (s, xr, yy, size, f, c = DARK) => pg.drawText(String(s == null ? "" : s), { x: xr - tw(s, size, f), y: yy, size, font: f, color: c });
-  const hline = (yy) => pg.drawLine({ start: { x: tableX, y: yy }, end: { x: tableR, y: yy }, thickness: 0.8, color: LINE });
 
   function banner() {
     const bannerH = 96, bannerR = 16;
@@ -416,48 +404,42 @@ export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan"
     const dateStr = new Date().toLocaleDateString("ru-RU");
     PRT(LB.from + " " + dateStr, W - M, H - 50, 12, reg, rgb(0.85, 0.85, 0.92));
   }
-  function colHeader(bandTop) {
-    const hw = tableR - tableX, hr = 8;
-    pg.drawSvgPath(`M ${hr} 0 H ${hw - hr} Q ${hw} 0 ${hw} ${hr} V ${headH} H 0 V ${hr} Q 0 0 ${hr} 0 Z`, { x: tableX, y: bandTop, color: HEADBG });
-    const hb = bandTop - 16;
-    PT(LB.photo, cx.l + 8, hb, 10, bold, GREY); PT(LB.name, cx.name + 8, hb, 10, bold, GREY);
-    PRT(LB.qty, cx.cost - padR, hb, 10, bold, GREY); PRT(LB.price, cx.sum - padR, hb, 10, bold, GREY); PRT(LB.sum, cx.r - padR, hb, 10, bold, GREY);
-    hline(bandTop); hline(bandTop - headH);
-  }
-
   banner();
   let y = H - 130;
   pg.drawText(LB.supplier + ": " + (supplier || "—"), { x: M, y, size: 12, font: bold, color: DARK }); y -= 26;
 
-  let bandTop = y, cy = bandTop - headH;
-  colHeader(bandTop);
+  // ---- позиции плитками ----
+  // Заказ поставщику — то место, ради которого владелец и выбрал плитку:
+  // китайский поставщик ищет товар глазами по снимку, а артикул
+  // подтверждает позицию.
+  const сетка = сеткаПлиток((items || []).length, M, W - M);
+  let cy = y;
   let total = 0;
-  (items || []).forEach((it, i) => {
-    if (cy - rowH < BOTTOM) { pg = doc.addPage([W, H]); banner(); bandTop = H - 130; colHeader(bandTop); cy = bandTop - headH; }
+  const позиции = (items || []).map(it => {
     const p = pmap[it.product_id] || { name: "?" };
     const cur = it.currency || currency;
     const sum = (Number(it.qty) || 0) * (Number(it.cost) || 0);
     total += sum;
-    if (i % 2 === 1) pg.drawRectangle({ x: tableX, y: cy - rowH, width: tableR - tableX, height: rowH, color: ZEBRA });
-    // фото
-    const img = imgs[it.product_id];
-    if (img) {
-      const box = PHOTO; const dim = img.scale(1);
-      const k = Math.min(box / dim.width, box / dim.height);
-      const w = dim.width * k, h = dim.height * k;
-      pg.drawImage(img, { x: cx.l + 8 + (box - w) / 2, y: cy - rowH + (rowH - h) / 2, width: w, height: h });
-    } else {
-      pg.drawRectangle({ x: cx.l + 8, y: cy - rowH + (rowH - PHOTO) / 2, width: PHOTO, height: PHOTO, color: rgb(0.95, 0.95, 0.97) });
-    }
-    const mid = cy - rowH / 2 - 4;
-    let nm = String(p.name || "?"); if (nm.length > 40) nm = nm.slice(0, 39) + "…";
-    PT(nm, cx.name + 8, mid, 10, reg);
-    PRT(String(it.qty), cx.cost - padR, mid, 10, reg);
-    PRT(money(it.cost, cur), cx.sum - padR, mid, 10, reg);
-    PRT(money(sum, cur), cx.r - padR, mid, 10, bold);
-    cy -= rowH; hline(cy);
+    return {
+      имя: p.name || "?",
+      артикул: подписьКода(p),
+      расчёт: `${it.qty ?? ""} × ${money(it.cost, cur)}`,
+      сумма: money(sum, cur),
+      снимок: imgs[it.product_id] || null,
+    };
   });
-  [cx.l, cx.name, cx.qty, cx.cost, cx.sum, cx.r].forEach(x => pg.drawLine({ start: { x, y: bandTop - headH }, end: { x, y: cy }, thickness: 0.8, color: LINE }));
+  for (let i = 0; i < позиции.length; i += сетка.колонок) {
+    if (cy - сетка.высота < BOTTOM) { pg = doc.addPage([W, H]); banner(); cy = H - 130; }
+    for (let к = 0; к < сетка.колонок; к++) {
+      const поз = позиции[i + к];
+      if (!поз) break;
+      нарисоватьПлитку({
+        pg, x: M + к * (сетка.ширина + сетка.зазор), верх: cy,
+        сетка, поз, снимок: поз.снимок, reg, bold,
+      });
+    }
+    cy -= сетка.высота + сетка.зазор;
+  }
 
   // итог
   const boxH = 34, gap = 16;
