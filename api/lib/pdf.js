@@ -125,7 +125,8 @@ function нарисоватьПлитку({ pg, x, верх, сетка, поз,
     // товар на снимке был виден полностью.
     const k = Math.min((ширина - 6) / снимок.width, (высотаФото - 6) / снимок.height);
     const ш = снимок.width * k, в = снимок.height * k;
-    pg.drawImage(снимок, { x: x + (ширина - ш) / 2, y: yФото + (высотaФотоБезопасно(высотаФото) - в) / 2, width: ш, height: в });
+    // −0.7 — толщина нижней линии рамки: без этого снимок на неё наезжает
+    pg.drawImage(снимок, { x: x + (ширина - ш) / 2, y: yФото + (высотаФото - 0.7 - в) / 2, width: ш, height: в });
   } else {
     const т = "без фото";
     pg.drawText(т, {
@@ -160,9 +161,6 @@ function нарисоватьПлитку({ pg, x, верх, сетка, поз,
   pg.drawText(поз.сумма || "", { x: x + ширина - пад - шСуммы, y: yЦифр, size: рСуммы, font: bold, color: DARK });
 }
 
-// Высота снимка без нижней линии рамки — чтобы картинка не наезжала на неё.
-const высотaФотоБезопасно = (h) => h - 0.7;
-
 export async function buildInvoicePDF({ sale, customer, products, company = "GENERAL MODERN", status, debt }) {
   const pmap = Object.fromEntries((products || []).map(p => [p.id, p]));
   const doc = await PDFDocument.create();
@@ -192,9 +190,21 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
     const p = pmap[it.product_id] || { name: "?" };
     const cur = it.currency || sale.currency;
     const сумма = (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
-    return { n: String(i + 1), имя: p.name || "?", кво: String(it.qty ?? ""), цена: money(it.unit_price, cur), сумма: money(сумма, cur), cur, число: сумма };
+    return {
+      n: String(i + 1), имя: p.name || "?", кво: String(it.qty ?? ""),
+      цена: money(it.unit_price, cur), сумма: money(сумма, cur), cur, число: сумма,
+      // Артикул владелец просил добавить во все формы: до этого его в
+      // PDF не было ни в одной.
+      артикул: подписьКода(p),
+      расчёт: `${it.qty ?? ""} × ${money(it.unit_price, cur)}`,
+      снимок: (Array.isArray(p.photos) && p.photos[0]) || p.photo_url || null,
+    };
   });
   const кол = колонкиНакладной({ позиции, reg, bold, M, R, PAD });
+
+  // Снимки тянем параллельно — последовательно 27 штук ждались бы долго.
+  const сетка = сеткаПлиток(позиции.length, M, R);
+  const снимки = await Promise.all(позиции.map(п => embedPhoto(doc, п.снимок)));
 
   // Название обрезаем по ширине, а не по числу букв: буквы разной ширины.
   const вместить = (s, предел, size) => {
@@ -245,25 +255,21 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
     if (Number(sale.boxes) > 0) TR("Мест (коробок): " + sale.boxes, R, y, 9.5, reg, GREY);
   }
 
-  // ---------------- таблица ----------------
-  y -= 24;
-  y = шапкаТаблицы(y);
+  // ---------------- позиции плитками ----------------
+  y -= 20;
   const итоги = {};
-
-  for (const поз of позиции) {
-    if (y - ROW < НИЗ) {
-      pg = doc.addPage([W, H]);
-      y = шапкаТаблицы(H - 55);
+  for (let i = 0; i < позиции.length; i += сетка.колонок) {
+    if (y - сетка.высота < НИЗ) { pg = doc.addPage([W, H]); y = H - 55; }
+    for (let к = 0; к < сетка.колонок; к++) {
+      const поз = позиции[i + к];
+      if (!поз) break;
+      итоги[поз.cur] = (итоги[поз.cur] || 0) + поз.число;
+      нарисоватьПлитку({
+        pg, x: M + к * (сетка.ширина + сетка.зазор), верх: y,
+        сетка, поз, снимок: снимки[i + к], reg, bold,
+      });
     }
-    итоги[поз.cur] = (итоги[поз.cur] || 0) + поз.число;
-    const b = y - 13;
-    T(поз.n, кол.n, b, 9, reg, GREY);
-    T(вместить(поз.имя, кол.имяПредел - кол.имя, 9.5), кол.имя, b, 9.5);
-    TR(поз.кво, кол.квоR, b, 9.5);
-    TR(поз.цена, кол.ценаR, b, 9.5);
-    TR(поз.сумма, кол.суммаR, b, 9.5, bold);
-    y -= ROW;
-    линия(M, y, R, 0.4, rgb(0.90, 0.90, 0.91));
+    y -= сетка.высота + сетка.зазор;
   }
 
   // ---------------- итог ----------------
@@ -331,13 +337,20 @@ function адресСнимка(url) {
   const i = s.indexOf("/object/public/");
   const путь = i >= 0 ? s.slice(i + "/object/public/".length).split("?")[0]
              : (s.startsWith("product-photos/") ? encodeURI(s) : "");
-  if (!путь || !база) return s;
+  // Чужой адрес — не берём вовсе. Раньше здесь стояло «return s», и
+  // любой адрес из поля photo_url уходил прямо в fetch с нашего сервера:
+  // подменив его в базе на внутренний (например на адрес метаданных
+  // облака), можно было заставить сервер сходить туда и вложить ответ
+  // в накладную. Снимки лежат только в своём хранилище — больше никуда
+  // ходить не за чем.
+  if (!путь || !база) return "";
   return `${база}/storage/v1/object/public/${путь}`;
 }
 
 async function embedPhoto(doc, url) {
   if (!url) return null;
   url = адресСнимка(url);
+  if (!url) return null;
   try {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 5000);
