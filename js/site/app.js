@@ -753,11 +753,12 @@ if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "http
 function logoSvg() {
   return `<svg class="gm-znak" width="36" height="36" viewBox="0 0 512 512" aria-hidden="true">
     <defs>
-      <linearGradient id="hst" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/></linearGradient>
+      <linearGradient id="hst" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#e4e9f2"/></linearGradient>
       <linearGradient id="hzl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/><stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/></linearGradient>
     </defs>
     <rect width="512" height="512" rx="116" fill="url(#hst)"/>
-    <circle class="gm-koltso" cx="256" cy="256" r="182" fill="none" stroke="url(#hzl)" stroke-width="10" stroke-linecap="round" stroke-dasharray="1062 1144"/>
-    <text x="256" y="312" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="172" font-weight="700" letter-spacing="-6" fill="url(#hzl)">GM</text>
+    <rect x="5" y="5" width="502" height="502" rx="111" fill="none" stroke="#c8cedd" stroke-width="5"/>
+    <circle class="gm-koltso" cx="256" cy="256" r="182" fill="none" stroke="url(#hzl)" stroke-width="14" stroke-linecap="round" stroke-dasharray="1062 1144"/>
+    <text x="256" y="312" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="172" font-weight="700" letter-spacing="-6" fill="#16203a">GM</text>
   </svg>`;
 }

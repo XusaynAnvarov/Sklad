@@ -104,8 +104,8 @@ export async function renderCatalog(container) {
     знак.innerHTML = `
       <svg viewBox="0 0 512 512" width="150" height="150" role="img" aria-label="GENERAL MODERN">
         <defs>
-          <linearGradient id="hzst" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/>
+          <linearGradient id="hzst" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#e4e9f2"/>
           </linearGradient>
           <linearGradient id="hzzl" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/>
@@ -113,9 +113,10 @@ export async function renderCatalog(container) {
           </linearGradient>
         </defs>
         <rect width="512" height="512" rx="116" fill="url(#hzst)"/>
-        <circle cx="256" cy="256" r="182" fill="none" stroke="url(#hzzl)" stroke-width="10" stroke-linecap="round" stroke-dasharray="1062 1144"/>
+        <rect x="5" y="5" width="502" height="502" rx="111" fill="none" stroke="#c8cedd" stroke-width="5"/>
+        <circle cx="256" cy="256" r="182" fill="none" stroke="url(#hzzl)" stroke-width="14" stroke-linecap="round" stroke-dasharray="1062 1144"/>
         <text x="256" y="312" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif"
-              font-size="172" font-weight="700" letter-spacing="-6" fill="url(#hzzl)">GM</text>
+              font-size="172" font-weight="700" letter-spacing="-6" fill="#16203a">GM</text>
       </svg>`;
     heroImg.append(знак);
   }

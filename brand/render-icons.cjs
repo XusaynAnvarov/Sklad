@@ -19,9 +19,9 @@ function render(svgFile, outFile, size, background) {
 }
 
 const darkSvg = path.join(ROOT, "icon.svg");
-render(darkSvg, "icon-512.png",           512, "#141f33");
-render(darkSvg, "icon-192.png",           192, "#141f33");
-render(darkSvg, "apple-touch-icon-180.png", 180, "#141f33");
+render(darkSvg, "icon-512.png",           512, "#ffffff");
+render(darkSvg, "icon-192.png",           192, "#ffffff");
+render(darkSvg, "apple-touch-icon-180.png", 180, "#ffffff");
 
 // Белый аватар бота (светлый фон, тёмные буквы — в точности как старый)
 const whiteSvg = path.join(ROOT, "brand/logo-white.svg");
