@@ -26,6 +26,16 @@
         ],
         "createdAt": "2026-10-30T03:46:04.080Z",
         "reason": "Marker for the active item in a navigation list, not an accent border on a content card. In the desktop top-menu layout this same rule is overridden into a 3px bottom underline (css/theme.css, .navrow .navitem.active::before); the left bar only remains in the phone drawer, where a vertical list marks its active row this way by convention."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "admin.html",
+          "catalog.html"
+        ],
+        "createdAt": "2026-10-30T04:09:45.400Z",
+        "reason": "Same nav-item marker already excepted for css/theme.css: these pages have no side border of their own (their inline <style> blocks contain none) — they just load that stylesheet. It marks the active row of a navigation list, not an accent border on a content card, and on desktop the rule is overridden into a 3px bottom underline."
       }
     ]
   }
