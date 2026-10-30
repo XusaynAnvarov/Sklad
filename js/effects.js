@@ -4,6 +4,7 @@
 // ========================================================================
 
 import { iconSvg } from "./icons.js?v=20261030c";
+import { сменитьТемуВолной } from "./temavolna.js?v=20261030c";
 
 const THEME_KEY = "sklad_theme";
 
@@ -160,6 +161,11 @@ export function makeThemeToggle(onChange) {
       + "<span>" + (тёмная ? "Светлая" : "Тёмная") + "</span>";
   };
   sync();
-  btn.addEventListener("click", () => { toggleTheme(); sync(); onChange?.(); });
+  // Тема раскрывается кругом из самой кнопки (js/temavolna.js).
+  // Подпись и значок меняем внутри того же перехода — иначе кнопка
+  // переобувается раньше, чем волна до неё дойдёт.
+  btn.addEventListener("click", () => {
+    сменитьТемуВолной(btn, () => { toggleTheme(); sync(); onChange?.(); });
+  });
   return btn;
 }

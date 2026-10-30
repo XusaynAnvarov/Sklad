@@ -9,6 +9,7 @@ import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clear
 import { поставитьСнимок } from "../img.js?v=20261030c";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
 import { пустить, проекция, резинка, вести } from "../spring.js?v=20261030c";
+import { сменитьТемуВолной } from "../temavolna.js?v=20261030c";
 import { обновитьЕслиУстарело } from "../version.js?v=20261030c";
 
 // ---- Translations ----
@@ -340,10 +341,13 @@ function buildThemeToggle() {
     <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
     </svg>`;
+  // Тема раскрывается кругом из самой кнопки (js/temavolna.js) — так же,
+  // как в ролике, присланном владельцем.
   btn.addEventListener("click", () => {
-    toggleTheme();
-    const isDark = getTheme() === "dark";
-    btn.title = isDark ? "Светлая тема" : "Тёмная тема";
+    сменитьТемуВолной(btn, () => {
+      toggleTheme();
+      btn.title = getTheme() === "dark" ? "Светлая тема" : "Тёмная тема";
+    });
   });
   return btn;
 }
