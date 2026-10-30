@@ -276,6 +276,37 @@ export default async function handler(req, res) {
       if (!j.ok) throw new Error(j.description || "sendMessage error");
       return res.status(200).json({ ok: true });
     }
+    // Смена аватара канала — вызывается один раз из браузера админа
+    if (action === "set_channel_photo") {
+      const { readFileSync } = await import("fs");
+      const { join, dirname } = await import("path");
+      const { fileURLToPath } = await import("url");
+      const dir = dirname(fileURLToPath(import.meta.url));
+      const target = process.env.TELEGRAM_CHANNEL_ID;
+      if (!target) return res.status(500).json({ error: "TELEGRAM_CHANNEL_ID не задан" });
+      let photo;
+      try { photo = readFileSync(join(dir, "..", "brand", "bot-avatar.png")); }
+      catch { return res.status(500).json({ error: "Файл аватара не найден на сервере" }); }
+      const boundary = "GMb" + Date.now();
+      const head = Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${target}\r\n` +
+        `--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="logo.png"\r\nContent-Type: image/png\r\n\r\n`
+      );
+      const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+      const body = Buffer.concat([head, photo, tail]);
+      let j;
+      for (const tok of [TOKEN, CLIENT_TOKEN].filter(Boolean)) {
+        let r;
+        try { r = await fetch(`https://api.telegram.org/bot${tok}/setChatPhoto`, {
+          method: "POST",
+          headers: { "Content-Type": `multipart/form-data; boundary=${boundary}`, "Content-Length": String(body.length) },
+          body,
+        }); } catch { continue; }
+        try { j = await r.json(); } catch { j = { ok: false, description: "Telegram вернул не-JSON" }; }
+        if (j.ok) return res.json({ ok: true });
+      }
+      return res.status(500).json({ error: j?.description || "setChatPhoto failed" });
+    }
     return res.status(400).json({ error: "Неизвестное действие" });
   } catch (e) {
     return res.status(500).json({ error: e.message });
