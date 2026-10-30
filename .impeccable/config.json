@@ -17,6 +17,15 @@
         ],
         "createdAt": "2026-10-29T12:00:09.981Z",
         "reason": "intentional design: color-coded accent stripe on stat cards (navy/warn/danger variants)"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "css/theme.css"
+        ],
+        "createdAt": "2026-10-30T03:46:04.080Z",
+        "reason": "Marker for the active item in a navigation list, not an accent border on a content card. In the desktop top-menu layout this same rule is overridden into a 3px bottom underline (css/theme.css, .navrow .navitem.active::before); the left bar only remains in the phone drawer, where a vertical list marks its active row this way by convention."
       }
     ]
   }
