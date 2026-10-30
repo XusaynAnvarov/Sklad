@@ -1,24 +1,24 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261030a";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261030a";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261030a";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261030a";
-import { suggestPrice, priceNote } from "../prices.js?v=20261030a";
-import { списанные } from "../stockcheck.js?v=20261030a";
-import { этоВозврат } from "../refund.js?v=20261030a";
-import { пересчитатьСклад } from "../saleedit.js?v=20261030a";
-import { placeholder } from "./products.js?v=20261030a";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261030a";
-import { icon } from "../icons.js?v=20261030a";
-import { showLoader, hideLoader } from "../ui.js?v=20261030a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261030a";
-import { exportInvoice } from "../xlsx-export.js?v=20261030a";
-import { showNotFound } from "./purchases.js?v=20261030a";
-import { thumb, поставитьСнимок } from "../img.js?v=20261030a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261030c";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261030c";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261030c";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261030c";
+import { suggestPrice, priceNote } from "../prices.js?v=20261030c";
+import { списанные } from "../stockcheck.js?v=20261030c";
+import { этоВозврат } from "../refund.js?v=20261030c";
+import { пересчитатьСклад } from "../saleedit.js?v=20261030c";
+import { placeholder } from "./products.js?v=20261030c";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261030c";
+import { icon } from "../icons.js?v=20261030c";
+import { showLoader, hideLoader } from "../ui.js?v=20261030c";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261030c";
+import { exportInvoice } from "../xlsx-export.js?v=20261030c";
+import { showNotFound } from "./purchases.js?v=20261030c";
+import { thumb, поставитьСнимок } from "../img.js?v=20261030c";
 // причина изменения остатка — её записывает журнал на сервере
-import { изменениеСклада } from "../db.js?v=20261030a";
+import { изменениеСклада } from "../db.js?v=20261030c";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -144,7 +144,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
   const lastHint = el("div", { style: { fontSize: "13px", margin: "8px 0", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" } });
   const substBtn = el("button.btn.btn-outline.btn-sm", { text: "Подставить", style: { display: "none" } });
   const costBtn = el("button.btn.btn-outline.btn-sm", { text: "👁 Показать себестоимость (только для меня)" });
-  const costLine = el("div.card", { style: { display: "none", padding: "10px 14px", margin: "10px 0", color: "#fbbf24", borderColor: "rgba(245,158,11,.4)" } });
+  const costLine = el("div.card", { style: { display: "none", padding: "10px 14px", margin: "10px 0", color: "var(--warn)", borderColor: "rgba(245,158,11,.4)" } });
   let costShown = false;
   costBtn.addEventListener("click", () => { costShown = !costShown; costLine.style.display = costShown ? "" : "none"; costBtn.textContent = costShown ? "🙈 Скрыть себестоимость" : "👁 Показать себестоимость (только для меня)"; });
 
@@ -159,7 +159,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
     // доступно
     const inCart = state.items.filter(i => i.product_id === id).reduce((t, i) => t + i.qty, 0);
     const avail = (Number(p.stock_qty) || 0) - inCart;
-    qtyLbl.innerHTML = 'Кол-во <span style="color:#fbbf24">(доступно: ' + avail + ')</span>';
+    qtyLbl.innerHTML = 'Кол-во <span style="color:var(--warn)">(доступно: ' + avail + ')</span>';
     // цена по умолчанию
     const def = state.currency === "yuan" ? p.price_yuan : state.currency === "usd" ? p.price_usd : p.price_som;
     if (!fPrice.value) fPrice.value = def || "";
@@ -257,7 +257,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
         ? " · " + (li.own ? "Пред. цена клиенту: " : "Общая цена: ") + fmt(li.price, li.currency) + " · " + priceNote(li)
         : " · этот товар ещё не продавали";
       const infoEl = el("div", { style: { fontSize: "12px", color: "var(--muted)", marginTop: "2px" } }, [
-        el("span", { text: "Себест.: " + fmt(p.cost_yuan, "yuan"), style: { color: "#fbbf24" } }),
+        el("span", { text: "Себест.: " + fmt(p.cost_yuan, "yuan"), style: { color: "var(--warn)" } }),
         el("span", { text: lastTxt }),
       ]);
       const upd = () => { lt.textContent = fmt(it.qty * it.unit_price, it.currency); paintStock(); recalc(); };
@@ -282,7 +282,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
 
   const body = el("div", {}, [
     el("div.sale-head", {}, [
-      el("div", { style: { fontWeight: "800", fontSize: "16px", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" } }, [el("span", { style: { color: "#fbbf24" }, text: "●" }), "Оформить продажу"]),
+      el("div", { style: { fontWeight: "800", fontSize: "16px", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" } }, [el("span", { style: { color: "var(--warn)" }, text: "●" }), "Оформить продажу"]),
       el("div.row3", {}, [field("Клиент (поиск)", fCustomer), field("Оплата", fPaid), field("Валюта по умолч.", fCurrency)]),
       el("div.row2", {}, [field("Дата", fDate), field("Коробок отправлено", fBoxes)]),
       noStockRow,

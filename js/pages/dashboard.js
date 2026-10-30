@@ -1,19 +1,19 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20261030a";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20261030a";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20261030a";
-import { картаДороги, вДороге, едетВместоНет, подписьДороги } from "../transit.js?v=20261030a";
-import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20261030a";
-import { sparkline } from "../charts.js?v=20261030a";
-import { debtByCur, onlyPositive } from "../debt.js?v=20261030a";
-import { icon } from "../icons.js?v=20261030a";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261030a";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20261030a";
-import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20261030a";
-import { buildAdvice } from "../advice.js?v=20261030a";
-import { thumb } from "../img.js?v=20261030a";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20261030c";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20261030c";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20261030c";
+import { картаДороги, вДороге, едетВместоНет, подписьДороги } from "../transit.js?v=20261030c";
+import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20261030c";
+import { sparkline } from "../charts.js?v=20261030c";
+import { debtByCur, onlyPositive } from "../debt.js?v=20261030c";
+import { icon } from "../icons.js?v=20261030c";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261030c";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20261030c";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20261030c";
+import { buildAdvice } from "../advice.js?v=20261030c";
+import { thumb } from "../img.js?v=20261030c";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
@@ -376,7 +376,7 @@ export default async function render(page, ctx) {
         mtb.append(el("tr" + (active ? ".month-active" : ""), { style: { cursor: "pointer" }, title: "Показать дашборд за " + monthLabel(k), onclick: () => setPeriod("m:" + k) }, [
           el("td", {}, [el("strong", { text: monthLabel(k) })]),
           el("td", { text: money(cur.rev) }),
-          el("td", {}, [el("strong", { text: money(cur.profit), style: { color: cur.profit >= 0 ? "#34d399" : "#f87171" } })]),
+          el("td", {}, [el("strong", { text: money(cur.profit), style: { color: cur.profit >= 0 ? "var(--ok)" : "var(--danger)" } })]),
           el("td", { text: money(cur.paid) }),
           el("td", {}, [delta == null
             ? el("span.muted", { text: "—" })

@@ -3,7 +3,7 @@
 //  Используется и в админке, и в каталоге.
 // ========================================================================
 
-import { iconSvg } from "./icons.js?v=20261030a";
+import { iconSvg } from "./icons.js?v=20261030c";
 
 const THEME_KEY = "sklad_theme";
 
@@ -107,16 +107,23 @@ export function initStarfield() {
 
 // ---------- Тема ----------
 export function initTheme() {
-  // по умолчанию — тёмная тема («чёрный и изумруд»).
-  // Разовый переход на новый дизайн: у кого раньше стояла светлая — включаем тёмную
-  // один раз (метка sklad_theme_v2), дальше выбор пользователя снова уважается.
+  // По умолчанию — светлая тема: склад идёт в пару к сайту, а тот с
+  // переходом на стекло стал светлым (js/site/app.js, gm_theme_v3).
+  // Разовый перевод: у кого стояла тёмная — включаем светлую один раз
+  // (метка sklad_theme_v3), дальше выбор человека снова уважается —
+  // переключатель в шапке никуда не делся.
+  //
+  // Прежняя метка sklad_theme_v2 переводила ровно наоборот, на тёмную.
+  // Оставлять её нельзя: она сработала бы у новых людей раньше нашей и
+  // вернула бы тёмную. Поэтому ставим обе сразу.
   try {
-    if (!localStorage.getItem("sklad_theme_v2")) {
-      localStorage.setItem(THEME_KEY, "dark");
+    if (!localStorage.getItem("sklad_theme_v3")) {
+      localStorage.setItem(THEME_KEY, "light");
       localStorage.setItem("sklad_theme_v2", "1");
+      localStorage.setItem("sklad_theme_v3", "1");
     }
   } catch {}
-  const saved = localStorage.getItem(THEME_KEY) || "dark";
+  const saved = localStorage.getItem(THEME_KEY) || "light";
   applyTheme(saved);
 }
 export function applyTheme(mode) {
@@ -128,7 +135,7 @@ export function applyTheme(mode) {
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("no-theme-anim")));
 }
 export function currentTheme() {
-  return document.documentElement.getAttribute("data-theme") || "dark";
+  return document.documentElement.getAttribute("data-theme") || "light";
 }
 export function toggleTheme() {
   const next = currentTheme() === "dark" ? "light" : "dark";

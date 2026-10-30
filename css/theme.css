@@ -150,10 +150,10 @@ html[data-theme="light"] .bg-stars{opacity:.45;}
 
 /* ---------- Бэйджи ---------- */
 .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;font-size: 0.75rem;font-weight:600;}
-.badge.ok{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.4);}
-.badge.order{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.4);}
+.badge.ok{background:rgba(16,185,129,.15);color:var(--ok);border:1px solid rgba(16,185,129,.4);}
+.badge.order{background:rgba(245,158,11,.15);color:var(--warn);border:1px solid rgba(245,158,11,.4);}
 .badge.transit{background:rgba(217,180,90,.15);color:#f0dca4;border:1px solid rgba(217,180,90,.4);}
-.badge.arrived{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.4);}
+.badge.arrived{background:rgba(16,185,129,.15);color:var(--ok);border:1px solid rgba(16,185,129,.4);}
 .badge.muted{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border);}
 .badge.cur{background:rgba(217,180,90,.15);color:#f0dca4;border:1px solid rgba(217,180,90,.4);}
 
@@ -614,14 +614,14 @@ html, body { min-height: 100dvh; }
 .advice.info { border-color: rgba(59,130,246,.45); background: rgba(59,130,246,.06); }
 .advice-ic { display: flex; color: var(--warn, #f59e0b); margin-top: 1px; flex: none; }
 .advice.info .advice-ic { color: #60a5fa; }
-.advice.danger .advice-ic { color: #f87171; }
+.advice.danger .advice-ic { color: var(--danger); }
 .advice-t { font-weight: 700; font-size: 0.875rem; }
 .advice-s { font-size: 0.7813rem; color: var(--muted); margin-top: 2px; line-height: 1.45; }
 .advice-n { font-size: 0.75rem; color: var(--muted); white-space: nowrap; align-self: center; }
 
 /* таблица «Все месяцы» */
-.delta-up { color: #34d399; font-weight: 700; }
-.delta-down { color: #f87171; font-weight: 700; }
+.delta-up { color: var(--ok); font-weight: 700; }
+.delta-down { color: var(--danger); font-weight: 700; }
 tr.month-active td { background: rgba(217,180,90,.10); }
 tr.month-active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
@@ -1347,3 +1347,26 @@ html[data-theme="light"] .empty {
 @media (min-width: 981px) {
   .navrow .navitem { padding: 9px 11px; font-size: 0.8125rem; gap: 7px; }
 }
+
+/* ===================================================================
+   СВЕТЛАЯ ТЕМА СТАЛА ОСНОВНОЙ — ДВА МЕСТА, ГДЕ БЕЛЫЙ ТЕКСТ ПРОПАДАЛ.
+
+   Пока светлая тема была второй, это терпело. Теперь её видят все,
+   кто открывает склад впервые, — поэтому замерено и исправлено.
+   =================================================================== */
+
+/* 1. Активный пункт меню. Стеклянный блок выше заменил ему тёмную
+      подложку на светлую латунную, но цвет текста остался от прежнего
+      правила — белым. Белое по светло-бежевому дало контраст 1,29 при
+      норме 4,5: пункт было почти не видно, хотя он и есть текущий. */
+html[data-theme="light"] .navitem.active { color: var(--text); }
+html[data-theme="light"] .navitem.active .ic-svg { color: #8f6720; }
+
+/* 2. Латунная карточка дашборда. Белая цифра по светлому краю градиента
+      давала 2,0 при норме 3 для крупного текста и 4,5 для подписи под
+      ней. Менять чернила на тёмные нельзя: белым нарисован и график
+      внутри карточки (js/pages/dashboard.js, stroke у .spark), и он
+      потерялся бы на светлом фоне. Поэтому темнее делаем саму латунь —
+      белое остаётся белым, а контраст по всей карточке становится не
+      ниже 5,1. */
+html[data-theme="light"] .stat-card.grad { background: linear-gradient(135deg, #8f6720, #5e4312); }

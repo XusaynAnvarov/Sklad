@@ -2,18 +2,18 @@
 //  ОТЧЁТЫ: итоги, диаграммы (месяцы · категории · сезоны · топ-полосы),
 //  сезонность товаров, советы, топ товаров/клиентов, долги и оборот.
 // ========================================================================
-import { el, modal, select } from "../ui.js?v=20261030a";
-import { curStr, toUSD } from "../fx.js?v=20261030a";
-import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20261030a";
-import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20261030a";
-import { debtByCur, onlyPositive } from "../debt.js?v=20261030a";
-import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20261030a";
-import { buildAdvice } from "../advice.js?v=20261030a";
-import { placeholder } from "./products.js?v=20261030a";
-import { icon } from "../icons.js?v=20261030a";
-import { thumb } from "../img.js?v=20261030a";
-import { byMethod, methodText } from "../payment.js?v=20261030a";
-import { isShop } from "../purchase.js?v=20261030a";
+import { el, modal, select } from "../ui.js?v=20261030c";
+import { curStr, toUSD } from "../fx.js?v=20261030c";
+import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20261030c";
+import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20261030c";
+import { debtByCur, onlyPositive } from "../debt.js?v=20261030c";
+import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20261030c";
+import { buildAdvice } from "../advice.js?v=20261030c";
+import { placeholder } from "./products.js?v=20261030c";
+import { icon } from "../icons.js?v=20261030c";
+import { thumb } from "../img.js?v=20261030c";
+import { byMethod, methodText } from "../payment.js?v=20261030c";
+import { isShop } from "../purchase.js?v=20261030c";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
@@ -101,9 +101,9 @@ export default async function render(page, ctx) {
     wrap.append(el("div.section-h", { text: "Итоги — " + periodLabel() + " (в $ по курсу)" }));
     wrap.append(el("div.stat-grid", {}, [
       miniCard("Выручка", agg.total.rev),
-      miniCard("Прибыль (по правилам)", agg.total.profit, agg.total.profit >= 0 ? "#34d399" : "#f87171", null, rulesSummary),
-      miniCard("Реальная (по себест.)", agg.total.real, agg.total.real >= 0 ? "#34d399" : "#f87171", null, "для сверки, если себестоимость заполнена"),
-      miniCard("Маржа", margin, agg.total.profit >= 0 ? "#34d399" : "#f87171", margin.toFixed(1) + "%"),
+      miniCard("Прибыль (по правилам)", agg.total.profit, agg.total.profit >= 0 ? "var(--ok)" : "var(--danger)", null, rulesSummary),
+      miniCard("Реальная (по себест.)", agg.total.real, agg.total.real >= 0 ? "var(--ok)" : "var(--danger)", null, "для сверки, если себестоимость заполнена"),
+      miniCard("Маржа", margin, agg.total.profit >= 0 ? "var(--ok)" : "var(--danger)", margin.toFixed(1) + "%"),
     ]));
 
     // ---------- СОВЕТЫ ----------
@@ -162,7 +162,7 @@ export default async function render(page, ctx) {
         el("td", {}, [el("strong", { text: c.name })]),
         el("td", { text: c.qty }),
         el("td", { text: usd(c.rev) }),
-        el("td", {}, [el("strong", { text: usd(c.profit), style: { color: c.profit >= 0 ? "#34d399" : "#f87171" } })]),
+        el("td", {}, [el("strong", { text: usd(c.profit), style: { color: c.profit >= 0 ? "var(--ok)" : "var(--danger)" } })]),
         el("td", { text: (c.rev > 0 ? (c.profit / c.rev * 100).toFixed(1) : "0") + "%" }),
       ]))));
     }
@@ -216,7 +216,7 @@ export default async function render(page, ctx) {
 
     const topProfit = [...prodRows].filter(r => r.profit !== 0).sort((x, y) => y.profit - x.profit).slice(0, 10);
     wrap.append(chartBox("Топ-10 товаров по прибыли",
-      topProfit.length ? hBars(topProfit.map(r => ({ label: r.name, value: r.profit, sub: ruleText(ruleFor(pmap[r.id], rules)) })), { color: "#34d399" }) : noData()));
+      topProfit.length ? hBars(topProfit.map(r => ({ label: r.name, value: r.profit, sub: ruleText(ruleFor(pmap[r.id], rules)) })), { color: "var(--ok)" }) : noData()));
 
     const topQty = [...prodRows].sort((x, y) => y.qty - x.qty).slice(0, 20);
     wrap.append(el("div.section-h", { text: "Топ товаров по количеству — " + periodLabel() }));
@@ -225,7 +225,7 @@ export default async function render(page, ctx) {
       el("td", {}, [el("strong", { text: r.name })]),
       el("td", {}, [el("strong", { text: r.qty })]),
       el("td", { text: usd(r.rev) }),
-      el("td", {}, [el("strong", { text: usd(r.profit), style: { color: r.profit >= 0 ? "#34d399" : "#f87171" } })]),
+      el("td", {}, [el("strong", { text: usd(r.profit), style: { color: r.profit >= 0 ? "var(--ok)" : "var(--danger)" } })]),
       el("td", {}, [el("span.muted", { style: { fontSize: "12px" }, text: ruleText(ruleFor(pmap[r.id], rules)) })]),
     ]))) : el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Нет продаж за период" })]));
 
@@ -344,8 +344,8 @@ export default async function render(page, ctx) {
     wrap.append(rows.length ? table(["Клиент", "Оборот", "Оплачено", "Долг"], rows.map(r => el("tr", {}, [
       el("td", {}, [el("strong", { text: r.c.name })]),
       el("td", { text: curStr(r.turn) }),
-      el("td", {}, [el("span", { style: { color: "#34d399" }, text: curStr(r.paid) })]),
-      el("td", {}, [curStr(r.debt) === "0" ? el("span.muted", { text: "0" }) : el("span", { style: { color: "#fbbf24" }, text: curStr(r.debt) })]),
+      el("td", {}, [el("span", { style: { color: "var(--ok)" }, text: curStr(r.paid) })]),
+      el("td", {}, [curStr(r.debt) === "0" ? el("span.muted", { text: "0" }) : el("span", { style: { color: "var(--warn)" }, text: curStr(r.debt) })]),
     ]))) : el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Нет данных" })]));
   }
   draw();
