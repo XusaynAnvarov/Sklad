@@ -402,19 +402,12 @@ export function reveal(root = document) {
 // крутится, класс .glr в css/theme.css) и монограмма чернилами.
 const LOADER_SVG = `<svg viewBox="0 0 512 512" width="88" height="88" role="img" aria-label="Загрузка">
   <defs>
-    <linearGradient id="glst" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#dfe4ee"/></linearGradient>
+    <linearGradient id="glst" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/></linearGradient>
     <linearGradient id="glzl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/><stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/></linearGradient>
-    <linearGradient id="glbl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".92"/><stop offset=".55" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-    <clipPath id="glpl"><rect width="512" height="512" rx="112"/></clipPath>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#glst)"/>
-  <g clip-path="url(#glpl)"><path d="M-120 300 L300 -120 L430 10 L10 430 Z" fill="url(#glbl)"/></g>
-  <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#c8cedd" stroke-width="5"/>
-  <g class="glr" fill="none" stroke="url(#glzl)" stroke-width="14" stroke-linecap="round">
-    <path d="M256 74a182 182 0 0 1 182 182"/>
-    <path d="M256 438A182 182 0 0 1 74 256"/>
-  </g>
-  <text x="256" y="314" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="166" font-weight="800" letter-spacing="-8" fill="#16203a">GM</text>
+  <rect width="512" height="512" rx="116" fill="url(#glst)"/>
+  <circle class="glr" cx="256" cy="256" r="182" fill="none" stroke="url(#glzl)" stroke-width="10" stroke-linecap="round" stroke-dasharray="1062 1144"/>
+  <text x="256" y="312" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="172" font-weight="700" letter-spacing="-6" fill="url(#glzl)">GM</text>
 </svg>`;
 let _loaderEl = null, _loaderCount = 0, _loaderTimer = null;
 export function showLoader(text) {

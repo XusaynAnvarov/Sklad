@@ -32,32 +32,27 @@
     <div class="login-wrap"><div class="login-card">
       <svg width="116" height="116" viewBox="0 0 512 512" style="margin-bottom:10px" role="img" aria-label="GENERAL MODERN">
         <defs>
-          <linearGradient id="ast" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#dfe4ee"/></linearGradient>
+          <linearGradient id="ast" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/></linearGradient>
           <linearGradient id="azl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/><stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/></linearGradient>
-          <linearGradient id="abl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".92"/><stop offset=".55" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-          <clipPath id="apl"><rect width="512" height="512" rx="112"/></clipPath>
+          <linearGradient id="abl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+          <clipPath id="apl"><rect width="512" height="512" rx="116"/></clipPath>
           <style>
             @keyframes apop{0%{transform:scale(.6);opacity:0}62%{transform:scale(1.04);opacity:1}100%{transform:scale(1);opacity:1}}
             @keyframes aturn{100%{transform:rotate(360deg)}}
             @keyframes alet{0%{opacity:0;transform:translateY(20px) scale(.9)}100%{opacity:1;transform:none}}
             @keyframes asweep{0%{transform:translateX(-560px) rotate(16deg)}100%{transform:translateX(560px) rotate(16deg)}}
             #aznak{animation:apop .62s cubic-bezier(.2,.85,.25,1) both;transform-box:fill-box;transform-origin:center}
-            #aring{animation:aturn 2.6s linear infinite;transform-box:fill-box;transform-origin:center}
+            #aring{stroke-dasharray:1062 1144;animation:aturn 2.6s linear infinite;transform-box:fill-box;transform-origin:center}
             #agm{animation:alet .55s ease .4s both;transform-box:fill-box;transform-origin:center}
             #ashine{animation:asweep 2.6s ease-in-out 1.2s infinite}
             @media (prefers-reduced-motion:reduce){#aznak,#aring,#agm,#ashine{animation:none}}
           </style>
         </defs>
         <g id="aznak">
-          <rect width="512" height="512" rx="112" fill="url(#ast)"/>
-          <g clip-path="url(#apl)"><path d="M-120 300 L300 -120 L430 10 L10 430 Z" fill="url(#abl)"/></g>
-          <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#c8cedd" stroke-width="5"/>
-          <g id="aring" fill="none" stroke="url(#azl)" stroke-width="14" stroke-linecap="round">
-            <path d="M256 74a182 182 0 0 1 182 182"/>
-            <path d="M256 438A182 182 0 0 1 74 256"/>
-          </g>
-          <text id="agm" x="256" y="314" text-anchor="middle" font-family="Inter, &apos;Segoe UI&apos;, system-ui, sans-serif" font-size="166" font-weight="800" letter-spacing="-8" fill="#16203a">GM</text>
-          <g clip-path="url(#apl)"><rect id="ashine" x="226" y="-130" width="72" height="772" fill="url(#abl)" opacity=".55"/></g>
+          <rect width="512" height="512" rx="116" fill="url(#ast)"/>
+          <circle id="aring" cx="256" cy="256" r="182" fill="none" stroke="url(#azl)" stroke-width="10" stroke-linecap="round" transform="rotate(-96 256 256)"/>
+          <text id="agm" x="256" y="312" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="172" font-weight="700" letter-spacing="-6" fill="url(#azl)">GM</text>
+          <g clip-path="url(#apl)"><rect id="ashine" x="226" y="-130" width="60" height="772" fill="url(#abl)"/></g>
         </g>
       </svg>
       <p>Загрузка…</p></div></div>

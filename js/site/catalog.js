@@ -104,26 +104,18 @@ export async function renderCatalog(container) {
     знак.innerHTML = `
       <svg viewBox="0 0 512 512" width="150" height="150" role="img" aria-label="GENERAL MODERN">
         <defs>
-          <linearGradient id="hzst" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#dfe4ee"/>
+          <linearGradient id="hzst" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/>
           </linearGradient>
           <linearGradient id="hzzl" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/>
             <stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/>
           </linearGradient>
-          <linearGradient id="hzbl" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#fff" stop-opacity=".92"/><stop offset=".55" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
-          </linearGradient>
-          <clipPath id="hzpl"><rect width="512" height="512" rx="112"/></clipPath>
         </defs>
-        <rect width="512" height="512" rx="112" fill="url(#hzst)"/>
-        <g clip-path="url(#hzpl)"><path d="M-120 300 L300 -120 L430 10 L10 430 Z" fill="url(#hzbl)"/></g>
-        <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#c8cedd" stroke-width="5"/>
-        <g fill="none" stroke="url(#hzzl)" stroke-width="14" stroke-linecap="round">
-          <path d="M256 74a182 182 0 0 1 182 182"/><path d="M256 438A182 182 0 0 1 74 256"/>
-        </g>
-        <text x="256" y="314" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, sans-serif"
-              font-size="166" font-weight="800" letter-spacing="-8" fill="#16203a">GM</text>
+        <rect width="512" height="512" rx="116" fill="url(#hzst)"/>
+        <circle cx="256" cy="256" r="182" fill="none" stroke="url(#hzzl)" stroke-width="10" stroke-linecap="round" stroke-dasharray="1062 1144"/>
+        <text x="256" y="312" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif"
+              font-size="172" font-weight="700" letter-spacing="-6" fill="url(#hzzl)">GM</text>
       </svg>`;
     heroImg.append(знак);
   }

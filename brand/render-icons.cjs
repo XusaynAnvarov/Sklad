@@ -1,27 +1,30 @@
-// Растеризация логотипа (icon.svg) в PNG-иконки и аватар бота.
+// Растеризация логотипа в PNG-иконки и аватар бота.
 // Запуск: node brand/render-icons.cjs
 const { Resvg } = require("@resvg/resvg-js");
 const fs = require("fs"), path = require("path");
 const ROOT = path.join(__dirname, "..");
-const svg = fs.readFileSync(path.join(ROOT, "icon.svg"), "utf8");
 
-const targets = [
-  ["icon-512.png", 512],
-  ["icon-192.png", 192],
-  ["apple-touch-icon-180.png", 180],
-  ["brand/bot-avatar.png", 512],
-];
-
-for (const [name, size] of targets) {
+function render(svgFile, outFile, size, background) {
+  const svg = fs.readFileSync(svgFile, "utf8");
   const r = new Resvg(svg, {
     fitTo: { mode: "width", value: size },
     font: { loadSystemFonts: true, defaultFontFamily: "Georgia" },
-    background: "#16233b",   // тёмно-синий фон — без белых/прозрачных углов
+    ...(background ? { background } : {}),
   });
   const png = r.render().asPng();
-  const out = path.join(ROOT, name);
+  const out = path.join(ROOT, outFile);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, png);
-  console.log(`✓ ${name} — ${size}px, ${(png.length / 1024).toFixed(1)} KB`);
+  console.log(`✓ ${outFile} — ${size}px, ${(png.length / 1024).toFixed(1)} KB`);
 }
+
+const darkSvg = path.join(ROOT, "icon.svg");
+render(darkSvg, "icon-512.png",           512, "#141f33");
+render(darkSvg, "icon-192.png",           192, "#141f33");
+render(darkSvg, "apple-touch-icon-180.png", 180, "#141f33");
+
+// Белый аватар бота (светлый фон, тёмные буквы — в точности как старый)
+const whiteSvg = path.join(ROOT, "brand/logo-white.svg");
+render(whiteSvg, "brand/bot-avatar.png",  512, "#ffffff");
+
 console.log("Готово.");

@@ -750,24 +750,14 @@ if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "http
   });
 }
 
-// Знак «стеклянная печать» — тот же, что в icon.svg: перламутровая плитка,
-// косой блик, золотое кольцо из двух дуг и монограмма чернилами. Кольцо
-// медленно поворачивается, когда страница чем-то занята (класс .zanyato).
 function logoSvg() {
   return `<svg class="gm-znak" width="36" height="36" viewBox="0 0 512 512" aria-hidden="true">
     <defs>
-      <linearGradient id="hst" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#dfe4ee"/></linearGradient>
+      <linearGradient id="hst" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22324f"/><stop offset="1" stop-color="#141f33"/></linearGradient>
       <linearGradient id="hzl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/><stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/></linearGradient>
-      <linearGradient id="hbl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".92"/><stop offset=".55" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-      <clipPath id="hpl"><rect width="512" height="512" rx="112"/></clipPath>
     </defs>
-    <rect width="512" height="512" rx="112" fill="url(#hst)"/>
-    <g clip-path="url(#hpl)"><path d="M-120 300 L300 -120 L430 10 L10 430 Z" fill="url(#hbl)"/></g>
-    <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#c8cedd" stroke-width="5"/>
-    <g class="gm-koltso" fill="none" stroke="url(#hzl)" stroke-width="14" stroke-linecap="round">
-      <path d="M256 74a182 182 0 0 1 182 182"/>
-      <path d="M256 438A182 182 0 0 1 74 256"/>
-    </g>
-    <text x="256" y="314" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="166" font-weight="800" letter-spacing="-8" fill="#16203a">GM</text>
+    <rect width="512" height="512" rx="116" fill="url(#hst)"/>
+    <circle class="gm-koltso" cx="256" cy="256" r="182" fill="none" stroke="url(#hzl)" stroke-width="10" stroke-linecap="round" stroke-dasharray="1062 1144"/>
+    <text x="256" y="312" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="172" font-weight="700" letter-spacing="-6" fill="url(#hzl)">GM</text>
   </svg>`;
 }
