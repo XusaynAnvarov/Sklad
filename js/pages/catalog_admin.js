@@ -1,14 +1,14 @@
 // ========================================================================
 //  «КАТАЛОГ» в админке — предпросмотр, ссылка, отправка клиенту через бота
 // ========================================================================
-import { el, toast, field, input } from "../ui.js?v=20261030j";
-import { sendToClient } from "../telegram.js?v=20261030j";
-import { statusOf, placeholder } from "./products.js?v=20261030j";
-import { icon } from "../icons.js?v=20261030j";
-import { thumb } from "../img.js?v=20261030j";
-import { authHeaders } from "../db.js?v=20261030j";
-import { естьКолонкаКода, раздел } from "../catalogcode.js?v=20261030j";
-import { РАЗДЕЛЫ } from "../catalogbook-text.js?v=20261030j";
+import { el, toast, field, input } from "../ui.js?v=20261030k";
+import { sendToClient } from "../telegram.js?v=20261030k";
+import { statusOf, placeholder } from "./products.js?v=20261030k";
+import { icon } from "../icons.js?v=20261030k";
+import { thumb } from "../img.js?v=20261030k";
+import { authHeaders } from "../db.js?v=20261030k";
+import { естьКолонкаКода, раздел } from "../catalogcode.js?v=20261030k";
+import { РАЗДЕЛЫ } from "../catalogbook-text.js?v=20261030k";
 
 const cfg = window.APP_CONFIG || {};
 

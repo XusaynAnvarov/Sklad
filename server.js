@@ -157,7 +157,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20261030j");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20261030k");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -211,8 +211,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261030j");
-    const { sget } = await import("./api/lib/supa.js?v=20261030j");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261030k");
+    const { sget } = await import("./api/lib/supa.js?v=20261030k");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +
@@ -239,7 +239,7 @@ app.listen(PORT, async () => {
   // продаже: сообщение будет крупным и с подсказкой, как откатиться.
   if (String(process.env.DB_MODE || "").toLowerCase() === "local") {
     try {
-      const { проверитьСвязь } = await import("./api/lib/pg.js?v=20261030j");
+      const { проверитьСвязь } = await import("./api/lib/pg.js?v=20261030k");
       const товаров = await проверитьСвязь();
       console.log(`[GM] База: СВОЯ (PostgreSQL здесь же), товаров в ней: ${товаров}`);
     } catch (e) {
@@ -251,5 +251,5 @@ app.listen(PORT, async () => {
   }
   // Греем короткую память сервера: иначе первый заход в склад после
   // выкладки ждёт базу несколько секунд на каждую таблицу.
-  import("./api/admin/db.js?v=20261030j").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
+  import("./api/admin/db.js?v=20261030k").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
 });

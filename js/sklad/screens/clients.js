@@ -2,14 +2,14 @@
 // Долг считает js/debt.js — то же самое место, что и склад на сайте.
 // Раньше здесь была своя копия расчёта, и она забывала старый долг клиента:
 // один и тот же человек показывал разные цифры в телефоне и на компьютере.
-import { el, go } from "../app.js?v=20261030j";
-import { icon } from "../../icons.js?v=20261030j";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20261030j";
-import { fmt } from "../../fx.js?v=20261030j";
-import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20261030j";
-import { debtByCur, onlyPositive, turnoverByCur, hasDebt, coverageMap, openingDebt, issuedOnly, CURS, zero } from "../../debt.js?v=20261030j";
-import { lastForCustomerMap, freshFirst } from "../../prices.js?v=20261030j";
-import { openRefund } from "../../pages/refund_dialog.js?v=20261030j";
+import { el, go } from "../app.js?v=20261030k";
+import { icon } from "../../icons.js?v=20261030k";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20261030k";
+import { fmt } from "../../fx.js?v=20261030k";
+import { methodOptions, DEFAULT_METHOD } from "../../payment.js?v=20261030k";
+import { debtByCur, onlyPositive, turnoverByCur, hasDebt, coverageMap, openingDebt, issuedOnly, CURS, zero } from "../../debt.js?v=20261030k";
+import { lastForCustomerMap, freshFirst } from "../../prices.js?v=20261030k";
+import { openRefund } from "../../pages/refund_dialog.js?v=20261030k";
 
 const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const curStr = (m) => {
