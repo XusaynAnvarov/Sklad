@@ -3,8 +3,8 @@
 //  Используется и в админке, и в каталоге.
 // ========================================================================
 
-import { iconSvg } from "./icons.js?v=20261030i";
-import { сменитьТемуВолной } from "./temavolna.js?v=20261030i";
+import { iconSvg } from "./icons.js?v=20261030j";
+import { сменитьТемуВолной } from "./temavolna.js?v=20261030j";
 
 const THEME_KEY = "sklad_theme";
 

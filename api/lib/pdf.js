@@ -6,10 +6,8 @@ import fontkit from "@pdf-lib/fontkit";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-// Подпись артикула — тот же модуль, что у склада и печатного каталога:
-// формат «LP-017 · Арт.: KDP-10» должен совпадать везде.
-import { подписьКода } from "../../js/catalogcode.js";
 import { снимок } from "./imgproxy.js";
+import { артикулДляДокумента } from "../../js/catalogcode.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SIGN = { yuan: "¥", usd: "$", som: "сум" };
@@ -201,7 +199,7 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
       цена: money(it.unit_price, cur), сумма: money(сумма, cur), cur, число: сумма,
       // Артикул владелец просил добавить во все формы: до этого его в
       // PDF не было ни в одной.
-      артикул: подписьКода(p),
+      артикул: артикулДляДокумента(p),   // только sku — см. js/catalogcode.js
       расчёт: `${it.qty ?? ""} × ${money(it.unit_price, cur)}`,
       снимок: (Array.isArray(p.photos) && p.photos[0]) || p.photo_url || null,
     };
@@ -422,7 +420,7 @@ export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan"
     total += sum;
     return {
       имя: p.name || "?",
-      артикул: подписьКода(p),
+      артикул: артикулДляДокумента(p),   // только sku — см. js/catalogcode.js
       расчёт: `${it.qty ?? ""} × ${money(it.cost, cur)}`,
       сумма: money(sum, cur),
       снимок: imgs[it.product_id] || null,

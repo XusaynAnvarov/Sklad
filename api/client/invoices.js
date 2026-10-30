@@ -2,7 +2,7 @@
 import { getClient } from "../lib/clientauth.js";
 import { sget , okId } from "../lib/supa.js";
 import { invoiceCoverageStatus, allocatePayments } from "../lib/debt.js";
-import { подписьКода } from "../../js/catalogcode.js";
+import { артикулДляДокумента } from "../../js/catalogcode.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -19,17 +19,19 @@ export default async function handler(req, res) {
     ]);
     const openDebt = cust[0]?.opening_debt;
 
-    // Имена, фото и артикул товаров. Артикул владелец попросил добавить
-    // во все формы; клиенту он и так виден — тот же подписьКода() стоит
-    // на карточке товара в каталоге (js/site/catalog.js), и именно его
-    // клиент диктует при заказе.
+    // Имена, фото и артикул товаров.
+    //
+    // Артикул — ТОЛЬКО поле sku: его владелец вписывает сам, и только он
+    // что-то значит для поставщика и клиента. Соседнее поле code склад
+    // присваивает сам при заведении товара (LP-017, AP-016) — это
+    // порядковый номер для печатного каталога, и в документах он лишний.
     const prodIds = [...new Set(sales.flatMap(s => (s.items || []).map(i => i.product_id).filter(Boolean)))].filter(okId);
     let prodMap = {};
     if (prodIds.length) {
-      const prods = await sget(`products?id=in.(${encodeURIComponent(prodIds.join(","))})&select=id,name,sku,code,photo_url,photos`);
+      const prods = await sget(`products?id=in.(${encodeURIComponent(prodIds.join(","))})&select=id,name,sku,photo_url,photos`);
       prods.forEach(p => (prodMap[p.id] = {
         name: p.name,
-        article: подписьКода(p),
+        article: артикулДляДокумента(p),
         photo: (p.photos && p.photos[0]) || p.photo_url || null,
       }));
     }

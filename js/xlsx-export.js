@@ -2,10 +2,10 @@
 //  Экспорт накладных в Excel (.xlsx) — скачивание на компьютер с сайта.
 //  SheetJS через CDN. Без сервера и без Telegram (всё на клиенте).
 // ========================================================================
-import { CUR } from "./fx.js?v=20261030i";
-import { thumb } from "./img.js?v=20261030i";
-// Артикул в том же виде, что в складе, в каталоге и в PDF: «LP-017 · Арт.: KDP-10»
-import { подписьКода } from "./catalogcode.js?v=20261030i";
+import { CUR } from "./fx.js?v=20261030j";
+import { thumb } from "./img.js?v=20261030j";
+// Артикул в документах — только тот, что владелец вписал сам
+import { артикулДляДокумента } from "./catalogcode.js?v=20261030j";
 
 let _xlsx = null;
 async function lib() { if (!_xlsx) _xlsx = await import("https://esm.sh/xlsx@0.18.5"); return _xlsx; }
@@ -77,7 +77,7 @@ export async function exportCustomerInvoice(sale, customer, products, info = {})
     const p = pmap[it.product_id] || { name: "?" };
     const cur = it.currency || sale.currency, sum = r2((it.qty || 0) * (it.unit_price || 0));
     byCur[cur] = (byCur[cur] || 0) + sum;
-    const r = ws.addRow([i + 1, "", подписьКода(p) || "—", p.name || "?", Number(it.qty) || 0, r2(it.unit_price), sum, SIGN[cur] || cur]);
+    const r = ws.addRow([i + 1, "", артикулДляДокумента(p) || "—", p.name || "?", Number(it.qty) || 0, r2(it.unit_price), sum, SIGN[cur] || cur]);
     r.height = 76;
     r.eachCell(c => { c.border = box; c.alignment = { ...(c.alignment || {}), vertical: "middle" }; });
     r.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
@@ -238,7 +238,7 @@ export async function exportSupplierOrderExcel(items, supplier, currency, produc
     const p = pmap[it.product_id] || { name: "?" };
     const sum = r2((Number(it.qty) || 0) * (Number(it.cost) || 0));
     total += sum;
-    const r = ws.addRow([i + 1, "", подписьКода(p) || "—", p.name || "?", L.pcs, Number(it.qty) || 0, r2(it.cost), sum]);
+    const r = ws.addRow([i + 1, "", артикулДляДокумента(p) || "—", p.name || "?", L.pcs, Number(it.qty) || 0, r2(it.cost), sum]);
     r.height = 76; // выше картинки (70px) → фото помещается с полями, не наезжает на соседний ряд
     r.eachCell(c => { c.border = box; c.fill = fill(ROW); });
     r.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
