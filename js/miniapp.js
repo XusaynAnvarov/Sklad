@@ -3,8 +3,8 @@
 //  (для клиентов). Оба живут внутри Telegram и одинаково ведут себя на
 //  компьютере: там окно Telegram узкое, и его нужно уметь развернуть.
 // ========================================================================
-import { el } from "./el.js?v=20261030d";
-import { icon } from "./icons.js?v=20261030d";
+import { el } from "./el.js?v=20261030e";
+import { icon } from "./icons.js?v=20261030e";
 
 const TG = () => (window.Telegram && window.Telegram.WebApp) || null;
 

@@ -1,16 +1,16 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261030d";
-import { renderCatalog } from "./catalog.js?v=20261030d";
-import { renderVideos } from "./videos.js?v=20261030d";
-import { renderCabinet } from "./cabinet.js?v=20261030d";
-import { renderAdminPanel } from "./admin-panel.js?v=20261030d";
-import { renderOrder } from "./order.js?v=20261030d";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261030d";
-import { поставитьСнимок } from "../img.js?v=20261030d";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261030e";
+import { renderCatalog } from "./catalog.js?v=20261030e";
+import { renderVideos } from "./videos.js?v=20261030e";
+import { renderCabinet } from "./cabinet.js?v=20261030e";
+import { renderAdminPanel } from "./admin-panel.js?v=20261030e";
+import { renderOrder } from "./order.js?v=20261030e";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261030e";
+import { поставитьСнимок } from "../img.js?v=20261030e";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261030d";
-import { сменитьТемуВолной } from "../temavolna.js?v=20261030d";
-import { обновитьЕслиУстарело } from "../version.js?v=20261030d";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261030e";
+import { сменитьТемуВолной } from "../temavolna.js?v=20261030e";
+import { обновитьЕслиУстарело } from "../version.js?v=20261030e";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -264,7 +264,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261030d");
+        const { api: siteApi } = await import("./api.js?v=20261030e");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -565,6 +565,10 @@ async function route(main) {
     const p = document.createElement("p"); p.textContent = `${t("errorMsg")}: ${e.message}`;
     box.append(p); inner.append(box);
   }
+  // Раздел не подменяется разом, а «наводится на резкость»: приходит из
+  // размытия со сдвигом вверх (css/site.css, .site-смена). Такой же переход
+  // уже стоит в складе — на сайте его не было, и разделы щёлкали.
+  inner.classList.add("site-смена");
   main.innerHTML = ""; main.append(inner);
   restoreScrollFor(r);        // вернуть клиента туда, где он остановился
 }
@@ -746,7 +750,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=215", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=216", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
