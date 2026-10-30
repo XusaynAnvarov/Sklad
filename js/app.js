@@ -1,30 +1,30 @@
 // ========================================================================
 //  ТОЧКА ВХОДА АДМИНКИ: авторизация → каркас → роутер
 // ========================================================================
-import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261029h";
-import { обновитьЕслиУстарело } from "./version.js?v=20261029h";
-import { icon } from "./icons.js?v=20261029h";
-import { db, rawClient } from "./db.js?v=20261029h";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261029h";
-import { setRates } from "./fx.js?v=20261029h";
+import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла, показатьПоявление } from "./ui.js?v=20261030a";
+import { обновитьЕслиУстарело } from "./version.js?v=20261030a";
+import { icon } from "./icons.js?v=20261030a";
+import { db, rawClient } from "./db.js?v=20261030a";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261030a";
+import { setRates } from "./fx.js?v=20261030a";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261029h";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261029h";
+import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261030a";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261030a";
 
-import dashboard from "./pages/dashboard.js?v=20261029h";
-import products from "./pages/products.js?v=20261029h";
-import sales from "./pages/sales.js?v=20261029h";
-import purchases from "./pages/purchases.js?v=20261029h";
-import customers from "./pages/customers.js?v=20261029h";
-import orders from "./pages/orders.js?v=20261029h";
-import reports from "./pages/reports.js?v=20261029h";
-import catalogPage from "./pages/catalog_admin.js?v=20261029h";
-import settings from "./pages/settings.js?v=20261029h";
-import siteClients from "./pages/site_clients.js?v=20261029h";
-import trash from "./pages/trash.js?v=20261029h";
-import videosAdmin from "./pages/videos_admin.js?v=20261029h";
-import supplierOrder from "./pages/supplier_order.js?v=20261029h";
-import stockCheck from "./pages/stock_check.js?v=20261029h";
+import dashboard from "./pages/dashboard.js?v=20261030a";
+import products from "./pages/products.js?v=20261030a";
+import sales from "./pages/sales.js?v=20261030a";
+import purchases from "./pages/purchases.js?v=20261030a";
+import customers from "./pages/customers.js?v=20261030a";
+import orders from "./pages/orders.js?v=20261030a";
+import reports from "./pages/reports.js?v=20261030a";
+import catalogPage from "./pages/catalog_admin.js?v=20261030a";
+import settings from "./pages/settings.js?v=20261030a";
+import siteClients from "./pages/site_clients.js?v=20261030a";
+import trash from "./pages/trash.js?v=20261030a";
+import videosAdmin from "./pages/videos_admin.js?v=20261030a";
+import supplierOrder from "./pages/supplier_order.js?v=20261030a";
+import stockCheck from "./pages/stock_check.js?v=20261030a";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -116,6 +116,8 @@ function buildShell() {
       onclick: () => { location.hash = "#/" + n.id; if (window.innerWidth <= 860) sidebar.classList.remove("open"); },
     }, [el("span.ic", {}, [icon(n.ic, { size: 18 })]), el("span", { text: n.label }), el("span.nav-badge", { "data-badge": n.id, style: { display: "none" } })]));
   });
+  navrow.addEventListener("scroll", отметитьКрая, { passive: true });
+  window.addEventListener("resize", отметитьКрая);
   sidebar.append(navrow);
   sidebar.append(el("div.mode-tag", {}, [icon(db.mode === "supabase" ? "cloud" : "database", { size: 13 }), " ", db.mode === "supabase" ? "Онлайн (Supabase)" : "Локальный режим"]));
   sidebar.append(makeLangSwitcher(() => applyI18n(document.body)));
@@ -143,10 +145,39 @@ function buildShell() {
   window.addEventListener("hashchange", route);
 }
 
+// Разделов четырнадцать, и в строку они помещаются не на каждом экране.
+// Прокрутку у ряда оставляем, но полосу прячем (css/theme.css): вместо неё
+// края гаснут — это и показывает, что ряд продолжается. Здесь же следим,
+// с какой стороны ещё есть что показать, и подводим активный пункт в
+// видимую часть, чтобы после перехода он не оставался за краем.
+function отметитьКрая() {
+  const ряд = $(".navrow");
+  if (!ряд) return;
+  const запас = ряд.scrollWidth - ряд.clientWidth;
+  const влево = ряд.scrollLeft > 4;
+  const вправо = ряд.scrollLeft < запас - 4;
+  ряд.classList.toggle("есть-продолжение", влево && вправо);
+  ряд.classList.toggle("у-начала", !влево && вправо);
+  ряд.classList.toggle("у-конца", влево && !вправо);
+}
+
+function подвестиАктивный() {
+  const ряд = $(".navrow");
+  const пункт = ряд && ряд.querySelector(".navitem.active");
+  if (!ряд || !пункт) return;
+  if (ряд.scrollWidth > ряд.clientWidth) {
+    // по центру видимой части, но не дальше краёв ряда
+    const цель = пункт.offsetLeft - (ряд.clientWidth - пункт.offsetWidth) / 2;
+    ряд.scrollLeft = Math.max(0, Math.min(цель, ряд.scrollWidth - ряд.clientWidth));
+  }
+  отметитьКрая();
+}
+
 async function route() {
   const id = (location.hash.replace(/^#\/?/, "") || "dashboard").split("?")[0];
   const item = NAV.find(n => n.id === id) || NAV[0];
   $$(".navitem").forEach(n => n.classList.toggle("active", n.getAttribute("data-id") === item.id));
+  подвестиАктивный();
   const view = $("#view");
   view.innerHTML = "";
   // Имя раздела на странице: по нему стиль можно включить только там, где
@@ -163,6 +194,8 @@ async function route() {
     hideLoader();
   }
   reveal(view);
+  // Блоки раздела выходят лесенкой — на любом экране, не только на дашборде.
+  показатьПоявление(page);
   applyI18n(document.body);
   // Крупные числа набегают от нуля — на любом экране, не только на дашборде.
   оживитьЧисла(page);
@@ -239,7 +272,7 @@ setTimeout(() => {
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=211", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=212", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

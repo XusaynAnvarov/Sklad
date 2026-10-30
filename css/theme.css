@@ -1245,3 +1245,105 @@ html[data-theme="light"] .mini-row .ph { background: rgba(16,24,40,.04); }
 .prod .ph { position: relative; z-index: 1; padding: 0; }
 /* Строка в телефоне: квадрат маленький, размывать нечего — просто без полей. */
 .mini-row .ph { padding: 0; }
+
+/* ===================================================================
+   ОСТАЛЬНЫЕ РАЗДЕЛЫ СКЛАДА: появление, пустые экраны, верхнее меню.
+
+   Проверено на стенде с демо-данными: из четырнадцати разделов блоки
+   выходили лесенкой только на дашборде. У остальных отрабатывал переход
+   со стеклом, но внутри ничего не двигалось — отсюда и ощущение, что
+   анимацию сделали на одной главной.
+   =================================================================== */
+
+/* ---------- 1. Лесенка блоков раздела ---------- */
+/* fill-mode именно backwards, а не both: «from» держится только до
+   начала анимации. Если анимации в браузере выключены или кадры не
+   пришли — блок просто виден. На .reveal (opacity:0 в обычном
+   состоянии) мы на этом уже обжигались: содержимое оставалось
+   невидимым, и казалось, что данные не загрузились. */
+@keyframes gmВсплыть { from { opacity: 0; transform: translateY(12px); } }
+@keyframes gmПроявиться { from { opacity: 0; } }
+
+.gm-входит {
+  animation: gmВсплыть .4s cubic-bezier(.2,.8,.25,1) backwards;
+  animation-delay: var(--задержка, 0ms);
+}
+/* Строке таблицы сдвиг не даём: ячейки едут по-разному и это читается
+   как дрожь. Строка просто проявляется. */
+.tbl tbody tr.gm-входит { animation-name: gmПроявиться; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-входит { animation: none !important; }
+}
+
+/* ---------- 2. Пустой экран — тоже стекло ---------- */
+/* «Корзина пуста», «Клиентов сайта нет», ошибка раздела — всё это
+   висело голым текстом посреди фона и выглядело как сбой отрисовки,
+   а не как ответ программы. */
+.empty {
+  border-radius: 18px;
+  padding: 48px 24px;
+  background:
+    linear-gradient(152deg, rgba(18,18,22,.46), rgba(18,18,22,.26)),
+    linear-gradient(152deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.11);
+  backdrop-filter: blur(14px) saturate(145%);
+  -webkit-backdrop-filter: blur(14px) saturate(145%);
+  box-shadow: 0 14px 30px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.14);
+}
+html[data-theme="light"] .empty {
+  background:
+    linear-gradient(152deg, rgba(255,255,255,.72), rgba(255,255,255,.52)),
+    linear-gradient(152deg, rgba(255,255,255,.9), rgba(255,255,255,.6));
+  border-color: rgba(16,24,40,.10);
+  box-shadow: 0 14px 30px rgba(16,24,40,.08), inset 0 1px 0 rgba(255,255,255,.9);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .empty { background: var(--card); }
+}
+/* Внутри карточки или окна «пусто» — это часть содержимого, а не
+   отдельный блок: панель в панели читается как сбой вёрстки. */
+.card .empty, .modal .empty, .combo-panel .empty {
+  background: none; border: none; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  padding: 36px 16px;
+}
+
+/* ---------- 3. Верхнее меню: ничего не прячется за прокруткой ---------- */
+/* Разделов четырнадцать, в строку они требуют 1920 px. На ноутбуке с
+   1440 четыре последних («Клиенты сайта», «Корзина», «Настройки» и
+   часть «Видео») уходили за край, а под меню появлялась полоса
+   прокрутки — её видно на каждом экране, и выглядит это как недоделка.
+   Полосу убираем, вместо неё по краям мягкое затухание: оно говорит,
+   что ряд продолжается. Активный пункт подводится в видимую часть сам
+   (js/app.js, подвестиАктивный). */
+.navrow {
+  scrollbar-width: none;                 /* Firefox */
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+  /* Затухание включается только когда ряд действительно не помещается:
+     класс ставит js/app.js. Иначе крайние пункты гасли бы без причины. */
+  padding-left: 2px; padding-right: 2px;
+}
+.navrow::-webkit-scrollbar { height: 0; width: 0; }
+
+.navrow.есть-продолжение {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+}
+/* Доехали до края — с этой стороны гасить нечего. */
+.navrow.у-начала {
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 22px), transparent 100%);
+          mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 22px), transparent 100%);
+}
+.navrow.у-конца {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 100%);
+}
+
+/* Пункты плотнее: так в ту же строку помещается на три раздела больше,
+   а подпись остаётся читаемой (0.8125rem — тот же размер, что у кнопок
+   в шапке). */
+@media (min-width: 981px) {
+  .navrow .navitem { padding: 9px 11px; font-size: 0.8125rem; gap: 7px; }
+}
