@@ -1,10 +1,10 @@
 // ========================================================================
 //  НАСТРОЙКИ — курсы валют, Telegram, доступ, демо-данные
 // ========================================================================
-import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261030g";
-import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20261030g";
-import { authHeaders } from "../db.js?v=20261030g";
-import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20261030g";
+import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261030i";
+import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20261030i";
+import { authHeaders } from "../db.js?v=20261030i";
+import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20261030i";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -287,6 +287,60 @@ export default async function render(page, ctx) {
     el("div.hint", { text: "Восстановление перезаписывает записи с тем же id данными из файла (удалённые — возвращает). Делайте свежую копию перед восстановлением.", style: { marginTop: "14px", marginBottom: 0, lineHeight: "1.5" } }),
   ]);
 
+  // ---------- Пережать фото ----------
+  // Снимки в хранилище весят в среднем 117 КБ, а 653 файла — больше 150 КБ.
+  // В накладной снимок размером с ноготь, но в PDF ложится целиком, и
+  // накладная на 27 позиций выходит около шести мегабайт. Уменьшить на
+  // сервере нечем (у Supabase преобразование картинок отключено тарифом),
+  // поэтому жмём здесь, в браузере, и кладём новым файлом — старый
+  // остаётся на месте, это и есть откат.
+  const ходПрогона = el("div.hint", { text: "", style: { marginTop: "14px", marginBottom: 0, lineHeight: "1.5", display: "none" } });
+  let прерван = false;
+  const кнПережать = el("button.btn.btn-primary", { text: "🗜 Пережать фото товаров" });
+  const кнСтоп = el("button.btn.btn-outline", { text: "Остановить", style: { display: "none" } });
+  const кб = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " МБ" : Math.round(b / 1024) + " КБ");
+
+  кнСтоп.onclick = () => { прерван = true; кнСтоп.textContent = "Останавливаю…"; };
+  кнПережать.onclick = () => confirmDialog(
+    "Пережать фото всех товаров? Старые файлы останутся в хранилище — откатиться можно всегда. Прогон можно остановить в любой момент.",
+    async () => {
+      const { пережатьФото } = await import("../perezhat.js?v=20261030i");
+      прерван = false;
+      кнПережать.disabled = true; кнСтоп.style.display = "";
+      ходПрогона.style.display = "";
+      ходПрогона.textContent = "Готовим список…";
+      try {
+        const и = await пережатьФото(ctx.db, {
+          стоп: () => прерван,
+          наПрогресс: ({ сделано, всего, имя, итог }) => {
+            ходПрогона.textContent =
+              `Товар ${сделано} из ${всего}: ${имя.slice(0, 40)} · пережато ${итог.пережато}, пропущено ${итог.пропущено}` +
+              (итог.ошибок ? `, ошибок ${итог.ошибок}` : "");
+          },
+        });
+        const выигрыш = и.былоБайт - и.сталоБайт;
+        ходПрогона.textContent =
+          `Готово${прерван ? " (остановлено)" : ""}. Снимков просмотрено ${и.снимков}, пережато ${и.пережато}, ` +
+          `пропущено ${и.пропущено}${и.ошибок ? `, ошибок ${и.ошибок}` : ""}. ` +
+          (выигрыш > 0 ? `Было ${кб(и.былоБайт)} → стало ${кб(и.сталоБайт)} (легче на ${кб(выигрыш)}).` : "");
+        toast(и.ошибок ? `Готово, но с ошибками: ${и.ошибок}` : "Фото пережаты", и.ошибок ? "err" : "ok");
+        if (и.ошибки.length) console.warn("Пережатие фото — ошибки:", и.ошибки);
+      } catch (e) {
+        ходПрогона.textContent = "Не вышло: " + e.message;
+        toast("Ошибка: " + e.message, "err");
+      } finally {
+        кнПережать.disabled = false; кнСтоп.style.display = "none"; кнСтоп.textContent = "Остановить";
+      }
+    });
+
+  const фотоCard = el("div.card", { style: { marginBottom: "18px" } }, [
+    el("div.section-h", { text: "Вес фотографий", style: { marginTop: 0 } }),
+    el("p.muted", { text: "Снимок в накладной показывается размером с ноготь, но в PDF и Excel ложится целиком — накладная на два десятка позиций выходит в несколько мегабайт, а её ещё отправлять клиенту. Прогон уменьшает снимки до 1000 точек по длинной стороне и кладёт новым файлом; старые остаются в хранилище, откатиться можно всегда.", style: { lineHeight: "1.55", marginBottom: "16px" } }),
+    el("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap" } }, [кнПережать, кнСтоп]),
+    ходПрогона,
+    el("div.hint", { text: "Вкладку закрывать нельзя: прогон идёт в браузере. Остановить и продолжить позже можно в любой момент — уже пережатые снимки пропускаются.", style: { marginTop: "12px", marginBottom: 0, lineHeight: "1.5" } }),
+  ]);
+
   // ---------- Режим / демо ----------
   const sysCard = el("div.card", {}, [
     el("div.section-h", { text: "Система", style: { marginTop: 0 } }),
@@ -327,5 +381,5 @@ export default async function render(page, ctx) {
     } }),
   ]);
 
-  page.append(fxCard, profitCard, tgCard, linksCard, guideCard, passCard, backupCard, sysCard);
+  page.append(fxCard, profitCard, tgCard, linksCard, guideCard, passCard, backupCard, фотоCard, sysCard);
 }

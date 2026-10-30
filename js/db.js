@@ -7,8 +7,8 @@
 //  не зная, какой режим активен.
 // ========================================================================
 
-import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20261030g";
-import { сверитьСОстатком } from "./inventory.js?v=20261030g";
+import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20261030i";
+import { сверитьСОстатком } from "./inventory.js?v=20261030i";
 
 const cfg = window.APP_CONFIG || {};
 const useSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
@@ -370,6 +370,21 @@ export const db = {
     const resp = await fetch((cfg.UPLOAD_API || "/api/upload"), {
       method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify({ dataUrl, name: file.name }),
+    });
+    const j = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(j.error || ("Загрузка не удалась " + resp.status));
+    return j.url;
+  },
+
+  // Загрузка уже готового снимка (dataURL) — для прогона «пережать фото».
+  // Отличие от uploadPhoto: тот сжимает File заново до 1600 px, а здесь
+  // картинка уже уменьшена ровно так, как надо, и пережимать её второй
+  // раз значит терять качество впустую.
+  async uploadPhotoDataUrl(dataUrl, name = "photo.jpg") {
+    if (DB_MODE === "local") return dataUrl;
+    const resp = await fetch((cfg.UPLOAD_API || "/api/upload"), {
+      method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ dataUrl, name }),
     });
     const j = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(j.error || ("Загрузка не удалась " + resp.status));

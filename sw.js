@@ -2,8 +2,8 @@
 //  Service Worker — оффлайн-оболочка + быстрый старт (stale-while-revalidate).
 //  Данные (Supabase/api) НЕ кэшируем — всегда из сети.
 // ========================================================================
-const CACHE = "sklad-v218";
-const BUILD = "20261030g";   // версия кода: по ней ловим устаревшую страницу
+const CACHE = "sklad-v220";
+const BUILD = "20261030i";   // версия кода: по ней ловим устаревшую страницу
 const SHELL = ["./", "./index.html", "./admin.html", "./catalog.html", "./sklad.html", "./css/theme.css", "./css/site.css", "./config.js", "./icon.svg", "./manifest.webmanifest"];
 // код (html/css/js) грузим «сеть в приоритете», чтобы изменения были видны сразу;
 // картинки/иконки/шрифты — из кэша (быстро + офлайн).

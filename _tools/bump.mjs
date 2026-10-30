@@ -63,8 +63,25 @@ for (const f of HTML) {
   // метка версии в самой странице — по ней приложение ловит устаревшее
   s = s.replace(/(name="gm-build" content=")[^"]*"/, `$1${VER}"`);
   s = s.replace(/(href="css\/[a-z]+\.css)"/g, `$1?v=${VER}"`); // css без версии — добавим
+  // Значки и манифест тоже с версией. Без неё телефон держит старый знак
+  // неделями: иконку с экрана «Домой» iOS кэширует отдельно от страницы,
+  // и ни перезагрузка, ни «Сбросить кэш» её не меняют — меняет только
+  // новый адрес. Проверено после смены знака 30.10.2026.
+  s = s.replace(/(href=")(icon\.svg|apple-touch-icon-180\.png|icon-192\.png|icon-512\.png|manifest\.webmanifest)(\?v=[^"]*)?(")/g,
+                (_, a, файл, __, b) => `${a}${файл}?v=${VER}${b}`);
   writeFileSync(p, s);
 }
+
+// 2б) манифест: адреса значков внутри него тоже с версией — иначе
+// установленное на телефон приложение оставляет прежний знак на плитке.
+try {
+  const мп = join(ROOT, "manifest.webmanifest");
+  const м = JSON.parse(readFileSync(мп, "utf8"));
+  if (Array.isArray(м.icons)) {
+    м.icons = м.icons.map(i => ({ ...i, src: String(i.src).split("?")[0] + "?v=" + VER }));
+    writeFileSync(мп, JSON.stringify(м, null, 2) + "\n");
+  }
+} catch { /* манифеста нет — не беда */ }
 
 // 3) регистрация SW + версии у ВСЕХ относительных импортов
 let touched = 0;
