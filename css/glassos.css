@@ -208,6 +208,57 @@ html[data-theme="light"] {
   .gm-head .brand .ic-svg { color: var(--accent); }
   .gm-head-spacer { flex: 1 1 auto; min-width: 0; }
 
+  /* ---- Плашка владельца ----
+     Достался ей от прежнего бокового меню отступ снизу в 16 px. В
+     столбике он разделял её со списком разделов, а в строке с
+     выравниванием по центру отодвигал её вверх ровно на половину —
+     белая плашка выезжала за верхний край стекла и прижималась к
+     рейлу. Здесь отступы обнуляются, высота задаётся явно, и плашка
+     встаёт в один рост с языками и поиском. */
+  .gm-head .profile-chip {
+    order: 2; align-self: center; flex: 0 0 auto;
+    height: 38px; margin: 0 0 0 4px; padding: 0 12px 0 4px; gap: 8px;
+    border-radius: var(--r-pill);
+    background: rgba(255, 255, 255, .07);
+    border: 1px solid var(--glass-line);
+    box-shadow: none;
+    max-width: 190px;
+    transition: background var(--t-hover), border-color var(--t-hover);
+  }
+  .gm-head .profile-chip:hover { background: rgba(255, 255, 255, .13); }
+  html[data-theme="light"] .gm-head .profile-chip { background: rgba(255, 255, 255, .72); }
+  html[data-theme="light"] .gm-head .profile-chip:hover { background: #fff; }
+  .gm-head .profile-chip .avatar { width: 30px; height: 30px; flex: 0 0 auto; }
+  .gm-head .profile-chip .avatar .ic-svg { width: 16px; height: 16px; }
+  .gm-head .profile-chip .pname { font-size: 0.8125rem; line-height: 1.15; }
+  .gm-head .profile-chip .ptag { font-size: 0.625rem; margin-top: 1px; }
+  .gm-head .profile-chip .ptag .dot { width: 6px; height: 6px; }
+
+  /* Подпись режима базы — такой же высоты, чтобы шапка читалась одним рядом. */
+  .gm-head .mode-tag {
+    order: 2; align-self: center; flex: 0 0 auto;
+    height: 38px; margin: 0; padding: 0 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: var(--r-pill);
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid var(--glass-line);
+    white-space: nowrap;
+  }
+  html[data-theme="light"] .gm-head .mode-tag { background: rgba(255, 255, 255, .6); }
+  /* Языки — в один рост с соседями. */
+  .gm-head .lang-switch { order: 2; align-self: center; flex: 0 0 auto; margin: 0; }
+  .gm-head .lang-switch button { height: 30px; min-width: 30px; }
+
+  /* Узкое окно: первой уходит подпись режима — она не про действие.
+     Дальше прячется имя владельца, остаётся кружок со значком. */
+  @media (max-width: 1180px) {
+    .gm-head .mode-tag { display: none; }
+  }
+  @media (max-width: 1000px) {
+    .gm-head .profile-chip { padding: 0; max-width: none; background: none; border: none; }
+    .gm-head .profile-chip > div:not(.avatar) { display: none; }
+  }
+
   /* ---- Рабочая область: своя прокрутка, каркас стоит на месте ---- */
   .main {
     grid-row: 2;
