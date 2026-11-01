@@ -1,6 +1,6 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
 import { api, isLoggedIn } from "./api.js?v=20261101a";
-import { t } from "./app.js?v=20261101a";
+import { t, sToast } from "./app.js?v=20261101a";
 import { openLogin } from "./auth.js?v=20261101a";
 import { thumb, full } from "../img.js?v=20261101a";
 import { подходит } from "../productsearch.js?v=20261101a";
@@ -66,7 +66,8 @@ export async function renderCatalog(container) {
   // категорию — она убирается, чтобы не отодвигать товар вниз (renderCards).
   const hero = mkEl("section", "feature-tile");
   const heroText = mkEl("div", "feature-text");
-  const heroEyebrow = mkEl("div", "feature-eyebrow"); heroEyebrow.textContent = "General Modern";
+  // Надписи «GENERAL MODERN» вразрядку над заголовком больше нет: то же имя
+  // уже стоит слева в шапке, и строка только отодвигала заголовок вниз.
   const heroH1 = document.createElement("h1"); heroH1.textContent = t("heroTitle");
   const heroP = document.createElement("p"); heroP.textContent = t("heroSub");
   const heroBtns = mkEl("div", "feature-btns");
@@ -74,7 +75,7 @@ export async function renderCatalog(container) {
   heroBtn.className = "btn-primary"; heroBtn.textContent = t("heroCta");
   heroBtn.addEventListener("click", () => toolbar.scrollIntoView({ behavior: "smooth", block: "start" }));
   heroBtns.append(heroBtn);
-  heroText.append(heroEyebrow, heroH1, heroP, heroBtns);
+  heroText.append(heroH1, heroP, heroBtns);
   const heroImg = mkEl("div", "feature-img");
   hero.append(heroText, heroImg);
   main.append(hero);
@@ -103,7 +104,11 @@ export async function renderCatalog(container) {
   searchField.append(searchInput);
   // Поле стоит ПЕРЕД кнопкой: раскрываясь, оно отодвигает её и фильтры.
   searchWrap.append(searchField, searchBtn);
-  toolbar.append(searchWrap);
+  // Сколько товаров сейчас на экране. Раньше кнопка поиска стояла в пустой
+  // строке одна, и панель выглядела недоделанной; а главное — клиент не
+  // видел, сузил ли его запрос выборку и насколько.
+  const счётчик = mkEl("div", "catalog-count");
+  toolbar.append(счётчик, searchWrap);
 
   function открытьПоиск() {
     if (searchWrap.classList.contains("open")) return;
@@ -329,6 +334,7 @@ export async function renderCatalog(container) {
     });
     // хиты недели — вверх (только признак, без чисел: количество клиенту не показываем)
     filteredList.sort((a, b) => (b.hit ? 1 : 0) - (a.hit ? 1 : 0));
+    счётчик.textContent = подписьСчётчика(filteredList.length, products.length, searchQuery, activeCategory);
     if (!filteredList.length) { grid.append(buildEmpty("Ничего не найдено")); return; }
 
     sentinel = mkEl("div", "");
@@ -339,6 +345,25 @@ export async function renderCatalog(container) {
       io.observe(sentinel);
     }
   }
+}
+
+// Подпись над сеткой: сколько показано и почему именно столько.
+// «Показан 1 товар» / «Показано 4 товара» / «Показано 13 товаров» —
+// склонение считаем сами, чужих библиотек ради одной строки не берём.
+function подписьСчётчика(сколько, всего, запрос, категория) {
+  if (!сколько) return "";
+  const слово = товарПо(сколько);
+  const глагол = (сколько % 10 === 1 && сколько % 100 !== 11) ? "Показан" : "Показано";
+  const сузили = запрос || категория !== "Все";
+  return сузили && сколько < всего
+    ? `${глагол} ${сколько} ${слово} из ${всего}`
+    : `${глагол} ${сколько} ${слово}`;
+}
+function товарПо(n) {
+  const д = n % 10, с = n % 100;
+  if (д === 1 && с !== 11) return "товар";
+  if (д >= 2 && д <= 4 && (с < 10 || с >= 20)) return "товара";
+  return "товаров";
 }
 
 function buildCard(p) {
@@ -379,38 +404,67 @@ function buildCard(p) {
     imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`;
   }
 
-  // Бейдж статуса
-  let badgeCls, badgeText;
-  if (inStock)       { badgeCls = "in-stock";  badgeText = t("inStockBadge"); }
-  else if (isSoon)   { badgeCls = "soon";       badgeText = t("soonBadge"); }
-  else               { badgeCls = "out-stock";  badgeText = t("noStockBadge"); }
-  // Оба бейджа живут в одной строке-обёртке. Раньше каждый стоял сам по себе
-  // (один прижат влево, другой вправо), и на телефоне, где карточка вдвое уже,
-  // «Нет в наличии» и «Новинка» налезали друг на друга. В строке они либо
-  // расходятся по краям, либо переносятся — но никогда не перекрываются.
-  const бейджи = mkEl("div", "product-badges");
-  const badge = mkEl("span", "product-badge " + badgeCls);
-  badge.textContent = badgeText;
-  бейджи.append(badge);
-
-  // Бейдж «Новинка» — поверх угла
+  // ------------------------------------------------------------------
+  //  ЧТО ГДЕ НА КАРТОЧКЕ
+  //
+  //  Поверх снимка остаётся только то, что про рекламу: «Новинка», «Хит»
+  //  и число фотографий. Наличие оттуда убрано и стоит в теле карточки
+  //  строкой с точкой — ОДНО И ТО ЖЕ МЕСТО на каждой карточке. Раньше
+  //  зелёная плашка «В наличии» висела в углу снимка, на светлом фото
+  //  терялась, а глазу приходилось искать её заново у каждого товара.
+  //
+  //  Код товара — не подпись, а то, что клиент диктует в заказе. Поэтому
+  //  он стал кнопкой: нажатие копирует код в буфер.
+  // ------------------------------------------------------------------
+  const метки = mkEl("div", "product-badges");
   if (p.is_new) {
     const newBadge = mkEl("span", "product-badge new-badge");
     newBadge.textContent = t("newBadge");
-    бейджи.append(newBadge);
+    метки.append(newBadge);
   }
-  imgWrap.append(бейджи);
+  if (p.hit) {
+    const hitBadge = mkEl("span", "product-badge hit-badge");
+    hitBadge.textContent = "Хит недели";
+    метки.append(hitBadge);
+  }
+  if (метки.childElementCount) imgWrap.append(метки);
 
   const body = mkEl("div", "product-card-body");
   const name = mkEl("div", "product-name"); name.textContent = p.name;
   const cat  = mkEl("div", "product-category"); cat.textContent = p.category || "";
-  // артикул виден всем клиентам: по нему они находят нужную деталь и называют её в заказе
+
+  // Код и артикул: по ним клиент находит нужную деталь и называет её в заказе.
   let skuEl = null;
-  if (подписьКода(p)) { skuEl = mkEl("div", "product-sku"); skuEl.textContent = подписьКода(p); }
-  // хит недели — сколько куплено за 7 дней
-  let weekEl = null;
-  // «Хит» — без числа продаж: клиент не видит количеств
-  if (p.hit) { weekEl = mkEl("div"); weekEl.style.cssText = "font-size:12px;font-weight:600;color:#e8810c;margin-top:3px"; weekEl.textContent = "🔥 Хит недели"; }
+  if (подписьКода(p)) {
+    skuEl = mkEl("div", "product-sku");
+    const чтоКопировать = p.code || p.sku || "";
+    const кнопка = document.createElement("button");
+    кнопка.type = "button";
+    кнопка.className = "sku-copy";
+    кнопка.title = "Нажмите, чтобы скопировать: " + чтоКопировать;
+    кнопка.setAttribute("aria-label", "Скопировать код товара " + чтоКопировать);
+    const код = mkEl("span", "sku-code"); код.textContent = p.code || p.sku || "";
+    кнопка.append(код, значокКопии());
+    кнопка.addEventListener("click", (e) => {
+      e.stopPropagation();
+      скопировать(чтоКопировать, кнопка);
+    });
+    skuEl.append(кнопка);
+    // Артикул поставщика — рядом, но тише: его называют реже, чем код.
+    if (p.code && p.sku) {
+      const арт = mkEl("span", "sku-vendor");
+      арт.textContent = "Арт.: " + p.sku;
+      skuEl.append(арт);
+    }
+  }
+
+  // Наличие — строка с точкой, одна и та же у всех карточек.
+  const статус = mkEl("div", "product-status " + (inStock ? "есть" : isSoon ? "скоро" : "нет"));
+  const точка = mkEl("span", "status-dot");
+  const подпись = mkEl("span");
+  подпись.textContent = inStock ? t("inStockBadge") : isSoon ? t("soonBadge") : t("noStockBadge");
+  статус.append(точка, подпись);
+
   const footer = mkEl("div", "product-card-footer");
 
   const btn = document.createElement("button");
@@ -430,10 +484,60 @@ function buildCard(p) {
   footer.append(btn);
   body.append(name, cat);
   if (skuEl) body.append(skuEl);
-  if (weekEl) body.append(weekEl);
-  body.append(footer);
+  body.append(статус, footer);
   card.append(imgWrap, body);
   return card;
+}
+
+// Значок «скопировать» у кода товара. Отдельной функцией, потому что
+// после копирования он на секунду сменяется галочкой.
+function значокКопии(галочка) {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  s.setAttribute("viewBox", "0 0 24 24");
+  s.setAttribute("width", "13"); s.setAttribute("height", "13");
+  s.setAttribute("fill", "none"); s.setAttribute("stroke", "currentColor");
+  s.setAttribute("stroke-width", "2");
+  s.setAttribute("stroke-linecap", "round"); s.setAttribute("stroke-linejoin", "round");
+  s.classList.add("sku-ic");
+  s.innerHTML = галочка
+    ? `<path d="M20 6 9 17l-5-5"/>`
+    : `<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>`;
+  return s;
+}
+
+// Копируем код товара. clipboard доступен не везде (старый браузер,
+// страница без https) — тогда уходим на скрытое поле и execCommand,
+// иначе нажатие просто ничего не делало бы и выглядело как поломка.
+function скопировать(текст, кнопка) {
+  const получилось = () => {
+    кнопка.classList.add("скопировано");
+    const старый = кнопка.querySelector(".sku-ic");
+    if (старый) старый.replaceWith(значокКопии(true));
+    setTimeout(() => {
+      кнопка.classList.remove("скопировано");
+      const тек = кнопка.querySelector(".sku-ic");
+      if (тек) тек.replaceWith(значокКопии(false));
+    }, 1400);
+    sToast("Код скопирован: " + текст, "ok");
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(текст).then(получилось).catch(() => запасноеКопирование(текст, получилось));
+  } else запасноеКопирование(текст, получилось);
+}
+
+function запасноеКопирование(текст, готово) {
+  try {
+    const поле = document.createElement("textarea");
+    поле.value = текст;
+    поле.style.cssText = "position:fixed;top:-1000px;opacity:0";
+    document.body.append(поле);
+    поле.select();
+    document.execCommand("copy");
+    поле.remove();
+    готово();
+  } catch {
+    sToast("Не удалось скопировать — выделите код вручную", "err");
+  }
 }
 
 function buildSkeleton() {

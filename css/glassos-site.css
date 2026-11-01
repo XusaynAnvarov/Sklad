@@ -25,6 +25,337 @@
 }
 
 /* ===================================================================
+   0. ПОЛЕ СТРАНИЦЫ
+
+   Стекло видно только тогда, когда за ним есть что размывать. Под
+   страницей лежат два мягких пятна: тёплое латунное сверху слева (цвет
+   знака) и холодное снизу справа. Они закреплены (attachment: fixed) —
+   значит при прокрутке не ездят и не заставляют браузер перерисовывать
+   фон каждый кадр.
+   =================================================================== */
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(52% 42% at 8% 0%, rgba(201, 168, 76, .20), transparent 68%),
+    radial-gradient(46% 40% at 100% 18%, rgba(28, 43, 74, .10), transparent 70%),
+    radial-gradient(60% 46% at 74% 100%, rgba(201, 168, 76, .12), transparent 72%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+html[data-site-theme="dark"] body {
+  background-image:
+    radial-gradient(52% 42% at 8% 0%, rgba(217, 180, 90, .16), transparent 68%),
+    radial-gradient(46% 40% at 100% 18%, rgba(240, 220, 164, .07), transparent 70%),
+    radial-gradient(60% 46% at 74% 100%, rgba(168, 135, 60, .11), transparent 72%);
+}
+
+/* Общие переменные стекла сайта — в одном месте, чтобы поверхности не
+   разъезжались по оттенкам. */
+:root {
+  --gs-glass: linear-gradient(152deg, rgba(255, 255, 255, .80), rgba(255, 255, 255, .58));
+  --gs-line: rgba(255, 255, 255, .9);
+  --gs-edge: inset 0 1px 0 rgba(255, 255, 255, .95);
+  --gs-drop: 0 14px 34px rgba(28, 43, 74, .10);
+  --gs-drop-hi: 0 22px 50px rgba(28, 43, 74, .17);
+  --gs-blur: blur(20px) saturate(165%);
+}
+html[data-site-theme="dark"] {
+  --gs-glass: linear-gradient(152deg, rgba(20, 20, 25, .60), rgba(20, 20, 25, .34));
+  --gs-line: rgba(255, 255, 255, .11);
+  --gs-edge: inset 0 1px 0 rgba(255, 255, 255, .13);
+  --gs-drop: 0 16px 36px rgba(0, 0, 0, .46);
+  --gs-drop-hi: 0 24px 54px rgba(0, 0, 0, .6);
+}
+
+/* ===================================================================
+   1. ШАПКА — ПЛАВАЮЩАЯ СТЕКЛЯННАЯ ПОЛОСА
+
+   Была белой панелью во всю ширину с чертой снизу. Теперь это таблетка,
+   которая едет вместе со страницей и пропускает фон сквозь себя.
+   =================================================================== */
+.site-header {
+  background: none;
+  border-bottom: none;
+  box-shadow: none;
+  padding: 10px 14px 0;
+}
+.site-header::after { content: none; }   /* растушёвка из site.css больше не нужна */
+.site-header-inner {
+  height: 58px;
+  padding: 0 10px 0 14px;
+  border: 1px solid var(--gs-line);
+  border-radius: var(--gs-r-pill);
+  background: var(--gs-glass);
+  backdrop-filter: var(--gs-blur);
+  -webkit-backdrop-filter: var(--gs-blur);
+  box-shadow: var(--gs-drop), var(--gs-edge);
+}
+.site-nav-link { border-radius: var(--gs-r-pill); }
+.site-nav-link.active { background: rgba(201, 168, 76, .18); color: var(--text); }
+html[data-site-theme="dark"] .site-nav-link.active { background: rgba(217, 180, 90, .20); }
+.site-tg-link, .cart-btn, .site-lang-btn, .site-theme-btn {
+  border-radius: var(--gs-r-pill);
+}
+.cart-btn {
+  border: 1px solid var(--gs-line);
+  background: rgba(255, 255, 255, .55);
+}
+html[data-site-theme="dark"] .cart-btn { background: rgba(255, 255, 255, .06); }
+
+/* ===================================================================
+   2. ВИТРИНА
+
+   Заголовок несёт страницу сам — надписи вразрядку над ним больше нет
+   (её убрали в js/site/catalog.js). Знак справа лежит на стеклянной
+   плитке: это единственное украшение на первом экране.
+   =================================================================== */
+.feature-tile {
+  border-radius: var(--gs-r-lg);
+  border: 1px solid var(--gs-line);
+  background: var(--gs-glass);
+  box-shadow: var(--gs-drop), var(--gs-edge);
+  overflow: hidden;
+}
+.feature-text { padding: 40px 38px; }
+.feature-tile h1 { max-width: 20ch; text-wrap: balance; }
+.feature-tile p { max-width: 44ch; }
+.feature-img {
+  background: linear-gradient(140deg, rgba(201, 168, 76, .16), rgba(201, 168, 76, .04));
+  border-left: 1px solid var(--gs-line);
+}
+html[data-site-theme="dark"] .feature-img {
+  background: linear-gradient(140deg, rgba(217, 180, 90, .13), rgba(217, 180, 90, .03));
+}
+
+/* ===================================================================
+   3. КАТЕГОРИИ СЛЕВА
+   =================================================================== */
+.cat-rail {
+  border-radius: var(--gs-r-lg);
+  border: 1px solid var(--gs-line);
+  background: var(--gs-glass);
+  box-shadow: var(--gs-drop), var(--gs-edge);
+  padding: 12px;
+}
+.cat-rail-title {
+  font-size: 0.6875rem; font-weight: 700; color: var(--muted);
+  padding: 2px 10px 10px;
+}
+.rail-item {
+  border-radius: var(--gs-r-sm);
+  border: 1px solid transparent;
+  background: none;
+  transition: background var(--gs-t-hover), color var(--gs-t-hover),
+              border-color var(--gs-t-hover), transform var(--gs-t-micro) var(--gs-e-out);
+}
+.rail-item:hover { background: rgba(201, 168, 76, .12); border-color: rgba(201, 168, 76, .22); padding-left: 14px; }
+.rail-item.active {
+  background: linear-gradient(100deg, rgba(201, 168, 76, .26), rgba(201, 168, 76, .08));
+  border-color: rgba(201, 168, 76, .42);
+  box-shadow: none;
+}
+
+/* ===================================================================
+   4. ПАНЕЛЬ НАД СЕТКОЙ
+
+   Слева — сколько товаров показано (и из скольких, если выборка сужена),
+   справа — кнопка поиска. Раньше кнопка стояла в пустой строке одна.
+   =================================================================== */
+.catalog-toolbar { align-items: center; gap: 12px; margin-bottom: 18px; }
+.catalog-count {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 0.8125rem; font-weight: 600; color: var(--muted);
+}
+
+/* ===================================================================
+   5. КАРТОЧКА ТОВАРА — ГЛАВНОЕ МЕСТО НА САЙТЕ
+
+   Покупатель решает по трём вещам: что это (снимок и название), можно ли
+   взять сейчас (наличие) и как это назвать в заказе (код). Карточка
+   построена ровно в этом порядке, и у всех карточек он одинаков —
+   поэтому взгляд не ищет заново на каждой.
+
+   Снимок вписан целиком, а не обрезан: у длинной детали обрезка по
+   центру показала бы середину вместо вещи. Поля вокруг заполняет
+   размытая копия того же снимка (css/site.css).
+   =================================================================== */
+.product-grid { grid-template-columns: repeat(auto-fill, minmax(252px, 1fr)); gap: 18px; }
+
+.product-card {
+  border-radius: var(--gs-r-lg);
+  border: 1px solid var(--gs-line);
+  background: var(--gs-glass);
+  box-shadow: var(--gs-drop), var(--gs-edge);
+  overflow: hidden;
+  transition: transform var(--gs-t-hover) var(--gs-e-out),
+              box-shadow var(--gs-t-hover) var(--gs-e-out),
+              border-color var(--gs-t-hover) var(--gs-e-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--gs-drop-hi), var(--gs-edge);
+    border-color: rgba(201, 168, 76, .45);
+  }
+}
+.product-card:active { transform: scale(.99); transition-duration: 90ms; }
+
+/* Снимок — вложенная плитка, а не край карточки: так видно, что это
+   изображение товара, а не фон блока. */
+.product-card-img {
+  margin: 10px 10px 0;
+  border-radius: var(--gs-r-md);
+  overflow: hidden;
+  background: rgba(28, 43, 74, .05);
+}
+html[data-site-theme="dark"] .product-card-img { background: rgba(255, 255, 255, .04); }
+
+/* Метки поверх снимка — только про рекламу: «Новинка» и «Хит».
+   Наличие ушло в тело карточки (см. ниже). */
+.product-badges { top: 8px; left: 8px; right: 8px; gap: 6px; }
+.product-badge {
+  border-radius: var(--gs-r-pill);
+  padding: 4px 10px;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0;
+  box-shadow: 0 4px 12px rgba(16, 24, 40, .18);
+}
+.product-badge.new-badge { background: var(--gold); color: #1f1a0c; }
+.product-badge.hit-badge { background: rgba(232, 129, 12, .95); color: #fff; }
+
+.product-card-body { padding: 12px 14px 14px; gap: 0; }
+/* Название — максимум две строки: иначе карточки в ряду разной высоты,
+   а длинное имя вытесняет наличие и кнопку за край. */
+.product-name {
+  font-size: 0.9375rem; font-weight: 650; line-height: 1.33;
+  margin-bottom: 3px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;      /* «HTD-5M-450-15» не должен рвать карточку */
+  /* Две строки под название всегда, даже если имя короткое: тогда
+     наличие и кнопка стоят на одной высоте во всех карточках ряда, и
+     глаз сравнивает товары, а не ищет, где что. */
+  min-height: calc(0.9375rem * 1.33 * 2);
+}
+.product-category { font-size: 0.75rem; color: var(--muted); margin-bottom: 9px; }
+
+/* ---- Код товара: его диктуют в заказе, поэтому он кнопка ---- */
+.product-sku {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 10px; font-size: 0.75rem;
+}
+.sku-copy {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px; cursor: pointer;
+  font-family: inherit; font-size: 0.75rem; font-weight: 700;
+  letter-spacing: .01em; color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--gs-r-pill);
+  background: rgba(255, 255, 255, .5);
+  transition: background var(--gs-t-hover), border-color var(--gs-t-hover),
+              color var(--gs-t-hover), transform var(--gs-t-micro) var(--gs-e-spring);
+}
+html[data-site-theme="dark"] .sku-copy { background: rgba(255, 255, 255, .06); }
+.sku-copy:hover { border-color: var(--gold); background: rgba(201, 168, 76, .14); }
+.sku-copy:active { transform: scale(.95); transition-duration: 90ms; }
+.sku-copy .sku-ic { opacity: .55; flex: none; }
+.sku-copy:hover .sku-ic { opacity: 1; }
+.sku-copy.скопировано {
+  border-color: var(--success); color: var(--success);
+  background: rgba(34, 197, 94, .12);
+}
+.sku-copy.скопировано .sku-ic { opacity: 1; }
+.sku-vendor { color: var(--muted); }
+
+/* ---- Наличие: одна строка, одно место на всех карточках ---- */
+.product-status {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.8125rem; font-weight: 600;
+  margin-bottom: 12px;
+}
+.product-status .status-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: currentColor;
+}
+.product-status.есть  { color: #15803d; }
+.product-status.скоро { color: #b45309; }
+.product-status.нет   { color: var(--muted); }
+html[data-site-theme="dark"] .product-status.есть  { color: #4ade80; }
+html[data-site-theme="dark"] .product-status.скоро { color: #fbbf24; }
+/* Точка «есть в наличии» с лёгким ореолом — единственное место, где он
+   уместен: это и есть ответ на главный вопрос покупателя. */
+.product-status.есть .status-dot { box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
+
+.product-card-footer { padding-top: 0; }
+.btn-add-cart {
+  border-radius: var(--gs-r-pill);
+  font-size: 0.8125rem; font-weight: 700;
+  transition: background var(--gs-t-hover), color var(--gs-t-hover),
+              border-color var(--gs-t-hover), transform var(--gs-t-hover) var(--gs-e-out);
+}
+.btn-add-cart:hover:not(:disabled) { transform: translateY(-1.5px); }
+.btn-add-cart:active:not(:disabled) { transform: scale(.96); transition-duration: 90ms; }
+.btn-add-cart.unavailable, .btn-add-cart.soon-btn { opacity: .75; }
+
+/* Карточка без снимка не должна выглядеть сломанной. */
+.product-card-img-placeholder {
+  background: repeating-linear-gradient(135deg,
+    rgba(28, 43, 74, .035) 0 10px, rgba(28, 43, 74, .07) 10px 20px);
+  color: var(--muted);
+}
+html[data-site-theme="dark"] .product-card-img-placeholder {
+  background: repeating-linear-gradient(135deg,
+    rgba(255, 255, 255, .03) 0 10px, rgba(255, 255, 255, .06) 10px 20px);
+}
+
+/* Скелетоны — той же формы, что и карточки, иначе при загрузке сетка «прыгает». */
+.skeleton-card {
+  border-radius: var(--gs-r-lg);
+  border: 1px solid var(--gs-line);
+  background: var(--gs-glass);
+  box-shadow: var(--gs-drop), var(--gs-edge);
+}
+.skeleton-img { margin: 10px 10px 0; border-radius: var(--gs-r-md); width: auto; }
+.skeleton-btn { border-radius: var(--gs-r-pill); }
+
+/* Пусто — это ответ программы, а не сбой отрисовки. */
+.s-empty {
+  border-radius: var(--gs-r-lg);
+  border: 1px solid var(--gs-line);
+  background: var(--gs-glass);
+  box-shadow: var(--gs-drop), var(--gs-edge);
+  padding: 46px 24px;
+}
+
+/* ===================================================================
+   6. КОРЗИНА И ОКНА
+   =================================================================== */
+.cart-drawer {
+  border-radius: var(--gs-r-lg) 0 0 var(--gs-r-lg);
+  border-left: 1px solid var(--gs-line);
+  background: var(--gs-glass);
+  backdrop-filter: var(--gs-blur); -webkit-backdrop-filter: var(--gs-blur);
+  box-shadow: -20px 0 60px rgba(28, 43, 74, .18), var(--gs-edge);
+}
+.cart-overlay { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+
+/* ===================================================================
+   7. ТЕЛЕФОН
+   =================================================================== */
+@media (max-width: 760px) {
+  .site-header { padding: 8px 10px 0; }
+  .site-header-inner { height: 54px; padding: 0 8px 0 12px; }
+  .feature-text { padding: 26px 20px; }
+  .product-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
+  .product-card { border-radius: var(--gs-r-md); }
+  .product-card-img { margin: 7px 7px 0; border-radius: var(--gs-r-sm); }
+  .product-card-body { padding: 10px 11px 12px; }
+  .product-name { font-size: 0.875rem; }
+  .product-status { font-size: 0.75rem; margin-bottom: 10px; }
+  .sku-copy { padding: 3px 8px; }
+  /* Длинный артикул поставщика на узкой карточке только мешает — код важнее. */
+  .sku-vendor { display: none; }
+}
+
+/* ===================================================================
    1. ПОИСК В КАТАЛОГЕ
    =================================================================== */
 .gm-search-cat { position: relative; display: flex; align-items: center; flex: 0 0 auto; }
@@ -68,7 +399,9 @@
    =================================================================== */
 .s-overlay { backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%); }
 .s-modal { border-radius: var(--gs-r-lg); overflow: hidden; }
-#mo-auth-modal .s-modal {
+/* Светлая тема задаётся явно: в тёмной у окна своё стекло (css/site.css),
+   и без этого ограничения два правила спорили бы за фон окна. */
+html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
   background: linear-gradient(152deg, rgba(255, 255, 255, .92), rgba(255, 255, 255, .82));
   border: 1px solid rgba(255, 255, 255, .9);
   box-shadow: 0 30px 70px rgba(16, 24, 40, .22), inset 0 1px 0 #fff;
