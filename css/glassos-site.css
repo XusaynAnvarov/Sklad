@@ -142,129 +142,70 @@ html[data-site-theme="dark"] {
 .site-main { max-width: none; padding: 24px 22px 60px; }
 
 /* ---- ШАПКА СОБИРАЕТСЯ ПРИ ПРОКРУТКЕ ВНИЗ ----
-   Класс «собрана» ставит js/site/app.js. Порядок ухода задан задержками,
-   и он обратный порядку чтения: сначала уходит то, что дальше всего от
-   знака (вход, язык, тема), потом «Заказ», потом разделы, последней —
-   подпись GENERAL MODERN. Остаётся знак в левом верхнем углу.
 
-   Разворот идёт в обратном порядке сам: при снятии класса каждый
-   элемент берёт СВОЮ задержку из обычного состояния, где они
-   расставлены зеркально. Поэтому шапка не «вспыхивает» целиком. */
-.site-header-inner {
-  transition: max-width .42s var(--gs-e-out),
-              padding .42s var(--gs-e-out),
-              background .3s, border-color .3s;
-}
-.site-nav,
-.site-header-right,
-.site-logo-text {
-  transition: max-width .34s var(--gs-e-out),
-              opacity .26s var(--gs-e-out),
-              margin .34s var(--gs-e-out),
-              transform .3s var(--gs-e-out);
-  white-space: nowrap;
-}
-/* ---- ЛЕСЕНКА УХОДА ----
+   ПОЧЕМУ ЗДЕСЬ НЕТ НИ ОДНОЙ АНИМАЦИИ ШИРИНЫ.
 
-   ВАЖНО, ГДЕ СЧИТАТЬ ПОРЯДОК. Кнопки шапки лежат не в
-   «.site-header-right», а внутри «.site-menu»: справа налево это
-   «Вход», язык, тема, Telegram. Задержки, расставленные уровнем выше,
-   доставались всего двум узлам — и все кнопки гасли разом, отчего
-   шапка будто мгновенно пропадала. Считаем по «.site-menu > *».
+   Сначала кнопки уезжали через max-width: своя ширина → 0. Это было
+   неверно сразу по двум причинам.
 
-   Каждая кнопка не просто гаснет, а СЖИМАЕТСЯ по ширине (max-width),
-   поэтому соседи подтягиваются следом и полоса на глазах подбирается
-   справа налево. Шаг 95 мс — его видно, но ждать не приходится. */
-/* ---- ВОЗВРАЩЕНИЕ: кнопки выходят из-под знака слева ----
-   Ширина растёт от нуля, и одновременно кнопка подъезжает справа на
-   своё место из-под знака. Кривая «быстро начать, мягко встать»: кнопка
-   появляется сразу, а не выплывает. */
-/* «.site-header» в начале обязателен. Без него правило весит столько же,
-   сколько «.btn-primary» ниже по файлу, и у кнопок «Войти» и «Заказать»
-   побеждал ТОТ переход — короткий и совсем про другое (наведение). На
-   уходе это не было видно (там своё правило весит больше), а на
-   возвращении обе кнопки вставали на место рывком. */
-.site-header .site-menu > *,
-.site-header .site-header-right > * {
-  /* --ш ставит js/site/app.js — это измеренная ширина самой кнопки.
-     Запасные 160px нужны только на первый кадр, пока замер не прошёл. */
-  max-width: var(--ш, 160px); overflow: hidden;
+     • Ширина — свойство раскладки. Браузер на КАЖДЫЙ кадр пересчитывал
+       всю прилипшую шапку, а заодно и размытие за ней. Отсюда рывки.
+
+     • При overflow:hidden уменьшение ширины не двигает содержимое, а
+       ОТРЕЗАЕТ его справа. Значок остаётся на месте и состругивается —
+       ровно то, что видно как «иконка исчезает на месте».
+
+   Теперь двигается только transform и гаснет opacity. Оба свойства
+   считает видеокарта, раскладку они не трогают: ни пересчёта шапки, ни
+   пересчёта размытия.
+
+   Движение: вся правая группа едет влево к знаку на расстояние --путь
+   (его меряет js/site/app.js), и пока она едет, кнопки отцепляются по
+   одной, начиная с крайней правой. Место под ними остаётся занятым, но
+   на экране его не видно — стекло полосы к тому моменту растворилось, и
+   от шапки остаётся только таблетка со знаком.
+*/
+.site-header .site-nav,
+.site-header .site-header-right {
   transform: none; opacity: 1;
-  transition: max-width .34s var(--gs-e-out),
-              opacity .26s var(--gs-e-out),
-              margin .34s var(--gs-e-out),
-              padding .34s var(--gs-e-out),
-              transform .34s var(--gs-e-out);
+  transition: transform .52s var(--gs-e-out), opacity .3s var(--gs-e-out);
 }
-/* ---- УХОД: кнопка уезжает ВЛЕВО, под знак, и там гаснет ----
+/* will-change только у двух крупных движущихся слоёв: вешать его на
+   каждую кнопку дороже, чем полезнее. */
+.site-header .site-header-right { will-change: transform; }
 
-   Две вещи, из-за которых кнопки «пропадали сразу».
+.site-header .site-menu > *,
+.site-header .site-header-right > *:not(.site-menu) {
+  transform: none; opacity: 1;
+  transition: transform .4s var(--gs-e-out), opacity .3s var(--gs-e-out);
+}
 
-   1. Прозрачность шла по той же кривой, что и ширина, — «быстро начать,
-      мягко встать». Для ширины это верно, а для прозрачности означает,
-      что кнопка выцветает почти полностью за первые сто миллисекунд:
-      дальше сжимается уже пустое место. Здесь у прозрачности своя
-      кривая, зеркальная: кнопка держит цвет, пока едет, и гаснет в
-      самом конце.
-
-   2. Кнопка никуда не двигалась — только уменьшалась на месте. Теперь
-      она уезжает влево, к знаку: уход и возвращение читаются как одно
-      движение в разные стороны. */
-.site-header.собрана .site-menu > *,
-.site-header.собрана .site-header-right > * {
-  max-width: 0; opacity: 0;
-  margin-left: 0; margin-right: 0;
-  padding-left: 0; padding-right: 0;
-  transform: translateX(-34px) scale(.92);
+/* ---- УХОД ----
+   Группа целиком уезжает к знаку, кнопки гаснут по одной справа налево. */
+.site-header.собрана .site-header-right {
+  transform: translateX(calc(-1 * var(--путь, 140px)));
   pointer-events: none;
-  transition: max-width .34s var(--gs-e-out),
-              opacity .3s cubic-bezier(.6, 0, .9, .35),
-              margin .34s var(--gs-e-out),
-              padding .34s var(--gs-e-out),
-              transform .34s var(--gs-e-out);
 }
-/* Первой уходит кнопка входа — она крайняя справа. */
-.site-header.собрана .site-menu > *:nth-last-child(1) { transition-delay: 0ms; }
-.site-header.собрана .site-menu > *:nth-last-child(2) { transition-delay: 80ms; }
-.site-header.собрана .site-menu > *:nth-last-child(3) { transition-delay: 160ms; }
-.site-header.собрана .site-menu > *:nth-last-child(4) { transition-delay: 240ms; }
-.site-header.собрана .site-menu > *:nth-last-child(n+5) { transition-delay: 320ms; }
-/* Промежутки между кнопками тоже надо убрать — иначе от схлопнутых
-   кнопок остаётся пустая полоса из одних зазоров. */
-.site-header.собрана .site-menu { gap: 0; transition: gap .3s var(--gs-e-out) 320ms; }
-
-/* Следом — «Заказать», он левее всего набора. */
-.site-header.собрана .site-header-right > *:nth-last-child(1) { transition-delay: 320ms; }
-.site-header.собрана .site-header-right > *:nth-last-child(2) { transition-delay: 400ms; }
-.site-header.собрана .site-header-right { gap: 0; transition: gap .3s var(--gs-e-out) 400ms; }
-
-/* ---- ГЛАВНОЕ ДВИЖЕНИЕ: ГРУППА ЕДЕТ ВЛЕВО К ЗНАКУ ----
-
-   «Каталог» занимает всю ширину между знаком и кнопками (у .site-nav
-   стоит flex:1). Значит, когда он схлопывается, кнопкам становится
-   некуда упираться справа — и вся правая группа САМА едет влево, к
-   знаку. Это не трюк с transform, это настоящее движение раскладки,
-   поэтому и выглядит как сбор в одно целое.
-
-   Раньше разделы уходили ПОСЛЕДНИМИ, на 480 мс. Группа успевала к
-   этому моменту погаснуть, и переезд происходил уже с пустым местом —
-   на экране это читалось как «всё просто затухло». Теперь разделы
-   схлопываются ПЕРВЫМИ и неторопливо (полсекунды): кнопки отцепляются
-   по одной, пока группа едет к знаку, и последняя исчезает ровно
-   тогда, когда группа до него доезжает. */
+/* Разделы стоят на пути группы, поэтому гаснут первыми и быстрее —
+   иначе группа проехала бы прямо сквозь слово «Каталог». */
 .site-header.собрана .site-nav {
-  max-width: 0; opacity: 0; overflow: hidden; transform: translateX(-10px);
-  transition: max-width .5s var(--gs-e-out) 0ms,
-              opacity .28s var(--gs-e-out) 0ms,
-              transform .5s var(--gs-e-out) 0ms;
+  opacity: 0; transform: translateX(-28px);
+  transition: transform .42s var(--gs-e-out), opacity .2s var(--gs-e-out);
+  pointer-events: none;
 }
-/* Возврат: «Каталог» раздвигается вместе с появлением кнопок, и группа
-   плавно уезжает обратно вправо. */
-.site-header .site-nav {
-  transition: max-width .5s var(--gs-e-out) 40ms,
-              opacity .3s var(--gs-e-out) 120ms,
-              transform .5s var(--gs-e-out) 40ms;
+.site-header.собрана .site-menu > *,
+.site-header.собрана .site-header-right > *:not(.site-menu) {
+  opacity: 0; transform: translateX(-28px) scale(.86);
+  pointer-events: none;
 }
+/* Первой отцепляется кнопка входа — она крайняя справа. */
+.site-header.собрана .site-menu > *:nth-last-child(1) { transition-delay: 0ms; }
+.site-header.собрана .site-menu > *:nth-last-child(2) { transition-delay: 70ms; }
+.site-header.собрана .site-menu > *:nth-last-child(3) { transition-delay: 140ms; }
+.site-header.собрана .site-menu > *:nth-last-child(4) { transition-delay: 210ms; }
+.site-header.собрана .site-menu > *:nth-last-child(n+5) { transition-delay: 260ms; }
+.site-header.собрана .site-header-right > *:not(.site-menu) { transition-delay: 280ms; }
+
 /* Название остаётся. Раньше оно схлопывалось вместе со всем остальным,
    и от шапки оставался безымянный кружок — её как будто просто не
    стало. Со знаком и подписью видно, что шапка подобралась, а не
@@ -346,29 +287,26 @@ html[data-site-theme="dark"] {
 .site-header.собрана .site-logo svg { transition: transform var(--gs-t-micro) var(--gs-e-spring); }
 .site-header.собрана .site-logo:hover svg { transform: scale(1.1); }
 
-/* ---- разворот: зеркальные задержки ----
-   Эти задержки действуют, когда класс СНЯТ, то есть при возвращении.
-   Порядок обратный: сначала стекло отпускает знак и возвращается на
-   полосу, за ним разделы, «Заказать», и только потом кнопки — слева
-   направо, так что «Вход» приходит последним. Шаг чуть короче, чем при
+/* ---- ВОЗВРАЩЕНИЕ: зеркальные задержки ----
+   Действуют, когда класс СНЯТ. Порядок обратный: стекло отпускает знак,
+   группа едет обратно вправо, и кнопки проявляются одна за другой —
+   слева направо, так что «Вход» приходит последним. Шаг короче, чем при
    уходе: человек потянул вверх, значит кнопки ему уже нужны. */
 .site-header .site-logo,
 .site-header .site-header-inner { transition-delay: 0ms; }
-.site-header .site-nav { transition-delay: 50ms; }
-.site-header .site-header-right { transition: gap .3s var(--gs-e-out) 100ms; }
-.site-header .site-header-right > *:nth-child(1) { transition-delay: 100ms; }
-.site-header .site-header-right > *:nth-child(2) { transition-delay: 150ms; }
-.site-header .site-menu { transition: gap .3s var(--gs-e-out) 150ms; }
-.site-header .site-menu > *:nth-child(1) { transition-delay: 150ms; }
-.site-header .site-menu > *:nth-child(2) { transition-delay: 205ms; }
-.site-header .site-menu > *:nth-child(3) { transition-delay: 260ms; }
-.site-header .site-menu > *:nth-child(4) { transition-delay: 315ms; }
-.site-header .site-menu > *:nth-child(n+5) { transition-delay: 370ms; }
+.site-header .site-nav { transition-delay: 60ms; }
+.site-header .site-header-right > *:not(.site-menu) { transition-delay: 120ms; }
+.site-header .site-menu > *:nth-child(1) { transition-delay: 160ms; }
+.site-header .site-menu > *:nth-child(2) { transition-delay: 215ms; }
+.site-header .site-menu > *:nth-child(3) { transition-delay: 270ms; }
+.site-header .site-menu > *:nth-child(4) { transition-delay: 325ms; }
+.site-header .site-menu > *:nth-child(n+5) { transition-delay: 380ms; }
 
 /* Кому нужно меньше движения — шапка просто меняет размер без лесенки. */
 @media (prefers-reduced-motion: reduce) {
   .site-header-inner, .site-nav, .site-header-right,
-  .site-header-right > *, .site-logo-text {
+  .site-header-right > *, .site-menu > *, .site-logo, .site-logo-text,
+  .site-header-inner::before, .site-logo::before {
     transition-duration: 1ms !important; transition-delay: 0ms !important;
   }
 }
