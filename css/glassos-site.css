@@ -105,8 +105,13 @@ html[data-site-theme="dark"] {
   border: 1px solid var(--gs-line);
   border-radius: var(--gs-r-pill);
   background: var(--gs-glass);
-  backdrop-filter: var(--gs-blur);
-  -webkit-backdrop-filter: var(--gs-blur);
+  /* Размытие у шапки слабее, чем у остальных поверхностей: она
+     прилипшая и во всю ширину, и на КАЖДЫЙ кадр прокрутки пересчитывает
+     размытие всей страницы за собой. На blur(20px)+saturate это
+     подтормаживало именно при прокрутке вверх, когда шапка ещё и
+     разворачивается. 12px на глаз не отличить, стоит вдвое дешевле. */
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
   box-shadow: var(--gs-drop), var(--gs-edge);
 }
 .site-nav-link { border-radius: var(--gs-r-pill); }
@@ -150,12 +155,14 @@ html[data-site-theme="dark"] {
    справа налево. Шаг 95 мс — его видно, но ждать не приходится. */
 .site-menu > *,
 .site-header-right > * {
-  max-width: 260px; overflow: hidden;
-  transition: max-width .34s var(--gs-e-out),
-              opacity .2s var(--gs-e-out),
-              margin .34s var(--gs-e-out),
-              padding .34s var(--gs-e-out),
-              transform .26s var(--gs-e-out);
+  /* --ш ставит js/site/app.js — это измеренная ширина самой кнопки.
+     Запасные 160px нужны только на первый кадр, пока замер не прошёл. */
+  max-width: var(--ш, 160px); overflow: hidden;
+  transition: max-width .3s var(--gs-e-out),
+              opacity .18s var(--gs-e-out),
+              margin .3s var(--gs-e-out),
+              padding .3s var(--gs-e-out),
+              transform .24s var(--gs-e-out);
 }
 .site-header.собрана .site-menu > *,
 .site-header.собрана .site-header-right > * {
@@ -167,23 +174,23 @@ html[data-site-theme="dark"] {
 }
 /* Первой уходит кнопка входа — она крайняя справа. */
 .site-header.собрана .site-menu > *:nth-last-child(1) { transition-delay: 0ms; }
-.site-header.собрана .site-menu > *:nth-last-child(2) { transition-delay: 95ms; }
-.site-header.собрана .site-menu > *:nth-last-child(3) { transition-delay: 190ms; }
-.site-header.собрана .site-menu > *:nth-last-child(4) { transition-delay: 285ms; }
-.site-header.собрана .site-menu > *:nth-last-child(n+5) { transition-delay: 380ms; }
+.site-header.собрана .site-menu > *:nth-last-child(2) { transition-delay: 80ms; }
+.site-header.собрана .site-menu > *:nth-last-child(3) { transition-delay: 160ms; }
+.site-header.собрана .site-menu > *:nth-last-child(4) { transition-delay: 240ms; }
+.site-header.собрана .site-menu > *:nth-last-child(n+5) { transition-delay: 320ms; }
 /* Промежутки между кнопками тоже надо убрать — иначе от схлопнутых
    кнопок остаётся пустая полоса из одних зазоров. */
-.site-header.собрана .site-menu { gap: 0; transition: gap .34s var(--gs-e-out) 380ms; }
+.site-header.собрана .site-menu { gap: 0; transition: gap .3s var(--gs-e-out) 320ms; }
 
 /* Следом — «Заказать», он левее всего набора. */
-.site-header.собрана .site-header-right > *:nth-last-child(1) { transition-delay: 380ms; }
-.site-header.собрана .site-header-right > *:nth-last-child(2) { transition-delay: 475ms; }
-.site-header.собрана .site-header-right { gap: 0; transition: gap .34s var(--gs-e-out) 475ms; }
+.site-header.собрана .site-header-right > *:nth-last-child(1) { transition-delay: 320ms; }
+.site-header.собрана .site-header-right > *:nth-last-child(2) { transition-delay: 400ms; }
+.site-header.собрана .site-header-right { gap: 0; transition: gap .3s var(--gs-e-out) 400ms; }
 
 /* Потом разделы. */
 .site-header.собрана .site-nav {
   max-width: 0; opacity: 0; overflow: hidden; transform: translateX(-6px);
-  transition-delay: 570ms;
+  transition-delay: 480ms;
 }
 /* Название остаётся. Раньше оно схлопывалось вместе со всем остальным,
    и от шапки оставался безымянный кружок — её как будто просто не
@@ -203,7 +210,7 @@ html[data-site-theme="dark"] {
   backdrop-filter: none; -webkit-backdrop-filter: none;
   padding-left: 8px; padding-right: 8px;
   justify-content: flex-start;
-  transition-delay: 660ms;
+  transition-delay: 560ms;
 }
 .site-logo {
   border: 1px solid transparent;
@@ -225,7 +232,7 @@ html[data-site-theme="dark"] {
   background: var(--gs-glass);
   backdrop-filter: var(--gs-blur); -webkit-backdrop-filter: var(--gs-blur);
   box-shadow: var(--gs-drop), var(--gs-edge);
-  transition-delay: 660ms;
+  transition-delay: 560ms;
 }
 .site-header.собрана .site-logo svg { width: 30px; height: 30px; }
 .site-header.собрана .site-logo-text { font-size: 0.9375rem; }
@@ -240,16 +247,16 @@ html[data-site-theme="dark"] {
    уходе: человек потянул вверх, значит кнопки ему уже нужны. */
 .site-header .site-logo,
 .site-header .site-header-inner { transition-delay: 0ms; }
-.site-header .site-nav { transition-delay: 90ms; }
-.site-header .site-header-right { transition: gap .34s var(--gs-e-out) 170ms; }
-.site-header .site-header-right > *:nth-child(1) { transition-delay: 170ms; }
-.site-header .site-header-right > *:nth-child(2) { transition-delay: 240ms; }
-.site-header .site-menu { transition: gap .34s var(--gs-e-out) 240ms; }
-.site-header .site-menu > *:nth-child(1) { transition-delay: 240ms; }
-.site-header .site-menu > *:nth-child(2) { transition-delay: 310ms; }
-.site-header .site-menu > *:nth-child(3) { transition-delay: 380ms; }
-.site-header .site-menu > *:nth-child(4) { transition-delay: 450ms; }
-.site-header .site-menu > *:nth-child(n+5) { transition-delay: 520ms; }
+.site-header .site-nav { transition-delay: 50ms; }
+.site-header .site-header-right { transition: gap .3s var(--gs-e-out) 100ms; }
+.site-header .site-header-right > *:nth-child(1) { transition-delay: 100ms; }
+.site-header .site-header-right > *:nth-child(2) { transition-delay: 150ms; }
+.site-header .site-menu { transition: gap .3s var(--gs-e-out) 150ms; }
+.site-header .site-menu > *:nth-child(1) { transition-delay: 150ms; }
+.site-header .site-menu > *:nth-child(2) { transition-delay: 205ms; }
+.site-header .site-menu > *:nth-child(3) { transition-delay: 260ms; }
+.site-header .site-menu > *:nth-child(4) { transition-delay: 315ms; }
+.site-header .site-menu > *:nth-child(n+5) { transition-delay: 370ms; }
 
 /* Кому нужно меньше движения — шапка просто меняет размер без лесенки. */
 @media (prefers-reduced-motion: reduce) {
