@@ -215,7 +215,7 @@ html[data-site-theme="dark"] {
   max-width: 0; opacity: 0;
   margin-left: 0; margin-right: 0;
   padding-left: 0; padding-right: 0;
-  transform: translateX(-18px) scale(.94);
+  transform: translateX(-34px) scale(.92);
   pointer-events: none;
   transition: max-width .34s var(--gs-e-out),
               opacity .3s cubic-bezier(.6, 0, .9, .35),
@@ -238,10 +238,32 @@ html[data-site-theme="dark"] {
 .site-header.собрана .site-header-right > *:nth-last-child(2) { transition-delay: 400ms; }
 .site-header.собрана .site-header-right { gap: 0; transition: gap .3s var(--gs-e-out) 400ms; }
 
-/* Потом разделы. */
+/* ---- ГЛАВНОЕ ДВИЖЕНИЕ: ГРУППА ЕДЕТ ВЛЕВО К ЗНАКУ ----
+
+   «Каталог» занимает всю ширину между знаком и кнопками (у .site-nav
+   стоит flex:1). Значит, когда он схлопывается, кнопкам становится
+   некуда упираться справа — и вся правая группа САМА едет влево, к
+   знаку. Это не трюк с transform, это настоящее движение раскладки,
+   поэтому и выглядит как сбор в одно целое.
+
+   Раньше разделы уходили ПОСЛЕДНИМИ, на 480 мс. Группа успевала к
+   этому моменту погаснуть, и переезд происходил уже с пустым местом —
+   на экране это читалось как «всё просто затухло». Теперь разделы
+   схлопываются ПЕРВЫМИ и неторопливо (полсекунды): кнопки отцепляются
+   по одной, пока группа едет к знаку, и последняя исчезает ровно
+   тогда, когда группа до него доезжает. */
 .site-header.собрана .site-nav {
-  max-width: 0; opacity: 0; overflow: hidden; transform: translateX(-6px);
-  transition-delay: 480ms;
+  max-width: 0; opacity: 0; overflow: hidden; transform: translateX(-10px);
+  transition: max-width .5s var(--gs-e-out) 0ms,
+              opacity .28s var(--gs-e-out) 0ms,
+              transform .5s var(--gs-e-out) 0ms;
+}
+/* Возврат: «Каталог» раздвигается вместе с появлением кнопок, и группа
+   плавно уезжает обратно вправо. */
+.site-header .site-nav {
+  transition: max-width .5s var(--gs-e-out) 40ms,
+              opacity .3s var(--gs-e-out) 120ms,
+              transform .5s var(--gs-e-out) 40ms;
 }
 /* Название остаётся. Раньше оно схлопывалось вместе со всем остальным,
    и от шапки оставался безымянный кружок — её как будто просто не
@@ -257,17 +279,19 @@ html[data-site-theme="dark"] {
    знак: его левый край совпадает с левым краем содержимого (.site-main
    с тем же max-width 1200 и отступом 20 px). */
 .site-header.собрана .site-header-inner {
-  padding-left: 8px; padding-right: 8px;
+  /* --кол-отступ меряет js/site/app.js: столько же, сколько у колонки
+     категорий под шапкой, чтобы левые края стояли по одной линии. */
+  padding-left: var(--кол-отступ, 8px); padding-right: 8px;
   justify-content: flex-start;
-  transition-delay: 480ms;
+  transition-delay: 420ms;
 }
 /* Стекло полосы гаснет последним — когда кнопки уже уехали. */
 .site-header.собрана .site-header-inner::before {
   opacity: 0;
   backdrop-filter: none; -webkit-backdrop-filter: none;
-  transition: opacity .34s var(--gs-e-out) 480ms,
-              backdrop-filter 0s linear 820ms,
-              -webkit-backdrop-filter 0s linear 820ms;
+  transition: opacity .34s var(--gs-e-out) 420ms,
+              backdrop-filter 0s linear 760ms,
+              -webkit-backdrop-filter 0s linear 760ms;
 }
 
 /* ---- СТЕКЛО ЗНАКА ----
@@ -296,18 +320,26 @@ html[data-site-theme="dark"] {
               backdrop-filter 0s linear .34s,
               -webkit-backdrop-filter 0s linear .34s;
 }
+/* Собранный знак — ровно той же ширины, что колонка категорий под ним
+   (--кол меряет js/site/app.js). Две плитки одна под другой должны
+   стоять по одной линии и слева, и справа, иначе выглядят как случайно
+   разные. Где колонки нет (другие разделы), знак берёт свою ширину. */
 .site-header.собрана .site-logo {
   height: 46px; padding: 0 16px 0 9px;
+  width: var(--кол, auto);
+  min-width: max-content;        /* подпись не обрезаем, даже если колонка узкая */
   flex: 0 0 auto; cursor: pointer;
-  transition-delay: 480ms;
+  transition: padding .38s var(--gs-e-out) 420ms,
+              height .38s var(--gs-e-out) 420ms,
+              width .38s var(--gs-e-out) 420ms;
 }
 .site-header.собрана .site-logo::before {
   opacity: 1;
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
-  transition: opacity .34s var(--gs-e-out) 480ms,
-              backdrop-filter 0s linear 480ms,
-              -webkit-backdrop-filter 0s linear 480ms;
+  transition: opacity .34s var(--gs-e-out) 420ms,
+              backdrop-filter 0s linear 420ms,
+              -webkit-backdrop-filter 0s linear 420ms;
 }
 .site-header.собрана .site-logo svg { width: 30px; height: 30px; }
 .site-header.собрана .site-logo-text { font-size: 0.9375rem; }

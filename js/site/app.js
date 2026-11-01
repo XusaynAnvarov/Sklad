@@ -562,7 +562,31 @@ function собиратьШапкуПриПрокрутке(header, logo) {
 //  идёт ровно, от края до края перехода.
 // ========================================================================
 function запомнитьШирины(header) {
+  // Ширина колонки категорий. Собранная шапка встаёт ровно над ней,
+  // поэтому и по ширине должна совпадать — иначе две плитки, стоящие
+  // одна под другой, выглядят как случайно разные.
+  const меритьКолонку = () => {
+    if (!document.body.contains(header)) return;
+    const колонка = document.querySelector(".cat-rail");
+    const полоса = header.querySelector(".site-header-inner");
+    if (колонка && полоса) {
+      const к = колонка.getBoundingClientRect();
+      const п = полоса.getBoundingClientRect();
+      if (к.width > 0) {
+        header.style.setProperty("--кол", Math.round(к.width) + "px");
+        // И левый край: у колонки свои отступы внутри раскладки, и на
+        // глаз расхождение даже в три пиксела читается как «съехало».
+        header.style.setProperty("--кол-отступ", Math.max(0, Math.round(к.left - п.left)) + "px");
+      }
+    } else {
+      // На других страницах колонки нет — знак берёт свою ширину.
+      header.style.removeProperty("--кол");
+      header.style.removeProperty("--кол-отступ");
+    }
+  };
+
   const мерить = () => {
+    меритьКолонку();
     if (!document.body.contains(header)) return;
     if (header.classList.contains("собрана")) return;   // собранную мерить нечего
     const узлы = [...header.querySelectorAll(".site-menu > *, .site-header-right > *, .site-nav")];
@@ -583,6 +607,10 @@ function запомнитьШирины(header) {
   // Ширина кнопок зависит от языка («Войти» / «Kirish» / «Log in»).
   window.addEventListener("resize", мерить, { passive: true });
   window.addEventListener("hashchange", () => setTimeout(мерить, 50));
+  // Колонка категорий появляется ПОСЛЕ загрузки каталога — до неё
+  // мерить нечего. Поэтому ещё пара замеров вдогонку.
+  setTimeout(меритьКолонку, 400);
+  setTimeout(меритьКолонку, 1500);
 }
 
 // ---- Router ----
