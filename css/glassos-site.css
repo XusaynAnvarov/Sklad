@@ -78,6 +78,14 @@ html[data-site-theme="dark"] {
   border-bottom: none;
   box-shadow: none;
   padding: 10px 14px 0;
+  /* Шапка снова прилипает к верху. В css/site.css она объявлена
+     sticky, но ниже по файлу идёт правило «.site-header, #site-app {
+     position: relative }» — оно побеждало, и при прокрутке шапка
+     уезжала вверх совсем. Без прилипания собирать её в знак не имело
+     бы смысла: собираться было бы нечему. */
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 .site-header::after { content: none; }   /* растушёвка из site.css больше не нужна */
 .site-header-inner {
@@ -91,6 +99,89 @@ html[data-site-theme="dark"] {
   box-shadow: var(--gs-drop), var(--gs-edge);
 }
 .site-nav-link { border-radius: var(--gs-r-pill); }
+
+/* ---- ШАПКА СОБИРАЕТСЯ ПРИ ПРОКРУТКЕ ВНИЗ ----
+   Класс «собрана» ставит js/site/app.js. Порядок ухода задан задержками,
+   и он обратный порядку чтения: сначала уходит то, что дальше всего от
+   знака (вход, язык, тема), потом «Заказ», потом разделы, последней —
+   подпись GENERAL MODERN. Остаётся знак в левом верхнем углу.
+
+   Разворот идёт в обратном порядке сам: при снятии класса каждый
+   элемент берёт СВОЮ задержку из обычного состояния, где они
+   расставлены зеркально. Поэтому шапка не «вспыхивает» целиком. */
+.site-header-inner {
+  transition: max-width .42s var(--gs-e-out),
+              padding .42s var(--gs-e-out),
+              background .3s, border-color .3s;
+}
+.site-nav,
+.site-header-right,
+.site-logo-text {
+  transition: max-width .34s var(--gs-e-out),
+              opacity .26s var(--gs-e-out),
+              margin .34s var(--gs-e-out),
+              transform .3s var(--gs-e-out);
+  white-space: nowrap;
+}
+.site-header-right > * {
+  transition: opacity .24s var(--gs-e-out), transform .28s var(--gs-e-out);
+}
+
+/* ---- собрано ---- */
+/* Сначала гаснут кнопки справа — по одной, начиная с самой дальней. */
+.site-header.собрана .site-header-right > * {
+  opacity: 0; transform: translateX(12px) scale(.88); pointer-events: none;
+}
+.site-header.собрана .site-header-right > *:nth-last-child(1) { transition-delay: 0ms; }
+.site-header.собрана .site-header-right > *:nth-last-child(2) { transition-delay: 45ms; }
+.site-header.собрана .site-header-right > *:nth-last-child(3) { transition-delay: 90ms; }
+.site-header.собрана .site-header-right > *:nth-last-child(4) { transition-delay: 135ms; }
+.site-header.собрана .site-header-right > *:nth-last-child(n+5) { transition-delay: 170ms; }
+
+/* Когда погасли — их полоса схлопывается, чтобы освободить ширину. */
+.site-header.собрана .site-header-right {
+  max-width: 0; opacity: 0; margin-left: 0; overflow: hidden;
+  transition-delay: 200ms;
+}
+.site-header.собрана .site-nav {
+  max-width: 0; opacity: 0; overflow: hidden; transform: translateX(-6px);
+  transition-delay: 250ms;
+}
+.site-header.собрана .site-logo-text {
+  max-width: 0; opacity: 0; overflow: hidden; transform: translateX(-8px);
+  transition-delay: 300ms;
+}
+/* Последней подбирается сама стеклянная полоса — вокруг одного знака. */
+.site-header.собрана .site-header-inner {
+  max-width: 62px;
+  padding: 0; margin-left: 0; margin-right: auto;
+  justify-content: center;
+  transition-delay: 330ms;
+}
+.site-header.собрана .site-logo { cursor: pointer; }
+.site-header.собрана .site-logo svg { transition: transform var(--gs-t-micro) var(--gs-e-spring); }
+.site-header.собрана .site-logo:hover svg { transform: scale(1.1); }
+
+/* ---- разворот: зеркальные задержки ---- */
+/* Эти задержки действуют, когда класс СНЯТ, то есть при возвращении:
+   первой приходит подпись, за ней разделы, последними — кнопки. */
+.site-header .site-logo-text { transition-delay: 0ms; }
+.site-header .site-nav { transition-delay: 60ms; }
+.site-header .site-header-right { transition-delay: 110ms; }
+.site-header .site-header-right > *:nth-child(1) { transition-delay: 150ms; }
+.site-header .site-header-right > *:nth-child(2) { transition-delay: 185ms; }
+.site-header .site-header-right > *:nth-child(3) { transition-delay: 220ms; }
+.site-header .site-header-right > *:nth-child(4) { transition-delay: 255ms; }
+.site-header .site-header-right > *:nth-child(n+5) { transition-delay: 285ms; }
+.site-header .site-header-inner { transition-delay: 0ms; }
+
+/* Кому нужно меньше движения — шапка просто меняет размер без лесенки. */
+@media (prefers-reduced-motion: reduce) {
+  .site-header-inner, .site-nav, .site-header-right,
+  .site-header-right > *, .site-logo-text {
+    transition-duration: 1ms !important; transition-delay: 0ms !important;
+  }
+}
 .site-nav-link.active { background: rgba(201, 168, 76, .18); color: var(--text); }
 html[data-site-theme="dark"] .site-nav-link.active { background: rgba(217, 180, 90, .20); }
 .site-tg-link, .cart-btn, .site-lang-btn, .site-theme-btn {
@@ -343,6 +434,23 @@ html[data-site-theme="dark"] .product-card-img-placeholder {
 @media (max-width: 760px) {
   .site-header { padding: 8px 10px 0; }
   .site-header-inner { height: 54px; padding: 0 8px 0 12px; }
+  /* На телефоне в собранной шапке остаётся не только знак, но и кнопка
+     меню: это единственный путь к разделам, и прятать её — значит
+     запереть человека на странице до тех пор, пока он не додумается
+     потянуть вверх. Поэтому таблетка чуть шире. */
+  .site-header.собрана .site-header-inner {
+    max-width: 108px; padding: 0 8px; justify-content: flex-start;
+    gap: 4px; flex-wrap: nowrap; overflow: hidden;
+  }
+  /* В собранной шапке у кнопки меню остаются только три полоски:
+     подпись «Меню» и стрелка занимают 60 px, из-за них знак не
+     помещался в таблетку и переносился под неё. */
+  .site-header.собрана .site-burger {
+    flex: 0 0 auto; padding: 0; width: 34px; justify-content: center;
+  }
+  .site-header.собрана .site-burger span,
+  .site-header.собрана .site-burger-arrow { display: none; }
+  .site-header.собрана .site-logo { flex: 0 0 auto; }
   .feature-text { padding: 26px 20px; }
   .product-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
   .product-card { border-radius: var(--gs-r-md); }
