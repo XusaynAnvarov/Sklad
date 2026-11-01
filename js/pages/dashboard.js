@@ -1,19 +1,19 @@
 // ========================================================================
 //  ДАШБОРД — мультивалютные итоги: продажи, себестоимость, приход, остаток
 // ========================================================================
-import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20261030n";
-import { fmt, convert, toUSD, CUR } from "../fx.js?v=20261030n";
-import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20261030n";
-import { картаДороги, вДороге, едетВместоНет, подписьДороги } from "../transit.js?v=20261030n";
-import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20261030n";
-import { sparkline } from "../charts.js?v=20261030n";
-import { debtByCur, onlyPositive } from "../debt.js?v=20261030n";
-import { icon } from "../icons.js?v=20261030n";
-import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261030n";
-import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20261030n";
-import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20261030n";
-import { buildAdvice } from "../advice.js?v=20261030n";
-import { thumb } from "../img.js?v=20261030n";
+import { el, animateCount, modal, input, toast, confirmDialog, select } from "../ui.js?v=20261101a";
+import { fmt, convert, toUSD, CUR } from "../fx.js?v=20261101a";
+import { statusOf, placeholder, openForm as openProductForm } from "./products.js?v=20261101a";
+import { картаДороги, вДороге, едетВместоНет, подписьДороги } from "../transit.js?v=20261101a";
+import { ensureBatches, sumQty, costOutlook } from "../inventory.js?v=20261101a";
+import { sparkline } from "../charts.js?v=20261101a";
+import { debtByCur, onlyPositive } from "../debt.js?v=20261101a";
+import { icon } from "../icons.js?v=20261101a";
+import { openStockFix, unappliedSales } from "./stock_fix.js?v=20261101a";
+import { matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthLabel } from "../period.js?v=20261101a";
+import { loadRules, saveRules, aggregate, itemRevenueUSD, itemProfitUSD, itemRealProfitUSD, ruleGroups } from "../profit.js?v=20261101a";
+import { buildAdvice } from "../advice.js?v=20261101a";
+import { thumb } from "../img.js?v=20261101a";
 
 // Всплывающий список товаров (название + остаток), с поиском.
 // onPick(product) — по клику открыть товар на редактирование.
@@ -178,10 +178,28 @@ export default async function render(page, ctx) {
   }
   const periodLabelOf = (val) => (periodOpts.find(o => o.value === val) || {}).label || "за всё время";
 
-  page.append(el("div.topbar", {}, [
+  // ------------------------------------------------------------------
+  //  РАСКЛАДКА ДАШБОРДА
+  //
+  //  Первый экран: заголовок с периодом, шесть финансовых показателей и
+  //  полоса компактных панелей. Высоту первого экрана задаёт
+  //  css/glassos.css (.gm-экран) — он занимает ровно рабочую область,
+  //  поэтому на рабочем разрешении прокручивать ничего не нужно.
+  //
+  //  Ниже, за первым экраном, остаётся ВСЁ, что было раньше: советы,
+  //  «что заказать», все месяцы, группы товаров, проценты по валютам,
+  //  долги, оплаты и стоимость товара. Ни одна цифра не убрана — она
+  //  просто перестала бороться за место с главным.
+  // ------------------------------------------------------------------
+  const topbar = el("div.topbar", {}, [
     el("div", {}, [el("h1", { text: "Дашборд" }), el("div.sub", { text: db_mode(ctx) })]),
     el("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" } }, [periodTabs, periodSel]),
-  ]));
+  ]);
+  const kpiHost = el("div.gm-kpi");
+  const boardHost = el("div.gm-board");
+  // .gm-сквозной — чтобы лесенка появления (js/glassos.js) считала
+  // блоками сами показатели и панели, а не одну общую обёртку.
+  page.append(el("div.gm-экран.gm-сквозной", {}, [topbar, kpiHost, boardHost]));
 
   const wrap = el("div");
   page.append(wrap);
@@ -281,12 +299,33 @@ export default async function render(page, ctx) {
       .sort((a, b) => b.sold - a.sold);
     // --- заказы, ещё НЕ списанные со склада (не оформлены) ---
     const pendingOrders = sales.filter(s => ["order", "pending_confirm", "confirmed"].includes(s.status));
-    // --- в дороге: приходы со статусом ≠ «пришёл» (+ карта по товарам для списка) ---
-    let transitUSD = 0;
-    purchases.filter(s => s.status !== "arrived").forEach(s => (s.items || []).forEach(it => {
-      transitUSD += toUSD(it.qty * it.unit_cost, it.currency || s.currency);
-    }));
-    const totalStockUSD = stockUSD + transitUSD;
+    // --- деньги вне склада: «в дороге» и «в заказанных товарах» ---
+    //
+    // ВАЖНО, ЧТОБЫ НЕ СЧИТАТЬ ОДНИ ДЕНЬГИ ДВАЖДЫ. У прихода два
+    // состояния: «пришёл» (arrived) — товар уже на складе и его
+    // стоимость сидит в партиях, и всё остальное — товар оплачен или
+    // заказан, но до склада не дошёл.
+    //
+    // Техзадание просит показать эти «не дошедшие» деньги двумя разными
+    // показателями: что уже едет и что только заказано поставщику.
+    // В базе такого различия не было — был один статус «в дороге».
+    // Поэтому вводится третий статус "ordered" («заказан, ещё не
+    // выехал»), и он НЕ меняет ни одной существующей цифры: пока
+    // владелец не начнёт им пользоваться, заказанных приходов нет,
+    // и показатель честно говорит «нет данных» вместо нуля.
+    //
+    // Суммы не пересекаются: каждый приход попадает ровно в одну
+    // корзину по своему статусу.
+    let transitUSD = 0, orderedUSD = 0, orderedCount = 0;
+    purchases.forEach(s => {
+      if (s.status === "arrived") return;                 // уже на складе
+      const заказан = s.status === "ordered";
+      let сумма = 0;
+      (s.items || []).forEach(it => { сумма += toUSD(it.qty * it.unit_cost, it.currency || s.currency); });
+      if (заказан) { orderedUSD += сумма; orderedCount++; } else { transitUSD += сумма; }
+    });
+    // «Всего» по-прежнему вся стоимость товара вне продажи: склад + дорога + заказы.
+    const totalStockUSD = stockUSD + transitUSD + orderedUSD;
     // нет на складе, но едет
     const transitOOS = products.filter(p => едетВместоНет(дорога, p));
     const вПути = products.filter(p => вДороге(дорога, p));
@@ -294,35 +333,57 @@ export default async function render(page, ctx) {
     const mismatch = products.filter(p => sumQty(ensureBatches(p)) !== (Number(p.stock_qty) || 0));
 
     wrap.innerHTML = "";
+    kpiHost.innerHTML = "";
+    boardHost.innerHTML = "";
+
+    // Всё, что требует внимания, собирается в один список и показывается
+    // компактными строками в панели «Требует внимания» на первом экране.
+    // Раньше это были девять широких карточек, которые занимали экран
+    // целиком и отодвигали цифры за край.
+    const внимание = [];
 
     // предупреждения
-    if (badCost.length) wrap.append(warnCard("alert", `Проверьте себестоимость: ${badCost.length} товаров`, "Себестоимость выше цены продажи — искажает прибыль. Нажмите, чтобы посмотреть.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => costWarnModal(badCost, editProduct, ctx)));
-    if (nextTooPricey.length) wrap.append(warnCard("truck", `Новый приход дороже цены продажи: ${nextTooPricey.length} товаров`, "Пока продаётся старый (дешёвый) товар — всё в порядке. Но когда он закончится, пойдёт убыток: поднимите цену заранее. Нажмите — список.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
+    if (badCost.length) внимание.push(вним("alert", `Проверьте себестоимость: ${badCost.length} товаров`, "Себестоимость выше цены продажи — искажает прибыль. Нажмите, чтобы посмотреть.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => costWarnModal(badCost, editProduct, ctx)));
+    if (nextTooPricey.length) внимание.push(вним("truck", `Новый приход дороже цены продажи: ${nextTooPricey.length} товаров`, "Пока продаётся старый (дешёвый) товар — всё в порядке. Но когда он закончится, пойдёт убыток: поднимите цену заранее. Нажмите — список.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
       () => { location.hash = "#stock_check"; }));
-    if (noPrice.length) wrap.append(warnCard("tag", `Товары без цены (себестоимости): ${noPrice.length}`, "Нажмите, чтобы открыть список и вписать себестоимость.", "rgba(245,197,66,.6)", "rgba(245,197,66,.10)", () => productListModal("Товары без себестоимости", noPrice, editProduct)));
-    if (lowStock.length) wrap.append(warnCard("box", `Заканчивается на складе: ${lowStock.length} товаров`, `Остаток ≤ ${LOW_STOCK}. «→ 0» — если товара физически нет (обнулить). Или нажмите на товар, чтобы изменить.`, "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => productListModal(`Заканчивается на складе (остаток ≤ ${LOW_STOCK})`, lowStock.slice(), editProduct, async (p) => {
+    if (noPrice.length) внимание.push(вним("tag", `Товары без цены (себестоимости): ${noPrice.length}`, "Нажмите, чтобы открыть список и вписать себестоимость.", "rgba(245,197,66,.6)", "rgba(245,197,66,.10)", () => productListModal("Товары без себестоимости", noPrice, editProduct)));
+    if (lowStock.length) внимание.push(вним("box", `Заканчивается на складе: ${lowStock.length} товаров`, `Остаток ≤ ${LOW_STOCK}. «→ 0» — если товара физически нет (обнулить). Или нажмите на товар, чтобы изменить.`, "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => productListModal(`Заканчивается на складе (остаток ≤ ${LOW_STOCK})`, lowStock.slice(), editProduct, async (p) => {
       p.stock_qty = 0; p.batches = [];
       try { await ctx.db.products.upsert({ id: p.id, stock_qty: 0, batches: [] }); }
       catch { await ctx.db.products.upsert({ id: p.id, stock_qty: 0 }); }
     })));
-    if (pendingOrders.length) wrap.append(warnCard("cart", `Заказы не оформлены: ${pendingOrders.length}`, "Эти заказы ещё НЕ списаны со склада. Оформите их в «Заказы» — тогда остаток уменьшится.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => { location.hash = "#orders"; }));
+    if (pendingOrders.length) внимание.push(вним("cart", `Заказы не оформлены: ${pendingOrders.length}`, "Эти заказы ещё НЕ списаны со склада. Оформите их в «Заказы» — тогда остаток уменьшится.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)", () => { location.hash = "#orders"; }));
     // накладные оформлены, но товар со склада не списался — можно списать одним действием
     const unapplied = unappliedSales(sales, 7);
-    if (unapplied.length) wrap.append(warnCard("receipt", `Проверьте списание со склада: ${unapplied.length} накладных`, "Нет отметки, что товар ушёл с остатка. Нажмите — сверить «было → станет» и списать нужные.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
+    if (unapplied.length) внимание.push(вним("receipt", `Проверьте списание со склада: ${unapplied.length} накладных`, "Нет отметки, что товар ушёл с остатка. Нажмите — сверить «было → станет» и списать нужные.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
       () => { location.hash = "#stock_check"; }));
     // ушли в минус: продали больше, чем было — эти товары нужно докупить
     const negative = products.filter(p => (Number(p.stock_qty) || 0) < 0).sort((a, b) => (Number(a.stock_qty) || 0) - (Number(b.stock_qty) || 0));
-    if (negative.length) wrap.append(warnCard("alert", `Ушли в минус: ${negative.length} товаров`, "Продано больше, чем было на складе. Нажмите — список, сколько нужно докупить.", "rgba(239,68,68,.55)", "rgba(239,68,68,.08)",
+    if (negative.length) внимание.push(вним("alert", `Ушли в минус: ${negative.length} товаров`, "Продано больше, чем было на складе. Нажмите — список, сколько нужно докупить.", "rgba(239,68,68,.55)", "rgba(239,68,68,.08)",
       () => { location.hash = "#stock_check"; }));
     // нет на складе, но товар уже в пути
-    if (transitOOS.length) wrap.append(warnCard("truck", `В пути (нет на складе): ${transitOOS.length} товаров`, "Этих товаров нет на складе, но они уже едут. Нажмите — список с количеством и поставщиком.", "rgba(59,130,246,.5)", "rgba(59,130,246,.08)",
+    if (transitOOS.length) внимание.push(вним("truck", `В пути (нет на складе): ${transitOOS.length} товаров`, "Этих товаров нет на складе, но они уже едут. Нажмите — список с количеством и поставщиком.", "rgba(59,130,246,.5)", "rgba(59,130,246,.08)",
       () => productListModal("В пути — нет на складе", transitOOS.slice(), editProduct, null, (p) => "🚚 " + подписьДороги(вДороге(дорога, p)))));
     // остаток не сходится с партиями — пересчитать
-    if (mismatch.length) wrap.append(warnCard("box", `Остаток не сходится с партиями: ${mismatch.length}`, "Возможны «фантомные» остатки (напр. «1», но товара нет). Нажмите — пересчитать остаток по партиям.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
+    if (mismatch.length) внимание.push(вним("box", `Остаток не сходится с партиями: ${mismatch.length}`, "Возможны «фантомные» остатки (напр. «1», но товара нет). Нажмите — пересчитать остаток по партиям.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
       () => confirmDialog(`Пересчитать остаток по партиям у ${mismatch.length} товаров? (фантомные станут 0)`, async () => {
         for (const p of mismatch) { const q = sumQty(ensureBatches(p)); try { await ctx.db.products.upsert({ id: p.id, stock_qty: q, batches: ensureBatches(p) }); } catch { try { await ctx.db.products.upsert({ id: p.id, stock_qty: q }); } catch {} } }
         toast("Остатки пересчитаны", "ok"); ctx.refresh();
       })));
+
+    // ================================================================
+    //  ПЕРВЫЙ ЭКРАН: шесть показателей и панели
+    // ================================================================
+    рисоватьПоказатели({
+      оборот: salesUSD, прибыль: profitUSD,
+      долг: totalDebt, оплачено: payTotals,
+      дорога: transitUSD, заказано: orderedUSD, заказовШтук: orderedCount,
+    });
+    рисоватьПанели({
+      salesUSD, profitUSD, realProfitUSD, salesSeries, profitSeries,
+      внимание, fSales, reorder, stockUnits, inStock, onOrder, вПути,
+      stockUSD, transitUSD, orderedUSD, totalStockUSD, perLabel,
+    });
 
     // что заказать (по продажам): заканчивается И продаётся
     if (reorder.length) {
@@ -437,7 +498,8 @@ export default async function render(page, ctx) {
     wrap.append(el("div.stat-grid", {}, [
       dualCard("На складе", stockUSD, "box"),
       dualCard("В дороге", transitUSD, "truck"),
-      dualCard("Всего (склад + дорога)", totalStockUSD, "sigma"),
+      dualCard("В заказанных товарах", orderedUSD, "cart"),
+      dualCard("Всего (склад + дорога + заказы)", totalStockUSD, "sigma"),
     ]));
     wrap.append(el("div.stat-grid", {}, [
       miniCard("Единиц на складе", stockUnits, "hash"),
@@ -450,14 +512,307 @@ export default async function render(page, ctx) {
     requestAnimationFrame(() => wrap.querySelectorAll(".reveal").forEach((n, i) => setTimeout(() => n.classList.add("in"), i * 35)));
   }
 
-  // карточка-предупреждение (кликабельная)
-  function warnCard(ic, title, sub, bColor, bg, onclick) {
-    return el("div.card.reveal", { style: { marginBottom: "16px", cursor: "pointer", borderColor: bColor, background: bg }, onclick }, [
-      el("div", { style: { display: "flex", alignItems: "center", gap: "10px" } }, [
-        el("span", { style: { color: "var(--warn)", display: "flex" } }, [icon(ic, { size: 24 })]),
-        el("div", {}, [el("div", { style: { fontWeight: "700" }, text: title }), el("div.muted", { style: { fontSize: "13px" }, text: sub })]),
-      ]),
+  // Описание того, что требует внимания. Раньше каждое было широкой
+  // карточкой и девять таких занимали весь экран. Теперь это запись в
+  // списке: панель «Требует внимания» рисует из неё компактную строку,
+  // а нажатие открывает то же самое, что открывало раньше.
+  function вним(ic, title, sub, bColor, bg, onclick) {
+    // Красная кромка приходила только от «ушли в минус» — по ней и
+    // отличаем срочное от обычного предупреждения.
+    const уровень = /239,\s*68,\s*68/.test(String(bColor)) ? "danger"
+      : /59,\s*130,\s*246/.test(String(bColor)) ? "info" : "warn";
+    return { ic, title, sub, onclick, уровень };
+  }
+
+  // ==================================================================
+  //  ШЕСТЬ ФИНАНСОВЫХ ПОКАЗАТЕЛЕЙ
+  //
+  //  Все суммы — из тех же расчётов, что и раньше: оборот и прибыль
+  //  считает js/profit.js (aggregate), долг — js/debt.js, оплаты и
+  //  приходы берутся как есть. Ничего не придумано: если данных для
+  //  расчёта нет, в карточке стоит «нет данных», а не ноль — иначе
+  //  пустая база выглядела бы как «ничего не продали».
+  //
+  //  Мультивалютные суммы (долг, оплаты) приводятся к выбранной валюте
+  //  показа по курсу из Настроек — так же, как остальной дашборд.
+  // ==================================================================
+  function рисоватьПоказатели({ оборот, прибыль, долг, оплачено, дорога, заказано, заказовШтук }) {
+    const вПоказе = (поВалютам) => ["som", "usd", "yuan"]
+      .reduce((сумма, c) => сумма + convert(Number(поВалютам[c]) || 0, c, curView), 0);
+    const естьПродажи = fSalesДляПериода().length > 0;
+    const долгВсего = вПоказе(долг);
+    const оплатВсего = вПоказе(оплачено);
+    const былиОплаты = ["som", "usd", "yuan"].some(c => (Number(оплачено[c]) || 0) !== 0);
+
+    const карточки = [
+      {
+        ic: "wallet", вид: "", label: "Оборот",
+        есть: естьПродажи, знач: money(оборот), дельта: дельтаПоказателя("оборот"),
+        tip: "Сумма всех продаж за выбранный период. Каждая позиция пересчитана в доллары по курсу накладной, затем в валюту показа по курсу из Настроек.",
+      },
+      {
+        ic: "chart", вид: прибыль >= 0 ? "gm-k-ok" : "gm-k-danger", label: "Прибыль",
+        есть: естьПродажи, знач: money(прибыль), дельта: дельтаПоказателя("прибыль"),
+        tip: "По правилам групп товаров (иглы, ножи и т.д.) плюс общий процент у остальных. Прибыль по фактической себестоимости — в панели «Продажи и прибыль».",
+      },
+      {
+        ic: "user", вид: долгВсего > 0 ? "gm-k-warn" : "gm-k-ok", label: "Должники",
+        есть: true, знач: fmt(долгВсего, curView),
+        под: подписьПоВалютам(долг),
+        tip: "Текущий долг всех клиентов: выданные накладные минус оплаты, по каждой валюте отдельно. Переплаты в минус не уходят. Показатель текущий — от выбранного периода не зависит.",
+      },
+      {
+        ic: "check", вид: "gm-k-ok", label: "Оплачено",
+        есть: былиОплаты, знач: fmt(оплатВсего, curView),
+        под: подписьПоВалютам(оплачено), дельта: дельтаПоказателя("оплачено"),
+        tip: "Деньги, полученные от клиентов за выбранный период, по всем валютам.",
+      },
+      {
+        ic: "truck", вид: "", label: "Деньги в дороге",
+        есть: дорога > 0, знач: money(дорога),
+        под: "себестоимость · " + fmt(convert(дорога, "usd", "som"), "som"),
+        tip: "Себестоимость товара, который оплачен или отправлен, но на склад ещё не поступил (приходы со статусом «В дороге»). В остаток склада эти деньги не входят — двойного счёта нет.",
+      },
+      {
+        ic: "cart", вид: "", label: "В заказанных товарах",
+        есть: заказовШтук > 0, знач: money(заказано),
+        под: заказовШтук ? заказовШтук + " заказ(ов) поставщику" : "отметьте приход статусом «Заказан»",
+        tip: "Деньги, вложенные в оформленные заказы поставщику, которые ещё не выехали (статус прихода «Заказан»). Считается отдельно от «в дороге», чтобы одни и те же деньги не попали в два показателя. Пока ни один приход не отмечен этим статусом, показатель честно пуст.",
+      },
+    ];
+
+    карточки.forEach(к => {
+      const знач = к.есть
+        ? el("div.gm-k-val", { text: к.знач })
+        : el("div.gm-k-val.gm-нет", { text: "нет данных" });
+      const низ = [];
+      if (к.есть) {
+        if (к.дельта) низ.push(el("span.gm-k-delta." + к.дельта.сторона, { text: к.дельта.текст }));
+        if (к.под) низ.push(el("span", { text: к.под }));
+      } else {
+        // Данных нет — объясняем почему, но ровно один раз.
+        низ.push(el("span", { text: к.под || "за период данных нет" }));
+      }
+      kpiHost.append(el("div.gm-k" + (к.вид ? "." + к.вид : ""), { "data-tip": к.tip }, [
+        el("div.gm-k-top", {}, [
+          el("div.gm-k-ic", {}, [icon(к.ic, { size: 15 })]),
+          el("div.gm-k-lab", { text: к.label }),
+        ]),
+        знач,
+        низ.length ? el("div.gm-k-sub", {}, низ) : null,
+      ].filter(Boolean)));
+    });
+  }
+
+  // Продажи выбранного периода нужны в двух местах — считаем одним кодом.
+  function fSalesДляПериода() { return sales.filter(s => matchPeriod(s.date, period)); }
+
+  // Какой период считать «прошлым» для сравнения. Для «всего времени»
+  // прошлого нет, поэтому индикатор изменения там не показывается.
+  // Для сегодняшнего дня прошлое — вчера; matchPeriod такого значения не
+  // знает, поэтому для него возвращается ключ конкретного дня.
+  function предыдущийПериод(сел) {
+    const n = new Date();
+    if (сел === "today") {
+      const в = new Date(n); в.setDate(в.getDate() - 1);
+      return "d:" + в.toISOString().slice(0, 10);
+    }
+    if (сел === "this_month") return "last_month";
+    if (сел === "this_year") return "y:" + (n.getFullYear() - 1);
+    if (сел === "last_month") {
+      const d = new Date(n.getFullYear(), n.getMonth() - 2, 1);
+      return "m:" + d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    }
+    if (String(сел).startsWith("m:")) {
+      const [yy, mm] = сел.slice(2).split("-").map(Number);
+      const d = new Date(yy, mm - 2, 1);
+      return "m:" + d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    }
+    if (String(сел).startsWith("y:")) return "y:" + (Number(сел.slice(2)) - 1);
+    return null;      // всё время, сезоны — сравнивать не с чем
+  }
+
+  // matchPeriod не умеет «конкретный день» — добавляем только здесь,
+  // чтобы не менять общий модуль периодов, которым живут другие разделы.
+  function вПериоде(дата, сел) {
+    if (String(сел).startsWith("d:")) {
+      const d = new Date(дата);
+      return !isNaN(d) && d.toISOString().slice(0, 10) === сел.slice(2);
+    }
+    return matchPeriod(дата, сел);
+  }
+
+  // Подпись «сколько в каждой валюте» — чтобы пересчёт в одну валюту не
+  // скрывал, что часть долга в юанях, а часть в сумах.
+  function подписьПоВалютам(поВалютам) {
+    const части = ["som", "usd", "yuan"]
+      .filter(c => Math.abs(Number(поВалютам[c]) || 0) > 0.009)
+      .map(c => fmt(поВалютам[c], c));
+    return части.length > 1 ? части.join(" · ") : "";
+  }
+
+  // Изменение к предыдущему такому же периоду. Если сравнивать не с чем
+  // (выбрано «всё время» или в прошлом периоде нуль) — индикатора нет:
+  // «+∞ %» не значит ничего.
+  function дельтаПоказателя(что) {
+    const прошлый = предыдущийПериод(period);
+    if (!прошлый) return null;
+    const сейчас = значениеЗа(period, что);
+    const было = значениеЗа(прошлый, что);
+    if (!isFinite(было) || Math.abs(было) < 0.01) return null;
+    const проц = ((сейчас - было) / Math.abs(было)) * 100;
+    if (!isFinite(проц)) return null;
+    const вверх = проц >= 0;
+    return { сторона: вверх ? "up" : "down", текст: (вверх ? "▲ " : "▼ ") + Math.abs(проц).toFixed(0) + "%" };
+  }
+
+  function значениеЗа(пер, что) {
+    if (что === "оплачено") {
+      return payments.filter(p => вПериоде(p.date, пер))
+        .reduce((т, p) => т + toUSD(Number(p.amount) || 0, p.currency), 0);
+    }
+    const pmap = Object.fromEntries(products.map(p => [p.id, p]));
+    const a = aggregate(sales.filter(s => вПериоде(s.date, пер)), pmap, rules, pct);
+    return что === "прибыль" ? a.total.profit : a.total.rev;
+  }
+
+  // ==================================================================
+  //  ПАНЕЛИ ПЕРВОГО ЭКРАНА
+  // ==================================================================
+  function рисоватьПанели(д) {
+    // --- 1. Продажи и прибыль: график за 14 дней и три итога ---
+    const график = el("div", { style: { marginTop: "4px" } });
+    if (д.salesSeries.some(x => x > 0)) {
+      график.innerHTML = sparkline(д.salesSeries, { color: "#d9b45a", height: 86 })
+        + sparkline(д.profitSeries, { color: "#34d399", height: 48 });
+    } else {
+      график.append(el("div.hint", { text: "Продаж за последние 14 дней не было — графику нечего показать." }));
+    }
+    const итог = (подпись, usd, цвет) => el("div", { style: { minWidth: "0" } }, [
+      el("div.gm-k-lab", { text: подпись }),
+      el("div", { style: { fontWeight: "800", fontSize: "1rem", color: цвет || "inherit", whiteSpace: "nowrap" }, text: money(usd) }),
     ]);
+    boardHost.append(панель("Продажи и прибыль " + д.perLabel, "chart", [
+      el("div", { style: { display: "flex", gap: "14px", flexWrap: "wrap", marginBottom: "6px" } }, [
+        итог("Оборот", д.salesUSD),
+        итог("Прибыль по правилам", д.profitUSD, "var(--ok)"),
+        итог("По себестоимости", д.realProfitUSD, "var(--muted)"),
+      ]),
+      график,
+    ], { ещё: ["Отчёты", () => { location.hash = "#/reports"; }], вкладки: makeCurTabs() }));
+
+    // --- 2. Требует внимания ---
+    const строки = д.внимание.map(в => el("div.gm-li", { onclick: в.onclick, "data-tip": в.sub }, [
+      el("span", {
+        style: {
+          display: "flex", flex: "0 0 auto",
+          color: в.уровень === "danger" ? "var(--danger)" : в.уровень === "info" ? "#60a5fa" : "var(--warn)",
+        },
+      }, [icon(в.ic, { size: 16 })]),
+      el("span.gm-li-t", { text: в.title }),
+      el("span.gm-li-s", { text: "›" }),
+    ]));
+    boardHost.append(панель(
+      строки.length ? `Требует внимания · ${строки.length}` : "Требует внимания",
+      строки.length ? "alert" : "check",
+      строки.length ? строки : [el("div.hint", { text: "Всё в порядке: цены на месте, остатки сходятся, заказы оформлены." })],
+    ));
+
+    // --- 3. Склад ---
+    const числа = el("div", { style: { display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "8px" } }, [
+      итог2("Единиц", д.stockUnits),
+      итог2("В наличии", д.inStock),
+      итог2("Под заказ", д.onOrder),
+      итог2("В дороге", д.вПути.length),
+    ]);
+    const заказать = д.reorder.slice(0, 20).map(x => el("div.gm-li", { onclick: () => editProduct(x.p) }, [
+      el("span.gm-li-t", { text: x.p.name }),
+      el("span.gm-li-s", { text: "ост. " + x.stock }),
+      el("span.gm-li-v", { text: x.sold + " шт/30дн" }),
+    ]));
+    boardHost.append(панель("Состояние склада", "box", [
+      числа,
+      el("div.gm-k-lab", { text: заказать.length ? "Продаётся, но заканчивается" : "" }),
+      ...(заказать.length ? заказать : [el("div.hint", { text: "Докупать пока нечего — у ходовых товаров остаток в порядке." })]),
+    ], { ещё: ["Товары", () => { location.hash = "#/products"; }] }));
+
+    // --- 4. Последние продажи ---
+    const последние = [...д.fSales]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 20)
+      .map(s => {
+        const сумма = (s.items || []).reduce((т, it) => т + itemRevenueUSD(it, s), 0);
+        return el("div.gm-li", { onclick: () => { location.hash = "#/sales"; } }, [
+          el("span.gm-li-t", { text: cmap[s.customer_id] || "Без клиента" }),
+          el("span.gm-li-s", { text: new Date(s.date).toLocaleDateString("ru-RU") }),
+          el("span.gm-li-v", { text: money(сумма) }),
+        ]);
+      });
+    boardHost.append(панель("Последние продажи " + д.perLabel, "receipt",
+      последние.length ? последние : [el("div.hint", { text: "За выбранный период продаж не было." })],
+      { ещё: ["Продажи", () => { location.hash = "#/sales"; }] }));
+
+    // --- 5. Деньги в товаре ---
+    boardHost.append(панель("Деньги в товаре", "sigma", [
+      строкаДенег("На складе", д.stockUSD),
+      строкаДенег("В дороге", д.transitUSD),
+      строкаДенег("В заказанных", д.orderedUSD),
+      el("div", { style: { borderTop: "1px solid var(--glass-line)", marginTop: "6px", paddingTop: "6px" } },
+        [строкаДенег("Всего", д.totalStockUSD, true)]),
+    ]));
+
+    // --- 6. Быстрые действия ---
+    const действие = (подпись, ic, куда) => {
+      const b = el("button", {}, [icon(ic, { size: 15 }), el("span", { text: подпись })]);
+      b.type = "button";
+      b.addEventListener("click", () => { location.hash = "#/" + куда; });
+      return b;
+    };
+    boardHost.append(панель("Быстрые действия", "sparkle", [
+      el("div.gm-quick", {}, [
+        действие("Новая продажа", "receipt", "sales"),
+        действие("Новый приход", "truck", "purchases"),
+        действие("Заказ поставщику", "cart", "supplier_order"),
+        действие("Проверка склада", "check", "stock_check"),
+        действие("Товары", "box", "products"),
+        действие("Клиенты", "user", "customers"),
+        действие("Отчёты", "chart", "reports"),
+        действие("Настройки", "settings", "settings"),
+      ]),
+    ]));
+  }
+
+  function итог2(подпись, число) {
+    return el("div", {}, [
+      el("div.gm-k-lab", { text: подпись }),
+      el("div", { style: { fontWeight: "800", fontSize: "1rem" }, text: Math.round(Number(число) || 0).toLocaleString("ru-RU") }),
+    ]);
+  }
+
+  function строкаДенег(подпись, usd, жирно) {
+    return el("div.gm-li", { style: { cursor: "default" } }, [
+      el("span.gm-li-t", { text: подпись, style: жирно ? { fontWeight: "700" } : null }),
+      el("span.gm-li-s", { text: "$" + Math.round(usd).toLocaleString("ru-RU") }),
+      el("span.gm-li-v", { text: fmt(convert(usd, "usd", curView), curView) }),
+    ]);
+  }
+
+  // Стеклянная панель первого экрана: заголовок, необязательные вкладки
+  // валюты и кнопка «подробнее», содержимое со своей прокруткой.
+  function панель(заголовок, ic, содержимое, опции = {}) {
+    const шапка = el("div.gm-panel-h", {}, [
+      el("span", { style: { display: "flex", color: "var(--accent)" } }, [icon(ic, { size: 15 })]),
+      el("span", { text: заголовок }),
+    ]);
+    if (опции.вкладки) шапка.append(el("div", { style: { marginLeft: "auto" } }, [опции.вкладки]));
+    if (опции.ещё) {
+      const [подпись, действие] = опции.ещё;
+      const b = el("button.gm-panel-more", { text: подпись + " ›", onclick: действие });
+      b.type = "button";
+      if (!опции.вкладки) b.style.marginLeft = "auto";
+      шапка.append(b);
+    }
+    return el("div.gm-panel", {}, [шапка, el("div.gm-panel-body", {}, содержимое)]);
   }
   function bigCard(label, usd, ic, grad, series, sub) {
     const v = el("div.st-value");

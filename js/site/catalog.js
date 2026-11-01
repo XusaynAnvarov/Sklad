@@ -1,12 +1,12 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20261030n";
-import { t } from "./app.js?v=20261030n";
-import { openLogin } from "./auth.js?v=20261030n";
-import { thumb, full } from "../img.js?v=20261030n";
-import { подходит } from "../productsearch.js?v=20261030n";
-import { подписьКода } from "../catalogcode.js?v=20261030n";
+import { api, isLoggedIn } from "./api.js?v=20261101a";
+import { t } from "./app.js?v=20261101a";
+import { openLogin } from "./auth.js?v=20261101a";
+import { thumb, full } from "../img.js?v=20261101a";
+import { подходит } from "../productsearch.js?v=20261101a";
+import { подписьКода } from "../catalogcode.js?v=20261101a";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261030n";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261101a";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
@@ -80,13 +80,56 @@ export async function renderCatalog(container) {
   main.append(hero);
 
   // Toolbar
+  // ------------------------------------------------------------------
+  //  ПОИСК: КНОПКА, КОТОРАЯ РАЗЪЕЗЖАЕТСЯ В ПОЛЕ
+  //
+  //  Длинная строка поиска занимала всю ширину панели и стояла пустой
+  //  почти всегда. Теперь на её месте круглая лупа: по нажатию поле
+  //  разъезжается вправо, соседи (фильтры категорий) плавно уезжают —
+  //  их двигает сама строка, потому что поле занимает место. Escape и
+  //  повторное нажатие закрывают. Поиск и его обработчик — прежние.
+  // ------------------------------------------------------------------
   const toolbar = mkEl("div", "catalog-toolbar");
-  const searchWrap = mkEl("div", "search-input-wrap");
-  searchWrap.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
+  const searchWrap = mkEl("div", "gm-search gm-search-cat");
+  const searchBtn = document.createElement("button");
+  searchBtn.type = "button";
+  searchBtn.className = "gm-search-btn";
+  searchBtn.setAttribute("aria-label", "Поиск по каталогу");
+  searchBtn.setAttribute("aria-expanded", "false");
+  searchBtn.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>`;
+  const searchField = mkEl("div", "gm-search-field");
   const searchInput = document.createElement("input");
   searchInput.className = "search-input"; searchInput.placeholder = "Поиск по названию или артикулу…"; searchInput.type = "search";
-  searchWrap.append(searchInput);
+  searchField.append(searchInput);
+  // Поле стоит ПЕРЕД кнопкой: раскрываясь, оно отодвигает её и фильтры.
+  searchWrap.append(searchField, searchBtn);
   toolbar.append(searchWrap);
+
+  function открытьПоиск() {
+    if (searchWrap.classList.contains("open")) return;
+    searchWrap.classList.add("open");
+    searchBtn.setAttribute("aria-expanded", "true");
+    searchInput.focus();                 // сразу, иначе Safari не поднимет клавиатуру
+  }
+  function закрытьПоиск({ очистить = true } = {}) {
+    if (!searchWrap.classList.contains("open")) return;
+    searchWrap.classList.remove("open");
+    searchBtn.setAttribute("aria-expanded", "false");
+    if (очистить && searchInput.value) {
+      searchInput.value = "";
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    searchInput.blur();
+  }
+  searchBtn.addEventListener("click", () => {
+    searchWrap.classList.contains("open") ? закрытьПоиск() : открытьПоиск();
+  });
+  searchInput.addEventListener("keydown", (e) => { if (e.key === "Escape") закрытьПоиск(); });
+  // Нажатие мимо закрывает, но только пустой поиск: закрывать поле с
+  // набранным запросом нельзя — человек потеряет фильтр, не поняв почему.
+  document.addEventListener("pointerdown", (e) => {
+    if (!searchWrap.contains(e.target) && !searchInput.value) закрытьПоиск({ очистить: false });
+  });
   main.append(toolbar);
 
   const grid = mkEl("div", "product-grid");
@@ -131,6 +174,13 @@ export async function renderCatalog(container) {
   let activeCategory = catState.category || "Все";
   let searchQuery = catState.query || "";
   searchInput.value = catState.query || "";
+  // Вернулись на каталог с набранным запросом — поиск должен быть уже
+  // раскрыт, иначе фильтр работает, а поля не видно, и это выглядит как
+  // «каталог почему-то показывает не всё».
+  if (searchInput.value) {
+    searchWrap.classList.add("open");
+    searchBtn.setAttribute("aria-expanded", "true");
+  }
   const fresh = products.length && (Date.now() - (catState.fetchedAt || 0) < CAT_TTL);
 
   if (products.length) { drawChips(); renderCards(); restoreScroll(); }

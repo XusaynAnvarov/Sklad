@@ -1,6 +1,6 @@
 // Модуль авторизации: вход, регистрация, верификация через Telegram
-import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261030n";
-import { sToast, openModal, closeModal } from "./app.js?v=20261030n";
+import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261101a";
+import { sToast, openModal, closeModal } from "./app.js?v=20261101a";
 
 let onAuthChange = null;
 export function setAuthChangeCallback(fn) { onAuthChange = fn; }
@@ -160,80 +160,203 @@ function buildAuthModal(start) {
     wrap.append(грид);
   }
 
-  // 2 шага: 1) телефон → код в Telegram; 2) код + пароль → вход.
-  // Администратору код не нужен (login-start вернёт code_required:false) → шаг «pass» (только пароль).
-  let loginStep = (start && start.mode === "login" && start.step) || "phone"; // phone | code | pass
+  // ====================================================================
+  //  ВХОД — ДВА ЭКРАНА
+  //
+  //  1) «phone»: номер телефона и пароль сразу вместе, у пароля — глаз.
+  //     По кнопке уходит запрос за кодом (api.loginStart).
+  //  2) «code»: шесть отдельных ячеек для кода из Telegram. Код и пароль
+  //     уходят на сервер одним запросом (api.login) — там и проверяются.
+  //
+  //  ПОЧЕМУ ПАРОЛЬ СПРАШИВАЕМ ДО КОДА. Так просит порядок в жизни: человек
+  //  вводит, что помнит, и только потом идёт в Telegram. При этом пароль
+  //  НЕ проверяется до подтверждения кодом — ответ «верный/неверный»
+  //  приходит один раз, уже после второго шага. Подбирать пароль через
+  //  этот экран нельзя: без кода из Telegram ответа о пароле не будет.
+  //
+  //  ПОЧЕМУ ЯЧЕЕК ШЕСТЬ, А НЕ ЧЕТЫРЕ. Код выдаёт сервер
+  //  (api/lib/clientauth.js, genCode) — он шестизначный. Четыре ячейки
+  //  означали бы перевыпуск кода на четыре цифры, то есть десять тысяч
+  //  вариантов вместо миллиона. Экран устроен ровно так, как описано в
+  //  задании, просто ячеек шесть; сделать четыре — это одна строка
+  //  ДЛИНА_КОДА ниже и столько же на сервере.
+  // ====================================================================
+  const ДЛИНА_КОДА = 6;
+
+  let loginStep = (start && start.mode === "login" && start.step) || "phone"; // phone | code
   let loginPhone = (start && start.phone) || "";
+  let loginPass = "";
   let loginNeedsCode = true;
 
   function buildLogin() {
+    // Вернулись из Telegram после перезагрузки вкладки: шаг сохранился, а
+    // пароль — нет (и хранить его негде). Без пароля проверять нечего,
+    // поэтому возвращаемся на первый экран, а не показываем пустые ячейки.
+    if (loginStep === "code" && !loginPass) loginStep = "phone";
+    if (loginStep === "code") return buildCode();
+
     const f = el("div.s-form");
-    let err = el("div.s-error", { style: "display:none" });
+    const err = el("div.s-error", { style: "display:none" });
     const reg = el("div", { style: "text-align:center;margin-top:10px" });
     reg.innerHTML = `<span style="color:var(--muted);font-size:13px">Нет аккаунта? </span><a href="#" style="font-size:13px;color:var(--navy);font-weight:600">Зарегистрироваться</a>`;
     reg.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); loginStep = "phone"; mode = "register"; renderПлавно(); });
 
-    if (loginStep === "phone") {
-      const phone = input("tel", "Номер телефона", "+998 90 123 45 67");
-      if (loginPhone) phone.value = loginPhone;
-      const btn = button("Получить код", "btn-primary", { style: "width:100%;margin-top:4px" });
-      const hint = el("div.s-hint", {}, [
-        document.createTextNode("Код придёт в Telegram-бот "),
-        mkEl("strong", {}, ["@generalmodernbot"]),
-        document.createTextNode(". Откройте его заранее (/start)."),
-      ]);
-      btn.addEventListener("click", async () => {
-        err.style.display = "none";
-        const ph = phone.value.trim();
-        if (!ph) { err.textContent = "Введите номер телефона"; err.style.display = ""; return; }
-        btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';
-        try {
-          const r = await api.loginStart(ph);
-          loginPhone = ph;
-          loginNeedsCode = !(r && r.code_required === false);
-          loginStep = loginNeedsCode ? "code" : "pass";
-          // код ушёл в Telegram — запоминаем шаг, чтобы уход за кодом не сбросил вход
-          if (loginNeedsCode) saveState(LOGIN_KEY, { phone: ph });
-          render();
-          if (loginNeedsCode) sToast("Код отправлен в Telegram", "ok");
-        } catch (e) {
-          err.textContent = e.message; err.style.display = "";
-          btn.disabled = false; btn.textContent = "Получить код";
-        }
-      });
-      f.append(err, field("Телефон", phone), hint, btn, reg);
-      return f;
-    }
+    const phone = input("tel", "+998 90 123 45 67");
+    phone.autocomplete = "tel";
+    if (loginPhone) phone.value = loginPhone;
+    const { поле: pass, обёртка: passWrap } = полеПароля("Пароль", "current-password");
+    if (loginPass) pass.value = loginPass;
 
-    // шаг «код + пароль» (для админа — только пароль)
-    const needCode = loginStep === "code";
-    const code = input("tel", "Код из Telegram", "______");
-    const pass = input("password", "Пароль");
-    const btn = button("Войти", "btn-primary", { style: "width:100%;margin-top:4px" });
-    const back = el("div", { style: "text-align:center;margin-top:10px" });
-    back.innerHTML = `<a href="#" style="font-size:13px;color:var(--navy);font-weight:600">← Изменить номер</a>`;
-    back.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); loginStep = "phone"; render(); });
-    btn.addEventListener("click", async () => {
+    const btn = button("Продолжить", "btn-primary", { style: "width:100%;margin-top:4px" });
+    const hint = el("div.s-hint", {}, [
+      document.createTextNode("Код подтверждения придёт в Telegram-бот "),
+      mkEl("strong", {}, ["@generalmodernbot"]),
+      document.createTextNode(". Откройте его заранее (/start)."),
+    ]);
+
+    const отправить = async () => {
       err.style.display = "none";
+      const ph = phone.value.trim();
+      if (!ph) { err.textContent = "Введите номер телефона"; err.style.display = ""; phone.focus(); return; }
+      if (!pass.value) { err.textContent = "Введите пароль"; err.style.display = ""; pass.focus(); return; }
       btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';
       try {
-        const res = await api.login(loginPhone, needCode ? code.value.trim() : "", pass.value);
-        saveToken(res.token);
-        loginStep = "phone";
-        clearPendingAuth();          // вошли — продолжать нечего
-        closeModal("auth-modal");
-        sToast("Вход выполнен", "ok");
-        notifyChange();
+        const r = await api.loginStart(ph);
+        loginPhone = ph;
+        loginPass = pass.value;
+        loginNeedsCode = !(r && r.code_required === false);
+        if (!loginNeedsCode) {
+          // Админ и доверенное устройство входят без кода — сразу вторым шагом.
+          await завершитьВход("", (сообщение) => {
+            err.textContent = сообщение; err.style.display = "";
+            btn.disabled = false; btn.textContent = "Продолжить";
+          });
+          return;
+        }
+        saveState(LOGIN_KEY, { phone: ph });   // уход в Telegram не должен сбрасывать вход
+        loginStep = "code";
+        renderПлавно();
+        sToast("Код отправлен в Telegram", "ok");
       } catch (e) {
         err.textContent = e.message; err.style.display = "";
-        btn.disabled = false; btn.textContent = "Войти";
+        btn.disabled = false; btn.textContent = "Продолжить";
+      }
+    };
+    btn.addEventListener("click", отправить);
+    [phone, pass].forEach(п => п.addEventListener("keydown", e => { if (e.key === "Enter") отправить(); }));
+
+    f.append(err, field("Телефон", phone), field("Пароль", passWrap), hint, btn, reg);
+    setTimeout(() => (loginPhone ? pass : phone).focus(), 60);
+    return f;
+  }
+
+  // ---- Шаг 2: код из Telegram ----
+  function buildCode() {
+    const f = el("div.s-form.gm-code-form");
+    const err = el("div.s-error", { style: "display:none" });
+    const шапка = el("div.gm-code-head", {}, [
+      el("div.gm-code-title", { text: "Подтвердите личность" }),
+      el("div.s-hint", { text: `Код из ${ДЛИНА_КОДА} цифр отправлен в Telegram на номер ${loginPhone}. Он действует 5 минут.` }),
+    ]);
+
+    const ячейки = ячейкиКода(ДЛИНА_КОДА, (код) => проверить(код));
+    const btn = button("Подтвердить", "btn-primary", { style: "width:100%;margin-top:4px" });
+    const успех = el("div.gm-ok", { style: "display:none" });
+    успех.innerHTML = ЗНАК_ГАЛОЧКИ;
+
+    // Повторная отправка: сервер не чаще одного кода в минуту — столько же
+    // держим кнопку закрытой, чтобы человек не ловил отказ 429.
+    const повтор = button("Отправить код ещё раз", "s-link-btn", {});
+    const отсчёт = el("div.gm-code-timer");
+    let осталось = 60, таймер = 0;
+    function тикать() {
+      clearInterval(таймер);
+      повтор.disabled = true;
+      отсчёт.textContent = `Отправить код ещё раз можно через ${осталось} с`;
+      таймер = setInterval(() => {
+        осталось--;
+        if (осталось <= 0) {
+          clearInterval(таймер);
+          повтор.disabled = false;
+          отсчёт.textContent = "";
+        } else отсчёт.textContent = `Отправить код ещё раз можно через ${осталось} с`;
+      }, 1000);
+    }
+    тикать();
+    повтор.addEventListener("click", async () => {
+      err.style.display = "none";
+      повтор.disabled = true;
+      try {
+        await api.loginStart(loginPhone);
+        sToast("Новый код отправлен в Telegram", "ok");
+        осталось = 60; тикать();
+        ячейки.очистить();
+      } catch (e) {
+        err.textContent = e.message; err.style.display = "";
+        повтор.disabled = false;
       }
     });
-    const rows = [err];
-    if (needCode) rows.push(el("div.s-hint", { text: "Код отправлен в Telegram на номер +998 " + loginPhone }), field("Код из Telegram", code));
-    rows.push(field("Пароль", pass), btn, back);
-    f.append(...rows);
+
+    const назад = el("div", { style: "text-align:center;margin-top:4px" });
+    назад.innerHTML = `<a href="#" style="font-size:13px;color:var(--navy);font-weight:600">← Изменить номер</a>`;
+    назад.querySelector("a").addEventListener("click", (e) => {
+      e.preventDefault(); clearInterval(таймер); loginStep = "phone"; renderПлавно();
+    });
+
+    let занято = false;
+    async function проверить(код) {
+      if (занято) return;
+      const зн = String(код || ячейки.значение()).trim();
+      if (зн.length < ДЛИНА_КОДА) { ячейки.ошибка(); err.textContent = "Введите код полностью"; err.style.display = ""; return; }
+      занято = true;
+      err.style.display = "none";
+      btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';
+      ячейки.заблокировать(true);
+      await завершитьВход(зн, (сообщение) => {
+        занято = false;
+        err.textContent = сообщение; err.style.display = "";
+        btn.disabled = false; btn.textContent = "Подтвердить";
+        ячейки.заблокировать(false);
+        ячейки.ошибка();
+      }, () => {
+        // успех: гасим форму и проигрываем галочку
+        clearInterval(таймер);
+        ячейки.принято();
+        f.classList.add("gm-code-done");
+        успех.style.display = "";
+        // Заставляем браузер посчитать состояние «скрыто» ПРЯМО СЕЙЧАС,
+        // иначе переход не запустится. Через requestAnimationFrame
+        // делать нельзя: в фоновой вкладке кадры не рисуются, и галочка
+        // осталась бы невидимой — ровно на этом уже обжигались в
+        // переходе «вход ↔ регистрация» выше.
+        void успех.offsetWidth;
+        успех.classList.add("show");
+      });
+    }
+    btn.addEventListener("click", () => проверить());
+
+    f.append(шапка, err, ячейки.узел, успех, btn, отсчёт, повтор, назад);
     return f;
+  }
+
+  // Один и тот же вход и для админа (без кода), и после ячеек.
+  async function завершитьВход(код, приОшибке, приУспехе) {
+    try {
+      const res = await api.login(loginPhone, код, loginPass);
+      saveToken(res.token);
+      clearPendingAuth();
+      if (приУспехе) {
+        приУспехе();
+        // Галочке нужно время прорисоваться — только потом окно уходит.
+        await new Promise(r => setTimeout(r, меньшеДвижения() ? 300 : 1250));
+      }
+      loginStep = "phone"; loginPass = "";
+      closeModal("auth-modal");
+      sToast("Вход выполнен", "ok");
+      notifyChange();
+    } catch (e) {
+      приОшибке(e.message || "Не удалось войти");
+    }
   }
 
   function buildRegister() {
@@ -289,10 +412,12 @@ function buildAuthModal(start) {
     openBot.addEventListener("click", () => { if (window._gmVerifBotUrl) window.open(window._gmVerifBotUrl, "_blank"); });
 
     const passWrap = el("div", { style: "display:none" });
-    const pass = input("password", "Придумайте пароль (мин. 6 символов)");
-    const pass2 = input("password", "Повторите пароль");
+    // У обоих полей — тот же глаз, что и на входе: пароль придумывают
+    // один раз, и увидеть, что набрано, здесь нужнее всего.
+    const { поле: pass, обёртка: pass1Wrap } = полеПароля("Придумайте пароль (мин. 6 символов)", "new-password");
+    const { поле: pass2, обёртка: pass2Wrap } = полеПароля("Повторите пароль", "new-password");
     const finalBtn = button("Завершить регистрацию", "btn-primary", { style: "width:100%" });
-    passWrap.append(field("Пароль", pass), field("Повторите пароль", pass2), finalBtn);
+    passWrap.append(field("Пароль", pass1Wrap), field("Повторите пароль", pass2Wrap), finalBtn);
 
     let err = el("div.s-error", { style: "display:none" });
 
@@ -389,6 +514,132 @@ function button(text, cls, attrs = {}) {
   if (attrs.style) b.style.cssText = attrs.style;
   return b;
 }
+// ======================================================================
+//  ПОЛЕ ПАРОЛЯ С ГЛАЗОМ
+//  Показать пароль нужно всем, кто печатает его на телефоне вслепую.
+//  Кнопка лежит ВНУТРИ обёртки, поэтому поле не прыгает, когда значок
+//  меняется, и ширина строки остаётся прежней.
+// ======================================================================
+const ГЛАЗ_ОТКРЫТ = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1.6 12S5.5 5 12 5s10.4 7 10.4 7-3.9 7-10.4 7S1.6 12 1.6 12Z"/><circle cx="12" cy="12" r="3.2"/></svg>`;
+const ГЛАЗ_ЗАКРЫТ = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.7 9.7 0 0 1 12 6c6.5 0 10.4 6 10.4 6a18 18 0 0 1-3.5 4.1"/><path d="M6.4 7.6A17.6 17.6 0 0 0 1.6 12S5.5 18 12 18c1.4 0 2.6-.2 3.7-.6"/><path d="M9.9 9.9a3.2 3.2 0 0 0 4.3 4.3"/></svg>`;
+
+function полеПароля(подпись, автозаполнение) {
+  const поле = input("password", подпись || "Пароль");
+  if (автозаполнение) поле.autocomplete = автозаполнение;
+  поле.classList.add("gm-pass-input");
+  const кнопка = document.createElement("button");
+  кнопка.type = "button";
+  кнопка.className = "gm-eye";
+  кнопка.innerHTML = ГЛАЗ_ОТКРЫТ;
+  кнопка.setAttribute("aria-label", "Показать пароль");
+  кнопка.addEventListener("click", () => {
+    const видно = поле.type === "text";
+    поле.type = видно ? "password" : "text";
+    кнопка.innerHTML = видно ? ГЛАЗ_ОТКРЫТ : ГЛАЗ_ЗАКРЫТ;
+    кнопка.setAttribute("aria-label", видно ? "Показать пароль" : "Скрыть пароль");
+    кнопка.setAttribute("aria-pressed", видно ? "false" : "true");
+    // Курсор возвращаем в конец: иначе он прыгает в начало строки.
+    поле.focus();
+    const n = поле.value.length;
+    try { поле.setSelectionRange(n, n); } catch { }
+  });
+  const обёртка = el("div.gm-pass");
+  обёртка.append(поле, кнопка);
+  return { поле, обёртка, кнопка };
+}
+
+// ======================================================================
+//  ЯЧЕЙКИ ОДНОРАЗОВОГО КОДА
+//
+//  Отдельное поле на цифру. Что обязательно должно работать и работает:
+//    • переход к следующей ячейке сам, как только введена цифра;
+//    • Backspace в пустой ячейке возвращает курсор назад и стирает;
+//    • вставка всего кода целиком (Ctrl+V, подсказка из Telegram, и
+//      автоподстановка одноразового кода телефоном) раскладывает цифры
+//      по ячейкам и сразу отправляет;
+//    • стрелки влево-вправо ходят по ячейкам;
+//    • когда код набран полностью, проверка начинается без нажатия
+//      кнопки — кнопка остаётся для тех, кто вставил код мышью.
+// ======================================================================
+function ячейкиКода(длина, приГотовности) {
+  const узел = el("div.gm-code");
+  const поля = [];
+  for (let i = 0; i < длина; i++) {
+    const п = document.createElement("input");
+    п.type = "text";
+    п.inputMode = "numeric";
+    п.autocomplete = i === 0 ? "one-time-code" : "off";
+    п.maxLength = 1;
+    п.className = "gm-code-cell";
+    п.setAttribute("aria-label", `Цифра ${i + 1} из ${длина}`);
+    поля.push(п);
+    узел.append(п);
+  }
+  const значение = () => поля.map(п => п.value).join("");
+
+  function разложить(текст) {
+    const цифры = String(текст || "").replace(/\D/g, "").slice(0, длина);
+    if (!цифры) return;
+    поля.forEach((п, i) => { п.value = цифры[i] || ""; });
+    const след = Math.min(цифры.length, длина - 1);
+    поля[след].focus();
+    if (цифры.length >= длина) приГотовности(цифры);
+  }
+
+  поля.forEach((п, i) => {
+    п.addEventListener("input", () => {
+      // В ячейку могли вставить сразу весь код — раскладываем.
+      if (п.value.length > 1) { разложить(п.value); return; }
+      п.value = п.value.replace(/\D/g, "");
+      if (п.value && i < длина - 1) поля[i + 1].focus();
+      узел.classList.remove("gm-code-err");
+      if (значение().length === длина) приГотовности(значение());
+    });
+    п.addEventListener("keydown", (e) => {
+      if (e.key === "Backspace" && !п.value && i > 0) {
+        e.preventDefault();
+        поля[i - 1].value = "";
+        поля[i - 1].focus();
+      } else if (e.key === "ArrowLeft" && i > 0) { e.preventDefault(); поля[i - 1].focus(); }
+      else if (e.key === "ArrowRight" && i < длина - 1) { e.preventDefault(); поля[i + 1].focus(); }
+      else if (e.key === "Enter") { e.preventDefault(); приГотовности(значение()); }
+    });
+    п.addEventListener("paste", (e) => {
+      e.preventDefault();
+      разложить((e.clipboardData || window.clipboardData).getData("text"));
+    });
+    п.addEventListener("focus", () => п.select());
+  });
+
+  setTimeout(() => поля[0].focus(), 80);
+
+  return {
+    узел,
+    значение,
+    очистить() { поля.forEach(п => п.value = ""); узел.classList.remove("gm-code-err"); поля[0].focus(); },
+    заблокировать(да) { поля.forEach(п => п.disabled = !!да); },
+    ошибка() {
+      узел.classList.remove("gm-code-err");
+      void узел.offsetWidth;          // перезапуск анимации встряски
+      узел.classList.add("gm-code-err");
+      поля.forEach(п => п.value = "");
+      поля[0].focus();
+    },
+    принято() { узел.classList.add("gm-code-ok"); },
+  };
+}
+
+// Галочка в стеклянном круге: круг появляется, линия прорисовывается.
+const ЗНАК_ГАЛОЧКИ = `
+  <div class="gm-ok-ring" aria-hidden="true">
+    <svg viewBox="0 0 64 64" width="64" height="64">
+      <circle class="gm-ok-c" cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="3"/>
+      <path class="gm-ok-v" d="M20 33.5 28.5 42 44 24" fill="none" stroke="currentColor"
+            stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="gm-ok-text">Личность подтверждена</div>`;
+
 function verifyStep(num, title, desc, state = "") {
   const s = el("div.verify-step" + (state ? "." + state : ""));
   const numEl = el("div.verify-step-num", { text: String(num) });

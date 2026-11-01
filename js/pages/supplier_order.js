@@ -3,16 +3,16 @@
 //  себестоимость) и выгрузить в PDF (с реальными фото) или Excel (с фото),
 //  чтобы отправить поставщику. Можно сохранить как «приход (в дороге)».
 // ========================================================================
-import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261030n";
-import { fmt, CUR, convert } from "../fx.js?v=20261030n";
-import { placeholder } from "./products.js?v=20261030n";
-import { картаДороги, вДороге, подписьДороги } from "../transit.js?v=20261030n";
-import { icon } from "../icons.js?v=20261030n";
-import { authHeaders } from "../db.js?v=20261030n";
-import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20261030n";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261030n";
-import { showNotFound } from "./purchases.js?v=20261030n";
-import { thumb, поставитьСнимок } from "../img.js?v=20261030n";
+import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261101a";
+import { fmt, CUR, convert } from "../fx.js?v=20261101a";
+import { placeholder } from "./products.js?v=20261101a";
+import { картаДороги, вДороге, подписьДороги } from "../transit.js?v=20261101a";
+import { icon } from "../icons.js?v=20261101a";
+import { authHeaders } from "../db.js?v=20261101a";
+import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20261101a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261101a";
+import { showNotFound } from "./purchases.js?v=20261101a";
+import { thumb, поставитьСнимок } from "../img.js?v=20261101a";
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 
@@ -223,8 +223,13 @@ export default async function render(page, ctx) {
     showLoader("Сохранение…");
     try {
       const items = state.items.map(it => ({ product_id: it.product_id, qty: it.qty, unit_cost: it.cost, currency: it.currency || state.currency }));
-      await ctx.db.purchases.upsert({ supplier: state.supplier || "—", currency: state.currency, status: "in_transit", date: new Date().toISOString(), items });
-      toast("Сохранено в «Приход» (в дороге)", "ok");
+      // Статус «Заказан», а не «В дороге»: заказ поставщику только что
+      // оформлен, товар ещё никуда не выехал. По этому статусу дашборд
+      // считает «Деньги в заказанных товарах» отдельно от «Денег в
+      // дороге» — иначе одни и те же деньги попадали бы в оба показателя.
+      // Когда поставщик отправит товар, статус меняется в «Приходе».
+      await ctx.db.purchases.upsert({ supplier: state.supplier || "—", currency: state.currency, status: "ordered", date: new Date().toISOString(), items });
+      toast("Сохранено в «Приход» со статусом «Заказан». Когда товар выедет — поменяйте на «В дороге».", "ok");
     } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
     finally { hideLoader(); }
   }

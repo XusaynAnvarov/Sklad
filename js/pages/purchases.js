@@ -1,19 +1,19 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261030n";
-import { fmt, CUR, convert } from "../fx.js?v=20261030n";
-import { placeholder } from "./products.js?v=20261030n";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261030n";
-import { icon } from "../icons.js?v=20261030n";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261030n";
-import { notifyOwner } from "../telegram.js?v=20261030n";
-import { authHeaders } from "../db.js?v=20261030n";
-import { thumb, поставитьСнимок } from "../img.js?v=20261030n";
-import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261030n";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261101a";
+import { fmt, CUR, convert } from "../fx.js?v=20261101a";
+import { placeholder } from "./products.js?v=20261101a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261101a";
+import { icon } from "../icons.js?v=20261101a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261101a";
+import { notifyOwner } from "../telegram.js?v=20261101a";
+import { authHeaders } from "../db.js?v=20261101a";
+import { thumb, поставитьСнимок } from "../img.js?v=20261101a";
+import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261101a";
 // Оприходование общее со складом в телефоне — иначе остатки разойдутся.
-import { applyArrival, записатьПачкой, откатитьПриход } from "../arrival.js?v=20261030n";
-import { изменениеСклада } from "../db.js?v=20261030n";
+import { applyArrival, записатьПачкой, откатитьПриход } from "../arrival.js?v=20261101a";
+import { изменениеСклада } from "../db.js?v=20261101a";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
@@ -46,7 +46,7 @@ const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "�
 // Показать все товары накладной поставщика (фото + название + кол-во) — что в дороге / что пришло
 function showPurchaseItems(s, products) {
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
-  const statusTxt = s.status === "arrived" ? "✅ Уже пришёл" : "🚚 В дороге";
+  const statusTxt = s.status === "arrived" ? "✅ Уже пришёл" : s.status === "ordered" ? "📝 Заказан" : "🚚 В дороге";
   const rows = (s.items || []).map(it => {
     const p = pmap[it.product_id] || { name: "?" };
     return el("div.card", { style: { padding: "8px 10px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center" } }, [
@@ -101,7 +101,9 @@ export default async function render(page, ctx) {
       el("td", {}, [el("strong", { text: fmt(total, s.currency) })]),
       el("td", {}, [s.status === "arrived"
         ? el("span.badge.arrived", {}, [icon("check", { size: 13 }), "Пришёл"])
-        : el("span.badge.transit", {}, [icon("truck", { size: 13 }), "В дороге"])]),
+        : s.status === "ordered"
+          ? el("span.badge.order", {}, [icon("cart", { size: 13 }), "Заказан"])
+          : el("span.badge.transit", {}, [icon("truck", { size: 13 }), "В дороге"])]),
       el("td.right", {}, [el("div.row-actions", {}, [
         s.status !== "arrived" && el("button.btn.btn-ok.btn-sm", { text: "Оприходовать", title: "Отметить «пришёл» и добавить на склад", onclick: function () { arrive(ctx, s, products, this); } }),
         s.status === "arrived" && el("button.btn.btn-outline.btn-sm", { title: "Если оприходовали дважды — списать товары этого прихода один раз", onclick: () => unarriveOnce(ctx, s, products) }, ["↩️ −1 оприх."]),
@@ -183,7 +185,14 @@ function openEditor(ctx, purchase, products, suppliers = []) {
   const shopHint = el("div", { style: { fontSize: "13px", margin: "-4px 0 6px", color: "var(--muted)", display: state.kind === KIND_SHOP ? "" : "none" },
     text: "Товар из магазина приходует по НАШЕЙ складской цене — себестоимость менять не нужно." });
   const fCurrency = select(PCUR, state.currency);
-  const fStatus = select([{ value: "in_transit", label: "В дороге" }, { value: "arrived", label: "Уже пришёл" }], state.status);
+  // «Заказан» — приход оформлен поставщику, но товар ещё не выехал. Нужен
+  // дашборду: по нему считается показатель «Деньги в заказанных товарах»
+  // отдельно от «Денег в дороге», чтобы одни деньги не считались дважды.
+  const fStatus = select([
+    { value: "ordered", label: "Заказан (ещё не выехал)" },
+    { value: "in_transit", label: "В дороге" },
+    { value: "arrived", label: "Уже пришёл" },
+  ], state.status);
   const itemsBox = el("div");
   const totalBox = el("div", { style: { textAlign: "right", fontSize: "20px", fontWeight: "800", marginTop: "10px" } });
   const nameToId = {}; products.forEach(p => { nameToId[(p.name || "").toLowerCase()] = p.id; });

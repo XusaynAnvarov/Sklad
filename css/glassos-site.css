@@ -1,0 +1,241 @@
+/* ===================================================================
+   GLASSOS — слой для публичного сайта (поверх css/site.css).
+
+   Здесь три вещи, которых на сайте не было:
+     1. Компактный поиск в каталоге: круглая лупа разъезжается в поле,
+        соседние фильтры уезжают сами.
+     2. Вход и регистрация: стеклянная панель, пароль с глазом,
+        отдельные ячейки одноразового кода.
+     3. Анимация подтверждения: ячейки гаснут, в стеклянном круге
+        прорисовывается галочка.
+
+   Откат — убрать строку <link> на этот файл в index.html: сайт
+   вернётся к прежнему виду, разметка остаётся рабочей.
+   =================================================================== */
+
+:root {
+  --gs-r-sm: 14px;
+  --gs-r-md: 18px;
+  --gs-r-lg: 24px;
+  --gs-r-pill: 999px;
+  --gs-t-hover: 160ms;
+  --gs-t-micro: 220ms;
+  --gs-e-out: cubic-bezier(.22, 1, .36, 1);
+  --gs-e-spring: cubic-bezier(.34, 1.46, .64, 1);
+}
+
+/* ===================================================================
+   1. ПОИСК В КАТАЛОГЕ
+   =================================================================== */
+.gm-search-cat { position: relative; display: flex; align-items: center; flex: 0 0 auto; }
+
+.gm-search-cat .gm-search-btn {
+  width: 40px; height: 40px; flex: 0 0 auto;
+  display: grid; place-items: center; cursor: pointer;
+  border: 1.5px solid var(--border); border-radius: var(--gs-r-pill);
+  background: var(--white); color: var(--muted);
+  transition: color var(--gs-t-hover), border-color var(--gs-t-hover),
+              background var(--gs-t-hover), transform var(--gs-t-micro) var(--gs-e-spring);
+}
+.gm-search-cat .gm-search-btn:hover { color: var(--navy); border-color: var(--navy); transform: scale(1.06); }
+.gm-search-cat .gm-search-btn:active { transform: scale(.93); transition-duration: 90ms; }
+.gm-search-cat.open .gm-search-btn { color: var(--navy); border-color: var(--navy); }
+
+/* Анимируем ширину одного элемента — соседей двигает сама строка
+   фильтров, и это ровно тот сдвиг, который нужен. */
+.gm-search-cat .gm-search-field {
+  width: 0; opacity: 0; margin-right: 0;
+  overflow: hidden; flex: 0 0 auto;
+  transition: width var(--gs-t-micro) var(--gs-e-out),
+              opacity var(--gs-t-micro) var(--gs-e-out),
+              margin-right var(--gs-t-micro) var(--gs-e-out);
+}
+.gm-search-cat.open .gm-search-field { width: clamp(200px, 32vw, 380px); opacity: 1; margin-right: 8px; }
+.gm-search-cat .search-input {
+  width: 100%; height: 40px; padding: 0 16px;
+  border-radius: var(--gs-r-pill);
+}
+/* Лупа внутри поля больше не нужна — она стала кнопкой рядом. */
+.gm-search-cat .search-input { padding-left: 16px; }
+
+@media (max-width: 640px) {
+  .gm-search-cat.open { flex: 1 1 100%; order: -1; }
+  .gm-search-cat.open .gm-search-field { width: 100%; }
+}
+
+/* ===================================================================
+   2. ОКНО ВХОДА И РЕГИСТРАЦИИ — СТЕКЛО
+   =================================================================== */
+.s-overlay { backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%); }
+.s-modal { border-radius: var(--gs-r-lg); overflow: hidden; }
+#mo-auth-modal .s-modal {
+  background: linear-gradient(152deg, rgba(255, 255, 255, .92), rgba(255, 255, 255, .82));
+  border: 1px solid rgba(255, 255, 255, .9);
+  box-shadow: 0 30px 70px rgba(16, 24, 40, .22), inset 0 1px 0 #fff;
+}
+.auth-side { border-radius: 0; }
+.auth-side-btn, .btn-primary, .s-input, .gm-pass-input { border-radius: var(--gs-r-sm); }
+.btn-primary { transition: transform var(--gs-t-hover) var(--gs-e-out), filter var(--gs-t-hover), box-shadow var(--gs-t-hover); }
+.btn-primary:hover { transform: translateY(-1.5px); }
+.btn-primary:active { transform: scale(.97); transition-duration: 90ms; }
+.btn-primary:disabled { transform: none; }
+
+/* Поле в фокусе — заметно, но спокойно. */
+.s-input, .gm-pass-input {
+  transition: border-color var(--gs-t-hover), box-shadow var(--gs-t-hover), background var(--gs-t-hover);
+}
+
+/* ---- Пароль с глазом ---- */
+.gm-pass { position: relative; display: block; }
+.gm-pass .gm-pass-input { width: 100%; padding-right: 46px; }
+.gm-eye {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  border: none; background: none; color: var(--muted);
+  border-radius: var(--gs-r-pill);
+  transition: color var(--gs-t-hover), background var(--gs-t-hover);
+}
+.gm-eye:hover { color: var(--navy); background: rgba(28, 43, 74, .07); }
+.gm-eye:active { background: rgba(28, 43, 74, .12); }
+.gm-eye:focus-visible { outline: 2px solid var(--navy); outline-offset: 1px; }
+
+/* ===================================================================
+   3. ЯЧЕЙКИ ОДНОРАЗОВОГО КОДА
+   =================================================================== */
+.gm-code-form { gap: 16px; }
+.gm-code-head { text-align: center; }
+.gm-code-title { font-size: 1.125rem; font-weight: 700; margin-bottom: 6px; }
+
+.gm-code {
+  display: flex; justify-content: center; gap: 8px;
+  margin: 2px 0 2px;
+}
+.gm-code-cell {
+  width: 46px; height: 56px; flex: 0 0 auto;
+  text-align: center; font-size: 1.5rem; font-weight: 700;
+  color: var(--text); caret-color: var(--navy);
+  border: 1.5px solid var(--border); border-radius: var(--gs-r-md);
+  background: var(--white); outline: none;
+  transition: border-color var(--gs-t-hover), box-shadow var(--gs-t-hover),
+              transform var(--gs-t-micro) var(--gs-e-spring), background var(--gs-t-hover);
+}
+.gm-code-cell:focus {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(28, 43, 74, .12);
+  transform: translateY(-2px);
+}
+.gm-code-cell:disabled { opacity: .7; }
+
+/* Неверный код: рамки краснеют и ряд коротко встряхивается — это
+   понятнее, чем одна строка текста под полем. */
+@keyframes gmТрясти {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(2px); }
+}
+.gm-code-err { animation: gmТрясти .4s var(--gs-e-out); }
+.gm-code-err .gm-code-cell { border-color: var(--danger); }
+
+/* ===================================================================
+   4. ПОДТВЕРЖДЕНИЕ: ЯЧЕЙКИ ГАСНУТ, РИСУЕТСЯ ГАЛОЧКА
+
+   Галочка появляется только после ответа сервера — её рисует
+   js/site/auth.js, когда вход уже состоялся.
+   =================================================================== */
+.gm-code-ok .gm-code-cell {
+  border-color: var(--success);
+  background: rgba(34, 197, 94, .08);
+  transition: border-color .25s var(--gs-e-out), background .25s var(--gs-e-out);
+}
+
+/* Всё, кроме галочки, уходит: ячейки, кнопка, таймер, ссылки. */
+.gm-code-done > *:not(.gm-ok) {
+  opacity: 0; transform: scale(.97);
+  transition: opacity .28s var(--gs-e-out), transform .28s var(--gs-e-out);
+  pointer-events: none;
+}
+.gm-code-done { position: relative; min-height: 230px; }
+
+.gm-ok {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  opacity: 0; transition: opacity .3s var(--gs-e-out);
+}
+.gm-ok.show { opacity: 1; }
+
+.gm-ok-ring {
+  width: 92px; height: 92px; display: grid; place-items: center;
+  border-radius: var(--gs-r-pill);
+  color: var(--success);
+  background: linear-gradient(152deg, rgba(34, 197, 94, .14), rgba(34, 197, 94, .05));
+  border: 1px solid rgba(34, 197, 94, .3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 14px 30px rgba(16, 24, 40, .12);
+  transform: scale(.82);
+}
+.gm-ok.show .gm-ok-ring { animation: gmКругПоявился .5s var(--gs-e-spring) forwards; }
+@keyframes gmКругПоявился { to { transform: scale(1); } }
+
+/* Линия круга и галочка чертятся, а не возникают. */
+.gm-ok-c { stroke-dasharray: 176; stroke-dashoffset: 176; opacity: .45; }
+.gm-ok-v { stroke-dasharray: 44; stroke-dashoffset: 44; }
+.gm-ok.show .gm-ok-c { animation: gmЧертить .55s var(--gs-e-out) .05s forwards; }
+.gm-ok.show .gm-ok-v { animation: gmЧертить .42s var(--gs-e-out) .42s forwards; }
+@keyframes gmЧертить { to { stroke-dashoffset: 0; } }
+
+.gm-ok-text {
+  font-size: 0.9375rem; font-weight: 700; color: var(--text);
+  opacity: 0; transform: translateY(6px);
+}
+.gm-ok.show .gm-ok-text { animation: gmПодписьВышла .35s var(--gs-e-out) .72s forwards; }
+@keyframes gmПодписьВышла { to { opacity: 1; transform: none; } }
+
+/* Таймер и ссылка «отправить ещё раз» */
+.gm-code-timer { font-size: 0.75rem; color: var(--muted); text-align: center; min-height: 1em; }
+.s-link-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.8125rem; font-weight: 600; color: var(--navy);
+  padding: 6px; border-radius: var(--gs-r-sm);
+  transition: background var(--gs-t-hover), opacity var(--gs-t-hover);
+}
+.s-link-btn:hover:not(:disabled) { background: rgba(28, 43, 74, .07); }
+.s-link-btn:disabled { color: var(--muted); cursor: default; opacity: .6; }
+
+/* ===================================================================
+   5. ТЕЛЕФОН
+   =================================================================== */
+@media (max-width: 480px) {
+  .gm-code { gap: 6px; }
+  .gm-code-cell { width: 42px; height: 52px; font-size: 1.25rem; }
+  .gm-ok-ring { width: 78px; height: 78px; }
+  .gm-code-done { min-height: 210px; }
+}
+@media (max-width: 360px) {
+  .gm-code-cell { width: 38px; height: 48px; font-size: 1.125rem; }
+}
+
+/* ===================================================================
+   6. ПОЖЕЛАНИЯ ЧЕЛОВЕКА ВАЖНЕЕ КРАСОТЫ
+   =================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .gm-search-cat .gm-search-field,
+  .gm-code-cell, .btn-primary, .gm-eye { transition-duration: 1ms !important; }
+  .gm-code-err { animation: none; }
+  .gm-ok.show .gm-ok-ring,
+  .gm-ok.show .gm-ok-c,
+  .gm-ok.show .gm-ok-v,
+  .gm-ok.show .gm-ok-text { animation: none; }
+  /* Без движения галочка должна быть просто видна. */
+  .gm-ok .gm-ok-ring { transform: none; }
+  .gm-ok .gm-ok-c, .gm-ok .gm-ok-v { stroke-dashoffset: 0; }
+  .gm-ok .gm-ok-text { opacity: 1; transform: none; }
+  .gm-search-cat .gm-search-btn:hover, .btn-primary:hover { transform: none; }
+}
+
+@media (prefers-contrast: more) {
+  .gm-code-cell { border-color: var(--text); border-width: 2px; }
+  .s-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0, 0, 0, .8); }
+  #mo-auth-modal .s-modal { background: var(--white); }
+}

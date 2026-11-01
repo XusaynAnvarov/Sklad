@@ -1,0 +1,834 @@
+/* ===================================================================
+   GLASSOS — слой премиального стекла и движения поверх css/theme.css.
+
+   ЗАЧЕМ ОТДЕЛЬНЫМ ФАЙЛОМ. Темой склада (theme.css) живёт четырнадцать
+   разделов, мини-приложение и каталог. Переписать её целиком — значит
+   рискнуть всем сразу. Этот файл только уточняет: скругления, стекло,
+   тени, правый рейл значков, стеклянную шапку с поиском, лесенку
+   переходов и отклик на нажатие. Откат — убрать одну строку <link>
+   в admin.html, и склад вернётся к прежнему виду.
+
+   ПРОИЗВОДИТЕЛЬНОСТЬ. Размытие (backdrop-filter) — самая дорогая
+   вещь на странице: один слой стоит как десяток теней. В theme.css оно
+   висело на каждой карточке, а их на дашборде больше двадцати. Здесь
+   размытие остаётся только у того, что действительно лежит ПОВЕРХ
+   содержимого: рейл, шапка, окна, подсказки, выпадающие списки. Сами
+   карточки получают полупрозрачную подложку без размытия — на глаз
+   отличить нельзя (за ними ровное свечение, а не текст), а кадр
+   собирается в разы быстрее.
+
+   Движение описано токенами ниже. Правило одно: двигаем только
+   transform и opacity — их считает видеокарта и не трогает раскладку.
+   =================================================================== */
+
+:root {
+  /* ---- Скругления. Одна шкала на всё: кнопка, поле, карточка, окно ---- */
+  --r-xs: 10px;      /* значок, бейдж */
+  --r-sm: 14px;      /* кнопка, поле ввода */
+  --r-md: 18px;      /* вложенный блок */
+  --r-lg: 24px;      /* карточка, таблица */
+  --r-xl: 30px;      /* окно, рейл, шапка */
+  --r-pill: 999px;   /* таблетка: вкладки, чипы, круглые кнопки */
+
+  /* ---- Время. Ориентиры из техзадания, выверены на стенде ---- */
+  --t-hover: 160ms;   /* наведение */
+  --t-micro: 220ms;   /* мелкий отклик: раскрытие, подсказка */
+  --t-page: 380ms;    /* смена раздела */
+  --t-exit: 220ms;    /* уход раздела — короче прихода */
+  --stagger: 45ms;    /* шаг лесенки */
+
+  /* ---- Кривые ---- */
+  --e-out: cubic-bezier(.22, 1, .36, 1);        /* выход: быстро начать, мягко встать */
+  --e-in: cubic-bezier(.4, 0, 1, 1);            /* уход: мягко начать, быстро убрать */
+  --e-spring: cubic-bezier(.34, 1.46, .64, 1);  /* пружина с одним качком */
+
+  /* ---- Стекло. Два слоя: цвет подложки и белая плёнка сверху ---- */
+  --glass-fill: linear-gradient(152deg, rgba(18, 18, 24, .50), rgba(18, 18, 24, .26)),
+                linear-gradient(152deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .035));
+  --glass-line: rgba(255, 255, 255, .13);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, .18);
+  --glass-drop: 0 18px 40px rgba(0, 0, 0, .34);
+  --glass-drop-hi: 0 26px 56px rgba(0, 0, 0, .46);
+  --glass-blur: blur(20px) saturate(165%);
+
+  /* Высота рейла значков и стеклянной шапки — в токенах, потому что от
+     них считается высота рабочей области (дашборд на один экран). */
+  --rail-w: 64px;
+  --head-h: 60px;
+}
+
+html[data-theme="light"] {
+  --glass-fill: linear-gradient(152deg, rgba(255, 255, 255, .78), rgba(255, 255, 255, .56));
+  --glass-line: rgba(255, 255, 255, .88);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, .95);
+  --glass-drop: 0 18px 40px rgba(16, 24, 40, .12);
+  --glass-drop-hi: 0 26px 56px rgba(16, 24, 40, .18);
+}
+
+/* ===================================================================
+   1. ОБЩАЯ ГЕОМЕТРИЯ: всё скруглено по одной шкале
+   =================================================================== */
+.btn { border-radius: var(--r-sm); }
+.btn-icon { border-radius: var(--r-pill); }
+.btn-sm { border-radius: var(--r-xs); }
+.inp, .cselect, .search-input, select, textarea { border-radius: var(--r-sm); }
+.card, .stat-card, .advice, .empty { border-radius: var(--r-lg); }
+.tbl, .modal, .combo-panel { border-radius: var(--r-lg); }
+.pill-tabs, .filter-chip, .badge { border-radius: var(--r-pill); }
+.toast { border-radius: var(--r-md); }
+
+/* Фото товара: скругляем КОНТЕЙНЕР, снимок внутри не обрезаем.
+   Товар виден целиком — за это в theme.css отвечает object-fit:contain
+   и размытая подложка; здесь только форма рамки. */
+.prod { border-radius: var(--r-lg); overflow: hidden; }
+.prod .ph { border-radius: 0; }
+.thumb { border-radius: var(--r-md); }
+.mini-row .ph { border-radius: var(--r-sm); }
+
+/* ===================================================================
+   2. СТЕКЛО БЕЗ ЛИШНЕГО РАЗМЫТИЯ
+
+   Карточки теряют backdrop-filter и получают ту же подложку обычным
+   фоном. Выглядит так же (за ними ровное свечение), а кадр собирается
+   без двадцати проходов размытия.
+   =================================================================== */
+.card, .stat-card, .advice, .empty, .pill-tabs, .mini-row, .mini-act, .mini-empty {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--glass-drop), var(--glass-edge);
+}
+
+/* Поля ввода, чипы и кнопки-обводки тоже теряют размытие: они лежат НА
+   странице, а не поверх неё — размывать им нечего, кроме ровного
+   свечения. В разделе «Товары» таких элементов десятки, и каждый стоил
+   прокрутке лишний проход. Подложка остаётся полупрозрачной. */
+.inp, .cselect, .search-input, .btn-outline, .filter-chip, .profile-chip {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Размытие остаётся там, где слой действительно лежит поверх содержимого. */
+.sidebar, .gm-head, .modal, .combo-panel, .toast, .gm-tip, .gm-dock {
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+/* Таблица: размытие на контейнере, строки прозрачные. */
+.tbl {
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+
+/* ===================================================================
+   3. ЕДИНАЯ СИСТЕМА ОТКЛИКА (наведение и нажатие)
+
+   Одно правило на весь интерфейс: при наведении — подъём и подсветка,
+   при нажатии — короткое сжатие. Увеличение не больше 2 %: больше —
+   и элемент начинает перекрывать соседей.
+   =================================================================== */
+.card, .stat-card, .advice, .prod, .mini-row, .mini-act {
+  transition:
+    transform var(--t-hover) var(--e-out),
+    box-shadow var(--t-hover) var(--e-out),
+    border-color var(--t-hover) var(--e-out);
+  will-change: auto;
+}
+@media (hover: hover) and (pointer: fine) {
+  .card:hover, .stat-card:hover, .advice:hover, .prod:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--glass-drop-hi), var(--glass-edge);
+    border-color: rgba(217, 180, 90, .50);
+  }
+}
+.card:active, .stat-card:active, .advice:active, .prod:active, .mini-row:active {
+  transform: scale(.985);
+  transition-duration: 90ms;
+}
+
+.btn {
+  transition:
+    transform var(--t-hover) var(--e-out),
+    background var(--t-hover),
+    box-shadow var(--t-hover),
+    border-color var(--t-hover),
+    filter var(--t-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { transform: translateY(-1.5px); }
+}
+.btn:active { transform: scale(.96); transition-duration: 90ms; }
+
+/* ===================================================================
+   4. КАРКАС: РАБОЧАЯ ОБЛАСТЬ + ПРАВЫЙ РЕЙЛ ЗНАЧКОВ
+
+   Разметка (js/app.js):
+     .app
+       ├── .gm-shell   — шапка и содержимое
+       │     ├── .gm-head
+       │     └── .main#view
+       └── .sidebar.gm-rail — рейл значков СПРАВА
+   =================================================================== */
+@media (min-width: 861px) {
+  .app {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--rail-w);
+    grid-template-rows: 100vh;
+    gap: 0;
+    height: 100vh;
+    overflow: hidden;              /* прокручивается содержимое, не каркас */
+    padding: 12px;
+    align-items: stretch;
+  }
+  .gm-shell {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 10px;
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* ---- Стеклянная шапка ---- */
+  .gm-head {
+    display: flex; align-items: center; gap: 8px;
+    height: var(--head-h); padding: 0 10px 0 16px;
+    border: 1px solid var(--glass-line);
+    border-radius: var(--r-xl);
+    background: var(--glass-fill);
+    box-shadow: var(--glass-drop), var(--glass-edge);
+    position: relative; z-index: 40;
+  }
+  .gm-head .brand {
+    font-size: 1.0625rem; font-weight: 800; white-space: nowrap;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .gm-head .brand .ic-svg { color: var(--accent); }
+  .gm-head-spacer { flex: 1 1 auto; min-width: 0; }
+
+  /* ---- Рабочая область: своя прокрутка, каркас стоит на месте ---- */
+  .main {
+    grid-row: 2;
+    width: 100%; max-width: none; margin: 0;
+    padding: 0 4px 16px;
+    min-height: 0;
+    overflow-y: auto; overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .main::-webkit-scrollbar { width: 8px; }
+  .main::-webkit-scrollbar-thumb { background: rgba(140, 140, 160, .35); border-radius: var(--r-pill); }
+  .main::-webkit-scrollbar-track { background: transparent; }
+
+  /* ---- Рейл значков справа ---- */
+  .sidebar.gm-rail {
+    grid-column: 2;
+    position: relative; z-index: 50;
+    margin: 0 0 0 12px; padding: 10px 0;
+    width: var(--rail-w); height: 100%;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    border: 1px solid var(--glass-line);
+    border-radius: var(--r-xl);
+    background: var(--glass-fill);
+    box-shadow: var(--glass-drop), var(--glass-edge);
+    overflow: visible;             /* подсказки выходят за край рейла */
+  }
+  .sidebar.gm-rail::after { content: none; }   /* растушёвка от theme.css не нужна */
+
+  /* Пункты прокручиваются внутри рейла, служебные кнопки остаются внизу.
+     order обязателен: в теме у .navrow стоит order:4 (там она была
+     полосой под шапкой и шла после служебных кнопок). В рейле порядок
+     обратный — сначала разделы, потом служебное, — иначе тема, сайт и
+     выход оказывались НАД списком разделов. */
+  .gm-rail .navrow {
+    order: 0;
+    flex: 1 1 auto; min-height: 0; width: 100%;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    margin: 0; padding: 2px 0; border: none; box-shadow: none;
+    overflow-y: auto; overflow-x: hidden;
+    scrollbar-width: none; -ms-overflow-style: none;
+    /* Края гаснут — видно, что ряд продолжается. Маску ставит js/app.js
+       только когда ряд действительно не помещается. */
+    -webkit-mask-image: none; mask-image: none;
+  }
+  .gm-rail .navrow::-webkit-scrollbar { width: 0; height: 0; }
+  .gm-rail .navrow.есть-продолжение {
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+            mask-image: linear-gradient(180deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  }
+  .gm-rail .navrow.у-начала {
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 16px), transparent 100%);
+            mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 16px), transparent 100%);
+  }
+  .gm-rail .navrow.у-конца {
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 16px, #000 100%);
+            mask-image: linear-gradient(180deg, transparent 0, #000 16px, #000 100%);
+  }
+
+  /* ---- Пункт рейла: только значок ---- */
+  .gm-rail .navitem {
+    position: relative;
+    width: 44px; height: 44px; flex: 0 0 auto;
+    padding: 0; margin: 0; gap: 0;
+    display: grid; place-items: center;
+    border-radius: var(--r-md);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    /* Размер меняем только transform: ширина и высота остаются те же,
+       поэтому соседние значки при наведении не сдвигаются. */
+    transition:
+      background var(--t-hover) var(--e-out),
+      color var(--t-hover) var(--e-out),
+      border-color var(--t-hover) var(--e-out),
+      box-shadow var(--t-hover) var(--e-out),
+      transform var(--t-micro) var(--e-spring);
+  }
+  /* Подпись раздела в рейле не нужна — её показывает подсказка. */
+  .gm-rail .navitem > span:not(.ic):not(.nav-badge) { display: none; }
+  .gm-rail .navitem .ic { width: auto; }
+  .gm-rail .navitem .ic svg { transition: transform var(--t-micro) var(--e-spring); }
+  .gm-rail .navitem::before { content: none; }   /* золотая полоска слева — не для рейла */
+
+  .gm-rail .navitem:hover {
+    background: rgba(255, 255, 255, .10);
+    border-color: rgba(255, 255, 255, .14);
+    color: var(--text);
+    transform: scale(1.09);
+    padding-left: 0;               /* перебиваем сдвиг из theme.css */
+  }
+  .gm-rail .navitem:hover .ic svg { transform: scale(1.06); }
+  .gm-rail .navitem:active { transform: scale(.94); transition-duration: 90ms; }
+
+  /* Активный раздел: стеклянная подсветка и золотая метка у края. */
+  .gm-rail .navitem.active {
+    color: var(--text);
+    background: linear-gradient(160deg, rgba(217, 180, 90, .30), rgba(217, 180, 90, .10));
+    border-color: rgba(217, 180, 90, .48);
+    box-shadow: 0 8px 20px rgba(217, 180, 90, .20), var(--glass-edge);
+  }
+  .gm-rail .navitem.active .ic-svg { color: var(--accent); }
+  .gm-rail .navitem.active::after {
+    content: ""; position: absolute; right: -11px; top: 50%;
+    width: 3px; height: 20px; margin-top: -10px;
+    border-radius: var(--r-pill); background: var(--grad);
+    box-shadow: 0 0 12px rgba(217, 180, 90, .75);
+  }
+  html[data-theme="light"] .gm-rail .navitem:hover { background: rgba(16, 24, 40, .06); border-color: rgba(16, 24, 40, .09); }
+  html[data-theme="light"] .gm-rail .navitem.active {
+    background: linear-gradient(160deg, rgba(143, 103, 32, .20), rgba(143, 103, 32, .06));
+    border-color: rgba(143, 103, 32, .40);
+    box-shadow: 0 8px 20px rgba(143, 103, 32, .16), var(--glass-edge);
+  }
+
+  /* Счётчик новых заказов — на значке. */
+  .gm-rail .navitem .nav-badge {
+    position: absolute; top: 2px; right: 2px;
+    min-width: 17px; height: 17px; padding: 0 4px;
+    display: grid; place-items: center;
+    font-size: 0.625rem; font-weight: 800; line-height: 1;
+    border-radius: var(--r-pill);
+    background: var(--danger); color: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .35);
+  }
+
+  /* ---- Служебные кнопки рейла (тема, язык, сайт, выход) ---- */
+  .gm-rail .gm-rail-foot {
+    order: 1;
+    flex: 0 0 auto; width: 100%;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding-top: 8px; margin-top: 2px;
+  }
+  .gm-rail .gm-rail-foot::before {
+    content: ""; display: block; width: 26px; height: 1px; margin: 0 auto 6px;
+    background: var(--glass-line);
+  }
+  /* Служебные значки — см. общее правило ниже (оно нужно и в доке). */
+  /* Служебное, что в рейл не влезает, уезжает в шапку (js/app.js). */
+  .gm-rail .profile-chip, .gm-rail .mode-tag, .gm-rail .lang-switch { display: none; }
+
+}
+
+/* ---- Служебные значки рейла: тема, «На сайт», «Выход» ----
+   Теме они достались кнопками во всю ширину столбика. В рейле шириной
+   64 px и в нижнем доке на телефоне такие кнопки вылезали за край, и
+   внизу экрана вместо значков стояли три широкие плашки. Здесь они
+   становятся такими же значками, как разделы: подпись прячется, её
+   показывает подсказка (data-tip). Правило общее для обеих раскладок —
+   на телефоне док такой же, только лежачий. */
+.sidebar.gm-rail .gm-rail-foot .theme-toggle {
+  width: 40px; height: 40px; min-height: 40px;
+  padding: 0; margin: 0; gap: 0; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border-radius: var(--r-md);
+  background: transparent; border: 1px solid transparent;
+  color: var(--muted); text-decoration: none;
+  transition: background var(--t-hover), color var(--t-hover),
+              border-color var(--t-hover), transform var(--t-micro) var(--e-spring);
+}
+.sidebar.gm-rail .gm-rail-foot .theme-toggle > span { display: none; }
+.sidebar.gm-rail .gm-rail-foot .theme-toggle:hover {
+  background: rgba(255, 255, 255, .10);
+  border-color: rgba(255, 255, 255, .14);
+  color: var(--text); transform: scale(1.09);
+}
+.sidebar.gm-rail .gm-rail-foot .theme-toggle:active { transform: scale(.94); transition-duration: 90ms; }
+html[data-theme="light"] .sidebar.gm-rail .gm-rail-foot .theme-toggle:hover {
+  background: rgba(16, 24, 40, .06); border-color: rgba(16, 24, 40, .09);
+}
+
+/* ---- Подсказка: название раздела в рейле, объяснение расчёта у показателя ----
+   Отдельный элемент, а не ::after: подсказка должна выходить за рейл, а у
+   рейла есть прокручиваемый ряд со своим overflow. Рисует js/glassos.js.
+   Перенос строк разрешён — у показателей это целое предложение. */
+.gm-tip {
+  position: fixed; z-index: 300; pointer-events: none;
+  padding: 7px 11px; max-width: 290px;
+  font-size: 0.8125rem; font-weight: 500; line-height: 1.45;
+  color: var(--text);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-sm);
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-drop), var(--glass-edge);
+  opacity: 0; transform: scale(.96);
+  transition: opacity var(--t-micro) var(--e-out), transform var(--t-micro) var(--e-out);
+}
+.gm-tip.show { opacity: 1; transform: none; }
+/* У значков рейла подпись короткая — пусть не переносится. */
+.gm-tip.gm-tip-рейл { white-space: nowrap; font-weight: 600; max-width: 240px; }
+
+/* ===================================================================
+   5. ПОИСК В СТИЛЕ APPLE
+
+   В обычном состоянии — круглая кнопка со лупой. По нажатию поле
+   разъезжается вправо, соседние кнопки плавно уезжают (их двигает
+   сама флекс-строка, потому что поле занимает место). Escape и
+   повторное нажатие закрывают.
+   =================================================================== */
+.gm-search { position: relative; display: flex; align-items: center; flex: 0 0 auto; }
+.gm-search-btn {
+  width: 38px; height: 38px; flex: 0 0 auto;
+  display: grid; place-items: center; cursor: pointer;
+  border: 1px solid var(--glass-line); border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .07); color: var(--muted);
+  transition: background var(--t-hover), color var(--t-hover),
+              border-color var(--t-hover), transform var(--t-micro) var(--e-spring);
+}
+.gm-search-btn:hover { color: var(--text); background: rgba(255, 255, 255, .13); transform: scale(1.07); }
+.gm-search-btn:active { transform: scale(.93); transition-duration: 90ms; }
+html[data-theme="light"] .gm-search-btn { background: rgba(255, 255, 255, .72); }
+html[data-theme="light"] .gm-search-btn:hover { background: #fff; }
+
+/* Поле: ширина 0 → раскрывается. Анимируем ширину ОДНОГО элемента —
+   соседей двигает флекс, и это ровно тот сдвиг, который нужен. */
+.gm-search-field {
+  width: 0; opacity: 0; margin-left: 0;
+  overflow: hidden; flex: 0 0 auto;
+  transition: width var(--t-micro) var(--e-out),
+              opacity var(--t-micro) var(--e-out),
+              margin-left var(--t-micro) var(--e-out);
+}
+.gm-search.open .gm-search-field { width: clamp(180px, 26vw, 340px); opacity: 1; margin-left: 8px; }
+.gm-search-field input {
+  width: 100%; height: 38px; padding: 0 14px;
+  border: 1px solid var(--glass-line); border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .09); color: var(--text);
+  font-size: 0.875rem; outline: none;
+  transition: border-color var(--t-hover), box-shadow var(--t-hover), background var(--t-hover);
+}
+.gm-search-field input::placeholder { color: var(--muted); }
+.gm-search-field input:focus {
+  border-color: rgba(217, 180, 90, .55);
+  box-shadow: 0 0 0 3px rgba(217, 180, 90, .16);
+  background: rgba(255, 255, 255, .14);
+}
+html[data-theme="light"] .gm-search-field input { background: rgba(255, 255, 255, .85); }
+.gm-search.open .gm-search-btn { color: var(--accent); border-color: rgba(217, 180, 90, .45); }
+
+/* Подсказки поиска — стеклянный список под полем. */
+.gm-search-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 320;
+  width: clamp(240px, 30vw, 400px); max-height: 60vh; overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--glass-line); border-radius: var(--r-md);
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-drop-hi), var(--glass-edge);
+  opacity: 0; transform: translateY(-6px) scale(.98); pointer-events: none;
+  transition: opacity var(--t-micro) var(--e-out), transform var(--t-micro) var(--e-out);
+}
+.gm-search-pop.show { opacity: 1; transform: none; pointer-events: auto; }
+.gm-search-pop .gm-sr {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: var(--r-sm); cursor: pointer;
+  font-size: 0.875rem; color: var(--text);
+  transition: background var(--t-hover);
+}
+.gm-search-pop .gm-sr:hover, .gm-search-pop .gm-sr.sel { background: rgba(217, 180, 90, .16); }
+.gm-search-pop .gm-sr .gm-sr-k { font-size: 0.75rem; color: var(--muted); margin-left: auto; white-space: nowrap; }
+.gm-search-pop .gm-sr-empty { padding: 14px 10px; font-size: 0.8125rem; color: var(--muted); text-align: center; }
+
+/* ===================================================================
+   6. ПОСЛЕДОВАТЕЛЬНЫЕ ПЕРЕХОДЫ МЕЖДУ РАЗДЕЛАМИ
+
+   Уход: сначала гаснет внутреннее содержимое, потом вся страница.
+   Приход: заголовок → показатели → карточки → таблицы → остальное.
+   Лесенку задаёт js/glassos.js переменной --задержка; здесь только
+   сами кадры. Рейл и шапка в переходе не участвуют — каркас стоит.
+   =================================================================== */
+@keyframes gmОсВниз { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-8px) scale(.994); } }
+@keyframes gmОсВверх { from { opacity: 0; transform: translateY(14px) scale(.995); } to { opacity: 1; transform: none; } }
+
+/* Уход внутренних блоков — обратной лесенкой: класс и задержку ставит
+   js/glassos.js. Не «.gm-уходит > *», потому что блоки могут лежать и
+   внутри обёртки раскладки (первый экран дашборда). */
+.gm-ух {
+  animation: gmОсВниз var(--t-exit) var(--e-in) both;
+  animation-delay: var(--задержка, 0ms);
+}
+/* Страница целиком уходит последней. */
+.gm-страница-уходит {
+  animation: gmОсВниз var(--t-exit) var(--e-in) both;
+  animation-delay: var(--задержка, 0ms);
+}
+
+/* Приход страницы: без размытия — blur на целой странице заставляет
+   браузер перерисовывать её каждый кадр и на ноутбуке это заметно. */
+.page-enter { animation: gmОсВверх var(--t-page) var(--e-out) both; }
+
+/* Блоки внутри приходят лесенкой. Задержку ставит js/glassos.js
+   (заголовок → KPI → карточки → таблицы), fill-mode backwards:
+   если кадры не придут, блок просто виден. */
+.gm-вход {
+  animation: gmОсВверх var(--t-page) var(--e-out) backwards;
+  animation-delay: var(--задержка, 0ms);
+}
+/* Строке таблицы сдвиг не даём — ячейки едут по-разному, читается как дрожь. */
+.tbl tbody tr.gm-вход { animation-name: gmПроявиться; }
+@keyframes gmПроявиться { from { opacity: 0; } }
+
+/* Пока идёт переход, по странице не щёлкают: иначе нажатие уходит в
+   уезжающий раздел. Прокрутку не блокируем. */
+.gm-переход .main { pointer-events: none; }
+
+/* ===================================================================
+   7. ДАШБОРД: ШЕСТЬ ПОКАЗАТЕЛЕЙ И ОДИН ЭКРАН
+
+   Рабочая область уже со своей прокруткой (п. 4). Дашборд делится на
+   две полосы: показатели сверху фиксированной высоты и сетка блоков
+   под ними, растянутая на остаток. Прокрутка остаётся ВНУТРИ блоков —
+   поэтому на рабочем разрешении страница целиком помещается в экран.
+   =================================================================== */
+.gm-kpi {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.gm-kpi .gm-k {
+  position: relative; overflow: hidden;
+  min-width: 0; padding: 12px 14px;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-lg);
+  background: var(--glass-fill);
+  box-shadow: var(--glass-drop), var(--glass-edge);
+  display: flex; flex-direction: column; gap: 2px;
+  cursor: default;
+  transition: transform var(--t-hover) var(--e-out),
+              box-shadow var(--t-hover) var(--e-out),
+              border-color var(--t-hover) var(--e-out);
+}
+/* Блик по верхнему краю — то, от чего стекло читается как стекло. */
+.gm-kpi .gm-k::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: radial-gradient(120% 70% at 0% 0%, rgba(255, 255, 255, .16), transparent 58%);
+}
+html[data-theme="light"] .gm-kpi .gm-k::after {
+  background: radial-gradient(120% 70% at 0% 0%, rgba(255, 255, 255, .75), transparent 58%);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gm-kpi .gm-k:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--glass-drop-hi), var(--glass-edge);
+    border-color: rgba(217, 180, 90, .50);
+  }
+}
+.gm-k-top { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.gm-k-ic {
+  width: 26px; height: 26px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border-radius: var(--r-xs);
+  background: rgba(217, 180, 90, .16); color: var(--accent);
+}
+.gm-k-lab {
+  font-size: 0.6875rem; font-weight: 600; letter-spacing: .02em;
+  color: var(--muted); text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gm-k-val {
+  font-size: clamp(0.95rem, 1.35vw, 1.3rem); font-weight: 800; line-height: 1.15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  letter-spacing: -0.02em;
+}
+.gm-k-sub { font-size: 0.6875rem; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.gm-k-val.gm-нет { color: var(--muted); font-weight: 700; font-size: 0.9375rem; }
+.gm-k.gm-k-ok .gm-k-ic { background: rgba(52, 211, 153, .16); color: var(--ok); }
+.gm-k.gm-k-warn .gm-k-ic { background: rgba(251, 191, 36, .18); color: var(--warn); }
+.gm-k.gm-k-danger .gm-k-ic { background: rgba(248, 113, 113, .16); color: var(--danger); }
+.gm-k-delta { font-weight: 700; }
+.gm-k-delta.up { color: var(--ok); }
+.gm-k-delta.down { color: var(--danger); }
+
+/* Сетка блоков под показателями: график шире, остальное рядом. */
+.gm-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+.gm-board > .gm-panel { min-width: 0; }
+.gm-panel {
+  display: flex; flex-direction: column; min-height: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-lg);
+  background: var(--glass-fill);
+  box-shadow: var(--glass-drop), var(--glass-edge);
+}
+.gm-panel-h {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  font-size: 0.8125rem; font-weight: 700; letter-spacing: -0.01em;
+}
+/* Вкладки валюты внутри панели — мельче, чем на отдельной странице:
+   здесь это подпись к блоку, а не главный переключатель экрана. */
+.gm-panel-h .pill-tabs { padding: 2px; gap: 2px; }
+.gm-panel-h .pill-tabs button { padding: 4px 9px; font-size: 0.6875rem; border-radius: var(--r-pill); }
+.gm-panel-h .gm-panel-more {
+  margin-left: auto; font-size: 0.75rem; font-weight: 600;
+  color: var(--accent); cursor: pointer; background: none; border: none;
+  padding: 4px 8px; border-radius: var(--r-pill);
+  transition: background var(--t-hover);
+}
+.gm-panel-h .gm-panel-more:hover { background: rgba(217, 180, 90, .14); }
+/* Длинный список внутри блока прокручивается сам — страница не растёт. */
+.gm-panel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.gm-panel-body::-webkit-scrollbar { width: 6px; }
+.gm-panel-body::-webkit-scrollbar-thumb { background: rgba(140, 140, 160, .3); border-radius: var(--r-pill); }
+.gm-panel.gm-wide { grid-column: 1 / -1; }
+
+/* Компактная строка списка внутри блока. */
+.gm-li {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 8px; border-radius: var(--r-sm);
+  font-size: 0.8125rem; cursor: pointer;
+  transition: background var(--t-hover);
+}
+.gm-li:hover { background: rgba(217, 180, 90, .12); }
+.gm-li .gm-li-t { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-li .gm-li-v { font-weight: 700; white-space: nowrap; }
+.gm-li .gm-li-s { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+
+/* Быстрые действия — таблетки. */
+.gm-quick { display: flex; flex-wrap: wrap; gap: 7px; }
+.gm-quick button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 13px; border-radius: var(--r-pill);
+  font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+  color: var(--text);
+  border: 1px solid var(--glass-line);
+  background: rgba(255, 255, 255, .07);
+  transition: transform var(--t-hover) var(--e-out), background var(--t-hover), border-color var(--t-hover);
+}
+.gm-quick button:hover { transform: translateY(-2px); background: rgba(217, 180, 90, .16); border-color: rgba(217, 180, 90, .40); }
+.gm-quick button:active { transform: scale(.95); transition-duration: 90ms; }
+html[data-theme="light"] .gm-quick button { background: rgba(255, 255, 255, .78); }
+
+/* ПЕРВЫЙ ЭКРАН ДАШБОРДА.
+   Заголовок с периодом, шесть показателей и полоса панелей занимают
+   ровно рабочую область — прокручивать, чтобы увидеть главное, не нужно.
+   Всё подробное (советы, все месяцы, группы, долги и оплаты по валютам,
+   стоимость товара) осталось на месте и начинается ниже. */
+.gm-экран { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; }
+.gm-экран .topbar { margin-bottom: 0; }
+.gm-экран .gm-kpi { margin-bottom: 0; }
+.gm-экран .topbar h1 { font-size: 1.375rem; }
+
+@media (min-width: 1100px) and (min-height: 640px) {
+  .gm-экран {
+    /* 24px — поля .app, 10px — зазор под шапкой, 16px — нижний отступ .main */
+    height: calc(100vh - 24px - var(--head-h) - 10px - 16px);
+    min-height: 430px;
+  }
+  .gm-экран .gm-board { min-height: 0; grid-auto-rows: minmax(0, 1fr); }
+}
+/* Подробная часть отделяется воздухом, а не чертой. */
+.page-dashboard > div:not(.gm-экран) { margin-top: 24px; }
+/* Экран ниже — полосы складываются и прокрутка возвращается: читаемость
+   важнее обещания «один экран». */
+@media (max-width: 1340px) {
+  .gm-kpi { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 1100px) {
+  .gm-board { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+/* ===================================================================
+   8. ТЕЛЕФОН И ПЛАНШЕТ: РЕЙЛ СТАНОВИТСЯ НИЖНИМ ДОКОМ
+
+   На узком экране вертикальный рейл справа неудобен — большой палец до
+   верхних значков не достаёт. Значки уезжают в стеклянный док у нижнего
+   края: та же система, другая раскладка.
+   =================================================================== */
+@media (max-width: 860px) {
+  .app { display: block; height: auto; overflow: visible; padding: 0; }
+  .gm-shell { display: block; }
+
+  .gm-head {
+    position: sticky; top: 0; z-index: 60;
+    display: flex; align-items: center; gap: 6px;
+    height: 54px; margin: 8px 10px 0; padding: 0 8px 0 12px;
+    border: 1px solid var(--glass-line); border-radius: var(--r-xl);
+    background: var(--glass-fill);
+    box-shadow: var(--glass-drop), var(--glass-edge);
+  }
+  /* В шапку телефона помещается немного: знак, поиск и язык. Подпись
+     режима базы и имя владельца уезжают — режим виден на дашборде под
+     заголовком, а владелец на этом телефоне и так один. */
+  .gm-head .brand span { display: none; }
+  .gm-head .brand { font-size: 0.9375rem; flex: 0 0 auto; }
+  .gm-head .mode-tag { display: none; }
+  .gm-head .profile-chip {
+    flex: 0 0 auto; padding: 0; margin: 0; gap: 0;
+    background: none; border: none; box-shadow: none;
+  }
+  .gm-head .profile-chip > div:not(.avatar) { display: none; }
+  .gm-head .lang-switch { flex: 0 0 auto; }
+  .main { padding: 14px 12px 104px; max-width: none; }
+
+  /* Заголовок панели на телефоне переносится: вкладки валюты и ссылка
+     «подробнее» уходят на вторую строку, а не сжимают название в столбик
+     из одного слова. */
+  .gm-panel-h { flex-wrap: wrap; }
+  .gm-panel-h > span:nth-child(2) { flex: 1 1 auto; }
+  .gm-panel-h .pill-tabs,
+  .gm-panel-h .gm-panel-more { margin-left: auto; }
+
+  /* Док: значки в ряд, прокручивается вбок, под ним безопасная зона iPhone. */
+  .sidebar.gm-rail {
+    position: fixed; left: 10px; right: 10px; bottom: 0; top: auto;
+    z-index: 120; height: auto; width: auto;
+    margin: 0 0 calc(8px + env(safe-area-inset-bottom)); padding: 7px 8px;
+    display: flex; flex-direction: row; align-items: center; gap: 4px;
+    border: 1px solid var(--glass-line); border-radius: var(--r-xl);
+    background: var(--glass-fill);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, .28), var(--glass-edge);
+    transform: none;
+  }
+  .sidebar.gm-rail::after { content: none; }
+  .gm-rail .navrow {
+    flex: 1 1 auto; min-width: 0;
+    display: flex; flex-direction: row; gap: 4px;
+    overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: none; scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+  .gm-rail .navrow::-webkit-scrollbar { height: 0; }
+  .gm-rail .navitem {
+    width: 46px; height: 44px; flex: 0 0 auto; scroll-snap-align: center;
+    display: grid; place-items: center; padding: 0; gap: 0;
+    border-radius: var(--r-md); border: 1px solid transparent;
+  }
+  .gm-rail .navitem > span:not(.ic):not(.nav-badge) { display: none; }
+  .gm-rail .navitem::before { content: none; }
+  .gm-rail .navitem.active {
+    background: linear-gradient(160deg, rgba(217, 180, 90, .30), rgba(217, 180, 90, .10));
+    border-color: rgba(217, 180, 90, .48); color: var(--text);
+  }
+  .gm-rail .navitem.active::after {
+    content: ""; position: absolute; left: 50%; bottom: -3px;
+    width: 18px; height: 3px; margin-left: -9px;
+    border-radius: var(--r-pill); background: var(--grad);
+  }
+  .gm-rail .navitem .nav-badge { position: absolute; top: 1px; right: 1px; }
+  /* display:flex обязателен: без него служебные значки остаются блоками
+     и встают столбиком — док вырастал втрое и съедал экран. */
+  .gm-rail .gm-rail-foot {
+    display: flex; flex-direction: row; align-items: center;
+    flex: 0 0 auto; width: auto; gap: 2px;
+    padding: 0 0 0 4px; margin: 0;
+  }
+  .gm-rail .gm-rail-foot::before { width: 1px; height: 24px; margin: 0 4px 0 0; }
+  .sidebar.gm-rail .gm-rail-foot .theme-toggle { width: 36px; height: 36px; min-height: 36px; }
+  /* Кнопка «меню» из theme.css в доке не нужна. */
+  .menu-btn { display: none !important; }
+
+  /* Показатели на телефоне — два в ряд, суммы остаются читаемыми. */
+  .gm-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .gm-kpi .gm-k { padding: 10px 12px; border-radius: var(--r-md); }
+  .gm-board { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .gm-panel { border-radius: var(--r-md); padding: 12px 13px; }
+  .gm-panel-body { max-height: 46vh; }
+
+  /* Поиск на телефоне раскрывается во всю строку шапки. */
+  .gm-search.open { flex: 1 1 auto; }
+  .gm-search.open .gm-search-field { width: 100%; }
+  .gm-search-pop { width: min(86vw, 400px); }
+
+  /* Горизонтальной прокрутки на телефоне быть не должно. */
+  html, body { overflow-x: hidden; }
+}
+
+@media (max-width: 420px) {
+  .gm-kpi .gm-k { padding: 9px 10px; }
+  .gm-k-val { font-size: 0.9375rem; }
+  .gm-k-ic { width: 22px; height: 22px; }
+}
+
+/* ===================================================================
+   9. ПОЖЕЛАНИЯ ЧЕЛОВЕКА ВАЖНЕЕ КРАСОТЫ
+   =================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter, .gm-вход, .gm-уходит > *, .gm-страница-уходит,
+  .gm-kpi .gm-k, .gm-tip { animation: none !important; }
+  .card, .stat-card, .advice, .prod, .btn, .gm-k, .navitem,
+  .gm-search-field, .gm-search-pop, .gm-quick button {
+    transition-duration: 1ms !important;
+  }
+  .card:hover, .stat-card:hover, .advice:hover, .prod:hover,
+  .gm-kpi .gm-k:hover, .btn:hover, .gm-rail .navitem:hover { transform: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .sidebar.gm-rail, .gm-head, .gm-panel, .gm-kpi .gm-k, .gm-search-pop, .gm-tip,
+  .gm-search-btn, .gm-search-field input, .gm-quick button {
+    background: var(--panel);
+    border-color: var(--border);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .sidebar.gm-rail, .gm-head, .gm-panel, .gm-kpi .gm-k, .gm-search-pop, .gm-tip {
+    background: var(--panel); border-color: var(--border);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .sidebar.gm-rail, .gm-head, .gm-panel, .gm-kpi .gm-k, .gm-search-pop, .gm-tip,
+  .gm-search-btn, .gm-search-field input, .gm-quick button {
+    background: var(--panel); border-color: var(--text);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  .gm-k-lab, .gm-k-sub, .gm-li .gm-li-s { color: var(--text); }
+  .gm-rail .navitem.active { outline: 2px solid var(--accent); outline-offset: -2px; }
+}
+
+/* Печать: стекло и движение ни к чему. */
+@media print {
+  .sidebar.gm-rail, .gm-head, .gm-tip, .gm-search-pop { display: none !important; }
+  .main { overflow: visible !important; height: auto !important; }
+  .gm-panel, .gm-kpi .gm-k { box-shadow: none; background: #fff; border-color: #ddd; }
+}

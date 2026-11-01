@@ -1,30 +1,34 @@
 // ========================================================================
 //  ТОЧКА ВХОДА АДМИНКИ: авторизация → каркас → роутер
 // ========================================================================
-import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла, показатьПоявление } from "./ui.js?v=20261030n";
-import { обновитьЕслиУстарело } from "./version.js?v=20261030n";
-import { icon } from "./icons.js?v=20261030n";
-import { db, rawClient } from "./db.js?v=20261030n";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261030n";
-import { setRates } from "./fx.js?v=20261030n";
+// показатьПоявление больше не зовём: лесенку раздела ведёт js/glassos.js
+// (прийти) — она знает порядок слоёв и умеет отменять незаконченный переход.
+import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261101a";
+import { обновитьЕслиУстарело } from "./version.js?v=20261101a";
+import { icon } from "./icons.js?v=20261101a";
+import { db, rawClient } from "./db.js?v=20261101a";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261101a";
+import { setRates } from "./fx.js?v=20261101a";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261030n";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261030n";
+import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261101a";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261101a";
+// GlassOS: подсказки правого рейла, поиск в стиле Apple, последовательные переходы
+import { initПодсказкиРейла, создатьПоиск, уйти, прийти, запомнитьЗапрос, применитьЗапрос } from "./glassos.js?v=20261101a";
 
-import dashboard from "./pages/dashboard.js?v=20261030n";
-import products from "./pages/products.js?v=20261030n";
-import sales from "./pages/sales.js?v=20261030n";
-import purchases from "./pages/purchases.js?v=20261030n";
-import customers from "./pages/customers.js?v=20261030n";
-import orders from "./pages/orders.js?v=20261030n";
-import reports from "./pages/reports.js?v=20261030n";
-import catalogPage from "./pages/catalog_admin.js?v=20261030n";
-import settings from "./pages/settings.js?v=20261030n";
-import siteClients from "./pages/site_clients.js?v=20261030n";
-import trash from "./pages/trash.js?v=20261030n";
-import videosAdmin from "./pages/videos_admin.js?v=20261030n";
-import supplierOrder from "./pages/supplier_order.js?v=20261030n";
-import stockCheck from "./pages/stock_check.js?v=20261030n";
+import dashboard from "./pages/dashboard.js?v=20261101a";
+import products from "./pages/products.js?v=20261101a";
+import sales from "./pages/sales.js?v=20261101a";
+import purchases from "./pages/purchases.js?v=20261101a";
+import customers from "./pages/customers.js?v=20261101a";
+import orders from "./pages/orders.js?v=20261101a";
+import reports from "./pages/reports.js?v=20261101a";
+import catalogPage from "./pages/catalog_admin.js?v=20261101a";
+import settings from "./pages/settings.js?v=20261101a";
+import siteClients from "./pages/site_clients.js?v=20261101a";
+import trash from "./pages/trash.js?v=20261101a";
+import videosAdmin from "./pages/videos_admin.js?v=20261101a";
+import supplierOrder from "./pages/supplier_order.js?v=20261101a";
+import stockCheck from "./pages/stock_check.js?v=20261101a";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -93,43 +97,104 @@ async function boot() {
   try { const sales = await db.sales.list(); ctx.setNavBadge("orders", sales.filter(s => s.status === "order").length); } catch {}
 }
 
+// ========================================================================
+//  КАРКАС GLASSOS
+//
+//  Разделы уехали из полосы под шапкой в правый рейл значков: подписи
+//  там не нужны (их показывает подсказка), и вся ширина экрана достаётся
+//  цифрам. Служебное разделилось по смыслу: то, что про человека и
+//  данные (профиль, режим базы, язык, поиск), — в шапке; то, что про
+//  выход из текущего места (тема, сайт, выход), — внизу рейла.
+//
+//  Разметка:
+//    .app
+//      ├── .gm-shell   → .gm-head (шапка) + .main#view (содержимое)
+//      └── .sidebar.gm-rail → .navrow (значки) + .gm-rail-foot
+// ========================================================================
 function buildShell() {
   root.innerHTML = "";
   // Тёплое свечение за стеклом (css/theme.css, .gm-glow). Без него матовые
   // поверхности нечего размывать и они выглядят просто серыми.
   if (!document.querySelector(".gm-glow")) document.body.prepend(el("div.gm-glow", { "aria-hidden": "true" }));
-  const sidebar = el("aside.sidebar");
-  sidebar.append(el("div.brand", {}, [icon("box", { size: 22 }), el("span", { text: "Мой Склад" })]));
-  sidebar.append(el("div.profile-chip", {}, [
+
+  // ---------- Правый рейл: только значки ----------
+  const sidebar = el("aside.sidebar.gm-rail");
+  const navrow = el("nav.navrow", { "aria-label": "Разделы склада" });
+  NAV.forEach(n => {
+    const перейти = () => {
+      location.hash = "#/" + n.id;
+      // На телефоне рейл — нижний док, закрывать его не нужно: он всегда
+      // на месте. Класс .open остался от прежнего ящика — снимаем, если был.
+      if (window.innerWidth <= 860) sidebar.classList.remove("open");
+    };
+    navrow.append(el("div.navitem", {
+      "data-id": n.id,
+      // Название раздела читает подсказка (js/glassos.js) и экранный диктор.
+      "data-tip": n.label,
+      "aria-label": n.label,
+      role: "link",
+      tabindex: "0",
+      title: "",                 // своя подсказка красивее системной
+      onclick: перейти,
+      onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); перейти(); } },
+    }, [
+      el("span.ic", {}, [icon(n.ic, { size: 20 })]),
+      el("span", { text: n.label }),
+      el("span.nav-badge", { "data-badge": n.id, style: { display: "none" } }),
+    ]));
+  });
+  navrow.addEventListener("scroll", отметитьКрая, { passive: true });
+  window.addEventListener("resize", отметитьКрая);
+  sidebar.append(navrow);
+
+  // Низ рейла: тема, сайт, выход — тоже значками, с подсказками.
+  const тема = makeThemeToggle();
+  тема.dataset.tip = "Сменить тему";
+  const наСайт = el("a.theme-toggle", { href: "/", "data-tip": "На сайт", "aria-label": "На сайт" },
+    [icon("globe", { size: 17 }), el("span", { text: "На сайт" })]);
+  const выход = el("button.theme-toggle", { onclick: logout, "data-tip": "Выход", "aria-label": "Выход" },
+    [icon("logout", { size: 17 }), el("span", { text: "Выход" })]);
+  sidebar.append(el("div.gm-rail-foot", {}, [тема, наСайт, выход]));
+
+  // ---------- Стеклянная шапка ----------
+  const brand = el("div.brand", {}, [icon("box", { size: 20 }), el("span", { text: "Мой Склад" })]);
+  const поиск = создатьПоиск({
+    placeholder: "Поиск: товар, клиент, раздел…",
+    искать: искатьПоВсему,
+    выбрать: (р) => {
+      if (р.запрос) запомнитьЗапрос(р.запрос);
+      location.hash = "#/" + р.раздел;
+      // Уже на этом разделе — хеш не меняется и роутер не сработает:
+      // перерисовываем сами, иначе запрос никуда не применится.
+      if ((location.hash.replace(/^#\/?/, "").split("?")[0] || "dashboard") === р.раздел) route();
+    },
+  });
+  const профиль = el("div.profile-chip", {}, [
     el("div.avatar", {}, [icon("user", { size: 18 })]),
     el("div", { style: { minWidth: "0" } }, [
       el("div.pname", { text: "Владелец" }),
       el("div.ptag", {}, [el("span.dot"), "Online · PRO"]),
     ]),
-  ]));
-  // Пункты меню лежат в своей строке: на компьютере она идёт полосой под
-  // шапкой и прокручивается вбок, на телефоне остаётся столбиком в ящике.
-  const navrow = el("nav.navrow", { "aria-label": "Разделы склада" });
-  NAV.forEach(n => {
-    navrow.append(el("div.navitem", {
-      "data-id": n.id,
-      onclick: () => { location.hash = "#/" + n.id; if (window.innerWidth <= 860) sidebar.classList.remove("open"); },
-    }, [el("span.ic", {}, [icon(n.ic, { size: 18 })]), el("span", { text: n.label }), el("span.nav-badge", { "data-badge": n.id, style: { display: "none" } })]));
-  });
-  navrow.addEventListener("scroll", отметитьКрая, { passive: true });
-  window.addEventListener("resize", отметитьКрая);
-  sidebar.append(navrow);
-  sidebar.append(el("div.mode-tag", {}, [icon(db.mode === "supabase" ? "cloud" : "database", { size: 13 }), " ", db.mode === "supabase" ? "Онлайн (Supabase)" : "Локальный режим"]));
-  sidebar.append(makeLangSwitcher(() => applyI18n(document.body)));
-  sidebar.append(makeThemeToggle());
-  sidebar.append(el("a.theme-toggle", { href: "/", style: { marginTop: "6px", textDecoration: "none", display: "flex", alignItems: "center", gap: "6px" } }, [icon("globe", { size: 15 }), el("span", { text: "На сайт" })]));
-  // Со значком — как у соседей: без него кнопка выбивалась из набора.
-  sidebar.append(el("button.theme-toggle", { onclick: logout, style: { marginTop: "4px", display: "flex", alignItems: "center", gap: "6px" } },
-    [icon("logout", { size: 15 }), el("span", { text: "Выход" })]));
+  ]);
+  const режим = el("div.mode-tag", {}, [
+    icon(db.mode === "supabase" ? "cloud" : "database", { size: 13 }), " ",
+    db.mode === "supabase" ? "Онлайн (Supabase)" : "Локальный режим",
+  ]);
+  const head = el("header.gm-head", {}, [
+    brand,
+    el("div.gm-head-spacer"),
+    поиск,
+    makeLangSwitcher(() => applyI18n(document.body)),
+    режим,
+    профиль,
+  ]);
 
   const main = el("main.main", { id: "view" });
-  const app = el("div.app", {}, [sidebar, main]);
+  const shell = el("div.gm-shell", {}, [head, main]);
+  const app = el("div.app", {}, [shell, sidebar]);
   root.append(app);
+  initПодсказкиРейла();
+  прогретьПоиск();
 
   ctx = {
     db,
@@ -145,27 +210,102 @@ function buildShell() {
   window.addEventListener("hashchange", route);
 }
 
+// ========================================================================
+//  ГЛОБАЛЬНЫЙ ПОИСК
+//
+//  Ищет по разделам, товарам и клиентам. Найденное открывает свой раздел
+//  и вписывает запрос в его собственное поле поиска (js/glassos.js,
+//  применитьЗапрос) — так четырнадцать страниц остаются нетронутыми, а
+//  фильтрует каждая своим кодом.
+//
+//  Списки берём один раз и держим в памяти: перебирать тысячу товаров на
+//  каждую букву дешевле, чем ходить за ними в облако.
+// ========================================================================
+let кэшПоиска = { products: [], customers: [], готов: false };
+
+async function прогретьПоиск() {
+  try {
+    const [products, customers] = await Promise.all([
+      db.products.list().catch(() => []),
+      db.customers.list().catch(() => []),
+    ]);
+    кэшПоиска = { products: products || [], customers: customers || [], готов: true };
+  } catch { /* поиск по разделам работает и без списков */ }
+}
+
+const склеить = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+function искатьПоВсему(запрос) {
+  const q = склеить(запрос);
+  if (!q) return [];
+  const найдено = [];
+
+  // Разделы — первыми: ответ мгновенный и всегда есть.
+  NAV.forEach(n => {
+    if (склеить(n.label).includes(q)) найдено.push({ title: n.label, hint: "Раздел", раздел: n.id });
+  });
+
+  // Товары: по названию и артикулу.
+  for (const p of кэшПоиска.products) {
+    if (найдено.length >= 12) break;
+    if (склеить(p.name).includes(q) || склеить(p.sku).includes(q)) {
+      найдено.push({
+        title: p.name || "Без названия",
+        hint: "Товар" + (p.sku ? " · " + p.sku : ""),
+        раздел: "products",
+        запрос: p.name || p.sku || "",
+      });
+    }
+  }
+
+  // Клиенты: по имени и любому из номеров.
+  for (const c of кэшПоиска.customers) {
+    if (найдено.length >= 12) break;
+    const номера = (Array.isArray(c.phones) && c.phones.length) ? c.phones : (c.contact ? [c.contact] : []);
+    if (склеить(c.name).includes(q) || номера.some(t => склеить(t).includes(q))) {
+      найдено.push({
+        title: c.name || "Без имени",
+        hint: "Клиент" + (номера[0] ? " · " + номера[0] : ""),
+        раздел: "customers",
+        запрос: c.name || номера[0] || "",
+      });
+    }
+  }
+
+  return найдено;
+}
+
 // Разделов четырнадцать, и в строку они помещаются не на каждом экране.
 // Прокрутку у ряда оставляем, но полосу прячем (css/theme.css): вместо неё
 // края гаснут — это и показывает, что ряд продолжается. Здесь же следим,
 // с какой стороны ещё есть что показать, и подводим активный пункт в
 // видимую часть, чтобы после перехода он не оставался за краем.
+// Рейл прокручивается по вертикали на компьютере и по горизонтали в
+// нижнем доке на телефоне — поэтому сторону определяем по самому ряду,
+// а не по ширине окна: так одна функция верна в обеих раскладках.
+function вертикальный(ряд) { return ряд.scrollHeight - ряд.clientHeight > 2; }
+
 function отметитьКрая() {
   const ряд = $(".navrow");
   if (!ряд) return;
-  const запас = ряд.scrollWidth - ряд.clientWidth;
-  const влево = ряд.scrollLeft > 4;
-  const вправо = ряд.scrollLeft < запас - 4;
-  ряд.classList.toggle("есть-продолжение", влево && вправо);
-  ряд.classList.toggle("у-начала", !влево && вправо);
-  ряд.classList.toggle("у-конца", влево && !вправо);
+  const верт = вертикальный(ряд);
+  const сдвиг = верт ? ряд.scrollTop : ряд.scrollLeft;
+  const запас = верт ? ряд.scrollHeight - ряд.clientHeight : ряд.scrollWidth - ряд.clientWidth;
+  const начало = сдвиг > 4;
+  const конец = сдвиг < запас - 4;
+  ряд.classList.toggle("есть-продолжение", начало && конец);
+  ряд.classList.toggle("у-начала", !начало && конец);
+  ряд.classList.toggle("у-конца", начало && !конец);
 }
 
 function подвестиАктивный() {
   const ряд = $(".navrow");
   const пункт = ряд && ряд.querySelector(".navitem.active");
   if (!ряд || !пункт) return;
-  if (ряд.scrollWidth > ряд.clientWidth) {
+  if (вертикальный(ряд)) {
+    const цель = пункт.offsetTop - (ряд.clientHeight - пункт.offsetHeight) / 2;
+    ряд.scrollTop = Math.max(0, Math.min(цель, ряд.scrollHeight - ряд.clientHeight));
+  } else if (ряд.scrollWidth > ряд.clientWidth) {
     // по центру видимой части, но не дальше краёв ряда
     const цель = пункт.offsetLeft - (ряд.clientWidth - пункт.offsetWidth) / 2;
     ряд.scrollLeft = Math.max(0, Math.min(цель, ряд.scrollWidth - ряд.clientWidth));
@@ -173,12 +313,26 @@ function подвестиАктивный() {
   отметитьКрая();
 }
 
+// Какая навигация сейчас главная. Быстрые нажатия по разделам раньше
+// копили очередь: каждая отрисовка дорисовывала свой раздел поверх
+// чужого. Теперь у перехода есть номер, и устаревший просто уходит.
+let номерНавигации = 0;
+
 async function route() {
+  const моя = ++номерНавигации;
   const id = (location.hash.replace(/^#\/?/, "") || "dashboard").split("?")[0];
   const item = NAV.find(n => n.id === id) || NAV[0];
+  // Рейл в переходе не участвует: каркас стоит на месте, меняется только
+  // содержимое — поэтому активный пункт переключаем сразу.
   $$(".navitem").forEach(n => n.classList.toggle("active", n.getAttribute("data-id") === item.id));
   подвестиАктивный();
   const view = $("#view");
+
+  // 1. Уход: сначала внутренние блоки снизу вверх, потом вся страница.
+  const старая = view.firstElementChild;
+  if (старая) await уйти(старая);
+  if (моя !== номерНавигации) return;   // пока уходили, выбрали другой раздел
+
   view.innerHTML = "";
   // Имя раздела на странице: по нему стиль можно включить только там, где
   // он нужен (например стекло на главной — css/theme.css, .page-dashboard).
@@ -193,13 +347,17 @@ async function route() {
   } finally {
     hideLoader();
   }
+  if (моя !== номерНавигации) return;   // отрисовка устарела — рисует следующий
+
   reveal(view);
-  // Блоки раздела выходят лесенкой — на любом экране, не только на дашборде.
-  показатьПоявление(page);
+  // 2. Приход: заголовок → показатели → карточки → таблицы → остальное.
+  прийти(page);
   applyI18n(document.body);
   // Крупные числа набегают от нуля — на любом экране, не только на дашборде.
   оживитьЧисла(page);
   labelTableCells(view);   // подписи для «карточного» вида таблиц на телефоне
+  применитьЗапрос(page);   // пришли из глобального поиска — подставляем запрос
+  view.scrollTop = 0;
 }
 
 // На узких экранах таблица превращается в карточки (css/theme.css), и каждой ячейке
@@ -272,7 +430,7 @@ setTimeout(() => {
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=225", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=226", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
