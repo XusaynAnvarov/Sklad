@@ -3,12 +3,12 @@
 // себестоимость, это делается за компьютером. С телефона нужно другое:
 // увидеть, что едет, и отметить «пришло», когда коробки на месте.
 // Приход из магазина живёт отдельным экраном — он для телефона и создан.
-import { el, go } from "../app.js?v=20261101a";
-import { icon } from "../../icons.js?v=20261101a";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20261101a";
-import { fmt } from "../../fx.js?v=20261101a";
-import { applyArrival } from "../../arrival.js?v=20261101a";
-import { isShop, kindText } from "../../purchase.js?v=20261101a";
+import { el, go } from "../app.js?v=20261101b";
+import { icon } from "../../icons.js?v=20261101b";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20261101b";
+import { fmt } from "../../fx.js?v=20261101b";
+import { applyArrival } from "../../arrival.js?v=20261101b";
+import { isShop, kindText } from "../../purchase.js?v=20261101b";
 
 const дата = (d) => { const t = new Date(d); return isFinite(t) ? t.toLocaleDateString("ru-RU") : "—"; };
 const сумма = (s) => (s.items || []).reduce((t, i) => t + (Number(i.qty) || 0) * (Number(i.unit_cost) || 0), 0);

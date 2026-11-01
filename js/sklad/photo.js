@@ -5,9 +5,9 @@
 //  вопрос «тот ли это» быстрее любой подписи.
 //  Нажатие раскрывает фото во весь экран.
 // ========================================================================
-import { el } from "./app.js?v=20261101a";
-import { thumb } from "../img.js?v=20261101a";
-import { lightbox } from "../ui.js?v=20261101a";
+import { el } from "./app.js?v=20261101b";
+import { thumb } from "../img.js?v=20261101b";
+import { lightbox } from "../ui.js?v=20261101b";
 
 // Все снимки товара: новые лежат в photos, старые — в одном photo_url.
 export function photosOf(p) {
