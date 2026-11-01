@@ -88,9 +88,20 @@ html[data-site-theme="dark"] {
   z-index: 100;
 }
 .site-header::after { content: none; }   /* растушёвка из site.css больше не нужна */
+/* ---- ВО ВСЮ ШИРИНУ ----
+   И шапка, и содержимое были заперты в колонку 1200 px: на широком
+   мониторе по краям оставались пустые поля в несколько сотен пикселей,
+   а в ряд помещалось на две карточки меньше. Ограничение снято, от
+   края остаётся только небольшой отступ — и он ОДИН И ТОТ ЖЕ у шапки и
+   у содержимого, иначе знак в собранной шапке не встал бы по линии
+   колонки категорий.
+
+   Отступ считается так: 14 px у .site-header + 8 px у полосы = 22 px,
+   столько же у .site-main. Менять — только парой. */
 .site-header-inner {
+  max-width: none;
   height: 58px;
-  padding: 0 10px 0 14px;
+  padding: 0 10px 0 8px;
   border: 1px solid var(--gs-line);
   border-radius: var(--gs-r-pill);
   background: var(--gs-glass);
@@ -99,6 +110,9 @@ html[data-site-theme="dark"] {
   box-shadow: var(--gs-drop), var(--gs-edge);
 }
 .site-nav-link { border-radius: var(--gs-r-pill); }
+
+/* Содержимое — той же ширины, что и шапка, и по той же линии слева. */
+.site-main { max-width: none; padding: 24px 22px 60px; }
 
 /* ---- ШАПКА СОБИРАЕТСЯ ПРИ ПРОКРУТКЕ ВНИЗ ----
    Класс «собрана» ставит js/site/app.js. Порядок ухода задан задержками,
@@ -147,10 +161,10 @@ html[data-site-theme="dark"] {
   max-width: 0; opacity: 0; overflow: hidden; transform: translateX(-6px);
   transition-delay: 250ms;
 }
-.site-header.собрана .site-logo-text {
-  max-width: 0; opacity: 0; overflow: hidden; transform: translateX(-8px);
-  transition-delay: 300ms;
-}
+/* Название остаётся. Раньше оно схлопывалось вместе со всем остальным,
+   и от шапки оставался безымянный кружок — её как будто просто не
+   стало. Со знаком и подписью видно, что шапка подобралась, а не
+   исчезла, и человек по-прежнему знает, где он. */
 /* Последним стекло ПЕРЕХОДИТ С ПОЛОСЫ НА САМ ЗНАК.
 
    Почему не просто сузить полосу: полоса центрована (max-width 1200,
@@ -163,26 +177,34 @@ html[data-site-theme="dark"] {
 .site-header.собрана .site-header-inner {
   background: none; border-color: transparent; box-shadow: none;
   backdrop-filter: none; -webkit-backdrop-filter: none;
-  padding-left: 20px; padding-right: 20px;
+  padding-left: 8px; padding-right: 8px;
   justify-content: flex-start;
   transition-delay: 300ms;
 }
 .site-logo {
   border: 1px solid transparent;
   border-radius: var(--gs-r-pill);
-  transition: width .38s var(--gs-e-out), height .38s var(--gs-e-out),
-              padding .38s var(--gs-e-out), background .3s,
-              border-color .3s, box-shadow .3s;
+  padding: 0;
+  transition: padding .38s var(--gs-e-out), height .38s var(--gs-e-out),
+              background .34s var(--gs-e-out),
+              border-color .34s var(--gs-e-out),
+              box-shadow .34s var(--gs-e-out);
 }
+/* Стекло не пропадает, а стягивается с полосы на знак с подписью:
+   полоса гаснет и ровно в это же время проявляется таблетка вокруг
+   «GM GENERAL MODERN». Поэтому движение читается как подбирание, а не
+   как исчезновение. */
 .site-header.собрана .site-logo {
-  width: 50px; height: 50px; padding: 0;
-  justify-content: center; flex: 0 0 auto; cursor: pointer;
+  height: 46px; padding: 0 16px 0 9px;
+  flex: 0 0 auto; cursor: pointer;
   border-color: var(--gs-line);
   background: var(--gs-glass);
   backdrop-filter: var(--gs-blur); -webkit-backdrop-filter: var(--gs-blur);
   box-shadow: var(--gs-drop), var(--gs-edge);
   transition-delay: 300ms;
 }
+.site-header.собрана .site-logo svg { width: 30px; height: 30px; }
+.site-header.собрана .site-logo-text { font-size: 0.9375rem; }
 .site-header.собрана .site-logo svg { transition: transform var(--gs-t-micro) var(--gs-e-spring); }
 .site-header.собрана .site-logo:hover svg { transform: scale(1.1); }
 
@@ -466,7 +488,10 @@ html[data-site-theme="dark"] .product-card-img-placeholder {
      поэтому здесь стекло остаётся на самой полосе, а она подбирается
      до кнопки меню со знаком. */
   .site-header.собрана .site-header-inner {
-    max-width: 108px; padding: 0 8px; justify-content: flex-start;
+    /* margin обязателен: у полосы в теме стоит «margin: 0 auto», и
+       суженная до 108 px она встала бы по центру экрана, а не слева. */
+    max-width: 108px; margin-left: 0; margin-right: auto;
+    padding: 0 8px; justify-content: flex-start;
     gap: 4px; flex-wrap: nowrap; overflow: hidden;
     background: var(--gs-glass);
     border-color: var(--gs-line);
