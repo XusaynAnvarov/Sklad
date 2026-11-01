@@ -151,14 +151,38 @@ html[data-site-theme="dark"] {
   max-width: 0; opacity: 0; overflow: hidden; transform: translateX(-8px);
   transition-delay: 300ms;
 }
-/* Последней подбирается сама стеклянная полоса — вокруг одного знака. */
+/* Последним стекло ПЕРЕХОДИТ С ПОЛОСЫ НА САМ ЗНАК.
+
+   Почему не просто сузить полосу: полоса центрована (max-width 1200,
+   margin auto), и сжатая влево она прилипала бы к краю окна — то есть
+   знак уезжал бы левее содержимого страницы. А прийти он должен ровно
+   в ту колонку, где начинается список категорий. Поэтому полоса
+   остаётся на месте и становится прозрачной, а кружок стекла получает
+   знак: его левый край совпадает с левым краем содержимого (.site-main
+   с тем же max-width 1200 и отступом 20 px). */
 .site-header.собрана .site-header-inner {
-  max-width: 62px;
-  padding: 0; margin-left: 0; margin-right: auto;
-  justify-content: center;
-  transition-delay: 330ms;
+  background: none; border-color: transparent; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  padding-left: 20px; padding-right: 20px;
+  justify-content: flex-start;
+  transition-delay: 300ms;
 }
-.site-header.собрана .site-logo { cursor: pointer; }
+.site-logo {
+  border: 1px solid transparent;
+  border-radius: var(--gs-r-pill);
+  transition: width .38s var(--gs-e-out), height .38s var(--gs-e-out),
+              padding .38s var(--gs-e-out), background .3s,
+              border-color .3s, box-shadow .3s;
+}
+.site-header.собрана .site-logo {
+  width: 50px; height: 50px; padding: 0;
+  justify-content: center; flex: 0 0 auto; cursor: pointer;
+  border-color: var(--gs-line);
+  background: var(--gs-glass);
+  backdrop-filter: var(--gs-blur); -webkit-backdrop-filter: var(--gs-blur);
+  box-shadow: var(--gs-drop), var(--gs-edge);
+  transition-delay: 300ms;
+}
 .site-header.собрана .site-logo svg { transition: transform var(--gs-t-micro) var(--gs-e-spring); }
 .site-header.собрана .site-logo:hover svg { transform: scale(1.1); }
 
@@ -438,9 +462,21 @@ html[data-site-theme="dark"] .product-card-img-placeholder {
      меню: это единственный путь к разделам, и прятать её — значит
      запереть человека на странице до тех пор, пока он не додумается
      потянуть вверх. Поэтому таблетка чуть шире. */
+  /* На телефоне содержимое идёт во всю ширину, отдельной колонки нет —
+     поэтому здесь стекло остаётся на самой полосе, а она подбирается
+     до кнопки меню со знаком. */
   .site-header.собрана .site-header-inner {
     max-width: 108px; padding: 0 8px; justify-content: flex-start;
     gap: 4px; flex-wrap: nowrap; overflow: hidden;
+    background: var(--gs-glass);
+    border-color: var(--gs-line);
+    backdrop-filter: var(--gs-blur); -webkit-backdrop-filter: var(--gs-blur);
+    box-shadow: var(--gs-drop), var(--gs-edge);
+  }
+  .site-header.собрана .site-logo {
+    width: auto; height: auto; background: none;
+    border-color: transparent; box-shadow: none;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
   }
   /* В собранной шапке у кнопки меню остаются только три полоски:
      подпись «Меню» и стрелка занимают 60 px, из-за них знак не
