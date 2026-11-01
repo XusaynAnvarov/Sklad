@@ -146,10 +146,19 @@ export function создатьПоиск({ placeholder = "Поиск…", иск
   let найдено = [];
   let выбран = -1;
 
+  // Шапка должна знать, что поиск раскрыт: на телефоне соседние кнопки
+  // в этот момент сдвигаются вправо и уходят одна за другую (стопкой),
+  // иначе поле выдавливает их друг на друга и они наезжают.
+  function пометитьШапку(да) {
+    const шапка = блок.closest(".gm-head");
+    if (шапка) шапка.classList.toggle("поиск-открыт", !!да);
+  }
+
   function открыть() {
     if (открыт) return;
     открыт = true;
     блок.classList.add("open");
+    пометитьШапку(true);
     кнопка.setAttribute("aria-expanded", "true");
     // focus() сразу — Safari на телефоне открывает клавиатуру только в
     // том же действии пользователя, дожидаться конца анимации нельзя.
@@ -160,6 +169,7 @@ export function создатьПоиск({ placeholder = "Поиск…", иск
     if (!открыт) return;
     открыт = false;
     блок.classList.remove("open");
+    пометитьШапку(false);
     кнопка.setAttribute("aria-expanded", "false");
     список.classList.remove("show");
     поле.value = "";

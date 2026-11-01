@@ -823,10 +823,107 @@ html[data-theme="light"] .gm-quick button { background: rgba(255, 255, 255, .78)
   .gm-panel { border-radius: var(--r-md); padding: 12px 13px; }
   .gm-panel-body { max-height: 46vh; }
 
-  /* Поиск на телефоне раскрывается во всю строку шапки. */
-  .gm-search.open { flex: 1 1 auto; }
+  /* ---- ШАПКА НА ТЕЛЕФОНЕ: ОДИН РОСТ У ВСЕХ ----
+     Знак, лупа, языки и владелец достались шапке от разных мест и были
+     разного размера — ряд выглядел сбитым. Здесь у всех одна высота и
+     одна вертикаль. */
+  .gm-head > * { align-self: center; }
+  .gm-head .brand { height: 36px; display: inline-flex; align-items: center; }
+  .gm-head .gm-search-btn { width: 36px; height: 36px; }
+  .gm-head .lang-switch { display: inline-flex; align-items: center; gap: 3px; }
+  .gm-head .lang-switch button {
+    width: 32px; height: 32px; min-width: 32px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--r-pill); font-size: 0.6875rem; line-height: 1;
+  }
+  .gm-head .profile-chip .avatar { width: 32px; height: 32px; }
+
+  /* ---- ПОИСК РАСКРЫТ: СОСЕДИ УХОДЯТ СТОПКОЙ ----
+     Поле занимает всю строку, и языкам с владельцем места не остаётся —
+     раньше они наезжали друг на друга как придётся. Теперь они
+     отъезжают вправо по очереди и ложатся один за другой: неактивные
+     языки прячутся за активным, владелец — за ними. Каждый обведён
+     цветом подложки, поэтому стопка читается как стопка, а не как
+     слипшиеся кнопки. */
+  .gm-search.open { flex: 1 1 auto; min-width: 0; }
   .gm-search.open .gm-search-field { width: 100%; }
   .gm-search-pop { width: min(86vw, 400px); }
+
+  .gm-head .lang-switch button,
+  .gm-head .profile-chip {
+    transition: width var(--t-micro) var(--e-out),
+                min-width var(--t-micro) var(--e-out),
+                opacity var(--t-micro) var(--e-out),
+                margin var(--t-micro) var(--e-out),
+                transform var(--t-micro) var(--e-out);
+  }
+  /* По очереди: сначала трогается дальний от поля, последним — ближний. */
+  .gm-head.поиск-открыт .lang-switch button:not(.active) { transition-delay: 0ms; }
+  .gm-head.поиск-открыт .profile-chip { transition-delay: 60ms; }
+
+  .gm-head.поиск-открыт .lang-switch button:not(.active) {
+    width: 0; min-width: 0; opacity: 0; margin-left: -10px;
+    transform: scale(.8); pointer-events: none;
+  }
+  .gm-head.поиск-открыт .lang-switch { gap: 0; }
+  .gm-head.поиск-открыт .lang-switch button.active {
+    position: relative; z-index: 3;
+    box-shadow: 0 0 0 2px var(--panel);
+  }
+  /* Нахлёст небольшой: кружок должен уйти ЗА соседа, но остаться
+     узнаваемым. При большем перекрытии от владельца виден серп, и
+     стопка читается как слипшиеся кнопки. */
+  .gm-head.поиск-открыт .profile-chip {
+    position: relative; z-index: 2;
+    margin-left: -6px; transform: scale(.92);
+  }
+  .gm-head.поиск-открыт .profile-chip .avatar { box-shadow: 0 0 0 2px var(--panel); }
+  html[data-theme="light"] .gm-head.поиск-открыт .lang-switch button.active,
+  html[data-theme="light"] .gm-head.поиск-открыт .profile-chip .avatar {
+    box-shadow: 0 0 0 2px #fff;
+  }
+
+  /* ---- ДОК СКЛАДЫВАЕТСЯ В ОДНУ КНОПКУ ----
+     Нажатие на значок текущего раздела собирает док (js/app.js): всё,
+     кроме этого значка, уезжает за него, и нижние строки страницы
+     перестают быть закрыты. Повторное нажатие разворачивает.
+     Ширину док берёт по содержимому, поэтому сворачивание и есть
+     анимация: значки схлопываются, и подложка едет за ними. */
+  .sidebar.gm-rail {
+    left: 50%; right: auto;
+    width: max-content; max-width: calc(100vw - 20px);
+    transform: translateX(-50%);
+    transition: width var(--t-page) var(--e-out);
+  }
+  .gm-rail .navitem,
+  .gm-rail .gm-rail-foot,
+  .gm-rail .gm-rail-foot .theme-toggle {
+    transition: width var(--t-page) var(--e-out),
+                opacity var(--t-micro) var(--e-out),
+                margin var(--t-page) var(--e-out),
+                transform var(--t-micro) var(--e-out);
+  }
+  /* gap обязателен: у схлопнутых значков ширина 0, но промежутки между
+     ними остаются — тринадцать зазоров по 4 px держали док втрое шире,
+     чем нужно, и «одна кнопка» выглядела пустой полосой. */
+  .gm-rail.свёрнут .navrow { overflow: visible; gap: 0; }
+  .gm-rail .navrow { transition: gap var(--t-page) var(--e-out); }
+  .gm-rail.свёрнут .navitem:not(.active) {
+    width: 0; opacity: 0; margin: 0; transform: scale(.7);
+    pointer-events: none;
+  }
+  .gm-rail.свёрнут .gm-rail-foot {
+    width: 0; opacity: 0; padding: 0; margin: 0;
+    overflow: hidden; pointer-events: none;
+  }
+  .gm-rail.свёрнут .gm-rail-foot::before { display: none; }
+  /* Собранный док — одна кнопка: у неё и подпись не нужна, и метка
+     активности под значком лишняя. */
+  .gm-rail.свёрнут .navitem.active::after { opacity: 0; }
+  /* Маленькая подсказка, что это сворачивается: точка у края кнопки. */
+  .gm-rail.свёрнут .navitem.active {
+    box-shadow: 0 0 0 1px rgba(217, 180, 90, .35), 0 6px 18px rgba(0, 0, 0, .22);
+  }
 
   /* Горизонтальной прокрутки на телефоне быть не должно. */
   html, body { overflow-x: hidden; }
