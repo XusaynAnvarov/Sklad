@@ -102,6 +102,20 @@ html[data-site-theme="dark"] {
   max-width: none;
   height: 58px;
   padding: 0 10px 0 8px;
+  position: relative;
+  z-index: 0;              /* свой слой, чтобы стекло ушло под содержимое */
+  background: none; border: none; box-shadow: none;
+}
+/* СТЕКЛО ОТДЕЛЬНЫМ СЛОЕМ.
+   Раньше подложка, рамка и размытие висели на самой полосе — и при
+   сворачивании выключались ОДНИМ КАДРОМ: backdrop-filter анимировать
+   нельзя, он просто пропадает. Выглядело это так, будто шапка не
+   уходит, а разом исчезает. Теперь всё стекло живёт в отдельном слое,
+   а у слоя гаснет прозрачность — её анимировать можно, и размытие
+   растворяется вместе с подложкой. */
+.site-header-inner::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
   border: 1px solid var(--gs-line);
   border-radius: var(--gs-r-pill);
   background: var(--gs-glass);
@@ -113,6 +127,14 @@ html[data-site-theme="dark"] {
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
   box-shadow: var(--gs-drop), var(--gs-edge);
+  opacity: 1;
+  /* Размытие само по себе не анимируется, его можно только включить или
+     выключить. Поэтому выключаем его НУЛЕВЫМ переходом, отложенным до
+     конца растворения: пока слой виден — размытие на месте, пропало —
+     выключилось, и никакого щелчка на экране. */
+  transition: opacity .34s var(--gs-e-out),
+              backdrop-filter 0s linear 0s,
+              -webkit-backdrop-filter 0s linear 0s;
 }
 .site-nav-link { border-radius: var(--gs-r-pill); }
 
@@ -235,33 +257,57 @@ html[data-site-theme="dark"] {
    знак: его левый край совпадает с левым краем содержимого (.site-main
    с тем же max-width 1200 и отступом 20 px). */
 .site-header.собрана .site-header-inner {
-  background: none; border-color: transparent; box-shadow: none;
-  backdrop-filter: none; -webkit-backdrop-filter: none;
   padding-left: 8px; padding-right: 8px;
   justify-content: flex-start;
-  transition-delay: 560ms;
+  transition-delay: 480ms;
 }
+/* Стекло полосы гаснет последним — когда кнопки уже уехали. */
+.site-header.собрана .site-header-inner::before {
+  opacity: 0;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  transition: opacity .34s var(--gs-e-out) 480ms,
+              backdrop-filter 0s linear 820ms,
+              -webkit-backdrop-filter 0s linear 820ms;
+}
+
+/* ---- СТЕКЛО ЗНАКА ----
+   Такой же отдельный слой, и он проявляется ровно тогда, когда гаснет
+   стекло полосы. Получается не «пропало одно, возникло другое», а один
+   переход: стекло стягивается с полосы на знак с подписью. */
 .site-logo {
-  border: 1px solid transparent;
+  position: relative; z-index: 0;
   border-radius: var(--gs-r-pill);
   padding: 0;
-  transition: padding .38s var(--gs-e-out), height .38s var(--gs-e-out),
-              background .34s var(--gs-e-out),
-              border-color .34s var(--gs-e-out),
-              box-shadow .34s var(--gs-e-out);
+  transition: padding .38s var(--gs-e-out), height .38s var(--gs-e-out);
 }
-/* Стекло не пропадает, а стягивается с полосы на знак с подписью:
-   полоса гаснет и ровно в это же время проявляется таблетка вокруг
-   «GM GENERAL MODERN». Поэтому движение читается как подбирание, а не
-   как исчезновение. */
+.site-logo::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
+  border: 1px solid var(--gs-line);
+  border-radius: var(--gs-r-pill);
+  background: var(--gs-glass);
+  box-shadow: var(--gs-drop), var(--gs-edge);
+  opacity: 0;
+  /* Развёрнутая шапка: таблетки у знака нет, и размытия у неё тоже —
+     иначе прозрачный слой с размытием висел бы поверх страницы всё
+     время и стоил бы кадров ни за что. */
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  transition: opacity .34s var(--gs-e-out),
+              backdrop-filter 0s linear .34s,
+              -webkit-backdrop-filter 0s linear .34s;
+}
 .site-header.собрана .site-logo {
   height: 46px; padding: 0 16px 0 9px;
   flex: 0 0 auto; cursor: pointer;
-  border-color: var(--gs-line);
-  background: var(--gs-glass);
-  backdrop-filter: var(--gs-blur); -webkit-backdrop-filter: var(--gs-blur);
-  box-shadow: var(--gs-drop), var(--gs-edge);
-  transition-delay: 560ms;
+  transition-delay: 480ms;
+}
+.site-header.собрана .site-logo::before {
+  opacity: 1;
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  transition: opacity .34s var(--gs-e-out) 480ms,
+              backdrop-filter 0s linear 480ms,
+              -webkit-backdrop-filter 0s linear 480ms;
 }
 .site-header.собрана .site-logo svg { width: 30px; height: 30px; }
 .site-header.собрана .site-logo-text { font-size: 0.9375rem; }
@@ -559,14 +605,20 @@ html[data-site-theme="dark"] .product-card-img-placeholder {
     max-width: 108px; margin-left: 0; margin-right: auto;
     padding: 0 8px; justify-content: flex-start;
     gap: 4px; flex-wrap: nowrap; overflow: hidden;
-    background: var(--gs-glass);
-    border-color: var(--gs-line);
-    backdrop-filter: var(--gs-blur); -webkit-backdrop-filter: var(--gs-blur);
-    box-shadow: var(--gs-drop), var(--gs-edge);
+  }
+  /* На телефоне стекло никуда не переезжает: оно остаётся на полосе, а
+     полоса подбирается до кнопки меню со знаком. Поэтому слой полосы не
+     гаснет, а слой знака не зажигается. */
+  .site-header.собрана .site-header-inner::before {
+    opacity: 1;
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
   }
   .site-header.собрана .site-logo {
-    width: auto; height: auto; background: none;
-    border-color: transparent; box-shadow: none;
+    width: auto; height: auto; padding: 0;
+  }
+  .site-header.собрана .site-logo::before {
+    opacity: 0;
     backdrop-filter: none; -webkit-backdrop-filter: none;
   }
   /* В собранной шапке у кнопки меню остаются только три полоски:
