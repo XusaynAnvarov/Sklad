@@ -174,7 +174,11 @@ html[data-theme="light"] {
   .app {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--rail-w);
-    grid-template-rows: 100vh;
+    /* 1fr, а НЕ 100vh. У .app есть поля по 12 px, и строка высотой в
+       целый экран не помещалась в них — каркас вылезал на 24 px за низ
+       окна вместе с низом рейла. Из-за этого «На сайт» и «Выход»
+       оказывались за краем экрана, и до них нельзя было добраться. */
+    grid-template-rows: minmax(0, 1fr);
     gap: 0;
     height: 100vh;
     overflow: hidden;              /* прокручивается содержимое, не каркас */
