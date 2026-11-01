@@ -115,36 +115,62 @@ function buildAuthModal(start) {
       : "Уже есть доступ? Войдите по номеру телефона и коду из Telegram." });
     const b = el("button.auth-side-btn", { text: вход ? "Регистрация →" : "Войти →" });
     b.type = "button";
-    b.addEventListener("click", () => { loginStep = "phone"; mode = вход ? "register" : "login"; renderПлавно(); });
+    b.addEventListener("click", () => { loginStep = "phone"; mode = вход ? "register" : "login"; renderПлавно(вход ? "вперёд" : "назад"); });
     бок.append(знак, h, p, b);
     return бок;
   }
 
-  // Переход между «входом» и «регистрацией» — как в ролике: содержимое
-  // расплывается и гаснет, в невидимости меняется местами и собирается
-  // обратно. Половины НЕ едут: в ролике на 1.56 с всё размыто, на 1.64 с
-  // карточка почти пуста, а на 1.72 с панель уже на другой стороне.
-  const ПОЛПУТИ = 210;   // мс до подмены — столько же занимает сбор обратно
+  // ====================================================================
+  //  ПЕРЕХОД «ВХОД ↔ РЕГИСТРАЦИЯ» — СТРАНИЦЫ КНИГИ
+  //
+  //  Раньше вся карточка разом расплывалась и собиралась обратно: один
+  //  кадр с размытием, и содержимое просто подменялось. Движения в этом
+  //  не было — было мигание.
+  //
+  //  Теперь это перелистывание. «Вход» и «Регистрация» — две страницы:
+  //  уходящая уезжает в сторону, откуда пришла новая, строка за строкой
+  //  снизу вверх; приходящая выкладывается сверху вниз с той стороны,
+  //  куда мы идём. Приветствие слева не едет вместе с формой — оно
+  //  меняется мягче, потому что остаётся на месте и только меняет текст.
+  //
+  //  Та же лесенка работает и при ПЕРВОМ открытии окна: нажали «Вход» —
+  //  строки выкладываются по очереди, а не возникают пачкой.
+  // ====================================================================
+  const ШАГ_РЯДА = 55;   // мс между соседними строками формы
+  const УХОД = 250;      // сколько живёт уход, прежде чем подменить содержимое
 
-  function renderПлавно() {
-    const старое = wrap.firstElementChild;
-    if (!старое || меньшеДвижения()) { render(); return; }
-    старое.classList.add("auth-уходит");
-    setTimeout(() => {
-      render();
-      const новое = wrap.firstElementChild;
-      if (!новое) return;
-      новое.classList.add("auth-приходит");
-      // Заставляем браузер ПРЯМО СЕЙЧАС посчитать размытое состояние —
-      // иначе переход не запустится и содержимое просто возникнет.
-      // Через requestAnimationFrame делать нельзя: в фоновой вкладке кадры
-      // не рисуются, и форма осталась бы размытой (проверено).
-      void новое.offsetWidth;
-      новое.classList.remove("auth-приходит");
-    }, ПОЛПУТИ);
+  // Строки, которые участвуют в лесенке: поля, подписи и кнопки формы.
+  function рядыФормы(корень) {
+    const форма = корень.querySelector(".s-form");
+    return форма ? [...форма.children] : [];
   }
 
-  function render() {
+  function пуститьПриход(грид, ход) {
+    if (меньшеДвижения()) return;
+    грид.dataset.ход = ход || "вперёд";
+    const ряды = рядыФормы(грид);
+    ряды.forEach((р, i) => р.style.setProperty("--задержка", (i * ШАГ_РЯДА) + "ms"));
+    грид.classList.add("auth-приходит");
+  }
+
+  function renderПлавно(ход) {
+    const старое = wrap.firstElementChild;
+    if (!старое || меньшеДвижения()) { render(ход); return; }
+    старое.dataset.ход = ход || "вперёд";
+    // Класс прихода обязательно снять. Он остаётся на сетке после
+    // появления, весит столько же, сколько класс ухода, и стоит ниже по
+    // файлу стилей — то есть побеждает. С ним уходящая форма продолжала
+    // играть анимацию ПРИХОДА и просто подменялась на месте.
+    старое.classList.remove("auth-приходит");
+    // Уход — снизу вверх: последняя строка уезжает первой. Так взгляд
+    // идёт за движением, а не теряет его.
+    const ряды = рядыФормы(старое);
+    ряды.forEach((р, i) => р.style.setProperty("--задержка", ((ряды.length - 1 - i) * ШАГ_РЯДА) + "ms"));
+    старое.classList.add("auth-уходит");
+    setTimeout(() => render(ход), УХОД);
+  }
+
+  function render(ход) {
     wrap.innerHTML = "";
     stopPoll();
     const грид = el("div.auth-grid");
@@ -158,6 +184,7 @@ function buildAuthModal(start) {
     if (mode !== "verify") грид.append(buildSide());
     грид.append(форма);
     wrap.append(грид);
+    пуститьПриход(грид, ход);
   }
 
   // ====================================================================
@@ -199,7 +226,7 @@ function buildAuthModal(start) {
     const err = el("div.s-error", { style: "display:none" });
     const reg = el("div", { style: "text-align:center;margin-top:10px" });
     reg.innerHTML = `<span style="color:var(--muted);font-size:13px">Нет аккаунта? </span><a href="#" style="font-size:13px;color:var(--navy);font-weight:600">Зарегистрироваться</a>`;
-    reg.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); loginStep = "phone"; mode = "register"; renderПлавно(); });
+    reg.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); loginStep = "phone"; mode = "register"; renderПлавно("вперёд"); });
 
     const phone = input("tel", "+998 90 123 45 67");
     phone.autocomplete = "tel";
@@ -235,7 +262,7 @@ function buildAuthModal(start) {
         }
         saveState(LOGIN_KEY, { phone: ph });   // уход в Telegram не должен сбрасывать вход
         loginStep = "code";
-        renderПлавно();
+        renderПлавно("вперёд");
         sToast("Код отправлен в Telegram", "ok");
       } catch (e) {
         err.textContent = e.message; err.style.display = "";
@@ -300,7 +327,7 @@ function buildAuthModal(start) {
     const назад = el("div", { style: "text-align:center;margin-top:4px" });
     назад.innerHTML = `<a href="#" style="font-size:13px;color:var(--navy);font-weight:600">← Изменить номер</a>`;
     назад.querySelector("a").addEventListener("click", (e) => {
-      e.preventDefault(); clearInterval(таймер); loginStep = "phone"; renderПлавно();
+      e.preventDefault(); clearInterval(таймер); loginStep = "phone"; renderПлавно("назад");
     });
 
     let занято = false;
@@ -371,7 +398,7 @@ function buildAuthModal(start) {
     const btn = button("Продолжить", "btn-primary", { style: "width:100%;margin-top:4px" });
     const login = el("div", { style: "text-align:center;margin-top:10px" });
     login.innerHTML = `<a href="#" style="font-size:13px;color:var(--navy);font-weight:600">Уже есть аккаунт? Войти</a>`;
-    login.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); mode = "login"; renderПлавно(); });
+    login.querySelector("a").addEventListener("click", (e) => { e.preventDefault(); mode = "login"; renderПлавно("назад"); });
     btn.addEventListener("click", async () => {
       err.style.display = "none";
       btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';

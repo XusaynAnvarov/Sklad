@@ -705,6 +705,57 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
   transition: border-color var(--gs-t-hover), box-shadow var(--gs-t-hover), background var(--gs-t-hover);
 }
 
+/* ===================================================================
+   ПЕРЕЛИСТЫВАНИЕ «ВХОД ↔ РЕГИСТРАЦИЯ»
+
+   «Вход» и «Регистрация» — две страницы одной карточки. Уходящая
+   уезжает в сторону, откуда пришла новая: строка за строкой снизу
+   вверх. Приходящая выкладывается сверху вниз с противоположной
+   стороны. Направление ставит js/site/auth.js (data-ход), задержку
+   каждой строки — он же (--задержка).
+
+   Приветствие слева не едет: оно остаётся на месте и меняет текст,
+   поэтому у него своя, более спокойная анимация — иначе половина
+   карточки дёргалась бы туда-сюда на каждом переключении.
+   =================================================================== */
+/* ОБЯЗАТЕЛЬНО. В css/site.css у этих двух классов стоит «opacity: 0;
+   filter: blur(8px)» — там они означали «спрятано» и снимались вручную
+   через кадр. Теперь классы живут на сетке постоянно, и без сброса
+   форма осталась бы невидимой навсегда. */
+.auth-уходит, .auth-приходит { opacity: 1; filter: none; }
+
+@keyframes authРядУшёл   { to   { opacity: 0; transform: translateX(-30px); } }
+@keyframes authРядПришёл { from { opacity: 0; transform: translateX(30px); } }
+@keyframes authБокУшёл   { to   { opacity: 0; transform: scale(.97); } }
+@keyframes authБокПришёл { from { opacity: 0; transform: scale(1.03); } }
+
+.auth-уходит .s-form > * {
+  animation: authРядУшёл .25s cubic-bezier(.6, 0, .9, .35) both;
+  animation-delay: var(--задержка, 0ms);
+}
+.auth-приходит .s-form > * {
+  animation: authРядПришёл .34s var(--gs-e-out) backwards;
+  animation-delay: var(--задержка, 0ms);
+}
+/* Назад — то же движение в другую сторону. */
+.auth-уходит[data-ход="назад"] .s-form > * { animation-name: authРядПришёл; animation-direction: reverse; }
+.auth-приходит[data-ход="назад"] .s-form > * { animation-name: authРядУшёл; animation-direction: reverse; }
+
+.auth-уходит .auth-side   { animation: authБокУшёл .25s cubic-bezier(.6, 0, .9, .35) both; }
+.auth-приходит .auth-side { animation: authБокПришёл .36s var(--gs-e-out) backwards; }
+
+/* Стеклянная карточка едва заметно подбирается на уходе и встаёт на
+   место на приходе — так переход ощущается как одно целое движение, а
+   не как подмена содержимого внутри неподвижной рамки. */
+#mo-auth-modal .s-modal { transition: transform .25s var(--gs-e-out); }
+#mo-auth-modal:has(.auth-уходит) .s-modal { transform: scale(.988); }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-уходит .s-form > *, .auth-приходит .s-form > *,
+  .auth-уходит .auth-side, .auth-приходит .auth-side { animation: none !important; }
+  #mo-auth-modal:has(.auth-уходит) .s-modal { transform: none; }
+}
+
 /* ---- Пароль с глазом ---- */
 .gm-pass { position: relative; display: block; }
 .gm-pass .gm-pass-input { width: 100%; padding-right: 46px; }
