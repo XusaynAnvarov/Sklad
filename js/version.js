@@ -18,6 +18,9 @@
 
 const ВИД = /^\d{8}[a-z]\d*$/;               // как выглядит версия сборки
 const ФЛАГ = "gm_reloaded_for";              // чтобы не зациклиться
+// Второй флаг — для жёсткой чистки. Без него страница, которую упорно
+// держит служебный работник, чистилась бы и перезагружалась по кругу.
+const ФЛАГ_ЖЁСТКО = "gm_hard_reloaded_for";
 
 // Версия страницы, которая сейчас открыта.
 export function мояВерсия() {
@@ -59,9 +62,27 @@ export async function обновитьЕслиУстарело({ onStale } = {})
   let уже = null;
   try { уже = sessionStorage.getItem(ФЛАГ); } catch { }
   if (уже === сервер) {
-    // Перезагрузка не помогла — страницу держит кэш браузера.
-    if (onStale) onStale(своя, сервер);
-    return false;
+    // ОБЫЧНАЯ ПЕРЕЗАГРУЗКА НЕ ПОМОГЛА.
+    //
+    // Так бывает на телефоне: страницу отдаёт не сеть, а служебный
+    // работник (Service Worker) из своего хранилища. Адрес с новой
+    // версией его не обходит — он отвечает на любой адрес той же
+    // страницы. Раньше здесь только показывалась полоска «Вышла новая
+    // версия» и ждала нажатия; человек её не всегда замечал и неделями
+    // сидел на старой сборке, думая, что правки не вышли.
+    //
+    // Теперь один раз чистим сами: стираем хранилища, снимаем
+    // служебного работника и перезагружаемся. Если и это не помогло —
+    // тогда уже полоска с кнопкой, потому что больше сделать нечего.
+    let жёстко = null;
+    try { жёстко = sessionStorage.getItem(ФЛАГ_ЖЁСТКО); } catch { }
+    if (жёстко === сервер) {
+      if (onStale) onStale(своя, сервер);
+      return false;
+    }
+    try { sessionStorage.setItem(ФЛАГ_ЖЁСТКО, сервер); } catch { }
+    await почиститьИПерезагрузиться(сервер);
+    return true;
   }
 
   try { sessionStorage.setItem(ФЛАГ, сервер); } catch { }
@@ -69,4 +90,23 @@ export async function обновитьЕслиУстарело({ onStale } = {})
   u.searchParams.set("v", сервер);            // новый адрес нельзя взять из кэша
   location.replace(u.toString());
   return true;
+}
+
+// Снести всё, что может держать старую сборку, и открыть страницу заново.
+async function почиститьИПерезагрузиться(версия) {
+  try {
+    if (window.caches) {
+      const ключи = await caches.keys();
+      await Promise.all(ключи.map(k => caches.delete(k)));
+    }
+  } catch { }
+  try {
+    if (navigator.serviceWorker) {
+      const рег = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(рег.map(r => r.unregister()));
+    }
+  } catch { }
+  const u = new URL(location.href);
+  u.searchParams.set("v", версия);
+  location.replace(u.toString());
 }
