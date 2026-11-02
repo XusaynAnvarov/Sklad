@@ -198,6 +198,38 @@ html[data-site-theme="dark"] .site-logo::before {
   transition: transform .4s var(--gs-e-out), opacity .3s var(--gs-e-out);
 }
 
+/* ---- ТЁМНАЯ ПОДЛОЖКА ПОД НАБОРОМ КНОПОК ----
+
+   ВОТ ОТКУДА БРАЛОСЬ ТЁМНОЕ ПЯТНО ВВЕРХУ. В css/site.css есть правило
+   «html[data-site-theme="dark"] .site-menu { background: #121a2b }» —
+   оно написано для выпадающего меню на телефоне, но стоит ВНЕ всякого
+   медиа-запроса и потому действует и на компьютере. На широком экране
+   .site-menu — это не панель, а просто строка с Telegram, темой, языком
+   и входом, и подложка ложилась тёмным прямоугольником прямо за ними.
+
+   При сворачивании шапки кнопки внутри гасли по одной, а сама подложка
+   оставалась непрозрачной и уезжала вместе с группой влево — тем самым
+   тёмно-синим прямоугольником со скруглениями наверху страницы.
+
+   Поэтому: на компьютере подложки у набора нет вовсе, а при
+   сворачивании она ещё и гаснет — на случай, если в теме появится
+   что-то похожее. На телефоне выпадающее меню свою панель сохраняет:
+   там она нужна, там это и правда панель. */
+@media (min-width: 761px) {
+  html[data-site-theme="dark"] .site-header .site-menu,
+  .site-header .site-menu {
+    background: none; border-color: transparent; box-shadow: none;
+  }
+}
+.site-header .site-menu {
+  transition: background .3s var(--gs-e-out),
+              border-color .3s var(--gs-e-out),
+              box-shadow .3s var(--gs-e-out);
+}
+.site-header.собрана .site-menu {
+  background: none; border-color: transparent; box-shadow: none;
+}
+
 /* ---- УХОД ----
    Группа целиком уезжает к знаку, кнопки гаснут по одной справа налево. */
 .site-header.собрана .site-header-right {
