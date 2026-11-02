@@ -12,6 +12,13 @@ function mkEl(tag, cls = "") {
 }
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 const statusRank = (p) => p.status === "in_stock" ? 0 : p.status === "soon" ? 1 : 2;
+// Сколько карточек рисуем за раз; остальные — по мере прокрутки.
+const ПОРЦИЯ = 48;
+// Наблюдатель за маячком живёт на уровне модуля: страницу перерисовывают
+// целиком (render()), и старый наблюдатель иначе остался бы висеть на
+// выброшенном маячке.
+let наблюдатель = null;
+function снятьНаблюдение() { if (наблюдатель) { наблюдатель.disconnect(); наблюдатель = null; } }
 
 export async function renderOrder(container) {
   container.innerHTML = "";
@@ -55,6 +62,7 @@ export async function renderOrder(container) {
   }
 
   function render() {
+    снятьНаблюдение();                 // старый маячок сейчас будет выброшен
     root.innerHTML = ""; goBtnEl = null;
 
     // переключатель Товары / Мой заказ
@@ -87,15 +95,52 @@ export async function renderOrder(container) {
     const grid = mkEl("div", "product-grid");
     root.append(grid);
 
+    // КАРТОЧКИ РИСУЕМ ПОРЦИЯМИ.
+    //
+    // Раньше здесь было `filt.forEach(p => grid.append(buildCard(p)))` — все
+    // товары разом. На боевой базе их больше девятисот, и Safari на телефоне
+    // убивал вкладку: «На странице повторно возникла проблема». Дело не в
+    // самих снимках — они с loading="lazy" и по сети не едут, — а в карточках:
+    // каждая это около десятка узлов и отдельный слой размытия.
+    //
+    // В каталоге так уже сделано (js/site/catalog.js), здесь просто забылось.
+    // Маячок в конце списка добавляет следующую порцию, когда человек до него
+    // долистывает.
+    let показано = 0, отобранные = [], маячок = null;
+
+    function добавитьПорцию() {
+      const кусок = отобранные.slice(показано, показано + ПОРЦИЯ);
+      if (!кусок.length) return;
+      const часть = document.createDocumentFragment();
+      кусок.forEach(p => часть.append(buildCard(p)));
+      grid.append(часть);
+      показано += кусок.length;
+      if (маячок) {                      // маячок всегда остаётся последним
+        grid.append(маячок);
+        if (показано >= отобранные.length) { маячок.remove(); маячок = null; снятьНаблюдение(); }
+      }
+    }
+
     function refreshGrid() {
+      снятьНаблюдение();
       grid.innerHTML = "";
-      const filt = products.filter(p => {
+      показано = 0;
+      отобранные = products.filter(p => {
         const okCat = activeCat === "Все" || p.category === activeCat;
         const okQ = !query || (p.name || "").toLowerCase().includes(query);
         return okCat && okQ;
       });
-      if (!filt.length) { grid.innerHTML = `<div class="s-empty" style="padding:24px"><p>Ничего не найдено</p></div>`; return; }
-      filt.forEach(p => grid.append(buildCard(p)));
+      if (!отобранные.length) { grid.innerHTML = `<div class="s-empty" style="padding:24px"><p>Ничего не найдено</p></div>`; return; }
+      маячок = mkEl("div", "");
+      маячок.style.cssText = "grid-column:1/-1;height:1px";
+      добавитьПорцию();
+      if (маячок && "IntersectionObserver" in window) {
+        наблюдатель = new IntersectionObserver(
+          события => { if (события.some(e => e.isIntersecting)) добавитьПорцию(); },
+          { rootMargin: "600px" }
+        );
+        наблюдатель.observe(маячок);
+      }
     }
     refreshGrid();
 
