@@ -284,6 +284,16 @@ html[data-theme="light"] {
     margin: 0 0 0 12px; padding: 10px 0;
     width: var(--rail-w); height: 100%;
     display: flex; flex-direction: column; align-items: center; gap: 4px;
+    /* nowrap ОБЯЗАТЕЛЕН. В теме у .sidebar стоит flex-wrap: wrap — там
+       она была шапкой, и перенос был нужен. В рейле он означает вот что:
+       когда четырнадцать разделов и три служебных значка перестают
+       помещаться в высоту (низкий экран, крупный масштаб системы),
+       служебные значки переносятся во ВТОРУЮ КОЛОНКУ — то есть наверх,
+       поверх списка разделов. Рейл шириной 64 px, вторая колонка в него
+       не влезает, и «На сайт» с «Выходом» просто пропадают с глаз.
+       Замерено: на экране 700 px низ рейла оказывался на 25–172 px,
+       внутри списка, вместо 540–688 под ним. */
+    flex-wrap: nowrap;
     border: 1px solid var(--glass-line);
     border-radius: var(--r-xl);
     background: var(--glass-fill);
@@ -731,212 +741,68 @@ html[data-theme="light"] .gm-quick button { background: rgba(255, 255, 255, .78)
 }
 
 /* ===================================================================
-   8. ТЕЛЕФОН И ПЛАНШЕТ: РЕЙЛ СТАНОВИТСЯ НИЖНИМ ДОКОМ
+   8. ТЕЛЕФОН — ПРЕЖНИЙ СКЛАД
 
-   На узком экране вертикальный рейл справа неудобен — большой палец до
-   верхних значков не достаёт. Значки уезжают в стеклянный док у нижнего
-   края: та же система, другая раскладка.
+   Правый рейл и стеклянная шапка сделаны для компьютера. На телефоне
+   владелец просил вернуть то, что было до редизайна: кнопка «☰» в углу
+   и выезжающее слева меню. Всё это уже описано в css/theme.css и ничем
+   не тронуто — поэтому здесь не надо ничего рисовать заново, надо
+   только УБРАТЬ с дороги новый слой.
+
+   Класс gm-rail с боковой панели снимает js/app.js, и правила рейла
+   перестают действовать сами. Ниже — только то, что осталось от нового
+   каркаса: шапка, обёртки дашборда и кнопка меню.
    =================================================================== */
 @media (max-width: 860px) {
+  /* Каркас — как был: одна колонка, обычная прокрутка страницы. */
   .app { display: block; height: auto; overflow: visible; padding: 0; }
   .gm-shell { display: block; }
 
-  .gm-head {
-    position: sticky; top: 0; z-index: 60;
-    display: flex; align-items: center; gap: 6px;
-    height: 54px; margin: 8px 10px 0; padding: 0 8px 0 12px;
-    border: 1px solid var(--glass-line); border-radius: var(--r-xl);
-    background: var(--glass-fill);
-    box-shadow: var(--glass-drop), var(--glass-edge);
-  }
-  /* В шапку телефона помещается немного: знак, поиск и язык. Подпись
-     режима базы и имя владельца уезжают — режим виден на дашборде под
-     заголовком, а владелец на этом телефоне и так один. */
-  .gm-head .brand span { display: none; }
-  .gm-head .brand { font-size: 0.9375rem; flex: 0 0 auto; }
-  .gm-head .mode-tag { display: none; }
-  .gm-head .profile-chip {
-    flex: 0 0 auto; padding: 0; margin: 0; gap: 0;
-    background: none; border: none; box-shadow: none;
-  }
-  .gm-head .profile-chip > div:not(.avatar) { display: none; }
-  .gm-head .lang-switch { flex: 0 0 auto; }
-  .main { padding: 14px 12px 104px; max-width: none; }
+  /* Стеклянной шапки на телефоне нет: её содержимое переезжает в ящик
+     (js/app.js, подстроитьПодТелефон). */
+  .gm-head { display: none; }
 
-  /* Заголовок панели на телефоне переносится: вкладки валюты и ссылка
-     «подробнее» уходят на вторую строку, а не сжимают название в столбик
-     из одного слова. */
+  /* Кнопка «☰». Раньше её положение задавалось прямо в admin.html;
+     теперь она рождается в коде, и место для неё — здесь. */
+  .menu-btn {
+    position: fixed; z-index: 160;
+    top: calc(14px + env(safe-area-inset-top)); left: 14px;
+  }
+
+  /* Ящик: сверху знак и профиль, под ними разделы столбиком, ниже
+     служебные кнопки во всю ширину — ровно как до редизайна. */
+  .gm-ящик .navrow { display: flex; flex-direction: column; gap: 4px; }
+  .gm-ящик .gm-rail-foot { display: block; width: 100%; }
+  .gm-ящик .gm-rail-foot::before { content: none; }
+  .gm-ящик .navitem > span:not(.ic):not(.nav-badge) { display: inline; }
+
+  /* Дашборд: обёртки редизайна становятся прозрачными для раскладки,
+     а карточки и панели оформляет тема — у них для этого есть классы
+     stat-card и card (js/pages/dashboard.js). */
+  .gm-экран { display: block; height: auto; }
+  .gm-экран .gm-kpi { margin-bottom: 16px; }
+  .gm-kpi { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .gm-kpi .gm-k { border-radius: var(--radius); box-shadow: none; }
+  .gm-kpi .gm-k::after { content: none; }
+  .gm-board { display: block; }
+  .gm-board > .gm-panel { margin-bottom: 14px; }
+  .gm-panel { border-radius: var(--radius); box-shadow: none; }
+  .gm-panel-body { max-height: none; overflow: visible; }
+  /* Заголовок панели переносится: иначе название сжимается в столбик
+     из одного слова, лишь бы пропустить вкладки валюты. */
   .gm-panel-h { flex-wrap: wrap; }
-  .gm-panel-h > span:nth-child(2) { flex: 1 1 auto; }
-  .gm-panel-h .pill-tabs,
-  .gm-panel-h .gm-panel-more { margin-left: auto; }
+  .gm-panel-h > span:nth-child(2) { flex: 1 1 100%; }
+  .gm-panel-h .pill-tabs, .gm-panel-h .gm-panel-more { margin-left: 0; }
+  .page-dashboard > div:not(.gm-экран) { margin-top: 18px; }
 
-  /* Док: значки в ряд, прокручивается вбок, под ним безопасная зона iPhone. */
-  .sidebar.gm-rail {
-    position: fixed; left: 10px; right: 10px; bottom: 0; top: auto;
-    z-index: 120; height: auto; width: auto;
-    margin: 0 0 calc(8px + env(safe-area-inset-bottom)); padding: 7px 8px;
-    display: flex; flex-direction: row; align-items: center; gap: 4px;
-    border: 1px solid var(--glass-line); border-radius: var(--r-xl);
-    background: var(--glass-fill);
-    box-shadow: 0 -10px 30px rgba(0, 0, 0, .28), var(--glass-edge);
-    transform: none;
-  }
-  .sidebar.gm-rail::after { content: none; }
-  .gm-rail .navrow {
-    flex: 1 1 auto; min-width: 0;
-    display: flex; flex-direction: row; gap: 4px;
-    overflow-x: auto; overflow-y: hidden;
-    scrollbar-width: none; scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-  }
-  .gm-rail .navrow::-webkit-scrollbar { height: 0; }
-  .gm-rail .navitem {
-    width: 46px; height: 44px; flex: 0 0 auto; scroll-snap-align: center;
-    display: grid; place-items: center; padding: 0; gap: 0;
-    border-radius: var(--r-md); border: 1px solid transparent;
-  }
-  .gm-rail .navitem > span:not(.ic):not(.nav-badge) { display: none; }
-  .gm-rail .navitem::before { content: none; }
-  .gm-rail .navitem.active {
-    background: linear-gradient(160deg, rgba(217, 180, 90, .30), rgba(217, 180, 90, .10));
-    border-color: rgba(217, 180, 90, .48); color: var(--text);
-  }
-  .gm-rail .navitem.active::after {
-    content: ""; position: absolute; left: 50%; bottom: -3px;
-    width: 18px; height: 3px; margin-left: -9px;
-    border-radius: var(--r-pill); background: var(--grad);
-  }
-  .gm-rail .navitem .nav-badge { position: absolute; top: 1px; right: 1px; }
-  /* display:flex обязателен: без него служебные значки остаются блоками
-     и встают столбиком — док вырастал втрое и съедал экран. */
-  .gm-rail .gm-rail-foot {
-    display: flex; flex-direction: row; align-items: center;
-    flex: 0 0 auto; width: auto; gap: 2px;
-    padding: 0 0 0 4px; margin: 0;
-  }
-  .gm-rail .gm-rail-foot::before { width: 1px; height: 24px; margin: 0 4px 0 0; }
-  .sidebar.gm-rail .gm-rail-foot .theme-toggle { width: 36px; height: 36px; min-height: 36px; }
-  /* Кнопка «меню» из theme.css в доке не нужна. */
-  .menu-btn { display: none !important; }
-
-  /* Показатели на телефоне — два в ряд, суммы остаются читаемыми. */
-  .gm-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .gm-kpi .gm-k { padding: 10px 12px; border-radius: var(--r-md); }
-  .gm-board { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .gm-panel { border-radius: var(--r-md); padding: 12px 13px; }
-  .gm-panel-body { max-height: 46vh; }
-
-  /* ---- ШАПКА НА ТЕЛЕФОНЕ: ОДИН РОСТ У ВСЕХ ----
-     Знак, лупа, языки и владелец достались шапке от разных мест и были
-     разного размера — ряд выглядел сбитым. Здесь у всех одна высота и
-     одна вертикаль. */
-  .gm-head > * { align-self: center; }
-  .gm-head .brand { height: 36px; display: inline-flex; align-items: center; }
-  .gm-head .gm-search-btn { width: 36px; height: 36px; }
-  .gm-head .lang-switch { display: inline-flex; align-items: center; gap: 3px; }
-  .gm-head .lang-switch button {
-    width: 32px; height: 32px; min-width: 32px; padding: 0;
-    display: inline-flex; align-items: center; justify-content: center;
-    border-radius: var(--r-pill); font-size: 0.6875rem; line-height: 1;
-  }
-  .gm-head .profile-chip .avatar { width: 32px; height: 32px; }
-
-  /* ---- ПОИСК РАСКРЫТ: СОСЕДИ УХОДЯТ СТОПКОЙ ----
-     Поле занимает всю строку, и языкам с владельцем места не остаётся —
-     раньше они наезжали друг на друга как придётся. Теперь они
-     отъезжают вправо по очереди и ложатся один за другой: неактивные
-     языки прячутся за активным, владелец — за ними. Каждый обведён
-     цветом подложки, поэтому стопка читается как стопка, а не как
-     слипшиеся кнопки. */
-  .gm-search.open { flex: 1 1 auto; min-width: 0; }
-  .gm-search.open .gm-search-field { width: 100%; }
-  .gm-search-pop { width: min(86vw, 400px); }
-
-  .gm-head .lang-switch button,
-  .gm-head .profile-chip {
-    transition: width var(--t-micro) var(--e-out),
-                min-width var(--t-micro) var(--e-out),
-                opacity var(--t-micro) var(--e-out),
-                margin var(--t-micro) var(--e-out),
-                transform var(--t-micro) var(--e-out);
-  }
-  /* По очереди: сначала трогается дальний от поля, последним — ближний. */
-  .gm-head.поиск-открыт .lang-switch button:not(.active) { transition-delay: 0ms; }
-  .gm-head.поиск-открыт .profile-chip { transition-delay: 60ms; }
-
-  .gm-head.поиск-открыт .lang-switch button:not(.active) {
-    width: 0; min-width: 0; opacity: 0; margin-left: -10px;
-    transform: scale(.8); pointer-events: none;
-  }
-  .gm-head.поиск-открыт .lang-switch { gap: 0; }
-  .gm-head.поиск-открыт .lang-switch button.active {
-    position: relative; z-index: 3;
-    box-shadow: 0 0 0 2px var(--panel);
-  }
-  /* Нахлёст небольшой: кружок должен уйти ЗА соседа, но остаться
-     узнаваемым. При большем перекрытии от владельца виден серп, и
-     стопка читается как слипшиеся кнопки. */
-  .gm-head.поиск-открыт .profile-chip {
-    position: relative; z-index: 2;
-    margin-left: -6px; transform: scale(.92);
-  }
-  .gm-head.поиск-открыт .profile-chip .avatar { box-shadow: 0 0 0 2px var(--panel); }
-  html[data-theme="light"] .gm-head.поиск-открыт .lang-switch button.active,
-  html[data-theme="light"] .gm-head.поиск-открыт .profile-chip .avatar {
-    box-shadow: 0 0 0 2px #fff;
-  }
-
-  /* ---- ДОК СКЛАДЫВАЕТСЯ В ОДНУ КНОПКУ ----
-     Нажатие на значок текущего раздела собирает док (js/app.js): всё,
-     кроме этого значка, уезжает за него, и нижние строки страницы
-     перестают быть закрыты. Повторное нажатие разворачивает.
-     Ширину док берёт по содержимому, поэтому сворачивание и есть
-     анимация: значки схлопываются, и подложка едет за ними. */
-  .sidebar.gm-rail {
-    left: 50%; right: auto;
-    width: max-content; max-width: calc(100vw - 20px);
-    transform: translateX(-50%);
-    transition: width var(--t-page) var(--e-out);
-  }
-  .gm-rail .navitem,
-  .gm-rail .gm-rail-foot,
-  .gm-rail .gm-rail-foot .theme-toggle {
-    transition: width var(--t-page) var(--e-out),
-                opacity var(--t-micro) var(--e-out),
-                margin var(--t-page) var(--e-out),
-                transform var(--t-micro) var(--e-out);
-  }
-  /* gap обязателен: у схлопнутых значков ширина 0, но промежутки между
-     ними остаются — тринадцать зазоров по 4 px держали док втрое шире,
-     чем нужно, и «одна кнопка» выглядела пустой полосой. */
-  .gm-rail.свёрнут .navrow { overflow: visible; gap: 0; }
-  .gm-rail .navrow { transition: gap var(--t-page) var(--e-out); }
-  .gm-rail.свёрнут .navitem:not(.active) {
-    width: 0; opacity: 0; margin: 0; transform: scale(.7);
-    pointer-events: none;
-  }
-  .gm-rail.свёрнут .gm-rail-foot {
-    width: 0; opacity: 0; padding: 0; margin: 0;
-    overflow: hidden; pointer-events: none;
-  }
-  .gm-rail.свёрнут .gm-rail-foot::before { display: none; }
-  /* Собранный док — одна кнопка: у неё и подпись не нужна, и метка
-     активности под значком лишняя. */
-  .gm-rail.свёрнут .navitem.active::after { opacity: 0; }
-  /* Маленькая подсказка, что это сворачивается: точка у края кнопки. */
-  .gm-rail.свёрнут .navitem.active {
-    box-shadow: 0 0 0 1px rgba(217, 180, 90, .35), 0 6px 18px rgba(0, 0, 0, .22);
-  }
-
-  /* Горизонтальной прокрутки на телефоне быть не должно. */
-  html, body { overflow-x: hidden; }
+  /* Подсказок по наведению на телефоне не бывает. */
+  .gm-tip { display: none; }
 }
 
+/* На узком телефоне показатели в один столбец — как было у .stat-grid
+   в теме: два в ряд на 420 px дают цифру в полэкрана и перенос. */
 @media (max-width: 420px) {
-  .gm-kpi .gm-k { padding: 9px 10px; }
-  .gm-k-val { font-size: 0.9375rem; }
-  .gm-k-ic { width: 22px; height: 22px; }
+  .gm-kpi { grid-template-columns: 1fr; }
 }
 
 /* ===================================================================

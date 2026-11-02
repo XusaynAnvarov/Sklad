@@ -597,7 +597,11 @@ export default async function render(page, ctx) {
         // Данных нет — объясняем почему, но ровно один раз.
         низ.push(el("span", { text: к.под || "за период данных нет" }));
       }
-      kpiHost.append(el("div.gm-k" + (к.вид ? "." + к.вид : ""), { "data-tip": к.tip }, [
+      // Класс stat-card добавлен не для красоты: на телефоне слой
+      // GlassOS отключён, и карточку оформляет css/theme.css — тот же
+      // вид, что был у показателей до редизайна. На компьютере правила
+      // .gm-kpi .gm-k весят больше и побеждают.
+      kpiHost.append(el("div.gm-k.stat-card" + (к.вид ? "." + к.вид : ""), { "data-tip": к.tip }, [
         el("div.gm-k-top", {}, [
           el("div.gm-k-ic", {}, [icon(к.ic, { size: 15 })]),
           el("div.gm-k-lab", { text: к.label }),
@@ -816,7 +820,8 @@ export default async function render(page, ctx) {
       if (!опции.вкладки) b.style.marginLeft = "auto";
       шапка.append(b);
     }
-    return el("div.gm-panel", {}, [шапка, el("div.gm-panel-body", {}, содержимое)]);
+    // .card — по той же причине: на телефоне панель оформляет тема.
+    return el("div.gm-panel.card", {}, [шапка, el("div.gm-panel-body", {}, содержимое)]);
   }
   function bigCard(label, usd, ic, grad, series, sub) {
     const v = el("div.st-value");

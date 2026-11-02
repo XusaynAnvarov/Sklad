@@ -189,11 +189,12 @@ function buildShell() {
     icon(db.mode === "supabase" ? "cloud" : "database", { size: 13 }), " ",
     db.mode === "supabase" ? "Онлайн (Supabase)" : "Локальный режим",
   ]);
+  const язык = makeLangSwitcher(() => applyI18n(document.body));
   const head = el("header.gm-head", {}, [
     brand,
     el("div.gm-head-spacer"),
     поиск,
-    makeLangSwitcher(() => applyI18n(document.body)),
+    язык,
     режим,
     профиль,
   ]);
@@ -202,6 +203,19 @@ function buildShell() {
   const shell = el("div.gm-shell", {}, [head, main]);
   const app = el("div.app", {}, [shell, sidebar]);
   root.append(app);
+
+  // Кнопка «☰» для телефона. Раньше она лежала прямо в admin.html;
+  // теперь рождается вместе с каркасом — иначе её нет на страницах,
+  // которые строит сам склад.
+  const кнопкаМеню = el("button.btn.btn-outline.btn-icon.menu-btn", {
+    id: "menuBtn", text: "☰", "aria-label": "Меню",
+    onclick: () => sidebar.classList.toggle("open"),
+  });
+  root.append(кнопкаМеню);
+  // Выбрал раздел — ящик закрывается сам.
+  navrow.addEventListener("click", () => sidebar.classList.remove("open"));
+
+  подстроитьПодТелефон({ sidebar, head, brand, профиль, режим, язык, navrow });
   initПодсказкиРейла();
   прогретьПоиск();
 
@@ -217,6 +231,53 @@ function buildShell() {
     },
   };
   window.addEventListener("hashchange", route);
+}
+
+// ========================================================================
+//  НА ТЕЛЕФОНЕ — ПРЕЖНИЙ СКЛАД
+//
+//  Правый рейл значков и стеклянная шапка сделаны для компьютера. На
+//  телефоне владелец просил вернуть то, что было до редизайна: кнопка
+//  «☰» в углу и выезжающее слева меню, внутри которого всё — знак,
+//  профиль, разделы, режим базы, язык, тема, «На сайт», «Выход».
+//
+//  Разметка у обеих раскладок одна и та же, меняется только размещение:
+//  на телефоне содержимое шапки переезжает в ящик, а сама шапка
+//  прячется. Переключатель — класс gm-rail: пока он есть, работают
+//  стили рейла (css/glassos.css); снимаем — и остаётся прежнее боковое
+//  меню из css/theme.css, не тронутое редизайном.
+// ========================================================================
+const ПОРОГ_ТЕЛЕФОНА = 860;
+
+function подстроитьПодТелефон(узлы) {
+  const { sidebar, head, brand, профиль, режим, язык, navrow } = узлы;
+  let прежний = null;
+
+  const применить = () => {
+    const телефон = window.innerWidth <= ПОРОГ_ТЕЛЕФОНА;
+    if (телефон === прежний) return;     // раскладка не менялась — не трогаем DOM
+    прежний = телефон;
+
+    if (телефон) {
+      sidebar.classList.remove("gm-rail");
+      sidebar.classList.add("gm-ящик");
+      // Порядок как был до редизайна: знак, профиль, разделы, режим,
+      // язык, затем служебные кнопки.
+      sidebar.prepend(профиль);
+      sidebar.prepend(brand);
+      navrow.after(язык);
+      navrow.after(режим);
+    } else {
+      sidebar.classList.add("gm-rail");
+      sidebar.classList.remove("gm-ящик", "open");
+      // Возвращаем всё в шапку, в её собственном порядке.
+      head.prepend(brand);
+      head.append(язык, режим, профиль);
+    }
+  };
+
+  применить();
+  window.addEventListener("resize", применить, { passive: true });
 }
 
 // ========================================================================

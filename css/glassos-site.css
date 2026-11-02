@@ -438,6 +438,9 @@ html[data-site-theme="dark"] .product-card-img { background: rgba(255, 255, 255,
   font-size: 0.6875rem; font-weight: 700; letter-spacing: 0;
   box-shadow: 0 4px 12px rgba(16, 24, 40, .18);
 }
+/* Прежний бейдж наличия поверх снимка — только для телефона. На
+   компьютере наличие показывает строка в теле карточки. */
+.product-badge.старый { display: none; }
 .product-badge.new-badge { background: var(--gold); color: #1f1a0c; }
 .product-badge.hit-badge { background: rgba(232, 129, 12, .95); color: #fff; }
 
@@ -559,59 +562,6 @@ html[data-site-theme="dark"] .product-card-img-placeholder {
 /* ===================================================================
    7. ТЕЛЕФОН
    =================================================================== */
-@media (max-width: 760px) {
-  .site-header { padding: 8px 10px 0; }
-  .site-header-inner { height: 54px; padding: 0 8px 0 12px; }
-  /* На телефоне в собранной шапке остаётся не только знак, но и кнопка
-     меню: это единственный путь к разделам, и прятать её — значит
-     запереть человека на странице до тех пор, пока он не додумается
-     потянуть вверх. Поэтому таблетка чуть шире. */
-  /* На телефоне содержимое идёт во всю ширину, отдельной колонки нет —
-     поэтому здесь стекло остаётся на самой полосе, а она подбирается
-     до кнопки меню со знаком. */
-  .site-header.собрана .site-header-inner {
-    /* margin обязателен: у полосы в теме стоит «margin: 0 auto», и
-       суженная до 108 px она встала бы по центру экрана, а не слева. */
-    max-width: 108px; margin-left: 0; margin-right: auto;
-    padding: 0 8px; justify-content: flex-start;
-    gap: 4px; flex-wrap: nowrap; overflow: hidden;
-  }
-  /* На телефоне стекло никуда не переезжает: оно остаётся на полосе, а
-     полоса подбирается до кнопки меню со знаком. Поэтому слой полосы не
-     гаснет, а слой знака не зажигается. */
-  .site-header.собрана .site-header-inner::before {
-    opacity: 1;
-    backdrop-filter: blur(12px) saturate(140%);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-  }
-  .site-header.собрана .site-logo {
-    width: auto; height: auto; padding: 0;
-  }
-  .site-header.собрана .site-logo::before {
-    opacity: 0;
-    backdrop-filter: none; -webkit-backdrop-filter: none;
-  }
-  /* В собранной шапке у кнопки меню остаются только три полоски:
-     подпись «Меню» и стрелка занимают 60 px, из-за них знак не
-     помещался в таблетку и переносился под неё. */
-  .site-header.собрана .site-burger {
-    flex: 0 0 auto; padding: 0; width: 34px; justify-content: center;
-  }
-  .site-header.собрана .site-burger span,
-  .site-header.собрана .site-burger-arrow { display: none; }
-  .site-header.собрана .site-logo { flex: 0 0 auto; }
-  .feature-text { padding: 26px 20px; }
-  .product-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
-  .product-card { border-radius: var(--gs-r-md); }
-  .product-card-img { margin: 7px 7px 0; border-radius: var(--gs-r-sm); }
-  .product-card-body { padding: 10px 11px 12px; }
-  .product-name { font-size: 0.875rem; }
-  .product-status { font-size: 0.75rem; margin-bottom: 10px; }
-  .sku-copy { padding: 3px 8px; }
-  /* Длинный артикул поставщика на узкой карточке только мешает — код важнее. */
-  .sku-vendor { display: none; }
-}
-
 /* ===================================================================
    1. ПОИСК В КАТАЛОГЕ
    =================================================================== */
@@ -879,4 +829,58 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
   .gm-code-cell { border-color: var(--text); border-width: 2px; }
   .s-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0, 0, 0, .8); }
   #mo-auth-modal .s-modal { background: var(--white); }
+}
+
+/* ===================================================================
+   ТЕЛЕФОН — ПРЕЖНИЙ САЙТ
+
+   Стеклянная шапка, её сборка при прокрутке и компактный поиск сделаны
+   для компьютера. На телефоне владелец просил вернуть то, что было до
+   редизайна: обычная шапка, которая уезжает вместе со страницей,
+   открытая строка поиска и прежние карточки товара с бейджем наличия
+   поверх снимка.
+
+   Весь прежний вид уже описан в css/site.css — здесь только снимаем
+   новый слой. Сборку шапки отключает js/site/app.js (ТЕЛЕФОН).
+   =================================================================== */
+@media (max-width: 760px) {
+  /* Шапка — как была: сплошная, с чертой снизу, не прилипает. */
+  .site-header {
+    position: static; padding: 0;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 12px rgba(28, 43, 74, .07);
+  }
+  .site-header-inner {
+    height: 56px; padding: 0 14px;
+    border: none; border-radius: 0; background: none; box-shadow: none;
+    max-width: none;
+  }
+  .site-header-inner::before { display: none; }   /* стеклянный слой не нужен */
+  .site-logo { height: auto; padding: 0; }
+  .site-logo::before { display: none; }
+  .site-main { padding: 20px 14px 50px; }
+
+  /* Поиск в каталоге — снова открытой строкой во всю ширину. */
+  .gm-search-cat { flex: 1 1 100%; }
+  .gm-search-cat .gm-search-field { width: 100%; opacity: 1; margin-right: 0; }
+  .gm-search-cat .gm-search-btn { display: none; }
+  .catalog-count { flex: 1 1 100%; order: -1; }
+
+  /* Карточка товара — прежняя: бейдж наличия поверх снимка, код и
+     артикул обычной подписью, без таблетки и кнопки копирования. */
+  .product-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
+  .product-card { border-radius: var(--radius); box-shadow: var(--shadow); }
+  .product-card-img { margin: 0; border-radius: 0; }
+  .product-card-body { padding: 12px 13px 14px; }
+  .product-badge.старый { display: inline-flex; }
+  .product-status { display: none; }
+  .product-name { min-height: 0; }
+  .sku-copy {
+    border: none; background: none; padding: 0;
+    font-weight: 600; color: var(--muted); cursor: text;
+  }
+  .sku-copy .sku-ic { display: none; }
+  .product-sku { gap: 6px; margin-bottom: 8px; }
+  .sku-vendor { display: inline; }
 }

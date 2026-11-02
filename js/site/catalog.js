@@ -427,7 +427,17 @@ function buildCard(p) {
     hitBadge.textContent = "Хит недели";
     метки.append(hitBadge);
   }
-  if (метки.childElementCount) imgWrap.append(метки);
+  // Прежний бейдж наличия поверх снимка. На телефоне владелец просил
+  // вернуть вид, который был до редизайна, — там наличие показывалось
+  // именно так. На компьютере его прячет css/glassos-site.css, и там
+  // работает строка состояния в теле карточки. Рисуем оба сразу, чтобы
+  // переключение было чисто стилевым: карточка строится один раз, и
+  // ветвиться по ширине экрана в коде нельзя — при повороте телефона
+  // получилось бы не то.
+  const старыйБейдж = mkEl("span", "product-badge старый " + (inStock ? "in-stock" : isSoon ? "soon" : "out-stock"));
+  старыйБейдж.textContent = inStock ? t("inStockBadge") : isSoon ? t("soonBadge") : t("noStockBadge");
+  метки.prepend(старыйБейдж);
+  imgWrap.append(метки);
 
   const body = mkEl("div", "product-card-body");
   const name = mkEl("div", "product-name"); name.textContent = p.name;
