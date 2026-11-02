@@ -6,12 +6,12 @@
 //  каждой накладной и фильтром «все / с долгом / оплачено».
 //  Нажал на накладную — PDF приходит в чат с ботом.
 // ========================================================================
-import { el } from "../../el.js?v=20261101c";
-import { icon } from "../../icons.js?v=20261101c";
-import { toast } from "../../ui.js?v=20261101c";
-import { fmt } from "../../fx.js?v=20261101c";
-import { getLang } from "../../i18n.js?v=20261101c";
-import { мои } from "../api.js?v=20261101c";
+import { el } from "../../el.js?v=20261102a";
+import { icon } from "../../icons.js?v=20261102a";
+import { toast } from "../../ui.js?v=20261102a";
+import { fmt } from "../../fx.js?v=20261102a";
+import { getLang } from "../../i18n.js?v=20261102a";
+import { мои } from "../api.js?v=20261102a";
 
 const ВАЛЮТЫ = ["som", "usd", "yuan"];
 const суммой = (o) => ВАЛЮТЫ.filter(c => o && o[c]).map(c => fmt(o[c], c)).join(" + ") || "0";

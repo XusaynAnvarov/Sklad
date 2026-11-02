@@ -14,8 +14,8 @@
 //  Здесь только расчёт, без разметки — поэтому проверяется тестом
 //  (_tools/tests/t-transit.mjs) и годится и для сайта, и для телефона.
 // ========================================================================
-import { convert } from "./fx.js?v=20261101c";
-import { ensureBatches, currentCost } from "./inventory.js?v=20261101c";
+import { convert } from "./fx.js?v=20261102a";
+import { ensureBatches, currentCost } from "./inventory.js?v=20261102a";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
