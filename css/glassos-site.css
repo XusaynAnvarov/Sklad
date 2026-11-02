@@ -118,23 +118,31 @@ html[data-site-theme="dark"] {
   position: absolute; inset: 0; z-index: -1;
   border: 1px solid var(--gs-line);
   border-radius: var(--gs-r-pill);
-  background: var(--gs-glass);
-  /* Размытие у шапки слабее, чем у остальных поверхностей: она
-     прилипшая и во всю ширину, и на КАЖДЫЙ кадр прокрутки пересчитывает
-     размытие всей страницы за собой. На blur(20px)+saturate это
-     подтормаживало именно при прокрутке вверх, когда шапка ещё и
-     разворачивается. 12px на глаз не отличить, стоит вдвое дешевле. */
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  /* БЕЗ РАЗМЫТИЯ — И ЭТО ГЛАВНОЕ В ЭТОМ ПРАВИЛЕ.
+
+     Из-за размытия вверху оставалось тёмное пятно. Слой с размытием
+     живёт у видеокарты отдельной картинкой. Когда шапка собиралась,
+     прозрачность слоя уходила в ноль, но сам слой оставался и
+     продолжал показывать последнее, что успел размыть, — а под шапкой
+     в этот момент тёмные фотографии товара. Светлой подложки, которая
+     раньше их осветляла, уже не было, и на экране висела тёмная
+     полоса. Искать её в разметке бесполезно: такого элемента нет —
+     проверено, в обоих состояниях под пятном лежит пустая
+     .site-header-inner. Это след размытия, а не элемент.
+
+     Подложку поэтому делаем плотнее: она и без размытия читается как
+     стекло, а надписи остаются разборчивыми поверх любых фотографий.
+     Заодно уходит расход — прилипшая полоса во всю ширину
+     пересчитывала размытие всей страницы на каждый кадр прокрутки. */
+  background: linear-gradient(152deg, rgba(255, 255, 255, .93), rgba(255, 255, 255, .84));
   box-shadow: var(--gs-drop), var(--gs-edge);
   opacity: 1;
-  /* Размытие само по себе не анимируется, его можно только включить или
-     выключить. Поэтому выключаем его НУЛЕВЫМ переходом, отложенным до
-     конца растворения: пока слой виден — размытие на месте, пропало —
-     выключилось, и никакого щелчка на экране. */
-  transition: opacity .34s var(--gs-e-out),
-              backdrop-filter 0s linear 0s,
-              -webkit-backdrop-filter 0s linear 0s;
+  visibility: visible;
+  transition: opacity .34s var(--gs-e-out), visibility 0s linear 0s;
+}
+html[data-site-theme="dark"] .site-header-inner::before,
+html[data-site-theme="dark"] .site-logo::before {
+  background: linear-gradient(152deg, rgba(20, 20, 25, .93), rgba(20, 20, 25, .84));
 }
 .site-nav-link { border-radius: var(--gs-r-pill); }
 
@@ -239,10 +247,12 @@ html[data-site-theme="dark"] {
 /* Стекло полосы гаснет последним — когда кнопки уже уехали. */
 .site-header.собрана .site-header-inner::before {
   opacity: 0;
-  backdrop-filter: none; -webkit-backdrop-filter: none;
+  /* visibility снимает слой целиком. Одной нулевой прозрачности мало:
+     слой остаётся у видеокарты и может показывать то, что в нём
+     осталось с прошлого кадра. */
+  visibility: hidden;
   transition: opacity .34s var(--gs-e-out) 420ms,
-              backdrop-filter 0s linear 760ms,
-              -webkit-backdrop-filter 0s linear 760ms;
+              visibility 0s linear 760ms;
 }
 
 /* ---- СТЕКЛО ЗНАКА ----
@@ -260,16 +270,16 @@ html[data-site-theme="dark"] {
   position: absolute; inset: 0; z-index: -1;
   border: 1px solid var(--gs-line);
   border-radius: var(--gs-r-pill);
-  background: var(--gs-glass);
+  /* Тоже без размытия и по той же причине, что у полосы: слой гаснет, а
+     размытый снимок в нём остаётся. Площадь меньше, но пятно такое же. */
+  background: linear-gradient(152deg, rgba(255, 255, 255, .93), rgba(255, 255, 255, .84));
   box-shadow: var(--gs-drop), var(--gs-edge);
   opacity: 0;
   /* Развёрнутая шапка: таблетки у знака нет, и размытия у неё тоже —
      иначе прозрачный слой с размытием висел бы поверх страницы всё
      время и стоил бы кадров ни за что. */
-  backdrop-filter: none; -webkit-backdrop-filter: none;
-  transition: opacity .34s var(--gs-e-out),
-              backdrop-filter 0s linear .34s,
-              -webkit-backdrop-filter 0s linear .34s;
+  visibility: hidden;
+  transition: opacity .34s var(--gs-e-out), visibility 0s linear .34s;
 }
 /* Собранный знак — ровно той же ширины, что колонка категорий под ним
    (--кол меряет js/site/app.js). Две плитки одна под другой должны
@@ -286,11 +296,9 @@ html[data-site-theme="dark"] {
 }
 .site-header.собрана .site-logo::before {
   opacity: 1;
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  visibility: visible;
   transition: opacity .34s var(--gs-e-out) 420ms,
-              backdrop-filter 0s linear 420ms,
-              -webkit-backdrop-filter 0s linear 420ms;
+              visibility 0s linear 420ms;
 }
 .site-header.собрана .site-logo svg { width: 30px; height: 30px; }
 .site-header.собрана .site-logo-text { font-size: 0.9375rem; }
