@@ -1,16 +1,16 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261102e";
-import { renderCatalog } from "./catalog.js?v=20261102e";
-import { renderVideos } from "./videos.js?v=20261102e";
-import { renderCabinet } from "./cabinet.js?v=20261102e";
-import { renderAdminPanel } from "./admin-panel.js?v=20261102e";
-import { renderOrder } from "./order.js?v=20261102e";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261102e";
-import { поставитьСнимок } from "../img.js?v=20261102e";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261102f";
+import { renderCatalog } from "./catalog.js?v=20261102f";
+import { renderVideos } from "./videos.js?v=20261102f";
+import { renderCabinet } from "./cabinet.js?v=20261102f";
+import { renderAdminPanel } from "./admin-panel.js?v=20261102f";
+import { renderOrder } from "./order.js?v=20261102f";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261102f";
+import { поставитьСнимок } from "../img.js?v=20261102f";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261102e";
-import { сменитьТемуВолной } from "../temavolna.js?v=20261102e";
-import { обновитьЕслиУстарело } from "../version.js?v=20261102e";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261102f";
+import { сменитьТемуВолной } from "../temavolna.js?v=20261102f";
+import { обновитьЕслиУстарело } from "../version.js?v=20261102f";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -264,7 +264,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261102e");
+        const { api: siteApi } = await import("./api.js?v=20261102f");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -896,7 +896,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=233", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=234", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
