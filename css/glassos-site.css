@@ -170,9 +170,19 @@ html[data-site-theme="dark"] {
   transform: none; opacity: 1;
   transition: transform .52s var(--gs-e-out), opacity .3s var(--gs-e-out);
 }
-/* will-change только у двух крупных движущихся слоёв: вешать его на
-   каждую кнопку дороже, чем полезнее. */
-.site-header .site-header-right { will-change: transform; }
+/* will-change только у крупного движущегося слоя: вешать его на каждую
+   кнопку дороже, чем полезнее.
+
+   И ТОЛЬКО НА КОМПЬЮТЕРЕ. will-change: transform делает элемент точкой
+   отсчёта для всего, что внутри позиционировано абсолютно. Выпадающее
+   меню «☰» лежит как раз внутри .site-header-right — и начинало
+   считать свои координаты от неё, а она прижата к правому краю. Меню
+   уезжало за край экрана: на телефоне 375 px его левый край оказывался
+   на 262, а правый — на 493. Собирается шапка всё равно только на
+   компьютере, так что телефону это свойство не нужно вовсе. */
+@media (min-width: 761px) {
+  .site-header .site-header-right { will-change: transform; }
+}
 
 .site-header .site-menu > *,
 .site-header .site-header-right > *:not(.site-menu) {
@@ -844,9 +854,15 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
    новый слой. Сборку шапки отключает js/site/app.js (ТЕЛЕФОН).
    =================================================================== */
 @media (max-width: 760px) {
-  /* Шапка — как была: сплошная, с чертой снизу, не прилипает. */
+  /* Шапка — как была: сплошная, с чертой снизу, не прилипает.
+     position: relative, а НЕ static. Выпадающее меню «☰» лежит внутри
+     шапки и позиционируется относительно неё. Со static шапка
+     перестаёт быть точкой отсчёта и не создаёт своего слоя — меню
+     уезжало ПОД витрину и карточки товара, и выбрать в нём ничего было
+     нельзя. z-index поднят до 100: меню должно быть выше всего, что
+     есть на странице. */
   .site-header {
-    position: static; padding: 0;
+    position: relative; z-index: 100; padding: 0;
     background: var(--white);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 12px rgba(28, 43, 74, .07);
