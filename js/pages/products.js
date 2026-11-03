@@ -322,6 +322,8 @@ export function openForm(ctx, p, cats = []) {
   // запись не трогает: /api/admin/db обновляет присланные поля (PATCH),
   // а не всю строку. В журнал остатков она тоже не попадает — там
   // пропускаются записи без stock_qty.
+  let photos = снимки(p);
+  let главноеВыбрано = главноеФото(p);
   let фотоИзменены = false;
   let таймерФото = 0;
   async function записатьФото(данные) {
@@ -350,8 +352,6 @@ export function openForm(ctx, p, cats = []) {
       catch (e) { toast("Фото не сохранились: " + (e.message || e), "err"); }
     }, 500);
   };
-  let photos = снимки(p);
-  let главноеВыбрано = главноеФото(p);
   const ред = редакторФото({
     фото: photos,
     главное: главноеВыбрано,
@@ -436,7 +436,7 @@ export function openForm(ctx, p, cats = []) {
       el("div", { style: { flex: "1" } }, [field("…или добавить по ссылке", fPhotoUrl)]),
       addUrlBtn,
     ]),
-    el("div.hint", { text: "Первое фото — главное (в списке и каталоге). Клиенты видят все фото." }),
+    el("div.hint", { text: "Порядок снимков и главное фото сохраняются сразу — отдельно нажимать «Сохранить» для них не нужно. Клиенты видят все фото в этом порядке." }),
     el("div.section-h", { text: "Остаток и себестоимость" }),
     el("div.hint", { text: "Остаток, себестоимость и цены считаются в выбранной единице. Смените её — всё пересчитается само." }),
     el("div.row2", {}, [field("Единица измерения", fUnit), packWrap]),
@@ -477,7 +477,10 @@ export function openForm(ctx, p, cats = []) {
       !isNew && { label: "Удалить", kind: "btn-danger", onClick: (close) => {
         confirmDialog("Удалить товар «" + p.name + "»?", async () => { await ctx.db.products.remove(p.id); close(); toast("Удалено", "ok"); ctx.refresh(); });
       } },
-      { label: "Отмена", kind: "btn-outline", onClick: (c) => c() },
+      // «Отмена» отменяет правку полей, но не фотографии: порядок и главное
+      // фото уже записаны. Поэтому список за карточкой надо перерисовать —
+      // иначе в нём остался бы прежний аватар.
+      { label: "Отмена", kind: "btn-outline", onClick: (c) => { c(); if (фотоИзменены && !isNew) { clearTimeout(таймерФото); записатьФото(ред.данные()).then(() => ctx.refresh()).catch(() => {}); } } },
       { label: "Сохранить", kind: "btn-primary", onClick: async (close) => {
         if (!fName.value.trim()) { toast("Введите название", "err"); return; }
         // ---- смена единицы измерения ----
@@ -563,7 +566,9 @@ export function openForm(ctx, p, cats = []) {
           ...(код ? { code: код } : {}),
           name: fName.value.trim(), category: fCat.value.trim(),
           sku: fSku.value.trim() || null,
-          photo_url: photos[0] || "", photos,
+          // Главное фото выбирает владелец звездой — это НЕ «первое в
+          // списке»: порядок снимков и аватар меняют независимо.
+          ...ред.данные(),
           stock_qty: batches.length ? sumQty(batches) : desired,
           cost_usd: cc.cost_usd, cost_yuan: cc.cost_yuan,
           cost_cur: cur, // валюта, в которой ввели себестоимость — в ней и показываем
