@@ -12,7 +12,11 @@ import { authHeaders } from "../db.js?v=20261103e";
 import { thumb, поставитьСнимок } from "../img.js?v=20261103e";
 import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261103e";
 // Оприходование общее со складом в телефоне — иначе остатки разойдутся.
-import { applyArrival, записатьПачкой, откатитьПриход } from "../arrival.js?v=20261103e";
+import { applyArrival, записатьПачкой, откатитьПриход, пересчётПрихода } from "../arrival.js?v=20261103e";
+// Единицы, упаковка и главное фото — для предпросмотра прихода.
+import { подпись as подписьКол } from "../unit.js?v=20261103e";
+import { статус as статусУпаковки, СТАТУС } from "../packing.js?v=20261103e";
+import { главноеФото } from "../photo.js?v=20261103e";
 import { изменениеСклада } from "../db.js?v=20261103e";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
@@ -138,8 +142,98 @@ async function unarriveOnce(ctx, s, products) {
   });
 }
 
+// ========================================================================
+//  ПРЕДПРОСМОТР ПРИХОДА — что именно ляжет на склад.
+//
+//  Показываем ДО записи, потому что пересчёт по упаковке меняет и
+//  количество, и себестоимость: поставщик продал 100 штук, а на полку
+//  встанет 10 пачек по другой цене. Заметить ошибку здесь стоит одного
+//  нажатия «Отмена», а после оприходования — отката склада.
+//
+//  Возвращает обещание: true — оприходовать, false — передумали.
+// ========================================================================
+function предпросмотрПрихода(s, products) {
+  return new Promise((готово) => {
+    const разбор = пересчётПрихода(s, products);
+    const pmap = Object.fromEntries(products.map(p => [p.id, p]));
+    // Правило «спрашивать» — единственное, что требует отдельной галочки:
+    // владелец сам просил не пропускать неполные упаковки молча.
+    const спросить = разбор.filter(({ решение }) => решение.пересчитано && решение.правило === "ask" && !решение.ровно);
+    let согласен = !спросить.length;
+
+    const строки = разбор.map(({ it, решение }) => {
+      const p = pmap[it.product_id] || { name: "?" };
+      const было = подписьКол(решение.кол, { unit: решение.ед })
+        + (решение.цена ? " × " + fmt(решение.цена, решение.валюта || s.currency) : "");
+      const стало = подписьКол(решение.складских, { unit: решение.складскаяЕд })
+        + (решение.себестоимость ? " по " + fmt(решение.себестоимость, решение.валюта || s.currency) : "");
+
+      const метки = [];
+      if (решение.изЗаписи) метки.push(["Уже оприходовано", "var(--muted)"]);
+      else if (!решение.пересчитано) метки.push([статусУпаковки(p).код === СТАТУС.ПРОВЕРИТЬ ? "Упаковка требует проверки" : "Упаковка не настроена", "var(--muted)"]);
+      if (решение.пересчитано && !решение.ровно) {
+        метки.push([`Неполная упаковка: ${решение.полных} целых и ${решение.остатокШтук} шт`, "var(--warn)"]);
+      }
+      if (решение.отложеноШтук) метки.push([`Отложено ${решение.отложеноШтук} шт — на склад не кладём`, "var(--warn)"]);
+
+      return el("div.card", { style: { padding: "10px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "flex-start" } }, [
+        el("img.thumb", { src: главноеФото(p) ? thumb(главноеФото(p), 60) : placeholder(p.name), loading: "lazy", decoding: "async",
+          style: { width: "48px", height: "48px", flex: "0 0 auto" }, onerror: function () { this.src = placeholder(p.name); } }),
+        el("div", { style: { flex: "1", minWidth: "0" } }, [
+          el("div", { style: { fontWeight: "600" }, text: p.name }),
+          el("div", { style: { fontSize: "13px", marginTop: "2px" } }, [
+            el("span.muted", { text: было }),
+            el("span", { text: решение.пересчитано ? "  →  " : "  ", style: { opacity: ".6" } }),
+            el("strong", { text: стало }),
+          ]),
+          ...метки.map(([т, цвет]) => el("div", { text: т, style: { fontSize: "12px", marginTop: "3px", color: цвет } })),
+        ]),
+      ]);
+    });
+
+    const итого = разбор.reduce((t, { решение }) => t + (Number(решение.кол) || 0) * (Number(решение.цена) || 0), 0);
+    const тело = el("div", {}, [
+      el("div.hint", { text: "Проверьте, что встанет на полку. Товары с ненастроенной упаковкой приходуются как раньше — один к одному." }),
+      ...строки,
+      el("div", { style: { textAlign: "right", fontSize: "17px", fontWeight: "800", marginTop: "8px" } },
+        ["Закуплено на ", el("span.gradtext", { text: fmt(итого, s.currency) })]),
+    ]);
+
+    if (спросить.length) {
+      const галка = el("input", { type: "checkbox", style: { width: "18px", height: "18px", flex: "0 0 auto", accentColor: "var(--accent)" } });
+      галка.addEventListener("change", () => {
+        согласен = галка.checked;
+        if (кнопкаОк) кнопкаОк.disabled = !согласен;
+      });
+      тело.append(el("label", { style: { display: "flex", gap: "9px", alignItems: "center", marginTop: "10px", cursor: "pointer", color: "var(--warn)" } }, [
+        галка,
+        el("span", { text: `Подтверждаю неполные упаковки (${спросить.length} поз.) — товар просил спрашивать` }),
+      ]));
+    }
+
+    const окно = modal({
+      title: "Что ляжет на склад",
+      wide: true,
+      body: тело,
+      actions: [
+        { label: "Отмена", kind: "btn-outline", onClick: c => { готово(false); c(); } },
+        { label: "Оприходовать", kind: "btn-ok", onClick: c => { if (!согласен) return; готово(true); c(); } },
+      ],
+    });
+    var кнопкаОк = окно.content.parentElement.querySelector(".modal-foot .btn-ok");
+    if (кнопкаОк) кнопкаОк.disabled = !согласен;
+    // Закрыли крестиком или мимо окна — это тоже «передумали».
+    const overlay = окно.content.closest(".modal-overlay");
+    const наблюдатель = new MutationObserver(() => {
+      if (!document.body.contains(overlay)) { наблюдатель.disconnect(); готово(false); }
+    });
+    наблюдатель.observe(document.body, { childList: true });
+  });
+}
+
 async function arrive(ctx, s, products, кнопка) {
-  confirmDialog("Оприходовать поступление? Товары добавятся на склад.", async () => {
+  предпросмотрПрихода(s, products).then(async (да) => {
+    if (!да) return;
     // Пока идёт запись, кнопку блокируем: раньше при 43 позициях запись шла
     // почти минуту, владелец считал, что зависло, и нажимал ещё раз —
     // половина прихода ложилась на склад дважды.
@@ -147,7 +241,7 @@ async function arrive(ctx, s, products, кнопка) {
     изменениеСклада("Приход: " + (s.supplier || "—"), s.id);
     showLoader("Оприходование…");
     try {
-      await applyArrival(ctx.db, s, products, (готово, всего) => setLoaderText(`Оприходование… ${готово} из ${всего}`));
+      await applyArrival(ctx.db, s, products, (готово, всего) => setLoaderText(`Оприходование… ${готово} из ${всего}`), { кто: "склад на сайте" });
       await ctx.db.purchases.upsert({ id: s.id, status: "arrived" });
     } catch (e) {
       hideLoader();
@@ -328,7 +422,7 @@ function openEditor(ctx, purchase, products, suppliers = []) {
           if (fStatus.value === "arrived" && !wasArrived) {
             // тип передаём явно: если колонки kind ещё нет в базе, ответ придёт
             // без него, и приход из магазина ошибочно посчитался бы поставкой
-            await applyArrival(ctx.db, { ...(saved || obj), kind: state.kind }, products);
+            await applyArrival(ctx.db, { ...(saved || obj), kind: state.kind }, products, null, { кто: "склад на сайте" });
             const pmap3 = Object.fromEntries(products.map(p => [p.id, p]));
             const lines3 = (state.items || []).map(it => `• ${pmap3[it.product_id]?.name || "?"} × ${it.qty}`);
             try { await notifyOwner(`Новый приход на склад\n${kindWho(state.kind)}: ${fSupplier.value.trim() || "—"}\n\n${lines3.join("\n")}`); } catch {}

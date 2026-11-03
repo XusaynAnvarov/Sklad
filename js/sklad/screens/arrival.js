@@ -137,7 +137,7 @@ export default async function render(box, ctx) {
   saveBtn.addEventListener("click", () => {
     if (!cart.length) { toast("Список пуст", "err"); return; }
     if (!shop) { toast("Впишите магазин", "err"); return; }
-    confirmDialog(`Принять ${cart.reduce((s, i) => s + i.qty, 0)} шт от «${shop}»?`, async () => {
+    confirmDialog(`Принять ${cart.length} поз. от «${shop}»?`, async () => {
       saveBtn.disabled = true; saveBtn.textContent = "Принимаем…";
       try {
         // Номер прихода заводим ЗАРАНЕЕ и передаём в зачисление: им метятся

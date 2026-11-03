@@ -12,7 +12,6 @@ import { isShop, kindText } from "../../purchase.js?v=20261103e";
 
 const дата = (d) => { const t = new Date(d); return isFinite(t) ? t.toLocaleDateString("ru-RU") : "—"; };
 const сумма = (s) => (s.items || []).reduce((t, i) => t + (Number(i.qty) || 0) * (Number(i.unit_cost) || 0), 0);
-const штук = (s) => (s.items || []).reduce((t, i) => t + (Number(i.qty) || 0), 0);
 
 export default async function render(box, ctx) {
   const [purchases, products] = await Promise.all([ctx.db.purchases.list(), ctx.db.products.list()]);
@@ -63,7 +62,9 @@ export default async function render(box, ctx) {
       list.append(el("div.mini-row" + (едет ? ".low" : ""), { onclick: () => открыть(s) }, [
         el("div.info", {}, [
           el("div.nm", { text: (s.supplier || "—") + (isShop(s) ? " · магазин" : "") }),
-          el("div.sku", { text: дата(s.date) + " · " + (s.items || []).length + " поз. · " + штук(s) + " шт" }),
+          // Единицу не пишем: товар может лежать штуками, пачками и
+          // коробками, и одно общее «шт» для всей накладной было бы неправдой.
+          el("div.sku", { text: дата(s.date) + " · " + (s.items || []).length + " поз." }),
         ]),
         el("div.qty" + (едет ? ".low" : ""), { text: fmt(сумма(s), s.currency || "yuan") }),
       ]));
@@ -97,9 +98,9 @@ export default async function render(box, ctx) {
         { label: "Закрыть", kind: "btn-outline", onClick: c => c() },
         едет ? {
           label: "Пришло — на склад", kind: "btn-primary", onClick: (close) => {
-            confirmDialog("Оприходовать «" + (s.supplier || "—") + "»? На склад добавится " + штук(s) + " шт.", async () => {
+            confirmDialog("Оприходовать «" + (s.supplier || "—") + "»? Позиций: " + (s.items || []).length + ".", async () => {
               try {
-                await applyArrival(ctx.db, s, products);
+                await applyArrival(ctx.db, s, products, null, { кто: "склад в телефоне" });
                 await ctx.db.purchases.upsert({ id: s.id, status: "arrived" });
                 s.status = "arrived";
                 вДороге.splice(вДороге.indexOf(s), 1);
