@@ -15,17 +15,17 @@
 //  и тот же план показывается в предпросмотре и записывается. Поэтому
 //  предпросмотр не может разойтись с тем, что произойдёт.
 // ========================================================================
-import { el, toast, modal, field, input, select, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261103f";
-import { icon } from "../icons.js?v=20261103f";
-import { thumb } from "../img.js?v=20261103f";
-import { placeholder, openForm } from "./products.js?v=20261103f";
-import { подходит } from "../productsearch.js?v=20261103f";
-import { главноеФото } from "../photo.js?v=20261103f";
-import { ЕДИНИЦЫ } from "../unit.js?v=20261103f";
-import { настройки, статус, цепочка, ПРАВИЛА_ОСТАТКА, СТАТУС, естьКолонки } from "../packing.js?v=20261103f";
-import { планПравки, сводка, строкиДляЗаписи, объяснитьПеревод, однофамильцы } from "../packingbulk.js?v=20261103f";
-import { записатьПачкой } from "../arrival.js?v=20261103f";
-import { изменениеСклада } from "../db.js?v=20261103f";
+import { el, toast, modal, field, input, select, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261103i";
+import { icon } from "../icons.js?v=20261103i";
+import { thumb } from "../img.js?v=20261103i";
+import { placeholder, openForm } from "./products.js?v=20261103i";
+import { подходит } from "../productsearch.js?v=20261103i";
+import { главноеФото } from "../photo.js?v=20261103i";
+import { ЕДИНИЦЫ } from "../unit.js?v=20261103i";
+import { настройки, статус, цепочка, ПРАВИЛА_ОСТАТКА, СТАТУС, естьКолонки } from "../packing.js?v=20261103i";
+import { планПравки, сводка, строкиДляЗаписи, объяснитьПеревод, однофамильцы } from "../packingbulk.js?v=20261103i";
+import { записатьПачкой } from "../arrival.js?v=20261103i";
+import { изменениеСклада } from "../db.js?v=20261103i";
 
 const НЕ_МЕНЯТЬ = { value: "", label: "— не менять —" };
 const вариантыЕдиниц = () => ЕДИНИЦЫ.map(e => ({ value: e.value, label: e.label }));
@@ -40,6 +40,27 @@ const ЦВЕТ = {
   [СТАТУС.ЕСТЬ]: "var(--ok)",
   [СТАТУС.ПРОВЕРИТЬ]: "var(--warn)",
 };
+
+// ------------------------------------------------------------------
+//  ГДЕ ВЛАДЕЛЕЦ БЫЛ ДО ПРАВКИ.
+//
+//  Экран перерисовывается целиком после каждой записи, и без этого
+//  владельца выбрасывало в начало списка: настроил товар на четырёхсотой
+//  строке — и листай заново. Живёт вне render(), потому что сам render()
+//  при обновлении вызывается заново.
+// ------------------------------------------------------------------
+const место = { поиск: "", статус: "", категория: "", поставщик: "", прокрутка: 0 };
+
+// Полоса, которая на самом деле прокручивается: в этой вёрстке скроллится
+// не окно, а <main>. Ищем от страницы вверх — так же верно, если разметка
+// однажды поменяется.
+function полоса(узел) {
+  for (let e = узел; e && e !== document.body; e = e.parentElement) {
+    const о = getComputedStyle(e).overflowY;
+    if ((о === "auto" || о === "scroll") && e.scrollHeight > e.clientHeight + 4) return e;
+  }
+  return document.scrollingElement || document.documentElement;
+}
 
 export default async function render(page, ctx) {
   const [products, purchases] = await Promise.all([
@@ -70,7 +91,7 @@ export default async function render(page, ctx) {
       el("h1", { text: "Настройки упаковок" }),
       el("div.sub", { text: "Один раз сказать, в чём товар покупают, в чём он лежит и сколько штук внутри — дальше приход считается сам" }),
     ]),
-    el("button.btn.btn-outline", { onclick: () => ctx.refresh() }, [icon("refresh", { size: 16 }), "Обновить"]),
+    el("button.btn.btn-outline", { onclick: () => { запомнитьМесто(); ctx.refresh(); } }, [icon("refresh", { size: 16 }), "Обновить"]),
   ]));
 
   // До миграции сохранять настройки некуда. Молчать об этом нельзя:
@@ -93,6 +114,21 @@ export default async function render(page, ctx) {
   ], "");
   const fКатегория = select([{ value: "", label: "Все категории" }, ...категории.map(c => ({ value: c, label: c }))], "");
   const fПоставщик = select([{ value: "", label: "Все поставщики" }, ...всеПоставщики.map(s => ({ value: s, label: s }))], "");
+
+  // Возвращаем поиск и фильтры такими же, какими они были до записи.
+  // Категория и поставщик — только если они ещё есть в списках: товар
+  // могли переименовать, и тогда честнее показать всё, чем пустоту.
+  fПоиск.value = место.поиск || "";
+  fСтатус.value = место.статус || "";
+  if (место.категория && категории.includes(место.категория)) fКатегория.value = место.категория;
+  if (место.поставщик && всеПоставщики.includes(место.поставщик)) fПоставщик.value = место.поставщик;
+  const запомнитьМесто = () => {
+    место.поиск = fПоиск.value;
+    место.статус = fСтатус.value;
+    место.категория = fКатегория.value;
+    место.поставщик = fПоставщик.value;
+    место.прокрутка = полоса(page).scrollTop || 0;
+  };
 
   const плашки = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", margin: "0 0 12px" } });
   const счётВыбора = el("div", { style: { fontWeight: "700" } });
@@ -239,6 +275,15 @@ export default async function render(page, ctx) {
     tbody,
   ])]));
   нарисовать();
+  // Вернуть взгляд туда, где владелец был до записи. Через кадр — строки
+  // к этому моменту уже в разметке, и прокрутке есть куда встать.
+  if (место.прокрутка) {
+    const куда = место.прокрутка;
+    requestAnimationFrame(() => {
+      const п = полоса(page);
+      п.scrollTop = Math.max(0, Math.min(куда, п.scrollHeight - п.clientHeight));
+    });
+  }
 
   // ------------------------------------------------------------------
   //  ПРАВКА ВЫБРАННЫХ.
@@ -401,6 +446,7 @@ export default async function render(page, ctx) {
       toast(`Настроено товаров: ${строки.length}`, "ok");
       выбрано.clear();
       close();
+      запомнитьМесто();
       ctx.refresh();
     } catch (e) {
       hideLoader();

@@ -66,6 +66,11 @@ function объявляет(код) {
   for (const m of код.matchAll(/(?:async\s+)?function\s+([\wА-Яа-яЁё$]+)/g)) имена.add(m[1]);
   for (const m of код.matchAll(/(?:const|let|var|class)\s+([\wА-Яа-яЁё$]+)/g)) имена.add(m[1]);
   for (const m of код.matchAll(/(?:const|let|var)\s*\{([^}]*)\}\s*=/g)) m[1].split(",").forEach(ч => { const n = ч.split(":").pop().split("=")[0].trim(); if (n) имена.add(n); });
+  // Короткая запись метода в объекте — это ОБЪЯВЛЕНИЕ, а не вызов:
+  //   return { очистить() { … }, заблокировать(да) { … } }
+  // Без этого тест ругался на js/site/auth.js, где метод объявлен, но,
+  // разумеется, ниоткуда не импортируется.
+  for (const m of код.matchAll(/[,{]\s*([\wА-Яа-яЁё$]+)\s*\([^()]*\)\s*\{/g)) имена.add(m[1]);
   // параметры функций и стрелок — тоже имена
   for (const m of код.matchAll(/\(([^()]*)\)\s*(?:=>|\{)/g)) m[1].split(",").forEach(ч => { const n = ч.split("=")[0].replace(/[{}[\].…]/g, "").trim(); if (n && !n.includes(" ")) имена.add(n); });
   return имена;

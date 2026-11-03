@@ -1,26 +1,26 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261103f";
-import { fmt, CUR, convert } from "../fx.js?v=20261103f";
-import { placeholder } from "./products.js?v=20261103f";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261103f";
-import { icon } from "../icons.js?v=20261103f";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103f";
-import { notifyOwner } from "../telegram.js?v=20261103f";
-import { authHeaders } from "../db.js?v=20261103f";
-import { thumb, поставитьСнимок } from "../img.js?v=20261103f";
-import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261103f";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261103i";
+import { fmt, CUR, convert } from "../fx.js?v=20261103i";
+import { placeholder } from "./products.js?v=20261103i";
+import { consumeFIFO, ensureBatches, currentCost } from "../inventory.js?v=20261103i";
+import { icon } from "../icons.js?v=20261103i";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103i";
+import { notifyOwner } from "../telegram.js?v=20261103i";
+import { authHeaders } from "../db.js?v=20261103i";
+import { thumb, поставитьСнимок } from "../img.js?v=20261103i";
+import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261103i";
 // Оприходование общее со складом в телефоне — иначе остатки разойдутся.
-import { applyArrival, записатьПачкой, откатитьПриход, пересчётПрихода } from "../arrival.js?v=20261103f";
+import { applyArrival, записатьПачкой, откатитьПриход, пересчётПрихода, применитьПравку, ужеОприходован } from "../arrival.js?v=20261103i";
 // Единицы, упаковка и главное фото — для предпросмотра прихода.
-import { подпись as подписьКол } from "../unit.js?v=20261103f";
-import { статус as статусУпаковки, СТАТУС } from "../packing.js?v=20261103f";
+import { подпись as подписьКол } from "../unit.js?v=20261103i";
+import { статус as статусУпаковки, СТАТУС } from "../packing.js?v=20261103i";
 // Доставка и растаможка — часть себестоимости. Делёж по позициям общий
 // с оприходованием: предпросмотр и склад считают одним кодом.
-import { расходы as расходыПрихода, поляРасходов, ПРАВИЛА_РАСХОДОВ } from "../pricing.js?v=20261103f";
-import { главноеФото } from "../photo.js?v=20261103f";
-import { изменениеСклада } from "../db.js?v=20261103f";
+import { расходы as расходыПрихода, поляРасходов, ПРАВИЛА_РАСХОДОВ } from "../pricing.js?v=20261103i";
+import { главноеФото } from "../photo.js?v=20261103i";
+import { изменениеСклада } from "../db.js?v=20261103i";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
@@ -121,7 +121,16 @@ export default async function render(page, ctx) {
         el("button.btn.btn-outline.btn-sm", { title: "Показать товары этого поставщика (фото + кол-во)", text: "👁 Товары", onclick: () => showPurchaseItems(s, products) }),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать", onclick: () => openEditor(ctx, s, products, suppliers) }, [icon("edit", { size: 16 })]),
         el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить приход?" + (s.status === "arrived" ? " Оприходованные товары спишутся со склада." : ""), async () => {
-          if (s.status === "arrived") { for (const it of (s.items || [])) { const p = pmap[it.product_id]; if (!p) continue; const r = consumeFIFO(ensureBatches(p), it.qty); p.batches = r.batches; const cc = costAfter(r.batches, p); const base = { id: p.id, stock_qty: sumQty(r.batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd }; try { await ctx.db.products.upsert({ ...base, batches: r.batches }); } catch (e) { await ctx.db.products.upsert(base); } } }
+          // Списываем ТЕМ ЖЕ откатом, что и кнопка «−1 оприх.».
+          //
+          // Раньше здесь списывалось количество из накладной — число
+          // ЗАКУПОЧНЫХ единиц. У товара с настроенной упаковкой это не то
+          // же самое, что лежит на складе: поставщик продал 100 штук, на
+          // полке 10 пачек, а удаление прихода списывало 100 пачек — и
+          // остаток уходил в −90 с выдуманным долгом на полтора миллиона.
+          // откатитьПриход() снимает ровно те партии, которые этот приход
+          // и положил.
+          if (s.status === "arrived") await записатьПачкой(ctx.db, откатитьПриход(s, products, consumeFIFO));
           await ctx.db.purchases.remove(s.id); toast("Удалено", "ok"); ctx.refresh();
         }) }, [icon("trash", { size: 16 })]),
       ].filter(Boolean))]),
@@ -412,8 +421,11 @@ function openEditor(ctx, purchase, products, suppliers = []) {
       const qty = input({ type: "number", value: it.qty, style: { width: "80px" } });
       const cost = input({ type: "number", step: "0.01", value: it.unit_cost, style: { width: "110px" } });
       const lt = el("strong", { text: fmt(it.qty * it.unit_cost, state.currency) });
-      qty.addEventListener("input", () => { it.qty = +qty.value || 0; lt.textContent = fmt(it.qty * it.unit_cost, state.currency); recalc(); });
-      cost.addEventListener("input", () => { it.unit_cost = +cost.value || 0; it.currency = state.currency; lt.textContent = fmt(it.qty * it.unit_cost, state.currency); recalc(); });
+      // Правим через применитьПравку: она снимает замороженную запись
+      // позиции, если поехали числа. Без этого исправление не доходило до
+      // склада — приход брал записанное и клал прежнее количество.
+      qty.addEventListener("input", () => { применитьПравку(it, { qty: +qty.value || 0 }); lt.textContent = fmt(it.qty * it.unit_cost, state.currency); recalc(); });
+      cost.addEventListener("input", () => { применитьПравку(it, { unit_cost: +cost.value || 0, currency: state.currency }); lt.textContent = fmt(it.qty * it.unit_cost, state.currency); recalc(); });
       itemsBox.append(el("div.card", { style: { padding: "12px", marginBottom: "10px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" } }, [
         el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", onerror: function(){ this.src = placeholder(p.name); } }),
         el("div", { style: { flex: "1", minWidth: "140px", fontWeight: "600" }, text: p.name }),
@@ -468,6 +480,16 @@ function openEditor(ctx, purchase, products, suppliers = []) {
       ]),
     ]),
     el("div.section-h", { text: "Список прихода" }),
+    // Приход уже на складе. Исправить документ можно, но склад от правки
+    // не изменится: партии этого прихода уже лежат на полке, а второй раз
+    // он не зачислится (и не должен). Сказать об этом надо ЗДЕСЬ, пока
+    // владелец не исправил количество в уверенности, что остаток поедет.
+    ...(!isNew && ужеОприходован(purchase, products) ? [el("div.hint", {
+      style: { color: "var(--warn)", fontWeight: "600" },
+      text: "Этот приход уже оприходован — товары на складе, и правка сама по себе их не изменит. "
+        + "Чтобы исправление дошло до склада: поставьте статус «В дороге» и сохраните — товары спишутся; "
+        + "потом исправьте количество и снова поставьте «Уже пришёл».",
+    })] : []),
     itemsBox,
     extraWrap,
     totalBox,
@@ -525,16 +547,20 @@ function openEditor(ctx, purchase, products, suppliers = []) {
             const lines3 = (state.items || []).map(it => `• ${pmap3[it.product_id]?.name || "?"} × ${it.qty}`);
             try { await notifyOwner(`Новый приход на склад\n${kindWho(state.kind)}: ${fSupplier.value.trim() || "—"}\n\n${lines3.join("\n")}`); } catch {}
           } else if (wasArrived && fStatus.value !== "arrived") {
-            // сняли «пришёл» → списываем товары со склада (по прежним позициям), чтобы повторное оприходование не задвоило остаток
-            const pmap4 = Object.fromEntries(products.map(p => [p.id, p]));
-            for (const it of (purchase.items || [])) {
-              const p = pmap4[it.product_id]; if (!p) continue;
-              const r = consumeFIFO(ensureBatches(p), it.qty);
-              p.batches = r.batches;
-              const cc = costAfter(r.batches, p);
-              const base = { id: p.id, stock_qty: sumQty(r.batches), cost_yuan: cc.cost_yuan, cost_usd: cc.cost_usd };
-              try { await ctx.db.products.upsert({ ...base, batches: r.batches }); } catch (e) { await ctx.db.products.upsert(base); }
-            }
+            // Сняли «пришёл» → списываем товары со склада, чтобы повторное
+            // оприходование не задвоило остаток.
+            //
+            // Снимаем ТЕМ ЖЕ откатом, что и кнопка «−1 оприх.»: он убирает
+            // ровно те партии, которые этот приход положил. Раньше здесь
+            // списывалось количество из накладной — число ЗАКУПОЧНЫХ
+            // единиц. У товара с упаковкой это не то, что лежит на складе:
+            // поставщик продал 100 штук, на полке 10 пачек, а списывалось
+            // 100 пачек — остаток проваливался в минус на целую поставку.
+            //
+            // Берём ПРЕЖНИЕ позиции документа (purchase.items): списать
+            // надо то, что когда-то положили, а не то, что владелец
+            // только что вписал в форму.
+            await записатьПачкой(ctx.db, откатитьПриход(purchase, products, consumeFIFO));
           }
           toast("Сохранено", "ok"); close(); ctx.refresh();
         } catch (e) { toast("Ошибка: " + (e.message || e), "err"); }
