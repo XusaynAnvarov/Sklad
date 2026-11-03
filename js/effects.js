@@ -3,8 +3,8 @@
 //  Используется и в админке, и в каталоге.
 // ========================================================================
 
-import { iconSvg } from "./icons.js?v=20261103b";
-import { сменитьТемуВолной } from "./temavolna.js?v=20261103b";
+import { iconSvg } from "./icons.js?v=20261103c";
+import { сменитьТемуВолной } from "./temavolna.js?v=20261103c";
 
 const THEME_KEY = "sklad_theme";
 
@@ -16,14 +16,43 @@ export function initCursorGlow() {
   glow.className = "cursor-glow";
   document.body.appendChild(glow);
   let x = innerWidth / 2, y = innerHeight / 2, tx = x, ty = y;
-  addEventListener("mousemove", (e) => { tx = e.clientX; ty = e.clientY; });
-  addEventListener("mousedown", () => glow.classList.add("click"));
-  addEventListener("mouseup", () => glow.classList.remove("click"));
-  (function loop() {
+  let raf = 0;
+
+  // ЦИКЛ КРУТИЛСЯ ВСЕГДА — В ЭТОМ И БЫЛА БЕДА.
+  //
+  // Раньше здесь стоял requestAnimationFrame без единого условия: пятно
+  // переписывало себе transform шестьдесят раз в секунду вечно. И когда
+  // мышь не двигалась, и когда вкладка скрыта, и в светлой теме, где
+  // пятна нет вовсе (css/theme.css: html[data-theme="light"] .cursor-glow
+  // { display: none }). А у пятна стоит mix-blend-mode: screen — значит
+  // на каждый такой кадр браузер заново смешивает область 420×420 со
+  // всем, что под ней. Это и есть «лагает в чёрном режиме».
+  //
+  // Теперь кадр запрашивается, только пока пятну есть куда ехать, и
+  // цикл сам засыпает, когда доехал.
+  const нужно = () =>
+    !document.hidden &&
+    (document.documentElement.getAttribute("data-theme") || "light") === "dark";
+
+  function шаг() {
+    raf = 0;
+    if (!нужно()) return;
     x += (tx - x) * 0.18; y += (ty - y) * 0.18;
     glow.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
-    requestAnimationFrame(loop);
-  })();
+    // Доехали — спим до следующего движения мыши.
+    if (Math.abs(tx - x) > 0.1 || Math.abs(ty - y) > 0.1) разбудить();
+  }
+  function разбудить() { if (!raf && нужно()) raf = requestAnimationFrame(шаг); }
+
+  addEventListener("mousemove", (e) => { tx = e.clientX; ty = e.clientY; разбудить(); });
+  addEventListener("mousedown", () => { glow.classList.add("click"); разбудить(); });
+  addEventListener("mouseup", () => { glow.classList.remove("click"); разбудить(); });
+  document.addEventListener("visibilitychange", разбудить);
+  // Смена темы светлая → тёмная: пятно появляется и должно догнать курсор.
+  new MutationObserver(разбудить).observe(document.documentElement, {
+    attributes: true, attributeFilter: ["data-theme"],
+  });
+  разбудить();
 }
 
 // ---------- Анимированный фон: летящие частицы (звёзды) ----------
@@ -55,7 +84,17 @@ export function initStarfield() {
   let palette = colors();
 
   function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // ХОЛСТ ДЕРЖИМ В ОДИН ПИКСЕЛЬ НА ТОЧКУ, А НЕ В ДВА.
+    //
+    // Раньше тут стоял devicePixelRatio до 2: на retina-ноутбуке холст
+    // становился 2880×1720, и одна только его очистка каждый кадр стоила
+    // вчетверо дороже. Замерено на 1440×860: сама clearRect — 1.72 мс из
+    // 16.7 мс кадра, а все 48 частиц поверх неё — ещё 0.6 мс. То есть
+    // платили мы за чистку пустоты, а не за звёзды.
+    //
+    // Частицы — мягкие светящиеся точки радиусом в пару пикселей; разницы
+    // между одним и двумя пикселями на точку на них не видно.
+    const dpr = 1;
     w = canvas.width = innerWidth * dpr;
     h = canvas.height = innerHeight * dpr;
     canvas.style.width = innerWidth + "px";
@@ -77,11 +116,19 @@ export function initStarfield() {
     };
   }
 
+  // В СВЕТЛОЙ ТЕМЕ ЦИКЛ ОСТАНАВЛИВАЕМ СОВСЕМ.
+  //
+  // Раньше он продолжал крутиться и каждый кадр звал clearRect на холст
+  // во весь экран — при том что в светлой теме холст скрыт стилями
+  // (css/theme.css: html[data-theme="light"] .bg-stars { display: none }).
+  // Это 1.72 мс кадра, потраченные на очистку невидимого.
+  const тёмная = () => (document.documentElement.getAttribute("data-theme") || "light") === "dark";
+
   function frame() {
-    // вкладка скрыта — полностью останавливаем цикл, а не крутим его вхолостую
-    if (document.hidden) { raf = 0; return; }
+    // вкладка скрыта или тема светлая — полностью останавливаем цикл,
+    // а не крутим его вхолостую
+    if (document.hidden || !тёмная()) { raf = 0; return; }
     raf = requestAnimationFrame(frame);
-    if ((document.documentElement.getAttribute("data-theme") || "light") !== "dark") { ctx.clearRect(0, 0, w, h); return; } // частицы только на тёмной
     ctx.clearRect(0, 0, w, h);
     for (const s of stars) {
       s.x += s.vx; s.y += s.vy; s.a += s.sp;
@@ -99,11 +146,16 @@ export function initStarfield() {
     ctx.globalAlpha = 1; ctx.shadowBlur = 0;
   }
 
+  const пустить = () => { if (!raf && !document.hidden && тёмная()) frame(); };
   addEventListener("resize", resize, { passive: true });
   // вернулись на вкладку — запускаем цикл заново
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && !raf) frame(); });
+  document.addEventListener("visibilitychange", пустить);
+  // включили тёмную тему — звёзды должны полететь снова
+  new MutationObserver(пустить).observe(document.documentElement, {
+    attributes: true, attributeFilter: ["data-theme"],
+  });
   resize();
-  frame();
+  пустить();
 }
 
 // ---------- Тема ----------

@@ -44,6 +44,13 @@ const P = {
   // Выход: дверь слева, стрелка наружу. Нужен, чтобы кнопка «Выход» в шапке
   // не стояла без значка рядом с «Тёмная» и «На сайт» — набор выглядел разнобойно.
   logout: '<path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3"/><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/>',
+  // Звезда — «главное фото» в редакторе снимков товара (js/photoedit.js).
+  // Заливка идёт currentColor: у выбранного снимка звезда закрашена, у
+  // остальных пустая, и видно это с одного взгляда.
+  star: '<path d="M12 3.5l2.6 5.3 5.9.8-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8L3.5 9.6l5.9-.8Z"/>',
+  // Ручка для перетаскивания: шесть точек, как на мебельной фурнитуре.
+  // Понятно без подписи, что за это место можно тянуть.
+  grip: '<circle cx="9" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/>',
 };
 
 export function iconSvg(name, opts = {}) {

@@ -1,25 +1,29 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261103b";
-import { icon } from "../icons.js?v=20261103b";
-import { fmt, convert } from "../fx.js?v=20261103b";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261103b";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103b";
-import { openEditor } from "./sales.js?v=20261103b";
-import { thumbAttrs, thumb } from "../img.js?v=20261103b";
-import { LOW_STOCK } from "../advice.js?v=20261103b";
-import { qrSvg, skuPayload } from "../qr.js?v=20261103b";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261103c";
+import { icon } from "../icons.js?v=20261103c";
+import { fmt, convert } from "../fx.js?v=20261103c";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261103c";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103c";
+import { openEditor } from "./sales.js?v=20261103c";
+import { thumbAttrs, thumb } from "../img.js?v=20261103c";
+import { LOW_STOCK } from "../advice.js?v=20261103c";
+import { qrSvg, skuPayload } from "../qr.js?v=20261103c";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261103b";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261103c";
 // Единица измерения: товар считают штуками, пачками, коробками. Смена
 // единицы пересчитывает и остаток, и себестоимость, и все партии.
-import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261103b";
-import { подходит } from "../productsearch.js?v=20261103b";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261103b";
-import { изменениеСклада } from "../db.js?v=20261103b";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261103b";
+import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261103c";
+import { подходит } from "../productsearch.js?v=20261103c";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261103c";
+import { изменениеСклада } from "../db.js?v=20261103c";
+// Главное фото (аватар) и порядок снимков — две независимые вещи.
+// Правило общее с каталогом, складом в телефоне и PDF: см. js/photo.js.
+import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261103c";
+import { редакторФото } from "../photoedit.js?v=20261103c";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261103c";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -233,8 +237,10 @@ export default async function render(page, ctx) {
         // (css/theme.css, .prod::before) — переменная ставится ниже.
         // в списке — миниатюра (иначе сотни полноразмерных фото вешают телефон);
         // при увеличении открываются оригиналы
-        el("img.ph", { ...thumbAttrs(p.photo_url, placeholder(p.name), 480), alt: p.name, title: "Нажмите для увеличения",
-          onclick: (e) => { const ph = (Array.isArray(p.photos) && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []); if (ph.length) { e.stopPropagation(); lightbox(ph); } } }),
+        el("img.ph", { ...thumbAttrs(главноеФото(p), placeholder(p.name), 480), alt: p.name, title: "Нажмите для увеличения",
+          // Открываем просмотр на ТОМ снимке, который виден в списке, —
+          // иначе нажатие на главное фото показывало бы первое по порядку.
+          onclick: (e) => { const ph = снимки(p); if (ph.length) { e.stopPropagation(); lightbox(ph, индексГлавного(p)); } } }),
         el("div.body", {}, [
           el("div.nm", { text: p.name }),
           el("div.cat", { text: p.category || "—" }),
@@ -307,31 +313,62 @@ export function openForm(ctx, p, cats = []) {
   const fSku = input({ value: p.sku || "", placeholder: "Артикул (виден клиентам)" });
   // Постоянный код из печатного каталога. Пусто — присвоится сам при сохранении.
   const fCode = input({ value: p.code || "", placeholder: "присвоится сам: LP-017", style: { textTransform: "uppercase" } });
-  // несколько фото; первое — главное (показывается в списке и каталоге)
-  let photos = (Array.isArray(p.photos) && p.photos.length) ? [...p.photos] : (p.photo_url ? [p.photo_url] : []);
-  const thumbsBox = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "8px", minHeight: "20px" } });
-  function renderThumbs() {
-    thumbsBox.innerHTML = "";
-    if (!photos.length) { thumbsBox.append(el("div.muted", { text: "Фото нет — добавьте ниже", style: { fontSize: "13px" } })); return; }
-    photos.forEach((url, idx) => {
-      const wrap = el("div", { style: { position: "relative", width: "74px", height: "74px" } });
-      const img = el("img.thumb", { src: thumb(url, 160), loading: "lazy", decoding: "async", style: { width: "74px", height: "74px", objectFit: "cover", borderRadius: "8px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => lightbox(url), onerror: function () { this.src = placeholder(fName.value); } });
-      const rm = el("button.btn.btn-danger.btn-sm", { title: "Удалить фото", style: { position: "absolute", top: "-7px", right: "-7px", padding: "0", width: "22px", height: "22px", minWidth: "22px", borderRadius: "50%", lineHeight: "1" }, onclick: (e) => { e.preventDefault(); photos.splice(idx, 1); renderThumbs(); } }, ["×"]);
-      wrap.append(img, rm);
-      if (idx === 0) wrap.append(el("span", { text: "главное", style: { position: "absolute", bottom: "2px", left: "2px", background: "rgba(0,0,0,.6)", color: "#fff", fontSize: "8px", padding: "1px 4px", borderRadius: "4px" } }));
-      thumbsBox.append(wrap);
-    });
+  // ---- фотографии: порядок снимков и главное фото ----
+  //
+  // Порядок и аватар сохраняются СРАЗУ, не дожидаясь кнопки «Сохранить»:
+  // человек расставил снимки, выбрал главное, закрыл карточку — и
+  // справедливо считает, что расставил. Записываем ровно две колонки
+  // (photos и photo_url), поэтому остаток, себестоимость и партии эта
+  // запись не трогает: /api/admin/db обновляет присланные поля (PATCH),
+  // а не всю строку. В журнал остатков она тоже не попадает — там
+  // пропускаются записи без stock_qty.
+  let фотоИзменены = false;
+  let таймерФото = 0;
+  async function записатьФото(данные) {
+    const строка = { id: p.id, photos: данные.photos, photo_url: данные.photo_url };
+    try { await ctx.db.products.upsert(строка); }
+    catch (e) {
+      // Колонки photos может не быть (база до миграции галереи) — тогда
+      // хотя бы главное фото сохраняем, иначе выбор пропадёт молча.
+      try { await ctx.db.products.upsert({ id: p.id, photo_url: данные.photo_url }); }
+      catch { throw e; }
+    }
+    p.photos = данные.photos;
+    p.photo_url = данные.photo_url;
   }
-  renderThumbs();
+  const сохранитьФото = (данные) => {
+    фотоИзменены = true;
+    // У нового товара строки в базе ещё нет — запишется вместе с товаром.
+    if (isNew) { photos = данные.photos; главноеВыбрано = данные.photo_url; return; }
+    photos = данные.photos; главноеВыбрано = данные.photo_url;
+    // Стрелками порядок меняют подряд, по снимку за нажатие: пишем не
+    // каждое нажатие, а то, на чём человек остановился.
+    clearTimeout(таймерФото);
+    таймерФото = setTimeout(async () => {
+      изменениеСклада("Фотографии товара", p.id || "");
+      try { await записатьФото(данные); }
+      catch (e) { toast("Фото не сохранились: " + (e.message || e), "err"); }
+    }, 500);
+  };
+  let photos = снимки(p);
+  let главноеВыбрано = главноеФото(p);
+  const ред = редакторФото({
+    фото: photos,
+    главное: главноеВыбрано,
+    наПросмотр: (список, i) => lightbox(список, i),
+    наСообщение: (т) => toast(т, "info"),
+    наИзменение: сохранитьФото,
+  });
+  const thumbsBox = ред.узел;
   const fFile = el("input", { type: "file", accept: "image/*", multiple: true, class: "inp" });
   fFile.addEventListener("change", async () => {
     const files = Array.from(fFile.files || []); if (!files.length) return;
     toast("Загрузка фото…", "info");
-    for (const f of files) { try { const url = await ctx.db.uploadPhoto(f); photos.push(url); renderThumbs(); } catch (e) { toast("Ошибка фото: " + e.message, "err"); } }
+    for (const f of files) { try { const url = await ctx.db.uploadPhoto(f); ред.добавить(url); } catch (e) { toast("Ошибка фото: " + e.message, "err"); } }
     toast("Готово", "ok"); fFile.value = "";
   });
   const fPhotoUrl = input({ placeholder: "Ссылка на фото (URL)" });
-  const addUrlBtn = el("button.btn.btn-outline.btn-sm", { text: "+ Ссылка", onclick: (e) => { e.preventDefault(); const u = fPhotoUrl.value.trim(); if (u) { photos.push(u); fPhotoUrl.value = ""; renderThumbs(); } } });
+  const addUrlBtn = el("button.btn.btn-outline.btn-sm", { text: "+ Ссылка", onclick: (e) => { e.preventDefault(); const u = fPhotoUrl.value.trim(); if (u) { ред.добавить(u); fPhotoUrl.value = ""; } } });
 
   const fStock = input({ type: "number", value: p.stock_qty, placeholder: "0" });
   // «Пришло на склад» — прибавляется к текущему остатку. Удобно, когда товар в минусе:

@@ -2,10 +2,10 @@
 //  UI-ХЕЛПЕРЫ: создание элементов, тосты, модалки, диалоги, анимации
 // ========================================================================
 // img.js ничего не импортирует, поэтому круга зависимостей не возникает.
-import { full } from "./img.js?v=20261103b";
+import { full } from "./img.js?v=20261103c";
 // Пружина, бросок, сопротивление на краю и ведение пальцем — js/spring.js.
 // Там только расчёт, он проверяется тестом _tools/tests/t-spring.mjs.
-import { пустить, проекция, резинка, вести } from "./spring.js?v=20261103b";
+import { пустить, проекция, резинка, вести } from "./spring.js?v=20261103c";
 
 // Краткое создание элемента: el("div.card", {onclick}, [children])
 export function el(tag, props = {}, children = []) {
@@ -212,15 +212,19 @@ export function input(props = {}) { return el("input.inp", props); }
 
 // Просмотр фото в полном размере (зум по клику)
 // принимает один src ИЛИ массив фото (тогда — галерея со стрелками/свайпом)
-export function lightbox(src) {
+//
+// «начало» — с какого снимка открыть. Нужно потому, что в списках виден
+// ГЛАВНОЕ фото товара, а оно не обязательно первое по порядку: без этого
+// нажатие на снимок открывало бы другой, и выглядело бы это как подмена.
+export function lightbox(src, начало = 0) {
   const исходные = Array.isArray(src) ? src.filter(Boolean) : (src ? [src] : []);
   if (!исходные.length) return;
   // Полный снимок тоже идём брать через свой сервер: иначе открытие фото
   // било бы прямо в Supabase, а именно этот трафик и вывел за квоту.
   // Перехватываем здесь, в одном месте — вызовов по проекту два десятка.
   const photos = исходные.map(u => full(u));
-  let idx = 0;
-  const img = el("img", { src: photos[0], onerror: function () {
+  let idx = Math.max(0, Math.min(Number(начало) || 0, photos.length - 1));
+  const img = el("img", { src: photos[idx], onerror: function () {
     // не открылось через свой сервер — показываем оригинал
     const i = photos.indexOf(this.src.replace(location.origin, ""));
     const запас = исходные[i >= 0 ? i : 0];

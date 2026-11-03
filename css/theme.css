@@ -25,9 +25,14 @@ body{background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;p
 
 /* плавающие орбы на фоне */
 /* на чёрном фоне свечение делаем деликатным — иначе «зелёный туман» вместо чёрного */
-body::before,body::after{content:"";position:fixed;border-radius:50%;filter:blur(130px);opacity:.10;z-index:-1;pointer-events:none;}
-body::before{width:520px;height:520px;background:var(--accent);top:-140px;left:-120px;animation:float1 18s ease-in-out infinite;}
-body::after{width:460px;height:460px;background:var(--accent2);bottom:-160px;right:-140px;animation:float2 22s ease-in-out infinite;}
+/* Были сплошные круги, размытые на 130 пикселей. Размытие в 130px — самое
+   дорогое, что есть в этом файле: браузер держит под каждый круг слой почти
+   вдвое больше самого круга. Тот же мягкий ореол даёт обычный радиальный
+   градиент, и он ничего не стоит. Видимой разницы нет: оба и так при
+   непрозрачности в одну десятую. */
+body::before,body::after{content:"";position:fixed;border-radius:50%;opacity:.10;z-index:-1;pointer-events:none;will-change:transform;}
+body::before{width:780px;height:780px;background:radial-gradient(circle,var(--accent) 0%,transparent 62%);top:-270px;left:-250px;animation:float1 18s ease-in-out infinite;}
+body::after{width:720px;height:720px;background:radial-gradient(circle,var(--accent2) 0%,transparent 62%);bottom:-290px;right:-270px;animation:float2 22s ease-in-out infinite;}
 @keyframes float1{50%{transform:translate(80px,60px) scale(1.15);}}
 @keyframes float2{50%{transform:translate(-70px,-50px) scale(1.2);}}
 
@@ -713,13 +718,17 @@ tr.month-active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
    z-index 0, а не -1: с -1 слой уходит за фон страницы. */
 body::before, body::after { opacity: .20; }
 
+/* Размытия здесь нет намеренно. Градиенты и так мягкие — размывать
+   мягкое незачем, а filter: blur(42px) на слое во весь экран браузер
+   пересчитывает заново. Двигаем только смещение: это делает видеокарта.
+   Точно так же уже сделано на сайте (css/site.css, .gm-glow). */
 .gm-glow {
   position: fixed; inset: -10%; z-index: 0; pointer-events: none;
   background:
     radial-gradient(42% 38% at 14% 12%, rgba(217,180,90,.26), transparent 70%),
     radial-gradient(38% 34% at 88% 22%, rgba(240,220,164,.17), transparent 72%),
     radial-gradient(46% 40% at 62% 92%, rgba(168,135,60,.19), transparent 70%);
-  filter: blur(42px);
+  will-change: transform;
   animation: стекло-дыхание 26s ease-in-out infinite;
 }
 @keyframes стекло-дыхание { 50% { transform: translate3d(2%, -2%, 0) scale(1.07); } }
@@ -1396,3 +1405,89 @@ html[data-theme="light"] { --warn: #8a5614; }
 /* Переход снимает страницу целиком: пока он идёт, живое содержимое не
    нужно трогать мышью — иначе клик проваливается в снимок. */
 html:active-view-transition { cursor: default; }
+
+/* ===================================================================
+   РЕДАКТОР ФОТО ТОВАРА (js/photoedit.js).
+
+   Порядок снимков меняется перетаскиванием, главное фото выбирается
+   звездой. Два разных действия — поэтому у каждой плитки две отдельные
+   ручки, а не одна «сделать первым».
+
+   Стили здесь, а не в sklad.css и glassos.css по отдельности: оба
+   склада — на сайте и в телефоне — грузят theme.css, и разъехаться
+   виджету негде.
+   =================================================================== */
+.phed-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; min-height: 22px; }
+.phed-empty { font-size: 13px; color: var(--muted); padding: 4px 0; }
+.phed-hint { font-size: 12px; color: var(--muted); line-height: 1.45; margin-bottom: 4px; }
+
+.phed-t {
+  position: relative; width: 88px; height: 88px; flex: 0 0 auto;
+  border-radius: 10px; overflow: hidden; background: var(--bg2, var(--panel));
+  border: 1px solid var(--border); box-sizing: border-box;
+  /* Плитку двигают — переход по месту сбивал бы прицел, а по рамке нет. */
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.phed-img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+.phed-img.phed-bad { opacity: .25; }
+
+/* Выбранное главное фото: латунная рамка — тот же цвет, что у всего
+   остального выбранного в складе. */
+.phed-t.phed-main { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.phed-badge {
+  position: absolute; left: 4px; top: 4px; z-index: 2;
+  font-size: 9px; font-weight: 700; letter-spacing: .02em;
+  padding: 2px 5px; border-radius: 5px;
+  background: var(--accent); color: #14181e;
+}
+
+/* Нижняя полоса: ручка перетаскивания и звезда. Поверх снимка —
+   на плитке 88 px больше места нет, а подложка держит их читаемыми
+   на любом фото. */
+.phed-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 2px 3px; background: rgba(0, 0, 0, .55);
+  backdrop-filter: blur(2px);
+}
+.phed-grip, .phed-star, .phed-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: transparent; color: #fff; cursor: pointer;
+  padding: 0; border-radius: 6px;
+}
+/* Палец на ручке тянет снимок, палец на самом снимке прокручивает
+   страницу. Без этого карточку товара на телефоне стало бы нельзя
+   пролистать мимо фотографий. */
+.phed-grip { width: 26px; height: 22px; cursor: grab; touch-action: none; }
+.phed-grip:active { cursor: grabbing; }
+.phed-grip:focus-visible, .phed-star:focus-visible, .phed-x:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+.phed-star { width: 26px; height: 22px; opacity: .75; }
+.phed-star:hover { opacity: 1; }
+/* Выбранное главное фото: звезда закрашена и нажимать её больше не нужно. */
+.phed-star:disabled { opacity: 1; color: var(--accent); cursor: default; }
+.phed-star:disabled svg { fill: var(--accent); }
+
+.phed-x {
+  position: absolute; top: 3px; right: 3px; z-index: 3;
+  width: 22px; height: 22px; background: rgba(0, 0, 0, .6);
+}
+.phed-x:hover { background: var(--danger, #b4232a); }
+
+/* Плитка, которую тащат, остаётся на месте бледным следом — видно,
+   откуда снимок уехал. Под курсором летит её копия. */
+.phed-t.phed-lift { opacity: .3; }
+.phed-ghost {
+  position: fixed; left: 0; top: 0; z-index: 9999;
+  pointer-events: none; border-radius: 10px; overflow: hidden;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .45);
+  transform: translate(-9999px, -9999px);
+  border: 1px solid var(--accent); box-sizing: border-box;
+}
+.phed-ghost .phed-img { width: 100%; height: 100%; object-fit: cover; }
+/* Пока тащим, подписи не выделяются и снимки не «хватаются» браузером. */
+.phed-dragging { user-select: none; -webkit-user-select: none; }
+.phed-dragging .phed-img { pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) { .phed-t { transition: none; } }

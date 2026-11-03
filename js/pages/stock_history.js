@@ -9,11 +9,11 @@
 //  по одному товару или сразу по нескольким. Ничего не удаляется: правка
 //  остатка это такое же движение склада и тоже попадает в журнал.
 // ========================================================================
-import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261103b";
-import { icon } from "../icons.js?v=20261103b";
-import { authHeaders, изменениеСклада } from "../db.js?v=20261103b";
-import { setStock } from "../sklad/stock.js?v=20261103b";
-import { подписьКода } from "../catalogcode.js?v=20261103b";
+import { el, toast, input, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261103c";
+import { icon } from "../icons.js?v=20261103c";
+import { authHeaders, изменениеСклада } from "../db.js?v=20261103c";
+import { setStock } from "../sklad/stock.js?v=20261103c";
+import { подписьКода } from "../catalogcode.js?v=20261103c";
 
 const когда = (d) => {
   const t = new Date(d);
