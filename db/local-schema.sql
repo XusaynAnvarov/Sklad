@@ -101,6 +101,15 @@ create table if not exists products (
   unit text default 'шт',
   pack_size numeric default 1,
   code text,
+  -- Упаковка: в чём покупаем, в чём продаём, сколько в коробке и по каким
+  -- правилам пересчитывать приход (db/packing-migration.sql).
+  buy_unit text,
+  sell_unit text,
+  box_size numeric,
+  sell_units jsonb,
+  auto_convert boolean default false,
+  odd_rule text default 'keep',
+  packing_ver integer default 0,
   primary key (id)
 );
 

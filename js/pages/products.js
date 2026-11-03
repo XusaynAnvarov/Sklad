@@ -1,29 +1,36 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261103c";
-import { icon } from "../icons.js?v=20261103c";
-import { fmt, convert } from "../fx.js?v=20261103c";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261103c";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103c";
-import { openEditor } from "./sales.js?v=20261103c";
-import { thumbAttrs, thumb } from "../img.js?v=20261103c";
-import { LOW_STOCK } from "../advice.js?v=20261103c";
-import { qrSvg, skuPayload } from "../qr.js?v=20261103c";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261103d";
+import { icon } from "../icons.js?v=20261103d";
+import { fmt, convert } from "../fx.js?v=20261103d";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261103d";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103d";
+import { openEditor } from "./sales.js?v=20261103d";
+import { thumbAttrs, thumb } from "../img.js?v=20261103d";
+import { LOW_STOCK } from "../advice.js?v=20261103d";
+import { qrSvg, skuPayload } from "../qr.js?v=20261103d";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261103c";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261103d";
 // Единица измерения: товар считают штуками, пачками, коробками. Смена
 // единицы пересчитывает и остаток, и себестоимость, и все партии.
-import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261103c";
-import { подходит } from "../productsearch.js?v=20261103c";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261103c";
-import { изменениеСклада } from "../db.js?v=20261103c";
+import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261103d";
+import { подходит } from "../productsearch.js?v=20261103d";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261103d";
+import { изменениеСклада } from "../db.js?v=20261103d";
 // Главное фото (аватар) и порядок снимков — две независимые вещи.
 // Правило общее с каталогом, складом в телефоне и PDF: см. js/photo.js.
-import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261103c";
-import { редакторФото } from "../photoedit.js?v=20261103c";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261103c";
+import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261103d";
+import { редакторФото } from "../photoedit.js?v=20261103d";
+// Упаковка: в чём покупаем, в чём храним, в чём продаём и как пересчитать
+// приход. Расчёт общий с приёмкой и сервером — см. js/packing.js.
+import {
+  настройки as настройкиУпаковки, статус as статусУпаковки, проверки as проверкиУпаковки,
+  коэффициент as коэффициентУпаковки, поляНастроек as поляНастроекУпаковки,
+  нуженПереводОстатка, цепочка as цепочкаУпаковки, описаниеЗакупки, ПРАВИЛА_ОСТАТКА,
+} from "../packing.js?v=20261103d";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261103d";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -394,25 +401,93 @@ export function openForm(ctx, p, cats = []) {
   const костБыл = Number(costVal0) || 0;
   const fCostCur = select(ВАЛЮТЫ.map(v => ({ value: v.value, label: v.label })), costCur0);
 
-  // ---- единица измерения ----
+  // ---- единицы измерения и упаковка ----
+  //
+  // Три разные единицы: в чём берём у поставщика, в чём лежит на складе,
+  // в чём продаём. Плюс два размера: штук в упаковке и упаковок в коробке.
+  // Настроил один раз — дальше приход пересчитывается сам (js/packing.js).
+  //
+  // ВАЖНО, И ЭТО ЛЕГКО СПУТАТЬ. Единица закупки, коробка, правило остатка
+  // и автопреобразование — правила для БУДУЩИХ приходов: остаток на полке
+  // от них не меняется. А вот складская единица и размер упаковки меняют
+  // то, ЧЕМ МЕРЯЮТ уже лежащий товар, — это перевод склада, и он идёт
+  // только с показом «было → станет» и подтверждением владельца.
+  const нБыло = настройкиУпаковки(p);
   const едБыла = единица(p);
   const вЕдБыло = вЕдинице(p);
-  const fUnit = select(ЕДИНИЦЫ.map(e => ({ value: e.value, label: e.label })), едБыла);
-  const fPack = input({ type: "number", step: "1", value: вЕдБыло > 1 ? String(вЕдБыло) : "", placeholder: "12" });
-  const packWrap = field("Штук в одной единице", fPack);
+  const вариантыЕдиниц = ЕДИНИЦЫ.map(e => ({ value: e.value, label: e.label }));
+
+  const fUnit = select(вариантыЕдиниц, едБыла);
+  const fPack = input({ type: "number", step: "1", min: "1", value: вЕдБыло > 1 ? String(вЕдБыло) : "", placeholder: "12" });
+  const packWrap = field("Штук в одной складской единице", fPack);
+  const fBuyUnit = select(вариантыЕдиниц, нБыло.закуп);
+  const fSellUnit = select(вариантыЕдиниц, нБыло.продажа);
+  const fBox = input({ type: "number", step: "1", min: "1", value: нБыло.вКоробке > 0 ? String(нБыло.вКоробке) : "", placeholder: "20" });
+  const boxWrap = field("Складских единиц в одной коробке", fBox);
+  const fOdd = select(ПРАВИЛА_ОСТАТКА.map(п => ({ value: п.value, label: п.label })), нБыло.правило);
+  const oddWrap = field("Если упаковка выходит неполной", fOdd);
+  const fAuto = el("input", { type: "checkbox", class: "inp", style: { width: "18px", height: "18px", minHeight: "0" } });
+  fAuto.checked = нБыло.авто;
+
+  const packStatus = el("span.badge", { style: { fontSize: "11px" } });
+  const packChain = el("div.hint", {});
+  const packBuy = el("div.hint", {});
+  const packWarn = el("div.hint", { style: { color: "var(--warn)" } });
   const unitHint = el("div.hint", {});
+
+  // Товар, каким он станет с тем, что сейчас стоит в полях. Нужен и для
+  // подсказок, и для проверки противоречий — считает их один модуль.
+  const пробныйТовар = () => ({
+    ...p,
+    ...поляНастроекУпаковки(p, {
+      unit: fUnit.value,
+      pack_size: Number(fPack.value) || 1,
+      buy_unit: fBuyUnit.value,
+      sell_unit: fSellUnit.value,
+      box_size: Number(fBox.value) || null,
+      sell_units: [...new Set([fSellUnit.value, ...нБыло.разрешено])],
+      auto_convert: fAuto.checked,
+      odd_rule: fOdd.value,
+    }),
+  });
 
   function показатьЕдиницу() {
     const u = fUnit.value;
     packWrap.style.display = считаетсяПачками(u) ? "" : "none";
+    // Коробку спрашиваем, только когда ей есть что означать: коробками
+    // или покупают, или продают.
+    const нуженЯщик = (fBuyUnit.value === "коробка" || fSellUnit.value === "коробка") && u !== "коробка";
+    boxWrap.style.display = нуженЯщик ? "" : "none";
+
+    const проба = пробныйТовар();
+    packChain.textContent = цепочкаУпаковки(проба) || "";
+    packBuy.textContent = описаниеЗакупки(проба);
+
+    // Неполные упаковки возможны, только если закупочная единица мельче
+    // складской, — иначе спрашивать про остаток не о чем.
+    oddWrap.style.display = коэффициентУпаковки(проба) > 0 && коэффициентУпаковки(проба) < 1 ? "" : "none";
+
+    const беды = проверкиУпаковки(проба);
+    packWarn.textContent = беды.join("  ·  ");
+    packWarn.style.display = беды.length ? "" : "none";
+
+    const с = статусУпаковки(проба);
+    packStatus.textContent = беды.length ? "Требует проверки" : (нБыло.версия < 1 ? "Ещё не настроено" : с.подпись);
+    packStatus.style.background = беды.length ? "var(--warn)" : (нБыло.версия < 1 ? "var(--muted)" : "var(--ok)");
+    packStatus.style.color = "#fff";
+
+    // Перевод остатка — отдельная, заметная строка: это единственное
+    // здесь, что двигает уже лежащий на складе товар.
     const вЕд = u === "шт" ? 1 : (Number(fPack.value) || 1);
     const пробный = перевести(p, { unit: u, pack_size: вЕд });
     unitHint.textContent = (пробный.множитель === 1)
-      ? "Товар считается и продаётся в этих единицах."
-      : объяснение(p, пробный).split("\n").join("  ·  ");
+      ? "Остаток на полке эти настройки не меняют."
+      : "ПЕРЕСЧЁТ ОСТАТКА: " + объяснение(p, пробный).split("\n").join("  ·  ");
+    unitHint.style.color = пробный.множитель === 1 ? "" : "var(--warn)";
   }
-  fUnit.addEventListener("change", показатьЕдиницу);
-  fPack.addEventListener("input", показатьЕдиницу);
+  [fUnit, fBuyUnit, fSellUnit, fOdd].forEach(п => п.addEventListener("change", показатьЕдиницу));
+  [fPack, fBox].forEach(п => п.addEventListener("input", показатьЕдиницу));
+  fAuto.addEventListener("change", показатьЕдиницу);
   показатьЕдиницу();
   const fStatus = select([
     { value: "", label: "Авто (по остатку)" },
@@ -435,10 +510,29 @@ export function openForm(ctx, p, cats = []) {
       addUrlBtn,
     ]),
     el("div.hint", { text: "Порядок снимков и главное фото сохраняются сразу — отдельно нажимать «Сохранить» для них не нужно. Клиенты видят все фото в этом порядке." }),
-    el("div.section-h", { text: "Остаток и себестоимость" }),
-    el("div.hint", { text: "Остаток, себестоимость и цены считаются в выбранной единице. Смените её — всё пересчитается само." }),
-    el("div.row2", {}, [field("Единица измерения", fUnit), packWrap]),
+    el("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginTop: "18px" } }, [
+      el("div.section-h", { text: "Единицы измерения и упаковка", style: { margin: "0" } }),
+      packStatus,
+    ]),
+    el("div.hint", { text: "Настройте один раз — дальше приход от поставщика будет пересчитываться в складские единицы сам." }),
+    el("div.row3", {}, [
+      field("Покупаем у поставщика в", fBuyUnit),
+      field("На складе считаем в", fUnit),
+      field("Продаём в", fSellUnit),
+    ]),
+    el("div.row2", {}, [packWrap, boxWrap]),
+    packChain,
+    packBuy,
+    oddWrap,
+    el("label", { style: { display: "flex", alignItems: "center", gap: "9px", margin: "10px 0 2px", cursor: "pointer" } }, [
+      fAuto,
+      el("span", { text: "Пересчитывать приход автоматически" }),
+    ]),
+    el("div.hint", { text: "Пока выключено, приход зачисляется как раньше — без пересчёта. Включайте, когда проверите размеры упаковки." }),
+    packWarn,
     unitHint,
+    el("div.section-h", { text: "Остаток и себестоимость" }),
+    el("div.hint", { text: "Остаток, себестоимость и цены считаются в складской единице." }),
     el("div.row3", {}, [field("Остаток (кол-во)", fStock), field("Пришло на склад (+)", fArrived), field("Себестоимость", fCost)]),
     arrivedHint,
     field("Валюта прихода", fCostCur),
@@ -489,6 +583,20 @@ export function openForm(ctx, p, cats = []) {
         const едСтала = fUnit.value;
         const вЕдСтало = едСтала === "шт" ? 1 : Math.max(1, Number(fPack.value) || 1);
         const переводНужен = едСтала !== едБыла || вЕдСтало !== вЕдБыло;
+        // Перевод двигает ВЕСЬ остаток и все партии. Это единственное
+        // место в карточке, где одно нажатие меняет склад целиком, —
+        // поэтому показываем «было → станет» и ждём явного «Да».
+        // Настройка упаковки (единица закупки, коробка, правило остатка)
+        // сюда не попадает: она остаток не трогает.
+        if (переводНужен && !isNew) {
+          const пробный = перевести(p, { unit: едСтала, pack_size: вЕдСтало });
+          const согласен = await new Promise(готово => confirmDialog(
+            "Меняется то, чем считают остаток этого товара.\n\n"
+              + объяснение(p, пробный)
+              + "\n\nПересчитать склад?",
+            () => готово(true)));
+          if (!согласен) return;
+        }
         let товар = p;
         if (переводНужен && !isNew) {
           const н = перевести(p, { unit: едСтала, pack_size: вЕдСтало });
