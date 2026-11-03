@@ -136,6 +136,9 @@ create table if not exists purchases (
   items jsonb,
   created_at timestamptz default now(),
   kind text,
+  -- Дополнительные расходы закупки: доставка, растаможка, комиссия.
+  -- {сумма, валюта, правило, примечание} — db/purchase-extra-migration.sql.
+  extra jsonb,
   primary key (id)
 );
 

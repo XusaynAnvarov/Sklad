@@ -1,28 +1,31 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20261103e";
-import { icon } from "../../icons.js?v=20261103e";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261103e";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261103e";
-import { fmt, convert } from "../../fx.js?v=20261103e";
-import { thumb } from "../../img.js?v=20261103e";
-import { LOW_STOCK } from "../../advice.js?v=20261103e";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261103e";
-import { qrSvg, skuPayload } from "../../qr.js?v=20261103e";
-import { setStock } from "../stock.js?v=20261103e";
+import { el, go } from "../app.js?v=20261103f";
+import { icon } from "../../icons.js?v=20261103f";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261103f";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261103f";
+import { fmt, convert } from "../../fx.js?v=20261103f";
+import { thumb } from "../../img.js?v=20261103f";
+import { LOW_STOCK } from "../../advice.js?v=20261103f";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261103f";
+import { qrSvg, skuPayload } from "../../qr.js?v=20261103f";
+import { setStock } from "../stock.js?v=20261103f";
 // Себестоимость показываем в той валюте, в которой её ввели. Расчёт общий
 // со складом на сайте: иначе один товар выглядит как «$33.87» на компьютере
 // и «241,94 ¥» в телефоне — цифра верная, а доверия к ней никакого.
-import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261103e";
-import { подпись as подписьКол, единица, вЕдинице } from "../../unit.js?v=20261103e";
-import { подходит } from "../../productsearch.js?v=20261103e";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261103e";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261103e";
+import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261103f";
+import { подпись as подписьКол, единица, вЕдинице, сЕдиницы } from "../../unit.js?v=20261103f";
+import { подходит } from "../../productsearch.js?v=20261103f";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261103f";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261103f";
 // Главное фото (аватар) и порядок снимков — две независимые вещи. Правило
 // и редактор общие со складом на сайте: см. js/photo.js и js/photoedit.js.
-import { снимки, главноеФото, индексГлавного } from "../../photo.js?v=20261103e";
-import { редакторФото } from "../../photoedit.js?v=20261103e";
+import { снимки, главноеФото, индексГлавного } from "../../photo.js?v=20261103f";
+// Маржа. Считает только показываемое: цену продажи от себестоимости этот
+// модуль не двигает — расчёт общий со складом на сайте (js/pricing.js).
+import { маржа } from "../../pricing.js?v=20261103f";
+import { редакторФото } from "../../photoedit.js?v=20261103f";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -69,6 +72,24 @@ export default async function render(box, ctx) {
     ВАЛЮТЫ.forEach(v => fCostCur.append(el("option", { value: v.value, text: v.label })));
     fCostCur.value = костCur;
     const fPrice = inp({ type: "number", inputmode: "numeric", value: String(item.price_som || ""), placeholder: "0" });
+    // Прибыль с одной складской единицы при этой цене. Товар в руках —
+    // и сразу видно, сколько на нём остаётся. Ничего не меняет: цена
+    // продажи от себестоимости сама не едет.
+    const строкаМаржи = el("div", { style: { fontSize: "13px", color: "var(--muted)", marginTop: "-4px" } });
+    const показатьМаржу = () => {
+      const валюта = fCostCur.value;
+      const себ = Number(fCost.value) || 0;
+      const вСумах = валюта === "som" ? себ : convert(себ, валюта, "som");
+      const м = маржа({ себестоимость: вСумах, цена: Number(fPrice.value) || 0 });
+      const пц = (v) => (Math.abs(v) >= 10 ? Math.round(v) : v);
+      строкаМаржи.textContent = м.есть
+        ? `Прибыль ${fmt(м.прибыль, "som")} ${сЕдиницы(единица(item))} · маржа ${пц(м.маржа)}%`
+        : "Цена продажи не задана — маржу считать не из чего.";
+      строкаМаржи.style.color = м.вМинус ? "var(--warn)" : "var(--muted)";
+    };
+    [fCost, fPrice].forEach(п => п.addEventListener("input", показатьМаржу));
+    fCostCur.addEventListener("change", показатьМаржу);
+    показатьМаржу();
     const fQty = isNew ? inp({ type: "number", inputmode: "numeric", value: "0" }) : null;
 
     // Фото с телефона. Раньше карточка умела только показывать снимок —
@@ -244,6 +265,7 @@ export default async function render(box, ctx) {
         el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" } }, [
           field("Цена продажи, сум", fPrice), el("div"),
         ]),
+        строкаМаржи,
         isNew ? field("Остаток сейчас", fQty) : null,
         !isNew ? el("div", { style: { display: "flex", gap: "8px", marginTop: "4px" } }, [
           el("button.btn.btn-outline", { style: { flex: "1", justifyContent: "center", minHeight: "42px" }, text: "Остаток на полке", onclick: () => askStock(item) }),

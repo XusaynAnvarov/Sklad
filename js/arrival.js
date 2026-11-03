@@ -8,12 +8,15 @@
 //  старую партию. Иначе прибыль по старому товару считалась бы по новой
 //  цене и врала.
 // ========================================================================
-import { ensureBatches, sumQty, costAfter, currentCost } from "./inventory.js?v=20261103e";
-import { convert } from "./fx.js?v=20261103e";
-import { isShop } from "./purchase.js?v=20261103e";
+import { ensureBatches, sumQty, costAfter, currentCost } from "./inventory.js?v=20261103f";
+import { convert } from "./fx.js?v=20261103f";
+import { isShop } from "./purchase.js?v=20261103f";
 // Упаковка: поставщик продаёт штуками, у нас лежит пачками. Расчёт общий
 // с карточкой товара и с предпросмотром — см. js/packing.js.
-import { автоВключено, настройки, пересчитатьПриход } from "./packing.js?v=20261103e";
+import { автоВключено, настройки, пересчитатьПриход } from "./packing.js?v=20261103f";
+// Доставка и растаможка ложатся в себестоимость. Делёж — в js/pricing.js:
+// там он идёт целыми копейками, чтобы сумма долей сошлась с расходом.
+import { доплаты, ценаСРасходами } from "./pricing.js?v=20261103f";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const к6 = (n) => Math.round((Number(n) || 0) * 1e6) / 1e6;
@@ -30,30 +33,42 @@ const к6 = (n) => Math.round((Number(n) || 0) * 1e6) / 1e6;
 //  коэффициента упаковки задним числом переписала бы старые документы:
 //  поставили «в пачке 12 вместо 10» — и прошлогодний приход вдруг стал
 //  другим. Этого быть не должно.
+//
+//  доп — доля дополнительных расходов документа (доставка, растаможка),
+//  уже посчитанная на ВСЮ эту позицию, в валюте прихода. Она ложится в
+//  себестоимость, но цену из накладной не подменяет: в документе остаётся
+//  и то, что назвал поставщик, и то, во что товар обошёлся на самом деле.
 // ========================================================================
-export function позицияПрихода(it, p) {
+export function позицияПрихода(it, p, доп = 0) {
   if (it && it.приход && typeof it.приход === "object") return { ...it.приход, изЗаписи: true };
 
   const кол = Number(it && it.qty) || 0;
   const цена = Number(it && it.unit_cost) || 0;
   const валюта = (it && it.currency) || "";
+  const доля = Number(доп) || 0;
+  // Цена закупочной единицы вместе с долей расходов. Без расходов это
+  // ровно цена из накладной — тогда всё считается как раньше.
+  const ценаПолная = ценаСРасходами(кол, цена, доля);
+  const расход = доля ? { доп: Math.round(доля * 100) / 100, ценаСДоп: ценаПолная } : {};
 
   // Упаковка не настроена или пересчёт выключен — старый, безопасный путь:
-  // сколько вписали, столько и кладём.
+  // сколько вписали, столько и кладём. Расходы при этом всё равно
+  // учитываются: они к упаковке отношения не имеют.
   if (!p || !автоВключено(p)) {
     return {
       пересчитано: false, изЗаписи: false,
       ед: настройки(p || {}).склад, кол, цена, валюта,
       складскаяЕд: настройки(p || {}).склад,
       коэффициент: 1, версия: настройки(p || {}).версия,
-      складских: кол, себестоимость: цена,
+      складских: кол, себестоимость: r2(ценаПолная),
       полных: кол, остатокШтук: 0, ровно: true,
       правило: "keep", отложеноШтук: 0,
+      ...расход,
     };
   }
 
   const н = настройки(p);
-  const р = пересчитатьПриход(p, { qty: кол, цена });
+  const р = пересчитатьПриход(p, { qty: кол, цена: ценаПолная });
 
   // Правило «отложить»: на полку кладём только ПОЛНЫЕ упаковки, а
   // отдельные штуки остаются записанными в документе. Терять их нельзя —
@@ -70,14 +85,19 @@ export function позицияПрихода(it, p) {
     полных: р.полных, остатокШтук: р.остатокШтук, ровно: р.ровно,
     правило: н.правило,
     отложеноШтук: откладываем ? р.остатокШтук : 0,
+    ...расход,
   };
 }
 
 // Решения по всем позициям сразу — для предпросмотра и для оприходования.
+// Доли расходов считаются по ВСЕМУ документу сразу: иначе их сумма не
+// сошлась бы с расходом, который вписал владелец.
 export function пересчётПрихода(purchase, products) {
   const pmap = Object.fromEntries((products || []).map(p => [p.id, p]));
-  return (purchase.items || []).map(it => ({
-    it, p: pmap[it.product_id] || null, решение: позицияПрихода(it, pmap[it.product_id]),
+  const доли = доплаты(purchase, products);
+  return (purchase.items || []).map((it, i) => ({
+    it, p: pmap[it.product_id] || null, доп: доли[i] || 0,
+    решение: позицияПрихода(it, pmap[it.product_id], доли[i] || 0),
   }));
 }
 
@@ -119,15 +139,17 @@ export function arrivalRows(purchase, products) {
   const shop = isShop(purchase);
   const when = purchase.date || new Date().toISOString();
   const pmap = Object.fromEntries((products || []).map(p => [p.id, p]));
+  const доли = доплаты(purchase, products);
   const rows = [];
 
-  for (const it of (purchase.items || [])) {
+  for (const [i, it] of (purchase.items || []).entries()) {
     const p = pmap[it.product_id];
     if (!p) continue;
     const cur = it.currency || purchase.currency;
-    // Сколько единиц ляжет на склад и почём одна — с учётом упаковки.
+    // Сколько единиц ляжет на склад и почём одна — с учётом упаковки и
+    // доли дополнительных расходов документа.
     // У ненастроенных товаров решение один к одному, как было всегда.
-    const реш = позицияПрихода(it, p);
+    const реш = позицияПрихода(it, p, доли[i] || 0);
     const наСклад = Number(реш.складских) || 0;
     const ценаЗаСкладскую = Number(реш.себестоимость) || 0;
     const batches = ensureBatches(p);
@@ -223,11 +245,12 @@ export async function записатьИсторию(db, purchase, products, к�
   if (!purchase || !purchase.id || !Array.isArray(purchase.items)) return false;
   const когда = new Date().toISOString();
   const pmap = Object.fromEntries((products || []).map(p => [p.id, p]));
+  const доли = доплаты(purchase, products);
   let новое = false;
-  const items = purchase.items.map(it => {
+  const items = purchase.items.map((it, i) => {
     if (it && it.приход) return it;                   // уже записано — не трогаем
     новое = true;
-    return { ...it, приход: записьПрихода(позицияПрихода(it, pmap[it.product_id]), когда, кто) };
+    return { ...it, приход: записьПрихода(позицияПрихода(it, pmap[it.product_id], доли[i] || 0), когда, кто) };
   });
   if (!новое) return false;
   await db.purchases.upsert({ id: purchase.id, items });

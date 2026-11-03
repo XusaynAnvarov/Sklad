@@ -1,23 +1,26 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261103e";
-import { fmt, CUR, convert } from "../fx.js?v=20261103e";
-import { placeholder } from "./products.js?v=20261103e";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261103e";
-import { icon } from "../icons.js?v=20261103e";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103e";
-import { notifyOwner } from "../telegram.js?v=20261103e";
-import { authHeaders } from "../db.js?v=20261103e";
-import { thumb, поставитьСнимок } from "../img.js?v=20261103e";
-import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261103e";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261103f";
+import { fmt, CUR, convert } from "../fx.js?v=20261103f";
+import { placeholder } from "./products.js?v=20261103f";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261103f";
+import { icon } from "../icons.js?v=20261103f";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103f";
+import { notifyOwner } from "../telegram.js?v=20261103f";
+import { authHeaders } from "../db.js?v=20261103f";
+import { thumb, поставитьСнимок } from "../img.js?v=20261103f";
+import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261103f";
 // Оприходование общее со складом в телефоне — иначе остатки разойдутся.
-import { applyArrival, записатьПачкой, откатитьПриход, пересчётПрихода } from "../arrival.js?v=20261103e";
+import { applyArrival, записатьПачкой, откатитьПриход, пересчётПрихода } from "../arrival.js?v=20261103f";
 // Единицы, упаковка и главное фото — для предпросмотра прихода.
-import { подпись as подписьКол } from "../unit.js?v=20261103e";
-import { статус as статусУпаковки, СТАТУС } from "../packing.js?v=20261103e";
-import { главноеФото } from "../photo.js?v=20261103e";
-import { изменениеСклада } from "../db.js?v=20261103e";
+import { подпись as подписьКол } from "../unit.js?v=20261103f";
+import { статус as статусУпаковки, СТАТУС } from "../packing.js?v=20261103f";
+// Доставка и растаможка — часть себестоимости. Делёж по позициям общий
+// с оприходованием: предпросмотр и склад считают одним кодом.
+import { расходы as расходыПрихода, поляРасходов, ПРАВИЛА_РАСХОДОВ } from "../pricing.js?v=20261103f";
+import { главноеФото } from "../photo.js?v=20261103f";
+import { изменениеСклада } from "../db.js?v=20261103f";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
@@ -102,7 +105,11 @@ export default async function render(page, ctx) {
       el("td", {}, [el("strong", { text: s.supplier || "—" }), isShop(s) && el("div", { style: { fontSize: "12px", color: "var(--muted)" }, text: kindText(s.kind) })].filter(Boolean)),
       el("td", {}, [el("span.badge.cur", { text: CUR[s.currency].label })]),
       el("td", { text: (s.items || []).length + " поз." }),
-      el("td", {}, [el("strong", { text: fmt(total, s.currency) })]),
+      el("td", {}, [el("strong", { text: fmt(total, s.currency) }),
+        // Доставка и растаможка — часть того, во что обошлась закупка.
+        // В сумму товаров их не складываем: это разные деньги.
+        расходыПрихода(s).есть && el("div", { style: { fontSize: "12px", color: "var(--muted)" },
+          text: "+ расходы " + fmt(расходыПрихода(s).сумма, расходыПрихода(s).валюта || s.currency) })].filter(Boolean)),
       el("td", {}, [s.status === "arrived"
         ? el("span.badge.arrived", {}, [icon("check", { size: 13 }), "Пришёл"])
         : s.status === "ordered"
@@ -161,7 +168,9 @@ function предпросмотрПрихода(s, products) {
     const спросить = разбор.filter(({ решение }) => решение.пересчитано && решение.правило === "ask" && !решение.ровно);
     let согласен = !спросить.length;
 
-    const строки = разбор.map(({ it, решение }) => {
+    const расх = расходыПрихода(s);
+
+    const строки = разбор.map(({ it, решение, доп }) => {
       const p = pmap[it.product_id] || { name: "?" };
       const было = подписьКол(решение.кол, { unit: решение.ед })
         + (решение.цена ? " × " + fmt(решение.цена, решение.валюта || s.currency) : "");
@@ -175,6 +184,12 @@ function предпросмотрПрихода(s, products) {
         метки.push([`Неполная упаковка: ${решение.полных} целых и ${решение.остатокШтук} шт`, "var(--warn)"]);
       }
       if (решение.отложеноШтук) метки.push([`Отложено ${решение.отложеноШтук} шт — на склад не кладём`, "var(--warn)"]);
+      // Доля расходов этой позиции. Уже оприходованные показывают свою —
+      // ту, что записана в документе, а не посчитанную заново.
+      const доляПозиции = Number(решение.изЗаписи ? решение.доп : доп) || 0;
+      if (доляПозиции) {
+        метки.push([`В себестоимость вошло ${fmt(доляПозиции, расх.валюта || s.currency)} расходов`, "var(--muted)"]);
+      }
 
       return el("div.card", { style: { padding: "10px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "flex-start" } }, [
         el("img.thumb", { src: главноеФото(p) ? thumb(главноеФото(p), 60) : placeholder(p.name), loading: "lazy", decoding: "async",
@@ -192,12 +207,26 @@ function предпросмотрПрихода(s, products) {
     });
 
     const итого = разбор.reduce((t, { решение }) => t + (Number(решение.кол) || 0) * (Number(решение.цена) || 0), 0);
+    // Разложенные расходы — ровно столько, сколько легло в себестоимость.
+    // Показываем именно эту сумму, а не вписанную: если по какой-то
+    // причине разделить не удалось, владелец это увидит.
+    const разложено = разбор.reduce((t, { решение, доп }) =>
+      t + (Number(решение.изЗаписи ? решение.доп : доп) || 0), 0);
+    const правилоТекст = (ПРАВИЛА_РАСХОДОВ.find(п => п.value === расх.правило) || {}).label || "";
     const тело = el("div", {}, [
       el("div.hint", { text: "Проверьте, что встанет на полку. Товары с ненастроенной упаковкой приходуются как раньше — один к одному." }),
       ...строки,
+      // У оприходованных позиций доли взяты ИЗ ДОКУМЕНТА, а не посчитаны
+      // заново. Тогда и правило называть нельзя: в полях документа могло
+      // уже стоять другое, а числа остались прежними — так и должно быть.
+      разложено ? el("div.hint", { style: { textAlign: "right", marginTop: "8px" },
+        text: разбор.every(({ решение }) => решение.изЗаписи)
+          ? `Расходы ${fmt(разложено, расх.валюта || s.currency)} уже разложены по позициям — так записано в документе`
+          : `Расходы ${fmt(разложено, расх.валюта || s.currency)} разложены по позициям — ${правилоТекст.toLowerCase()}` }) : null,
       el("div", { style: { textAlign: "right", fontSize: "17px", fontWeight: "800", marginTop: "8px" } },
-        ["Закуплено на ", el("span.gradtext", { text: fmt(итого, s.currency) })]),
-    ]);
+        ["Закуплено на ", el("span.gradtext", { text: fmt(итого, s.currency) }),
+          ...(разложено ? [" + расходы ", el("span.gradtext", { text: fmt(разложено, расх.валюта || s.currency) })] : [])]),
+    ].filter(Boolean));
 
     if (спросить.length) {
       const галка = el("input", { type: "checkbox", style: { width: "18px", height: "18px", flex: "0 0 auto", accentColor: "var(--accent)" } });
@@ -272,6 +301,7 @@ function openEditor(ctx, purchase, products, suppliers = []) {
   const state = purchase
     ? { supplier: purchase.supplier, currency: purchase.currency, status: purchase.status, date: purchase.date, kind: purchaseKind(purchase), items: JSON.parse(JSON.stringify(purchase.items || [])) }
     : { supplier: "", currency: "yuan", status: "in_transit", date: new Date().toISOString(), kind: "supplier", items: [] };
+  const расхБыло = расходыПрихода(purchase || { currency: state.currency });
 
   const fKind = select(kindOptions(), state.kind);
   const fSupplier = inputList(suppliers, { value: state.supplier || "", placeholder: "Поставщик (выбор или ввод)" });
@@ -287,6 +317,28 @@ function openEditor(ctx, purchase, products, suppliers = []) {
     { value: "in_transit", label: "В дороге" },
     { value: "arrived", label: "Уже пришёл" },
   ], state.status);
+  // ----- дополнительные расходы на эту закупку -----
+  //
+  // Доставка, растаможка, комиссия — это тоже себестоимость товара. Если
+  // их не разложить по позициям, прибыль окажется завышенной ровно на
+  // стоимость доставки. Делятся они по правилу учёта, и делятся до
+  // копейки: сумма долей равна вписанной сумме (js/pricing.js).
+  //
+  // Из магазина товар приходуется по НАШЕЙ складской цене — чужие расходы
+  // к ней не прибавляются, поэтому поле там и не показывается.
+  const fExtra = input({ type: "number", step: "0.01", min: "0", placeholder: "0", value: расхБыло.есть ? String(расхБыло.сумма) : "" });
+  const fExtraRule = select(ПРАВИЛА_РАСХОДОВ.map(п => ({ value: п.value, label: п.label })), расхБыло.правило);
+  const fExtraNote = input({ placeholder: "например: доставка до Ташкента" });
+  fExtraNote.value = расхБыло.примечание || "";
+  const extraHint = el("div.hint", {});
+  const extraWrap = el("div", { style: { display: state.kind === KIND_SHOP ? "none" : "" } }, [
+    el("div.section-h", { text: "Дополнительные расходы на закупку" }),
+    el("div.hint", { text: "Доставка, растаможка, комиссия. Разложатся по позициям и войдут в себестоимость — остаток от этого не меняется." }),
+    el("div.row2", {}, [field("Сумма расходов", fExtra), field("Как распределить", fExtraRule)]),
+    field("Примечание (необязательно)", fExtraNote),
+    extraHint,
+  ]);
+
   const itemsBox = el("div");
   const totalBox = el("div", { style: { textAlign: "right", fontSize: "20px", fontWeight: "800", marginTop: "10px" } });
   const nameToId = {}; products.forEach(p => { nameToId[(p.name || "").toLowerCase()] = p.id; });
@@ -319,7 +371,8 @@ function openEditor(ctx, purchase, products, suppliers = []) {
     supplierField.querySelector(".field-label").textContent = who;
     fSupplier.placeholder = who + " (выбор или ввод)";
     shopHint.style.display = state.kind === KIND_SHOP ? "" : "none";
-    fCost.value = ""; refreshAdd();
+    extraWrap.style.display = state.kind === KIND_SHOP ? "none" : "";
+    fCost.value = ""; refreshAdd(); recalc();
   });
 
   function addToCart() {
@@ -375,7 +428,21 @@ function openEditor(ctx, purchase, products, suppliers = []) {
   function recalc() {
     const total = state.items.reduce((t, i) => t + i.qty * i.unit_cost, 0);
     totalBox.innerHTML = ""; totalBox.append("Итого: ", el("span.gradtext", { text: fmt(total, state.currency) }));
+    const доп = state.kind === KIND_SHOP ? 0 : Math.max(0, +fExtra.value || 0);
+    if (доп > 0) {
+      totalBox.append(el("div", { style: { fontSize: "14px", fontWeight: "600", marginTop: "4px", color: "var(--muted)" },
+        text: "С расходами: " + fmt(total + доп, state.currency) }));
+    }
+    // Насколько подорожает товар. Процент — то, на что владелец смотрит:
+    // по нему сразу видно, не вписана ли доставка на порядок больше.
+    extraHint.textContent = доп > 0
+      ? (total > 0
+        ? `Себестоимость вырастет на ${Math.round((доп / total) * 1000) / 10}% — это ${fmt(доп, state.currency)} на ${state.items.length} поз.`
+        : "Добавьте товары — расходы разложатся по ним.")
+      : "Пусто — значит расходов нет, и приход считается как раньше.";
   }
+  [fExtra, fExtraNote].forEach(п => п.addEventListener("input", recalc));
+  fExtraRule.addEventListener("change", recalc);
   drawItems();
 
   const body = el("div", {}, [
@@ -401,7 +468,9 @@ function openEditor(ctx, purchase, products, suppliers = []) {
       ]),
     ]),
     el("div.section-h", { text: "Список прихода" }),
-    itemsBox, totalBox,
+    itemsBox,
+    extraWrap,
+    totalBox,
   ]);
 
   modal({
@@ -414,15 +483,44 @@ function openEditor(ctx, purchase, products, suppliers = []) {
         try {
           const wasArrived = purchase?.status === "arrived";
           const obj = { ...(purchase ? { id: purchase.id } : {}), supplier: fSupplier.value.trim(), currency: state.currency, status: fStatus.value, date: state.date, items: state.items };
-          // колонка kind могла ещё не появиться в базе — тогда сохраняем без неё
-          let saved;
-          try { saved = await ctx.db.purchases.upsert({ ...obj, kind: state.kind }); obj.kind = state.kind; }
-          catch { saved = await ctx.db.purchases.upsert(obj); }
+          // Расходы. Из магазина их не бывает: цена там наша складская.
+          const extra = state.kind === KIND_SHOP ? null : поляРасходов({
+            сумма: fExtra.value, валюта: state.currency,
+            правило: fExtraRule.value, примечание: fExtraNote.value.trim(),
+          });
+          // Пробуем от полного к урезанному: колонок extra и kind могло
+          // ещё не появиться в базе — но из-за них терять сам приход
+          // незачем. Что именно записалось, помним: от этого зависит, с
+          // расходами ли считать склад.
+          const варианты = [
+            ...(extra ? [{ ...obj, kind: state.kind, extra }] : []),
+            { ...obj, kind: state.kind },
+            obj,
+          ];
+          let saved = null, расходыЗаписаны = !extra, беда = null;
+          for (const вариант of варианты) {
+            try {
+              saved = await ctx.db.purchases.upsert(вариант);
+              if (вариант.extra) расходыЗаписаны = true;
+              if (вариант.kind) obj.kind = state.kind;
+              беда = null; break;
+            } catch (e) { беда = e; }
+          }
+          if (беда) throw беда;
+          // Расходы не записались — колонки extra ещё нет в базе
+          // (db/purchase-extra-migration.sql). Молчать тут нельзя: иначе
+          // владелец думает, что доставка вошла в себестоимость, а она
+          // нигде не сохранилась. И в склад её тоже не берём — приход
+          // должен считаться ровно по тому, что лежит в документе.
+          if (extra && !расходыЗаписаны) {
+            toast("Расходы не сохранились: в базе нет колонки extra. Выполните db/purchase-extra-migration.sql", "err");
+          }
+          const документ = { ...(saved || obj), kind: state.kind, ...(расходыЗаписаны && extra ? { extra } : {}) };
           // если только что отметили «пришёл» — добавить на склад
           if (fStatus.value === "arrived" && !wasArrived) {
             // тип передаём явно: если колонки kind ещё нет в базе, ответ придёт
             // без него, и приход из магазина ошибочно посчитался бы поставкой
-            await applyArrival(ctx.db, { ...(saved || obj), kind: state.kind }, products, null, { кто: "склад на сайте" });
+            await applyArrival(ctx.db, документ, products, null, { кто: "склад на сайте" });
             const pmap3 = Object.fromEntries(products.map(p => [p.id, p]));
             const lines3 = (state.items || []).map(it => `• ${pmap3[it.product_id]?.name || "?"} × ${it.qty}`);
             try { await notifyOwner(`Новый приход на склад\n${kindWho(state.kind)}: ${fSupplier.value.trim() || "—"}\n\n${lines3.join("\n")}`); } catch {}

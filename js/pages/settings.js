@@ -1,10 +1,10 @@
 // ========================================================================
 //  НАСТРОЙКИ — курсы валют, Telegram, доступ, демо-данные
 // ========================================================================
-import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261103e";
-import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20261103e";
-import { authHeaders } from "../db.js?v=20261103e";
-import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20261103e";
+import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261103f";
+import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20261103f";
+import { authHeaders } from "../db.js?v=20261103f";
+import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20261103f";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -304,7 +304,7 @@ export default async function render(page, ctx) {
   кнПережать.onclick = () => confirmDialog(
     "Пережать фото всех товаров? Старые файлы останутся в хранилище — откатиться можно всегда. Прогон можно остановить в любой момент.",
     async () => {
-      const { пережатьФото } = await import("../perezhat.js?v=20261103e");
+      const { пережатьФото } = await import("../perezhat.js?v=20261103f");
       прерван = false;
       кнПережать.disabled = true; кнСтоп.style.display = "";
       ходПрогона.style.display = "";
