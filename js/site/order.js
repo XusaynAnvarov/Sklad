@@ -1,9 +1,9 @@
 // Страница «Заказать»: товары карточками (как в каталоге) + ручной ввод количества,
 // и отдельный экран «Мои заказанные товары» (проверить / удалить / добавить ещё).
-import { api, isLoggedIn } from "./api.js?v=20261103a";
-import { sToast, t } from "./app.js?v=20261103a";
-import { openLogin } from "./auth.js?v=20261103a";
-import { поставитьСнимок } from "../img.js?v=20261103a";
+import { api, isLoggedIn } from "./api.js?v=20261103b";
+import { sToast, t } from "./app.js?v=20261103b";
+import { openLogin } from "./auth.js?v=20261103b";
+import { поставитьСнимок } from "../img.js?v=20261103b";
 
 function mkEl(tag, cls = "") {
   const e = document.createElement(tag);
@@ -77,6 +77,34 @@ export async function renderOrder(container) {
 
     if (view === "list") renderList();
     else renderReview();
+    кНачалуСтраницы();
+  }
+
+  // ------------------------------------------------------------------
+  //  ПОКАЗАТЬ НАЧАЛО СТРАНИЦЫ ПОСЛЕ ПЕРЕРИСОВКИ
+  //
+  //  Из-за чего понадобилось. Человек листает товары — страница вырастает
+  //  до шестнадцати тысяч пикселей. Он нажимает «Мои заказанные товары»,
+  //  там три строки, и страница в тот же миг становится короче в двадцать
+  //  раз. Браузер подрезает прокрутку до нового предела — и человек
+  //  оказывается В САМОМ НИЗУ короткой страницы. Замерено: прокрутка 147
+  //  при высоте 959, то есть ровно предел; на экране при этом пусто.
+  //  Выглядит как зависание: нажал — и ничего нет.
+  //
+  //  Такой же случай уже был в каталоге при смене категории
+  //  (js/site/catalog.js, кНачалуСписка) и лечится так же: прокрутка
+  //  МГНОВЕННАЯ, иначе подрезка происходит в том же кадре и отменяет её,
+  //  и повторяется в следующем кадре — после того как браузер пересчитал
+  //  высоту под новое содержимое.
+  function кНачалуСтраницы() {
+    const цель = () => Math.max(0, (root.offsetTop || 0) - 80);
+    const было = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(0, цель());
+    requestAnimationFrame(() => {
+      window.scrollTo(0, цель());
+      document.documentElement.style.scrollBehavior = было;
+    });
   }
 
   // ---- Список товаров (карточки) ----
@@ -234,9 +262,24 @@ export async function renderOrder(container) {
       const qlbl = mkEl("span"); qlbl.style.cssText = "font-size:13px;color:var(--muted)"; qlbl.textContent = "Кол-во:";
       const qinp = document.createElement("input");
       qinp.type = "number"; qinp.min = "1"; qinp.value = qty; qinp.className = "search-input"; qinp.style.cssText = "width:80px;text-align:center;padding:6px";
+      // ПУСТОЕ ПОЛЕ — ЕЩЁ НЕ ОТКАЗ ОТ ТОВАРА.
+      //
+      // Раньше здесь на пустом поле товар удалялся и вызывался render() —
+      // прямо во время набора. Человек хочет исправить 5 на 12: выделяет
+      // цифру, стирает — и в этот миг строка исчезает, вся страница
+      // перерисовывается, поле, в котором он печатает, уничтожается,
+      // клавиатура закрывается. На телефоне это и ощущается как зависание.
+      //
+      // Теперь набор ничего не ломает, а решение принимается, когда человек
+      // уходит из поля: ушёл пустым — значит товар не нужен.
       qinp.addEventListener("input", () => {
         const v = Math.max(0, parseInt(qinp.value, 10) || 0);
-        if (v > 0) order.set(pid, v); else { order.delete(pid); render(); }
+        if (v > 0) { order.set(pid, v); updateCounts(); }
+      });
+      qinp.addEventListener("blur", () => {
+        const v = Math.max(0, parseInt(qinp.value, 10) || 0);
+        if (v > 0) { order.set(pid, v); updateCounts(); return; }
+        order.delete(pid); render();
       });
       qrow.append(qlbl, qinp);
       info.append(nm, qrow);
