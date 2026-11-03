@@ -1,36 +1,36 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261103d";
-import { icon } from "../icons.js?v=20261103d";
-import { fmt, convert } from "../fx.js?v=20261103d";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261103d";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103d";
-import { openEditor } from "./sales.js?v=20261103d";
-import { thumbAttrs, thumb } from "../img.js?v=20261103d";
-import { LOW_STOCK } from "../advice.js?v=20261103d";
-import { qrSvg, skuPayload } from "../qr.js?v=20261103d";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261103e";
+import { icon } from "../icons.js?v=20261103e";
+import { fmt, convert } from "../fx.js?v=20261103e";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261103e";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103e";
+import { openEditor } from "./sales.js?v=20261103e";
+import { thumbAttrs, thumb } from "../img.js?v=20261103e";
+import { LOW_STOCK } from "../advice.js?v=20261103e";
+import { qrSvg, skuPayload } from "../qr.js?v=20261103e";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261103d";
+import { костСтрока as costShow, костВалюта, костПоля, ВАЛЮТЫ } from "../cost.js?v=20261103e";
 // Единица измерения: товар считают штуками, пачками, коробками. Смена
 // единицы пересчитывает и остаток, и себестоимость, и все партии.
-import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261103d";
-import { подходит } from "../productsearch.js?v=20261103d";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261103d";
-import { изменениеСклада } from "../db.js?v=20261103d";
+import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение } from "../unit.js?v=20261103e";
+import { подходит } from "../productsearch.js?v=20261103e";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261103e";
+import { изменениеСклада } from "../db.js?v=20261103e";
 // Главное фото (аватар) и порядок снимков — две независимые вещи.
 // Правило общее с каталогом, складом в телефоне и PDF: см. js/photo.js.
-import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261103d";
-import { редакторФото } from "../photoedit.js?v=20261103d";
+import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261103e";
+import { редакторФото } from "../photoedit.js?v=20261103e";
 // Упаковка: в чём покупаем, в чём храним, в чём продаём и как пересчитать
 // приход. Расчёт общий с приёмкой и сервером — см. js/packing.js.
 import {
   настройки as настройкиУпаковки, статус as статусУпаковки, проверки as проверкиУпаковки,
   коэффициент as коэффициентУпаковки, поляНастроек as поляНастроекУпаковки,
   нуженПереводОстатка, цепочка as цепочкаУпаковки, описаниеЗакупки, ПРАВИЛА_ОСТАТКА,
-} from "../packing.js?v=20261103d";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261103d";
+} from "../packing.js?v=20261103e";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261103e";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
@@ -426,7 +426,7 @@ export function openForm(ctx, p, cats = []) {
   const boxWrap = field("Складских единиц в одной коробке", fBox);
   const fOdd = select(ПРАВИЛА_ОСТАТКА.map(п => ({ value: п.value, label: п.label })), нБыло.правило);
   const oddWrap = field("Если упаковка выходит неполной", fOdd);
-  const fAuto = el("input", { type: "checkbox", class: "inp", style: { width: "18px", height: "18px", minHeight: "0" } });
+  const fAuto = el("input", { type: "checkbox", style: { width: "18px", height: "18px", flex: "0 0 auto", accentColor: "var(--accent)" } });
   fAuto.checked = нБыло.авто;
 
   const packStatus = el("span.badge", { style: { fontSize: "11px" } });
@@ -582,14 +582,16 @@ export function openForm(ctx, p, cats = []) {
         // новых единицах. Товара и денег на складе при этом столько же.
         const едСтала = fUnit.value;
         const вЕдСтало = едСтала === "шт" ? 1 : Math.max(1, Number(fPack.value) || 1);
-        const переводНужен = едСтала !== едБыла || вЕдСтало !== вЕдБыло;
+        const переводНужен = !isNew && нуженПереводОстатка(p, { unit: едСтала, pack_size: вЕдСтало });
         // Перевод двигает ВЕСЬ остаток и все партии. Это единственное
         // место в карточке, где одно нажатие меняет склад целиком, —
         // поэтому показываем «было → станет» и ждём явного «Да».
         // Настройка упаковки (единица закупки, коробка, правило остатка)
         // сюда не попадает: она остаток не трогает.
+        let пересчёт = null;
         if (переводНужен && !isNew) {
-          const пробный = перевести(p, { unit: едСтала, pack_size: вЕдСтало });
+          пересчёт = перевести(p, { unit: едСтала, pack_size: вЕдСтало });
+          const пробный = пересчёт;
           const согласен = await new Promise(готово => confirmDialog(
             "Меняется то, чем считают остаток этого товара.\n\n"
               + объяснение(p, пробный)
@@ -598,9 +600,8 @@ export function openForm(ctx, p, cats = []) {
           if (!согласен) return;
         }
         let товар = p;
-        if (переводНужен && !isNew) {
-          const н = перевести(p, { unit: едСтала, pack_size: вЕдСтало });
-          товар = { ...p, stock_qty: н.stock_qty, cost_yuan: н.cost_yuan, cost_usd: н.cost_usd, batches: н.batches };
+        if (пересчёт) {
+          товар = { ...p, stock_qty: пересчёт.stock_qty, cost_yuan: пересчёт.cost_yuan, cost_usd: пересчёт.cost_usd, batches: пересчёт.batches };
         }
 
         const amt = +fCost.value || 0, cur = fCostCur.value;
@@ -678,15 +679,30 @@ export function openForm(ctx, p, cats = []) {
           stock_qty: batches.length ? sumQty(batches) : desired,
           cost_usd: cc.cost_usd, cost_yuan: cc.cost_yuan,
           cost_cur: cur, // валюта, в которой ввели себестоимость — в ней и показываем
-          unit: едСтала,
-          pack_size: вЕдСтало,
+          // Упаковка: единица закупки и продажи, коробка, правило остатка
+          // и версия настроек. unit и pack_size идут отсюда же — их
+          // нормализует поляНастроек (js/packing.js).
+          ...поляНастроекУпаковки(p, {
+            unit: едСтала,
+            pack_size: вЕдСтало,
+            buy_unit: fBuyUnit.value,
+            sell_unit: fSellUnit.value,
+            box_size: Number(fBox.value) || null,
+            sell_units: [...new Set([fSellUnit.value, ...нБыло.разрешено])],
+            auto_convert: fAuto.checked,
+            odd_rule: fOdd.value,
+          }),
           status_override: fStatus.value || null,
         };
         // продажные цены (price_*) форма не редактирует — НЕ перезаписываем их (иначе обнуляются).
         // Для нового товара зададим явные нули, у существующего PATCH сохранит прежние.
         if (isNew) { obj.price_yuan = 0; obj.price_usd = 0; obj.price_som = 0; }
         изменениеСклада(isNew ? "Новый товар" : "Правка карточки товара", p && p.id ? p.id : "");
-        const noPhotos = (o) => { const { photos: _ph, cost_cur: _cc, sku: _sk, unit: _u, pack_size: _ps, code: _cd, ...rest } = o; return rest; }; // фолбэк, если колонок photos/cost_cur/sku/unit/code ещё нет
+        // Запасной путь, если колонок в базе ещё нет. Сперва снимаем только
+        // упаковку (db/packing-migration.sql не выполнен) — терять из-за
+        // неё артикул и фото незачем, — и лишь потом всё остальное.
+        const noPacking = (o) => { const { buy_unit: _b, sell_unit: _s, box_size: _bs, sell_units: _su, auto_convert: _a, odd_rule: _o, packing_ver: _v, ...rest } = o; return rest; };
+        const noPhotos = (o) => { const { photos: _ph, cost_cur: _cc, sku: _sk, unit: _u, pack_size: _ps, code: _cd, ...rest } = noPacking(o); return rest; }; // фолбэк, если колонок photos/cost_cur/sku/unit/code ещё нет
         const сохранить = async (o) => {
           try { await ctx.db.products.upsert({ ...o, batches, ...(cost_prev ? { cost_prev } : {}) }); }
           catch (e) {
@@ -694,7 +710,12 @@ export function openForm(ctx, p, cats = []) {
             // номером. Молча сохранить товар без кода было бы хуже.
             if (o.code && КОД_ЗАНЯТ.test(String((e && e.message) || e))) throw e;
             try { await ctx.db.products.upsert({ ...o, batches }); }
-            catch (e2) { try { await ctx.db.products.upsert(noPhotos({ ...o, batches })); } catch (e3) { await ctx.db.products.upsert(noPhotos(o)); } }
+            catch (e2) {
+              // Колонок упаковки может ещё не быть — пробуем без них, и
+              // только если и это не прошло, снимаем фото и остальное.
+              try { await ctx.db.products.upsert(noPacking({ ...o, batches })); }
+              catch (e3) { try { await ctx.db.products.upsert(noPhotos({ ...o, batches })); } catch (e4) { await ctx.db.products.upsert(noPhotos(o)); } }
+            }
           }
         };
         for (let попытка = 0; ; попытка++) {
