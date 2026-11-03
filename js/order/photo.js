@@ -8,12 +8,10 @@
 import { el } from "../el.js?v=20261103c";
 import { thumb, full } from "../img.js?v=20261103c";
 
-// Все снимки товара: новые лежат в photos, старые — в одном photo_url.
-export function снимки(p) {
-  if (!p) return [];
-  if (Array.isArray(p.photos) && p.photos.length) return p.photos.filter(Boolean);
-  return p.photo_url ? [p.photo_url] : [];
-}
+// Все снимки товара и выбор главного — правило общее со складом, каталогом
+// и PDF, поэтому живёт в одном месте: js/photo.js. Клиент видит главным тот
+// снимок, который владелец отметил звездой в карточке товара.
+export { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261103c";
 
 // Серый квадрат с первой буквой названия — пока фото нет или не открылось.
 export function заглушка(имя = "?") {

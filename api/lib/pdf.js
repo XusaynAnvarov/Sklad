@@ -7,6 +7,9 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { снимок } from "./imgproxy.js";
+// Главное фото товара выбирает владелец звездой в карточке товара.
+// Правило общее с браузером — один модуль на всех: js/photo.js.
+import { главноеФото } from "../../js/photo.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SIGN = { yuan: "¥", usd: "$", som: "сум" };
@@ -382,7 +385,7 @@ export async function buildSupplierOrderPDF({ items, supplier, currency = "yuan"
   const imgs = {};
   await Promise.all(uniq.map(async (id) => {
     const p = pmap[id]; if (!p) return;
-    const url = (p.photos && p.photos[0]) || p.photo_url || null;
+    const url = главноеФото(p) || null;
     imgs[id] = await embedPhoto(doc, url);
   }));
 

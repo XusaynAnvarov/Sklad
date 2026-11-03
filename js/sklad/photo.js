@@ -9,27 +9,30 @@ import { el } from "./app.js?v=20261103c";
 import { thumb } from "../img.js?v=20261103c";
 import { lightbox } from "../ui.js?v=20261103c";
 
-// Все снимки товара: новые лежат в photos, старые — в одном photo_url.
-export function photosOf(p) {
-  if (!p) return [];
-  if (Array.isArray(p.photos) && p.photos.length) return p.photos.filter(Boolean);
-  return p.photo_url ? [p.photo_url] : [];
-}
+// Все снимки товара и выбор главного — правило общее с каталогом, складом
+// на сайте и PDF, поэтому живёт в одном месте: js/photo.js.
+import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261103c";
+export { снимки as photosOf };
 
 // Крупный снимок для карточки. Нет фото — не занимаем место пустой рамкой.
 export function photoBlock(p, { height = 200 } = {}) {
-  const list = photosOf(p);
+  const list = снимки(p);
   if (!list.length) return null;
 
+  // Крупным — ГЛАВНОЕ фото: отсканировали наклейку и должны увидеть товар
+  // таким, каким он выглядит в списках и у клиентов.
+  const главныйСнимок = главноеФото(p);
+  const начало = индексГлавного(p);
+
   const главное = el("img", {
-    src: thumb(list[0], 640),
+    src: thumb(главныйСнимок, 640),
     alt: p.name || "",
     loading: "lazy",
     title: "Нажмите, чтобы увеличить",
     // Не открылось через свой сервер — берём оригинал. Иначе на месте
     // товара остаётся значок «битая картинка», и непонятно, дело в фото
     // или в приложении.
-    "data-full": list[0],
+    "data-full": главныйСнимок,
     onerror: function () {
       const о = this.getAttribute("data-full");
       if (о && this.src !== о) this.src = о; else this.style.display = "none";
@@ -39,13 +42,16 @@ export function photoBlock(p, { height = 200 } = {}) {
       borderRadius: "12px", background: "var(--bg2)", cursor: "zoom-in",
       display: "block", marginBottom: list.length > 1 ? "8px" : "10px",
     },
-    onclick: () => lightbox(list),
+    onclick: () => lightbox(list, начало),
   });
   if (list.length === 1) return главное;
 
-  // Несколько снимков — маленькие рядом, чтобы было видно, что они есть
+  // Остальные снимки — маленькие рядом, чтобы было видно, что они есть.
+  // Крупное фото уже показано, второй раз его повторять незачем.
   const ряд = el("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" } });
-  list.slice(1, 6).forEach(url => {
+  // Не больше пяти: карточка — не галерея, всё остальное открывается
+  // нажатием на крупный снимок.
+  list.map((url, i) => ({ url, i })).filter(x => x.i !== начало).slice(0, 5).forEach(({ url, i }) => {
     ряд.append(el("img", {
       src: thumb(url, 160), alt: "", loading: "lazy",
       "data-full": url,
@@ -55,7 +61,7 @@ export function photoBlock(p, { height = 200 } = {}) {
       },
       style: { width: "52px", height: "52px", objectFit: "cover", borderRadius: "8px",
         background: "var(--bg2)", cursor: "zoom-in" },
-      onclick: () => lightbox(list),
+      onclick: () => lightbox(list, i),
     }));
   });
   return el("div", {}, [главное, ряд]);

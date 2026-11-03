@@ -27,6 +27,9 @@ import {
 } from "./lib/clientorders.js";
 import { накладныеКлиента, своя } from "./lib/clientinvoices.js";
 import { отправитьНакладнуюPDF, датаНакладной } from "./lib/invoicesend.js";
+// Главное фото товара выбирает владелец звездой в карточке товара.
+// Правило общее с браузером — один модуль на всех: js/photo.js.
+import { главноеФото } from "../js/photo.js";
 
 const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN;
 const ADMIN_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -52,7 +55,7 @@ async function карточкиТоваров(ids) {
     const prods = await sget(`products?id=in.(${чистые.join(",")})&select=id,name,photo_url,photos`);
     return Object.fromEntries((prods || []).map(p => [String(p.id), {
       name: p.name || "—",
-      photo: (Array.isArray(p.photos) && p.photos[0]) || p.photo_url || "",
+      photo: главноеФото(p),
     }]));
   } catch { return {}; }
 }

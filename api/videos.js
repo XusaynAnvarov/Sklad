@@ -1,6 +1,9 @@
 // GET /api/videos — список видео (только id+title) для ВОШЕДШИХ клиентов.
 import { getValidClient } from "./lib/clientauth.js";
 import { sget } from "./lib/supa.js";
+// Главное фото товара выбирает владелец звездой в карточке товара.
+// Правило общее с браузером — один модуль на всех: js/photo.js.
+import { главноеФото } from "../js/photo.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -15,7 +18,7 @@ export default async function handler(req, res) {
     if (pids.length) {
       try {
         const prods = await sget(`products?id=in.(${pids.map(encodeURIComponent).join(",")})&select=id,name,photo_url,photos`);
-        prods.forEach(p => { pmap[p.id] = { name: p.name, photo: (p.photos && p.photos[0]) || p.photo_url || null }; });
+        prods.forEach(p => { pmap[p.id] = { name: p.name, photo: главноеФото(p) || null }; });
       } catch {}
     }
     return res.status(200).json(rows.map(v => {

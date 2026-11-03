@@ -28,6 +28,9 @@ import { readFileSync } from "fs";
 import { qrMatrix } from "../../js/qr.js";
 import { БУКВЫ, раздел as разделТовара, буквыРаздела } from "../../js/catalogcode.js";
 import { ПОДПИСИ, названиеРаздела } from "../../js/catalogbook-text.js";
+// Главное фото товара выбирает владелец звездой в карточке товара.
+// Правило общее с браузером — один модуль на всех: js/photo.js.
+import { главноеФото } from "../../js/photo.js";
 
 // ---------------------------------------------------------------- размеры
 const ММ = 72 / 25.4;
@@ -249,7 +252,7 @@ export function ориентацияJpeg(b) {
 
 // Путь снимка в хранилище из того, что лежит в товаре (ссылка или путь).
 export function путьСнимка(товар) {
-  const первый = (Array.isArray(товар && товар.photos) && товар.photos[0]) || (товар && товар.photo_url) || "";
+  const первый = главноеФото(товар);
   const s = String(первый);
   const i = s.indexOf("/object/public/");
   if (i >= 0) return decodeURIComponent(s.slice(i + "/object/public/".length).split("?")[0]);

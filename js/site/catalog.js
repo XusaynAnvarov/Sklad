@@ -5,6 +5,9 @@ import { openLogin } from "./auth.js?v=20261103c";
 import { thumb, full } from "../img.js?v=20261103c";
 import { подходит } from "../productsearch.js?v=20261103c";
 import { подписьКода } from "../catalogcode.js?v=20261103c";
+// Главное фото товара выбирает владелец (звезда в карточке товара на
+// складе), и это не обязательно первый снимок: см. js/photo.js.
+import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261103c";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
 import { пустить, проекция, резинка, вести } from "../spring.js?v=20261103c";
 
@@ -406,27 +409,30 @@ function buildCard(p) {
   const isSoon  = p.status === "soon";
 
   // Фото (одно или несколько — галерея по клику)
-  const photos = (p.photos && p.photos.length) ? p.photos : (p.photo_url ? [p.photo_url] : []);
+  const photos = снимки(p);
+  // В плитке — главное фото, в галерее — все снимки по порядку.
+  const главный = главноеФото(p);
   const imgWrap = mkEl("div", "product-card-img");
   if (photos.length) {
     const img = document.createElement("img");
     // в сетке — миниатюра: сотни полноразмерных фото занимают в памяти телефона
     // гигабайты и браузер зависает. В галерее по клику открываются оригиналы.
-    img.src = thumb(photos[0], 480); img.alt = p.name;
+    img.src = thumb(главный, 480); img.alt = p.name;
     img.loading = "lazy"; img.decoding = "async"; img.style.cursor = "zoom-in";
     img.onerror = () => {
       // Миниатюра не вышла — пробуем полный размер, но тоже через свой сервер.
       // Прямой адрес из базы брать нельзя: у большей части товаров там
       // остался адрес прежнего проекта Supabase, и он больше не отвечает.
-      const запасной = full(photos[0]);
+      const запасной = full(главный);
       if (img.src !== запасной) { img.src = запасной; return; }
       imgWrap.innerHTML = `<div class="product-card-img-placeholder">${PLACEHOLDER}</div>`;
     };
-    img.addEventListener("click", (e) => { e.stopPropagation(); openGallery(photos, 0, p.name); });
+    // Галерея открывается на том снимке, который виден в плитке.
+    img.addEventListener("click", (e) => { e.stopPropagation(); openGallery(photos, индексГлавного(p), p.name); });
     // Поля по краям вписанного снимка заполняет его же размытая копия
     // (css/site.css, .product-card-img::before). Берём самую мелкую
     // миниатюру — её всё равно размывает, зато грузится мгновенно.
-    imgWrap.style.setProperty("--фото", "url('" + thumb(photos[0], 64) + "')");
+    imgWrap.style.setProperty("--фото", "url('" + thumb(главный, 64) + "')");
     imgWrap.append(img);
     {
       const pb = mkEl("span");

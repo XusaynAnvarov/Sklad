@@ -1433,7 +1433,7 @@ html:active-view-transition { cursor: default; }
 
 /* Выбранное главное фото: латунная рамка — тот же цвет, что у всего
    остального выбранного в складе. */
-.phed-t.phed-main { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.phed-t.phed-main { border-color: var(--accent); border-width: 2px; }
 .phed-badge {
   position: absolute; left: 4px; top: 4px; z-index: 2;
   font-size: 9px; font-weight: 700; letter-spacing: .02em;

@@ -81,6 +81,7 @@ export default async function render(box, ctx) {
     let таймерФото = 0;
     const сохранитьФото = (данные) => {
       фотоИзменены = true;
+      drawФото();                         // крупный снимок показывает главное
       if (isNew) return;                  // строки в базе ещё нет
       clearTimeout(таймерФото);
       таймерФото = setTimeout(async () => {
@@ -101,12 +102,11 @@ export default async function render(box, ctx) {
       наСообщение: (т) => toast(т, "info"),
       наИзменение: сохранитьФото,
     });
-    const фото = ред.список();
     const превью = el("div", { style: { marginBottom: "4px" } });
     const fFile = el("input", { type: "file", accept: "image/*", multiple: true, style: { display: "none" } });
     const кнопкаФото = el("button.btn.btn-outline", {
       style: { flex: "1", justifyContent: "center", minHeight: "42px" },
-      text: фото.length ? "Добавить фото" : "Снять или выбрать фото",
+      text: ред.пусто() ? "Снять или выбрать фото" : "Добавить фото",
       onclick: () => fFile.click(),
     });
     fFile.addEventListener("change", async () => {
@@ -115,58 +115,44 @@ export default async function render(box, ctx) {
       кнопкаФото.disabled = true;
       кнопкаФото.textContent = "Загружаем…";
       for (const file of files) {
-        try { фото.push(await ctx.db.uploadPhoto(file)); }
+        try { ред.добавить(await ctx.db.uploadPhoto(file)); }
         catch (e) { toast("Фото не загрузилось: " + (e.message || e), "err"); }
       }
       fFile.value = "";
       кнопкаФото.disabled = false;
-      кнопкаФото.textContent = "Добавить фото";
       drawФото();
     });
+    // Крупным — ГЛАВНОЕ фото, а не первое по порядку: правя карточку, надо
+    // видеть товар таким, каким его видят в списках, в заказах и клиенты.
+    // Ниже — плитки редактора: порядок тянется за ручку, главное выбирается
+    // звездой (js/photoedit.js).
     function drawФото() {
       превью.innerHTML = "";
-      if (фото.length) {
-        // Крупный снимок первым: правя карточку, надо видеть сам товар, а не
-        // гадать по названию. Первое фото — главное, оно же в каталоге.
+      const главный = ред.главное();
+      const список = ред.список();
+      if (главный) {
         превью.append(el("img", {
-          src: thumb(фото[0], 640), alt: "", loading: "lazy", title: "Нажмите, чтобы увеличить",
-          "data-full": фото[0],
+          src: thumb(главный, 640), alt: "", loading: "lazy", title: "Нажмите, чтобы увеличить",
+          "data-full": главный,
           onerror: function () {
             const о = this.getAttribute("data-full");
             if (о && this.src !== о) this.src = о; else this.style.display = "none";
           },
           style: { width: "100%", maxHeight: "200px", objectFit: "contain", borderRadius: "12px",
             background: "var(--bg2)", cursor: "zoom-in", display: "block", marginBottom: "8px" },
-          onclick: () => lightbox(фото),
+          onclick: () => lightbox(список, Math.max(0, список.indexOf(главный))),
         }));
       }
-      const ряд = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
-      фото.forEach((url, i) => {
-        ряд.append(el("div", { style: { position: "relative" } }, [
-          el("img", { src: thumb(url, 160), alt: "", loading: "lazy", "data-full": url,
-            onerror: function () {
-              const о = this.getAttribute("data-full");
-              if (о && this.src !== о) this.src = о;
-            },
-            style: { width: "64px", height: "64px", objectFit: "cover", borderRadius: "10px",
-              background: "var(--bg2)", cursor: "zoom-in",
-              outline: i === 0 ? "2px solid var(--accent)" : "none", outlineOffset: "1px" },
-            title: i === 0 ? "Главное фото" : "Нажмите, чтобы увеличить",
-            onclick: () => lightbox(фото) }),
-          el("button.mini-icon-btn", {
-            title: "Убрать фото",
-            style: { position: "absolute", top: "-6px", right: "-6px", padding: "2px" },
-            onclick: (e) => { e.stopPropagation(); фото.splice(i, 1); drawФото(); },
-          }, [icon("x", { size: 13 })]),
-        ]));
-      });
-      if (фото.length) превью.append(ряд);
-      кнопкаФото.textContent = фото.length ? "Добавить фото" : "Снять или выбрать фото";
+      превью.append(ред.узел);
+      кнопкаФото.textContent = список.length ? "Добавить фото" : "Снять или выбрать фото";
     }
     drawФото();
 
     const actions = [
-      { label: "Отмена", kind: "btn-outline", onClick: c => c() },
+      // «Отмена» отменяет правку полей, но не фотографии: порядок и главное
+      // фото уже записаны. Список за карточкой поэтому перерисовываем —
+      // иначе в нём остался бы прежний снимок.
+      { label: "Отмена", kind: "btn-outline", onClick: c => { c(); if (фотоИзменены) { clearTimeout(таймерФото); const д = ред.данные(); if (!isNew) ctx.db.products.upsert({ id: item.id, photos: д.photos, photo_url: д.photo_url }).then(() => { Object.assign(item, д); draw(); }).catch(() => {}); } } },
       {
         label: isNew ? "Добавить" : "Сохранить", kind: "btn-primary", onClick: async (close) => {
           const name = fName.value.trim();
@@ -186,9 +172,9 @@ export default async function render(box, ctx) {
             cost_usd,
             cost_cur,
             price_som: Number(fPrice.value) || 0,
-            // первое фото — главное: его показывают в списках и в каталоге
-            photos: фото,
-            photo_url: фото[0] || null,
+            // Главное фото владелец выбирает звездой — это НЕ «первое в
+            // списке»: порядок снимков и аватар меняются независимо.
+            ...ред.данные(),
           };
           // Код успел уйти другому товару (два телефона завели товар разом) —
           // пробуем следующий номер, а не сохраняем товар молча без кода.

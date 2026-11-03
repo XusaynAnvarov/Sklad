@@ -2,6 +2,9 @@
 import { getClient } from "../lib/clientauth.js";
 import { sget , okId } from "../lib/supa.js";
 import { invoiceCoverageStatus, allocatePayments } from "../lib/debt.js";
+// Главное фото товара выбирает владелец звездой в карточке товара.
+// Правило общее с браузером — один модуль на всех: js/photo.js.
+import { главноеФото } from "../../js/photo.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -30,7 +33,7 @@ export default async function handler(req, res) {
       const prods = await sget(`products?id=in.(${encodeURIComponent(prodIds.join(","))})&select=id,name,photo_url,photos`);
       prods.forEach(p => (prodMap[p.id] = {
         name: p.name,
-        photo: (p.photos && p.photos[0]) || p.photo_url || null,
+        photo: главноеФото(p) || null,
       }));
     }
 

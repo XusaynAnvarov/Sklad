@@ -12,6 +12,9 @@ import { iconSvg } from "./icons.js?v=20261103c";
 import { thumb, full } from "./img.js?v=20261103c";
 import { подходит } from "./productsearch.js?v=20261103c";
 import { подписьКода } from "./catalogcode.js?v=20261103c";
+// Главное фото товара выбирает владелец (звезда в карточке товара), и это
+// не обязательно первый снимок по порядку: см. js/photo.js.
+import { снимки, главноеФото, индексГлавного } from "./photo.js?v=20261103c";
 
 // увеличение фото по клику (повторный клик — закрыть)
 function openLightbox(src) {
@@ -116,8 +119,8 @@ function statusBadge(status) {
 
 function cardHtml(p, i) {
   const id = escapeHtml(String(p.id));
-  const np = (p.photos && p.photos.length) ? p.photos.length : (p.photo_url ? 1 : 0);
-  const mainPhoto = (p.photos && p.photos.length) ? p.photos[0] : p.photo_url;
+  const np = снимки(p).length;
+  const mainPhoto = главноеФото(p);
   return `<div class="prod reveal" data-id="${id}" style="animation-delay:${(i % 12) * 0.03}s">
       <div style="position:relative">
         <img class="ph" loading="lazy" decoding="async" style="cursor:zoom-in" src="${escapeHtml(mainPhoto ? thumb(mainPhoto, 320) : placeholder(p.name))}" data-full="${escapeHtml(mainPhoto ? full(mainPhoto) : "")}" data-ph="${escapeHtml(placeholder(p.name))}" onerror="if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full}else{this.src=this.dataset.ph}" />
@@ -259,8 +262,9 @@ if (!TG && "serviceWorker" in navigator && (location.protocol === "https:" || lo
     if (!img) return;
     const id = img.closest(".prod")?.getAttribute("data-id");
     const prod = byId(id);
-    const photos = (prod && prod.photos && prod.photos.length) ? prod.photos : (prod && prod.photo_url ? [prod.photo_url] : [img.src]);
-    openGallery(photos, 0, prod ? prod.name : "");
+    const photos = prod && снимки(prod).length ? снимки(prod) : [img.src];
+    // Открываем на том снимке, который виден в плитке, — на главном.
+    openGallery(photos, prod ? индексГлавного(prod) : 0, prod ? prod.name : "");
   });
   applyI18n(document.body);
   try {

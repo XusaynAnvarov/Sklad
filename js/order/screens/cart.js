@@ -10,7 +10,7 @@ import { icon } from "../../icons.js?v=20261103c";
 import { toast, confirmDialog } from "../../ui.js?v=20261103c";
 import { идти } from "../app.js?v=20261103c";
 import { отправитьКорзину } from "../api.js?v=20261103c";
-import { снимки, картинка } from "../photo.js?v=20261103c";
+import { главноеФото, картинка } from "../photo.js?v=20261103c";
 import { счётчик } from "../stepper.js?v=20261103c";
 
 const дата = (d) => { const t = new Date(d); return isFinite(t) ? t.toLocaleDateString("ru-RU") : "—"; };
@@ -64,7 +64,6 @@ export default function render(box, ctx) {
     позиции.forEach(({ id, qty }) => {
       const p = ctx.поИд.get(String(id));
       const имя = p ? p.name : "товар недоступен";
-      const фото = p ? снимки(p) : [];
 
       // Ноль убирает товар из корзины — тогда список перерисовывается целиком.
       const поле = счётчик(qty, (n) => {
@@ -75,7 +74,7 @@ export default function render(box, ctx) {
       });
 
       список.append(el("div.mini-row", {}, [
-        картинка(фото[0], { size: 96, имя, className: "ph" }),
+        картинка(p ? главноеФото(p) : "", { size: 96, имя, className: "ph" }),
         el("div.info", {}, [
           el("div.nm", { text: имя }),
           p && p.sku ? el("div.sku", { text: p.sku }) : null,

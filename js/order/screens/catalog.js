@@ -8,7 +8,7 @@ import { el } from "../../el.js?v=20261103c";
 import { icon } from "../../icons.js?v=20261103c";
 import { toast } from "../../ui.js?v=20261103c";
 import { идти } from "../app.js?v=20261103c";
-import { снимки, картинка, открытьФото } from "../photo.js?v=20261103c";
+import { снимки, главноеФото, индексГлавного, картинка, открытьФото } from "../photo.js?v=20261103c";
 import { счётчик } from "../stepper.js?v=20261103c";
 import { подходит } from "../../productsearch.js?v=20261103c";
 import { подписьКода } from "../../catalogcode.js?v=20261103c";
@@ -73,8 +73,9 @@ export default function render(box, ctx) {
     const фото = снимки(p);
     const было = корзина.количество(p.id);
 
-    const снимок = картинка(фото[0], { size: 300, имя: p.name, className: "ord-ph" });
-    if (фото.length) снимок.addEventListener("click", () => открытьФото(фото, 0, p.name));
+    // В плитке — главное фото товара, листается с него же.
+    const снимок = картинка(главноеФото(p), { size: 300, имя: p.name, className: "ord-ph" });
+    if (фото.length) снимок.addEventListener("click", () => открытьФото(фото, индексГлавного(p), p.name));
 
     // Сколько добавить за один раз. Вводится с клавиатуры: заказывают
     // сотнями, и набирать это плюсиком невозможно.

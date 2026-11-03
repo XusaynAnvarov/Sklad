@@ -4,6 +4,8 @@
 // ========================================================================
 import { CUR } from "./fx.js?v=20261103c";
 import { thumb } from "./img.js?v=20261103c";
+// В выгрузках показываем ГЛАВНОЕ фото товара — то же, что в списках.
+import { главноеФото } from "./photo.js?v=20261103c";
 
 let _xlsx = null;
 async function lib() { if (!_xlsx) _xlsx = await import("https://esm.sh/xlsx@0.18.5"); return _xlsx; }
@@ -171,7 +173,7 @@ function уменьшить(dataUrl) {
 // Адрес берём через thumb(): прямой адрес из базы у товаров, заведённых
 // до переезда, ведёт на прежний проект Supabase и не отвечает.
 async function снимкиТоваров(товары) {
-  const адреса = товары.map(p => (p && ((Array.isArray(p.photos) && p.photos[0]) || p.photo_url)) || null);
+  const адреса = товары.map(p => главноеФото(p) || null);
   const нужные = [...new Set(адреса.filter(Boolean))];
   const готовые = new Map();
   await Promise.all(нужные.map(async (u) => {
@@ -466,7 +468,7 @@ export async function exportStockCountSheet(products, настройки = {}) {
   if (сФото) {
     if (наПрогресс) наПрогресс("Готовим фото…");
     фото = await Promise.all(список.map(p => {
-      const url = (p.photos && p.photos[0]) || p.photo_url || null;
+      const url = главноеФото(p) || null;
       return url ? urlToDataUrl(thumb(url, 160)) : Promise.resolve(null);
     }));
   }

@@ -25,6 +25,7 @@ import { parseRows, pickFile } from "../xlsx-import.js?v=20261103c";
 import { подписьКода } from "../catalogcode.js?v=20261103c";
 import { поставитьСнимок } from "../img.js?v=20261103c";
 import { placeholder } from "./products.js?v=20261103c";
+import { главноеФото } from "../photo.js?v=20261103c";
 
 const знак = (n) => (n > 0 ? "+" : "") + (Math.round(n * 100) / 100);
 const ПАЧКА = 150;                       // товаров в одном запросе на запись
@@ -208,7 +209,7 @@ export function пересчётПоExcel(page, ctx, products) {
         style: { width: "46px", height: "46px", objectFit: "cover", borderRadius: "8px", background: "var(--bg2)", flex: "0 0 auto" },
         alt: p.name || "",
       });
-      поставитьСнимок(фото, (p.photos && p.photos[0]) || p.photo_url || "", placeholder(p.name || "?"), 120, true);
+      поставитьСнимок(фото, главноеФото(p), placeholder(p.name || "?"), 120, true);
 
       const строка = el("div.card", { style: { display: "flex", alignItems: "center", gap: "10px", padding: "8px 10px" } }, [
         фото,
