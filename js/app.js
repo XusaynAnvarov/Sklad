@@ -29,11 +29,13 @@ import trash from "./pages/trash.js?v=20261103f";
 import videosAdmin from "./pages/videos_admin.js?v=20261103f";
 import supplierOrder from "./pages/supplier_order.js?v=20261103f";
 import stockCheck from "./pages/stock_check.js?v=20261103f";
+import packingSetup from "./pages/packing_setup.js?v=20261103f";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
   { id: "products",     label: "Товары",          ic: "box",       render: products },
   { id: "stock_check",  label: "Проверка склада", ic: "check",     render: stockCheck },
+  { id: "packing",      label: "Настройки упаковок", ic: "box",   render: packingSetup },
   { id: "sales",        label: "Продажи",         ic: "receipt",   render: sales },
   { id: "purchases",    label: "Приход",          ic: "truck",     render: purchases },
   { id: "supplier_order", label: "Заказ поставщику", ic: "truck",   render: supplierOrder },
