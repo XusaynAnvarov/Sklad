@@ -36,6 +36,17 @@
         ],
         "createdAt": "2026-10-30T04:09:45.400Z",
         "reason": "Same nav-item marker already excepted for css/theme.css: these pages have no side border of their own (their inline <style> blocks contain none) — they just load that stylesheet. It marks the active row of a navigation list, not an accent border on a content card, and on desktop the rule is overridden into a 3px bottom underline."
+      },
+      {
+        "rule": "radial-halo",
+        "value": "*",
+        "files": [
+          "admin.html",
+          "catalog.html",
+          "css/theme.css"
+        ],
+        "createdAt": "2026-11-03T11:58:24.000Z",
+        "reason": "Мягкое свечение под стеклом — часть дизайн-системы, а не украшение. Панели склада матовые (backdrop-filter), и если под ними ровный фон, размывать нечего и карточки выглядят просто серыми — об этом есть запись прямо в css/theme.css. Сам ореол был здесь и раньше, но рисовался сплошным кругом с filter: blur(130px); 2026-11-03 он заменён радиальным градиентом того же размера и непрозрачности (.10/.20) ради кадра — картинка та же, слоёв под размытие больше нет. Ровно так же сделано на публичном сайте (css/site.css, .gm-glow)."
       }
     ]
   }
