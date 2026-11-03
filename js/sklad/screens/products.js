@@ -19,6 +19,10 @@ import { подпись as подписьКол, единица, вЕдиниц�
 import { подходит } from "../../productsearch.js?v=20261103c";
 import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261103c";
 import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261103c";
+// Главное фото (аватар) и порядок снимков — две независимые вещи. Правило
+// и редактор общие со складом на сайте: см. js/photo.js и js/photoedit.js.
+import { снимки, главноеФото, индексГлавного } from "../../photo.js?v=20261103c";
+import { редакторФото } from "../../photoedit.js?v=20261103c";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -69,9 +73,35 @@ export default async function render(box, ctx) {
 
     // Фото с телефона. Раньше карточка умела только показывать снимок —
     // сделать его можно было лишь за компьютером, а товар в руках сейчас.
-    const фото = Array.isArray(item.photos) && item.photos.length
-      ? item.photos.slice()
-      : (item.photo_url ? [item.photo_url] : []);
+    // Порядок снимков и главное фото сохраняются сразу, не дожидаясь
+    // «Сохранить»: расставил снимки, вышел из карточки — значит расставил.
+    // Пишем только две колонки (photos и photo_url), поэтому остаток,
+    // себестоимость и партии эта запись не трогает.
+    let фотоИзменены = false;
+    let таймерФото = 0;
+    const сохранитьФото = (данные) => {
+      фотоИзменены = true;
+      if (isNew) return;                  // строки в базе ещё нет
+      clearTimeout(таймерФото);
+      таймерФото = setTimeout(async () => {
+        try { await ctx.db.products.upsert({ id: item.id, photos: данные.photos, photo_url: данные.photo_url }); }
+        catch (e) {
+          // Колонки photos может не быть (база до миграции галереи) —
+          // тогда сохраняем хотя бы выбор главного снимка.
+          try { await ctx.db.products.upsert({ id: item.id, photo_url: данные.photo_url }); }
+          catch { toast("Фото не сохранились: " + (e.message || e), "err"); return; }
+        }
+        item.photos = данные.photos; item.photo_url = данные.photo_url;
+      }, 500);
+    };
+    const ред = редакторФото({
+      фото: снимки(item),
+      главное: главноеФото(item),
+      наПросмотр: (список, i) => lightbox(список, i),
+      наСообщение: (т) => toast(т, "info"),
+      наИзменение: сохранитьФото,
+    });
+    const фото = ред.список();
     const превью = el("div", { style: { marginBottom: "4px" } });
     const fFile = el("input", { type: "file", accept: "image/*", multiple: true, style: { display: "none" } });
     const кнопкаФото = el("button.btn.btn-outline", {
@@ -374,9 +404,9 @@ export default async function render(box, ctx) {
     const sub = [подписьКода(p) || null, "себест: " + (себест ? костСтрока(own.cost_yuan, own.cost_usd != null ? own.cost_usd : p.cost_usd, вал) : "—")]
       .filter(Boolean).join(" · ");
     return el("div.mini-row" + cls, { onclick: () => openEdit(p) }, [
-      p.photo_url
-        ? el("img.ph", { src: thumb(p.photo_url, 192), loading: "lazy", decoding: "async", alt: "",
-            style: { cursor: "zoom-in" }, "data-full": p.photo_url,
+      главноеФото(p)
+        ? el("img.ph", { src: thumb(главноеФото(p), 192), loading: "lazy", decoding: "async", alt: "",
+            style: { cursor: "zoom-in" }, "data-full": главноеФото(p),
             onerror: function () {
               // сперва оригинал, потом просто пустая рамка — «битая картинка»
               // выглядит как поломка приложения, хотя дело в снимке
@@ -384,7 +414,9 @@ export default async function render(box, ctx) {
               if (о && this.src !== о) { this.src = о; return; }
               this.replaceWith(el("div.ph"));
             },
-            onclick: (e) => { e.stopPropagation(); lightbox((Array.isArray(p.photos) && p.photos.length) ? p.photos : [p.photo_url]); } })
+            // Открываем просмотр на том снимке, который виден в списке:
+            // главное фото не обязательно первое по порядку.
+            onclick: (e) => { e.stopPropagation(); lightbox(снимки(p), индексГлавного(p)); } })
         : el("div.ph"),
       el("div.info", {}, [
         el("div.nm", { text: p.name }),
