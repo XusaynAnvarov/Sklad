@@ -1,0 +1,24 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic:
+      - img "GENERAL MODERN":
+        - generic: GM
+      - generic: General Modern
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "GENERALMODERN" [ref=e5] [cursor=pointer]:
+        - /url: "#catalog"
+        - img [aria-hidden] [ref=e6]:
+          - generic [ref=e10]: GM
+      - navigation [ref=e12]:
+        - link "Каталог" [ref=e13] [cursor=pointer]:
+          - /url: "#catalog"
+        - button "Как заказать" [ref=e14] [cursor=pointer]
+      - generic [ref=e19]:
+        - button "Заказать" [ref=e20] [cursor=pointer]
+        - generic [ref=e25]:
+          - link "Telegram-бот" [ref=e26] [cursor=pointer]:
+            - /url: https://t.me/generalmodernbot
+          - button "Сменить тему" [ref=e29] [cursor=pointer]
+          - button "RU" [ref=e39] [cursor=pointer]
+          - button "Войти" [ref=e43] [cursor=pointer]

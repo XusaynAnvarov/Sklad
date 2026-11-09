@@ -956,3 +956,158 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
   .product-sku { gap: 6px; margin-bottom: 8px; }
   .sku-vendor { display: inline; }
 }
+
+/* ===================================================================
+   КОЛЬЦО НА ВРЕМЯ ПРОВЕРКИ КОДА.
+
+   Образец прислал владелец: пока сервер сверяет код, ячейки съезжают из
+   ряда в круг и медленно вращаются, а после успеха зеленеют и сходятся
+   в точку. Смысл не только в красоте — по кругу видно, что ответа ещё
+   ждём, и цифры при этом остаются перед глазами.
+
+   Куда ехать каждой ячейке, считает js/site/auth.js в пикселях: из
+   обычного потока в position:absolute перехода нет, и ячейки прыгали бы
+   в круг рывком.
+   =================================================================== */
+.gm-code { transition: height .34s var(--gs-e-spring, cubic-bezier(.2,.8,.25,1)); }
+
+.gm-code-cell {
+  /* transform уже участвует в :focus — добавляем его в переход явно,
+     иначе поездка в кольцо пойдёт без сглаживания. */
+  transition: border-color var(--gs-t-hover, .18s), box-shadow var(--gs-t-hover, .18s),
+              background var(--gs-t-hover, .18s),
+              transform .42s var(--gs-e-spring, cubic-bezier(.2,.8,.25,1)),
+              opacity .3s ease;
+}
+
+.gm-кольцо {
+  height: 132px;                 /* место под круг: ряд сжимается, страница не прыгает */
+  align-items: center;
+  animation: gmКольцоВертится 2.4s linear infinite;
+}
+/* Ячейки в кольце не мешают попадать по кнопке и не ловят курсор. */
+.gm-кольцо .gm-code-cell { pointer-events: none; }
+.gm-кольцо .gm-code-cell:focus { transform: inherit; box-shadow: none; }
+
+@keyframes gmКольцоВертится { to { rotate: 360deg; } }
+
+/* Успех: зелёные ячейки сходятся к центру и гаснут, уступая галочке. */
+.gm-код-схлопнулся { animation: none; rotate: 0deg; transition: rotate .4s ease, height .4s ease; height: 56px; }
+.gm-код-схлопнулся .gm-code-cell { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-кольцо { animation: none; height: auto; }
+  .gm-code, .gm-code-cell { transition: none; }
+}
+
+/* ===================================================================
+   ШАГ С КОДОМ — НА ВЕСЬ ЭКРАН.
+
+   Замерено на телефоне 375 px: карточка окна 320, ряду из шести ячеек
+   нужно 290 при доступных 278 — двенадцать пикселей обрезались, а сами
+   ячейки уже ужались с 46 до 40. В окно шесть цифр просто не помещались.
+
+   Поэтому на этом шаге окно раскрывается во весь экран: ячейки идут в
+   полную величину, вокруг появляется воздух, и отрезать нечего. Класс
+   вешает js/site/auth.js (наВесьЭкран) на .s-overlay.
+   =================================================================== */
+.s-overlay.gm-проверка .s-modal {
+  width: 100%; max-width: none;
+  height: 100%; max-height: none;
+  border-radius: 0;
+  display: flex; flex-direction: column;
+  /* Содержимое по центру экрана, а не прижато к верху. */
+  justify-content: center;
+  animation: gmПроверкаПриходит .34s cubic-bezier(.2,.8,.25,1) both;
+}
+/* Шапка окна с крестиком остаётся сверху: закрыть нужно уметь всегда. */
+.s-overlay.gm-проверка .s-modal-head {
+  position: absolute; top: 0; left: 0; right: 0;
+  border-bottom: none; background: none;
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+}
+/* Поля подложки съедали 20 + 20 px, поля формы — ещё 20 + 20. На экране
+   375 ряду оставалось 294 при нужных 313, и шестая клетка срезалась
+   (у .s-modal стоит overflow:hidden). На полном экране эти поля не
+   нужны: окно и так во весь экран. */
+.s-overlay.gm-проверка { padding: 0; }
+.s-overlay.gm-проверка .auth-grid { grid-template-columns: 1fr; }
+.s-overlay.gm-проверка .auth-form {
+  width: 100%; max-width: 420px; margin-inline: auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Разворот: экран приходит из глубины, а не подменяется рывком. */
+@keyframes gmПроверкаПриходит {
+  from { opacity: 0; transform: scale(.97); filter: blur(6px); }
+}
+
+/* Ячейкам — полная величина и воздух между ними.
+   6 × 48 + 5 × 9 = 333 при 335 доступных на экране 375 px. */
+.gm-проверка .gm-code { gap: 9px; margin: 10px 0 6px; }
+.gm-проверка .gm-code-cell {
+  width: 48px; height: 60px;
+  font-size: 1.625rem;
+  border-radius: 14px;
+}
+/* Заголовок крупнее: на весь экран мелкий выглядит потерянным. */
+.gm-проверка .gm-code-title { font-size: 1.375rem; margin-bottom: 8px; }
+.gm-проверка .gm-code-head { margin-bottom: 6px; }
+
+/* Совсем узкие экраны (iPhone SE, 320 px): 6 × 42 + 5 × 7 = 287 при 288. */
+@media (max-width: 360px) {
+  .gm-проверка .gm-code { gap: 7px; }
+  .gm-проверка .gm-code-cell { width: 42px; height: 54px; font-size: 1.4rem; }
+  .gm-проверка .auth-form { padding-left: 16px; padding-right: 16px; }
+}
+
+/* На компьютере разворачивать окно во весь экран незачем — там и так
+   всё помещается; оставляем привычную карточку. */
+@media (min-width: 720px) {
+  .s-overlay.gm-проверка .s-modal {
+    width: auto; max-width: 440px; height: auto; border-radius: var(--radius, 16px);
+    animation: none;
+  }
+  .s-overlay.gm-проверка .s-modal-head { position: static; padding-top: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s-overlay.gm-проверка .s-modal { animation: none; }
+}
+
+/* ===================================================================
+   ОРБИТА: ПУНКТИРНОЕ КОЛЬЦО И ТОЧКА В ЦЕНТРЕ.
+
+   Разобрано по кадрам образца, который прислал владелец. Пунктир
+   нарочно: сплошное кольцо такого размера читается как обычный
+   «идёт загрузка», а здесь не загрузка, а проверка кода.
+
+   Вращение ведёт js/site/auth.js через WAAPI — заводом и торможением,
+   поэтому своей бесконечной анимации у кольца больше нет.
+   =================================================================== */
+.gm-орбита {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s ease;
+}
+.gm-кольцо .gm-орбита { opacity: 1; }
+.gm-орбита-путь {
+  stroke: var(--border, #d7dbe2);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 8;      /* пунктир: не спиннер загрузки */
+  stroke-linecap: round;
+}
+.gm-орбита-центр { fill: var(--muted, #8b95a1); }
+
+/* Кольцу нужна своя система координат — иначе орбита уедет из центра. */
+.gm-code { position: relative; }
+
+/* Своё вращение у ряда отключаем: им теперь управляет WAAPI. */
+.gm-кольцо { animation: none; }
+
+/* Ответ пришёл — кольцо гаснет вместе с ожиданием. */
+.gm-код-схлопнулся .gm-орбита { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) { .gm-орбита { display: none; } }

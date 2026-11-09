@@ -1,6 +1,8 @@
 // Модуль авторизации: вход, регистрация, верификация через Telegram
-import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261109c";
-import { sToast, openModal, closeModal } from "./app.js?v=20261109c";
+import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261109l";
+import { sToast, openModal, closeModal } from "./app.js?v=20261109l";
+// Код из Telegram подставляется из буфера сам — см. js/kodizbufera.js
+import { следитьЗаБуфером } from "../kodizbufera.js?v=20261109l";
 
 let onAuthChange = null;
 export function setAuthChangeCallback(fn) { onAuthChange = fn; }
@@ -170,18 +172,34 @@ function buildAuthModal(start) {
     setTimeout(() => render(ход), УХОД);
   }
 
+  // Шаг с кодом разворачивается на весь экран.
+  //
+  // В окне ему тесно: на телефоне 375 px карточка окна шириной 320, и
+  // ряду из шести ячеек нужно 290 при доступных 278 — двенадцать
+  // пикселей обрезались, а сами ячейки уже ужались с 46 до 40. Поэтому
+  // на этом шаге окно раскрывается во весь экран: ячейкам хватает места
+  // в полную величину, и ничего не отрезается.
+  const наВесьЭкран = (да) => {
+    const окно = wrap.closest(".s-overlay");
+    if (окно) окно.classList.toggle("gm-проверка", !!да);
+  };
+
   function render(ход) {
     wrap.innerHTML = "";
     stopPoll();
+    const кодовыйШаг = mode === "login" && loginStep === "code";
+    наВесьЭкран(кодовыйШаг);
     const грид = el("div.auth-grid");
     const форма = el("div.auth-form");
     if (mode === "login") форма.append(buildLogin());
     else if (mode === "register") форма.append(buildRegister());
     else if (mode === "verify") форма.append(buildVerify());
-    форма.append(guideLink());   // «Как зарегистрироваться?» — видео-инструкция
+    // На шаге кода подсказка про видео-инструкцию лишняя: человек уже
+    // вошёл, ему осталось ввести шесть цифр.
+    if (!кодовыйШаг) форма.append(guideLink());
     // Во время подтверждения (ждём нажатия в боте) переключать режим нечем —
     // показываем только форму, чтобы не сбить человека с толку.
-    if (mode !== "verify") грид.append(buildSide());
+    if (mode !== "verify" && !кодовыйШаг) грид.append(buildSide());
     грид.append(форма);
     wrap.append(грид);
     пуститьПриход(грид, ход);
@@ -291,12 +309,29 @@ function buildAuthModal(start) {
     const успех = el("div.gm-ok", { style: "display:none" });
     успех.innerHTML = ЗНАК_ГАЛОЧКИ;
 
+    // Вернулись из Telegram, где нажали на код, — подставляем его сами.
+    // Где браузер читать буфер молча не даёт (Safari на iPhone), вместо
+    // этого появляется кнопка: по нажатию буфер читается уже законно.
+    const вставитьКнопка = button("📋 Вставить код", "s-link-btn", { style: "display:none" });
+    const буфер = следитьЗаБуфером({
+      длина: ДЛИНА_КОДА,
+      занято: () => ячейки.значение().length > 0,
+      вставить: (код) => { ячейки.разложить(код); sToast("Код вставлен из буфера", "ok"); },
+      неВышло: () => { вставитьКнопка.style.display = ""; },
+    });
+    вставитьКнопка.addEventListener("click", async () => {
+      if (!(await буфер.попробовать()))
+        sToast("В буфере нет кода. Скопируйте его в Telegram — нажмите на цифры.", "err");
+    });
+
     // Повторная отправка: сервер не чаще одного кода в минуту — столько же
     // держим кнопку закрытой, чтобы человек не ловил отказ 429.
     const повтор = button("Отправить код ещё раз", "s-link-btn", {});
     const отсчёт = el("div.gm-code-timer");
     let осталось = 60, таймер = 0;
     function тикать() {
+      // Здесь только перезапуск отсчёта — слежение за буфером не трогаем:
+      // экран никуда не ушёл, код всё ещё ждут.
       clearInterval(таймер);
       повтор.disabled = true;
       отсчёт.textContent = `Отправить код ещё раз можно через ${осталось} с`;
@@ -327,7 +362,7 @@ function buildAuthModal(start) {
     const назад = el("div", { style: "text-align:center;margin-top:4px" });
     назад.innerHTML = `<a href="#" style="font-size:13px;color:var(--navy);font-weight:600">← Изменить номер</a>`;
     назад.querySelector("a").addEventListener("click", (e) => {
-      e.preventDefault(); clearInterval(таймер); loginStep = "phone"; renderПлавно("назад");
+      e.preventDefault(); clearInterval(таймер); буфер.стоп(); loginStep = "phone"; renderПлавно("назад");
     });
 
     let занято = false;
@@ -339,16 +374,21 @@ function buildAuthModal(start) {
       err.style.display = "none";
       btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';
       ячейки.заблокировать(true);
-      await завершитьВход(зн, (сообщение) => {
+      ячейки.проверяем(true);          // ячейки собираются в кольцо и вращаются
+      await завершитьВход(зн, async (сообщение) => {
         занято = false;
         err.textContent = сообщение; err.style.display = "";
         btn.disabled = false; btn.textContent = "Подтвердить";
         ячейки.заблокировать(false);
-        ячейки.ошибка();
-      }, () => {
+        // Ждём: орбита сперва тормозит, цифры встают ровно, и только
+        // потом краснеет рамка — на вращающихся ячейках ответ не прочесть.
+        await ячейки.ошибка();
+      }, async () => {
         // успех: гасим форму и проигрываем галочку
-        clearInterval(таймер);
-        ячейки.принято();
+        clearInterval(таймер); буфер.стоп();
+        // Тоже ждём торможения: галочка не должна выскочить поверх
+        // ещё крутящегося кольца.
+        await ячейки.принято();
         f.classList.add("gm-code-done");
         успех.style.display = "";
         // Заставляем браузер посчитать состояние «скрыто» ПРЯМО СЕЙЧАС,
@@ -362,7 +402,7 @@ function buildAuthModal(start) {
     }
     btn.addEventListener("click", () => проверить());
 
-    f.append(шапка, err, ячейки.узел, успех, btn, отсчёт, повтор, назад);
+    f.append(шапка, err, ячейки.узел, вставитьКнопка, успех, btn, отсчёт, повтор, назад);
     return f;
   }
 
@@ -373,16 +413,19 @@ function buildAuthModal(start) {
       saveToken(res.token);
       clearPendingAuth();
       if (приУспехе) {
-        приУспехе();
+        // Ждём: внутри орбита тормозит, цифры встают ровно и зеленеют.
+        // Без await окно закрылось бы прямо посреди торможения.
+        await приУспехе();
         // Галочке нужно время прорисоваться — только потом окно уходит.
         await new Promise(r => setTimeout(r, меньшеДвижения() ? 300 : 1250));
       }
       loginStep = "phone"; loginPass = "";
+      наВесьЭкран(false);   // иначе класс останется на окне до следующего входа
       closeModal("auth-modal");
       sToast("Вход выполнен", "ok");
       notifyChange();
     } catch (e) {
-      приОшибке(e.message || "Не удалось войти");
+      await приОшибке(e.message || "Не удалось войти");
     }
   }
 
@@ -640,19 +683,144 @@ function ячейкиКода(длина, приГотовности) {
 
   setTimeout(() => поля[0].focus(), 80);
 
+  // ---- Орбита на время проверки ----
+  //
+  // Пока сервер сверяет код, ячейки съезжают из ряда на орбиту вокруг
+  // точки и крутятся. Сделано по образцу, который прислал владелец, и
+  // разобрано по его же кадрам:
+  //
+  //   • позади появляется ПУНКТИРНОЕ кольцо и точка в центре. Пунктир
+  //     нарочно: сплошное кольцо такого размера читается как обычный
+  //     «идёт загрузка», а это не загрузка, а проверка;
+  //   • движение не ровное по кругу, а с ЗАВОДОМ и ТОРМОЖЕНИЕМ: разгон,
+  //     оборот с четвертью, потом медленное ожидание ответа;
+  //   • когда ответ пришёл — орбита ТОРМОЗИТ до ровного положения, и
+  //     цифры встают прямо. Только после этого появляется цвет.
+  //
+  // Цвет приберегаем для ответа: пока ждём, ничего не красится. Внимание
+  // держит движение, а не оттенок.
+  //
+  // Сдвиг каждой ячейки считаем в пикселях от её нынешнего места, а не
+  // переключаем position: из обычного потока в absolute перехода нет, и
+  // ячейки прыгали бы на орбиту рывком.
+  const РАДИУС = 46;
+  const ЗАВОД = 820;                  // разгон и оборот с четвертью
+  const ОБОРОТ = 2600;                // спокойное ожидание: один оборот
+  let вКольце = false, вращение = null, уголСейчас = 0;
+
+  // Пунктирное кольцо и точка в центре — рисуем один раз, показываем с орбитой.
+  const орбита = document.createElement("div");
+  орбита.className = "gm-орбита";
+  орбита.setAttribute("aria-hidden", "true");
+  орбита.innerHTML =
+    `<svg viewBox="0 0 120 120" width="120" height="120">
+       <circle class="gm-орбита-путь" cx="60" cy="60" r="${РАДИУС}" fill="none"
+               vector-effect="non-scaling-stroke"/>
+       <circle class="gm-орбита-центр" cx="60" cy="60" r="2.5"/>
+     </svg>`;
+  узел.append(орбита);
+
+  // Где сейчас повёрнута орбита: нужно, чтобы тормозить от текущего
+  // положения, а не прыгать на ноль.
+  function текущийУгол() {
+    const t = getComputedStyle(узел).transform;
+    const m = t && t !== "none" ? new DOMMatrixReadOnly(t) : null;
+    if (!m) return уголСейчас;
+    const град = Math.atan2(m.b, m.a) * 180 / Math.PI;
+    return (град + 360) % 360;
+  }
+
+  function крутить() {
+    // Завод: разгон и оборот с четвертью — так же, как в образце.
+    const завод = узел.animate(
+      [{ rotate: "0deg" }, { rotate: "450deg" }],
+      { duration: ЗАВОД, easing: "cubic-bezier(.45,0,.25,1)", fill: "forwards" },
+    );
+    вращение = завод;
+    завод.finished.then(() => {
+      if (!вКольце) return;
+      // Дальше — спокойное ожидание ответа, пока сервер думает.
+      вращение = узел.animate(
+        [{ rotate: "450deg" }, { rotate: "810deg" }],
+        { duration: ОБОРОТ, easing: "linear", iterations: Infinity },
+      );
+    }).catch(() => {});   // вкладку спрятали — переход отменён, это штатно
+  }
+
+  // Затормозить до ровного положения: цифры должны встать прямо, иначе
+  // читать ответ неудобно. Возвращает обещание, чтобы цвет показать уже
+  // после остановки.
+  function затормозить() {
+    const от = текущийУгол();
+    if (вращение) { try { вращение.cancel(); } catch {} вращение = null; }
+    уголСейчас = 0;
+    const тормоз = узел.animate(
+      [{ rotate: `${от}deg` }, { rotate: "360deg" }],
+      { duration: 420, easing: "cubic-bezier(.2,.8,.25,1)", fill: "forwards" },
+    );
+    // Если кадры не идут (скрытая вкладка), обещание не придёт никогда —
+    // поэтому ждём не дольше, чем нужно.
+    return Promise.race([
+      тормоз.finished.catch(() => {}),
+      new Promise(r => setTimeout(r, 500)),
+    ]);
+  }
+
+  function кольцо(да) {
+    if (меньшеДвижения()) return;            // просьбу «меньше движения» уважаем
+    if (да === вКольце) return;
+    вКольце = да;
+    if (!да) {
+      if (вращение) { try { вращение.cancel(); } catch {} вращение = null; }
+      узел.getAnimations().forEach(a => { try { a.cancel(); } catch {} });
+      узел.classList.remove("gm-кольцо");
+      поля.forEach(п => { п.style.transform = ""; });
+      return;
+    }
+    const р = узел.getBoundingClientRect();
+    const цx = р.left + р.width / 2, цy = р.top + р.height / 2;
+    поля.forEach((п, i) => {
+      const пр = п.getBoundingClientRect();
+      const угол = (i / длина) * Math.PI * 2 - Math.PI / 2;
+      const цельX = цx + Math.cos(угол) * РАДИУС;
+      const цельY = цy + Math.sin(угол) * РАДИУС;
+      п.style.transform =
+        `translate(${цельX - (пр.left + пр.width / 2)}px, ${цельY - (пр.top + пр.height / 2)}px)`;
+    });
+    узел.classList.add("gm-кольцо");
+    крутить();
+  }
+
   return {
     узел,
     значение,
+    // Разложить готовый код по ячейкам — этим пользуется подстановка из
+    // буфера (js/kodizbufera.js) после возвращения из Telegram.
+    разложить,
     очистить() { поля.forEach(п => п.value = ""); узел.classList.remove("gm-code-err"); поля[0].focus(); },
     заблокировать(да) { поля.forEach(п => п.disabled = !!да); },
-    ошибка() {
+    проверяем(да) { кольцо(!!да); },
+    async ошибка() {
+      // Сначала тормозим — цифры должны встать прямо; красное на
+      // вращающихся ячейках не прочесть.
+      if (вКольце) await затормозить();
+      кольцо(false);
       узел.classList.remove("gm-code-err");
       void узел.offsetWidth;          // перезапуск анимации встряски
       узел.classList.add("gm-code-err");
       поля.forEach(п => п.value = "");
       поля[0].focus();
     },
-    принято() { узел.classList.add("gm-code-ok"); },
+    async принято() {
+      // Порядок как в образце: торможение → цифры встали ровно → только
+      // теперь цвет → и схлопывание в точку, из которой росла орбита.
+      if (вКольце) await затормозить();
+      узел.classList.add("gm-code-ok");
+      if (меньшеДвижения() || !вКольце) return;
+      await new Promise(r => setTimeout(r, 300));
+      поля.forEach(п => { п.style.transform = "translate(0,0) scale(.25)"; });
+      узел.classList.add("gm-код-схлопнулся");
+    },
   };
 }
 
