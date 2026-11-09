@@ -57,7 +57,7 @@ const { default: loginStart } = await import(new URL("api/client/login-start.js"
 const { hashDevice } = await import(new URL("api/lib/clientauth.js", корень));
 
 function зов(body, headers = {}) {
-  const req = { method: "POST", body, headers: { "user-agent": "Mozilla/5.0 (iPhone) Safari", "cf-ipcountry": "UZ", "cf-ipcity": "Tashkent", ...headers } };
+  const req = { method: "POST", body, headers: { "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", "cf-ipcountry": "UZ", "cf-ipcity": "Tashkent", ...headers } };
   let статус = 200, ответ = null;
   const res = { status(s) { статус = s; return res; }, json(j) { ответ = j; return res; }, setHeader() {}, end() { return res; } };
   return loginStart(req, res).then(() => ({ статус, ...(ответ || {}) }));
