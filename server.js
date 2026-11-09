@@ -163,7 +163,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20261109b");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20261109c");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -251,8 +251,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261109b");
-    const { sget } = await import("./api/lib/supa.js?v=20261109b");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261109c");
+    const { sget } = await import("./api/lib/supa.js?v=20261109c");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +
@@ -276,7 +276,7 @@ setInterval(async () => {
 // Раз в сутки: IP старше 30 дней стираем, визиты старше 180 и прочие
 // события старше 365 дней удаляем (политика — privacy.html).
 async function очисткаДанных() {
-  try { const { purgeOld } = await import("./api/lib/crm.js?v=20261109b"); await purgeOld(); }
+  try { const { purgeOld } = await import("./api/lib/crm.js?v=20261109c"); await purgeOld(); }
   catch (e) { console.error("[GM] Очистка старых данных не прошла:", e.message); }
 }
 setTimeout(очисткаДанных, 5 * 60e3);
@@ -289,7 +289,7 @@ app.listen(PORT, async () => {
   // продаже: сообщение будет крупным и с подсказкой, как откатиться.
   if (String(process.env.DB_MODE || "").toLowerCase() === "local") {
     try {
-      const { проверитьСвязь } = await import("./api/lib/pg.js?v=20261109b");
+      const { проверитьСвязь } = await import("./api/lib/pg.js?v=20261109c");
       const товаров = await проверитьСвязь();
       console.log(`[GM] База: СВОЯ (PostgreSQL здесь же), товаров в ней: ${товаров}`);
     } catch (e) {
@@ -301,5 +301,5 @@ app.listen(PORT, async () => {
   }
   // Греем короткую память сервера: иначе первый заход в склад после
   // выкладки ждёт базу несколько секунд на каждую таблицу.
-  import("./api/admin/db.js?v=20261109b").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
+  import("./api/admin/db.js?v=20261109c").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
 });
