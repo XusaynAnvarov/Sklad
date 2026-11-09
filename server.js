@@ -1,7 +1,7 @@
 // Express-сервер для VPS: маршрутизирует /api/* на обработчики
 import express from "express";
 import { readFileSync } from "fs";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { dirname, join } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -87,6 +87,8 @@ const routes = [
   [["GET","POST"], "/api/admin/crm",          "./api/admin/crm.js"],
   // отметка визита на сайт / в мини-приложение (приблизительное гео по IP)
   [["POST"],  "/api/track",                   "./api/track.js"],
+  // SEO и поисковая видимость (склад → «SEO»)
+  [["GET","POST"], "/api/admin/seo",          "./api/admin/seo.js"],
   [["POST","OPTIONS"], "/api/video-sign-upload", "./api/video-sign-upload.js"],
   [["POST","OPTIONS"], "/api/supplier-order-pdf", "./api/supplier-order-pdf.js"],
   [["GET"],   "/api/videos",                  "./api/videos.js"],
@@ -119,7 +121,7 @@ for (const [methods, path, file] of routes) {
       try {
         // кэшируем обработчик в prod, перезагружаем в dev
         if (!app._handlers) app._handlers = {};
-        if (!app._handlers[file]) app._handlers[file] = (await import(absFile)).default;
+        if (!app._handlers[file]) app._handlers[file] = (await import(pathToFileURL(absFile).href)).default;
         const handler = app._handlers[file];
         if (!handler) return res.status(404).json({ error: "Handler not found: " + file });
         await handler(req, wrapRes(res));
@@ -170,6 +172,18 @@ app.get("/api/img", async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+//  SEO: страницы товаров и категорий, карта сайта, фид, llms.txt
+//  (api/seo/router.js). Если модуль не загрузился — сайт работает как
+//  раньше, просто без этих страниц: ошибка не роняет сервер.
+// ------------------------------------------------------------------
+try {
+  const { default: seoRouter } = await import("./api/seo/router.js");
+  app.use(seoRouter);
+} catch (e) {
+  console.error("[GM] SEO-модуль не загрузился:", e);
+}
+
+// ------------------------------------------------------------------
 //  Ниже раздаётся ВСЯ папка проекта, включая серверный код. Всё, что
 //  начинается с /api/ и не совпало ни с одним маршрутом выше, дальше
 //  пускать нельзя: иначе по адресу /api/bot.js скачивался исходник
@@ -202,6 +216,28 @@ app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
   res.sendFile(join(__dirname, "index.html"));
 });
+
+// ---------- SEO: регулярная проверка и сообщение поисковикам о новинках ----------
+// Раз в 6 часов: аудит всех товаров (история — в SEO-панели склада) и, если
+// владелец включил IndexNow, отправка адресов новых товаров в Bing/Яндекс.
+async function seoПроверка() {
+  try {
+    const { запуститьАудит } = await import("./api/seo/audit.js");
+    const { забратьНовые, каталог } = await import("./api/seo/data.js");
+    const { отправитьIndexNow } = await import("./api/seo/services.js");
+    const { abs, uProduct } = await import("./api/seo/render.js");
+    await запуститьАудит();
+    const новые = забратьНовые();
+    if (новые.length) {
+      const кат = await каталог();
+      const urls = новые.map(c => кат.поКоду.get(c.toLowerCase())).filter(Boolean).map(т => abs(uProduct("ru", т)));
+      const r = await отправитьIndexNow(urls);
+      if (r.sent) console.log("[GM] IndexNow: отправлено новых страниц:", r.sent);
+    }
+  } catch (e) { console.error("[GM] SEO-проверка не прошла:", e.message); }
+}
+setTimeout(seoПроверка, 2 * 60e3);
+setInterval(seoПроверка, 6 * 3600e3);
 
 // ---------- вечерние итоги дня в Telegram ----------
 // В 20:00 по Ташкенту бот сам присылает владельцу оборот за день.

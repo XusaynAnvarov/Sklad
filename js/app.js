@@ -31,6 +31,7 @@ import videosAdmin from "./pages/videos_admin.js?v=20261109a";
 import supplierOrder from "./pages/supplier_order.js?v=20261109a";
 import stockCheck from "./pages/stock_check.js?v=20261109a";
 import packingSetup from "./pages/packing_setup.js?v=20261109a";
+import seoPage from "./pages/seo.js?v=20261109a";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -47,6 +48,7 @@ const NAV = [
   { id: "videos",       label: "Видео",           ic: "broadcast", render: videosAdmin },
   { id: "crm",          label: "Клиенты и безопасность", ic: "shield", render: crmPage },
   { id: "site_clients", label: "Клиенты сайта",   ic: "broadcast", render: siteClients },
+  { id: "seo",          label: "SEO",             ic: "search",     render: seoPage },
   { id: "trash",        label: "Корзина",         ic: "trash",     render: trash },
   { id: "settings",     label: "Настройки",       ic: "settings",  render: settings },
 ];

@@ -52,6 +52,17 @@ let currentLoadMore = null;
 export async function renderCatalog(container) {
   container.innerHTML = "";
 
+  // Пришли со страницы товара (/p/…) по кнопке «Заказать»: адрес
+  // #catalog?q=MK-003 сразу открывает каталог с этим товаром в поиске.
+  try {
+    const m = /^#catalog\?(.*)$/.exec(location.hash || "");
+    const q = m ? new URLSearchParams(m[1]).get("q") : "";
+    if (q) {
+      catState.query = q.slice(0, 100); catState.category = "Все"; catState.scrollY = 0; saveUi();
+      history.replaceState(null, "", location.pathname + location.search + "#catalog");
+    }
+  } catch {}
+
   // ---- Витрина: слева лента категорий, справа товар ----
   // Категорий у нас больше двадцати: в строку они не помещаются и занимали
   // три ряда, отодвигая товар вниз. В ленте они стоят столбиком со счётчиком,

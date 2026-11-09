@@ -1,0 +1,20 @@
+# GENERAL MODERN — запчасти для швейных машин
+# Публичные страницы открыты для поисковых систем (Google, Яндекс, Bing)
+# и поисковых ИИ-систем (OAI-SearchBot, PerplexityBot и др.).
+# Служебные разделы (склад, кабинет, API) закрыты.
+
+User-agent: *
+Allow: /
+Allow: /api/img
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /sklad
+Disallow: /sklad.html
+Disallow: /order.html
+Disallow: /api/
+Disallow: /search
+Disallow: /uz/search
+Disallow: /en/search
+Disallow: /*?reg=
+
+Sitemap: https://generalmodern.uz/sitemap.xml
