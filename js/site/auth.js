@@ -1,6 +1,6 @@
 // Модуль авторизации: вход, регистрация, верификация через Telegram
-import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261109f";
-import { sToast, openModal, closeModal } from "./app.js?v=20261109f";
+import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261109h";
+import { sToast, openModal, closeModal } from "./app.js?v=20261109h";
 
 let onAuthChange = null;
 export function setAuthChangeCallback(fn) { onAuthChange = fn; }
@@ -170,18 +170,34 @@ function buildAuthModal(start) {
     setTimeout(() => render(ход), УХОД);
   }
 
+  // Шаг с кодом разворачивается на весь экран.
+  //
+  // В окне ему тесно: на телефоне 375 px карточка окна шириной 320, и
+  // ряду из шести ячеек нужно 290 при доступных 278 — двенадцать
+  // пикселей обрезались, а сами ячейки уже ужались с 46 до 40. Поэтому
+  // на этом шаге окно раскрывается во весь экран: ячейкам хватает места
+  // в полную величину, и ничего не отрезается.
+  const наВесьЭкран = (да) => {
+    const окно = wrap.closest(".s-overlay");
+    if (окно) окно.classList.toggle("gm-проверка", !!да);
+  };
+
   function render(ход) {
     wrap.innerHTML = "";
     stopPoll();
+    const кодовыйШаг = mode === "login" && loginStep === "code";
+    наВесьЭкран(кодовыйШаг);
     const грид = el("div.auth-grid");
     const форма = el("div.auth-form");
     if (mode === "login") форма.append(buildLogin());
     else if (mode === "register") форма.append(buildRegister());
     else if (mode === "verify") форма.append(buildVerify());
-    форма.append(guideLink());   // «Как зарегистрироваться?» — видео-инструкция
+    // На шаге кода подсказка про видео-инструкцию лишняя: человек уже
+    // вошёл, ему осталось ввести шесть цифр.
+    if (!кодовыйШаг) форма.append(guideLink());
     // Во время подтверждения (ждём нажатия в боте) переключать режим нечем —
     // показываем только форму, чтобы не сбить человека с толку.
-    if (mode !== "verify") грид.append(buildSide());
+    if (mode !== "verify" && !кодовыйШаг) грид.append(buildSide());
     грид.append(форма);
     wrap.append(грид);
     пуститьПриход(грид, ход);
@@ -379,6 +395,7 @@ function buildAuthModal(start) {
         await new Promise(r => setTimeout(r, меньшеДвижения() ? 300 : 1250));
       }
       loginStep = "phone"; loginPass = "";
+      наВесьЭкран(false);   // иначе класс останется на окне до следующего входа
       closeModal("auth-modal");
       sToast("Вход выполнен", "ok");
       notifyChange();
