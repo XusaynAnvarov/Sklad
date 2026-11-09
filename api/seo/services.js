@@ -83,9 +83,16 @@ export async function отправитьIndexNow(urls) {
   const s = настройки();
   if (!s.indexnow || !/^[a-f0-9]{32}$/.test(s.indexnow_key || "") || !urls.length) return { sent: 0 };
   const host = new URL(abs("/")).host;
-  const r = await fetch("https://api.indexnow.org/indexnow", {
-    method: "POST", headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify({ host, key: s.indexnow_key, keyLocation: abs(`/indexnow-${s.indexnow_key}.txt`), urlList: urls.slice(0, 10000) }),
-  });
-  return { sent: r.ok ? urls.length : 0, status: r.status };
+  const body = JSON.stringify({ host, key: s.indexnow_key, keyLocation: abs(`/indexnow-${s.indexnow_key}.txt`), urlList: urls.slice(0, 10000) });
+  // Шлём каждому поисковику напрямую: общий узел api.indexnow.org на
+  // новом ключе отвечал 403, а Bing и Яндекс тот же ключ принимают сразу.
+  const итоги = {};
+  for (const [имя, url] of [["bing", "https://www.bing.com/indexnow"], ["yandex", "https://yandex.com/indexnow"]]) {
+    try {
+      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8" }, body });
+      итоги[имя] = r.status;
+    } catch (e) { итоги[имя] = 0; }
+  }
+  const ok = Object.values(итоги).some(c => c >= 200 && c < 300);
+  return { sent: ok ? urls.length : 0, status: итоги };
 }
