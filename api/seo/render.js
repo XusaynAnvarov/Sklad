@@ -50,6 +50,11 @@ export function altФото(т, n, lang) {
 
 const ld = (obj) => `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, "\\u003c")}</script>`;
 
+// Телефонов может быть несколько: «+998…, +998…»
+export function телефоны() {
+  return String(настройки().phone || "").split(/[,;]/).map(x => x.trim()).filter(x => /d{7,}/.test(x.replace(/D/g, "")));
+}
+
 // ---------- организация (одна на весь сайт) ----------
 export function организация() {
   const s = настройки();
@@ -66,10 +71,11 @@ export function организация() {
   };
   const same = [s.telegram].filter(u => /^https:\/\//.test(u || ""));
   if (same.length) org.sameAs = same;
-  if (s.phone || s.email) {
-    org.contactPoint = [{ "@type": "ContactPoint", contactType: "sales",
-      ...(s.phone ? { telephone: s.phone } : {}), ...(s.email ? { email: s.email } : {}),
-      availableLanguage: ["Russian", "Uzbek", "English"] }];
+  const phones = телефоны();
+  if (phones.length || s.email) {
+    org.contactPoint = (phones.length ? phones : [""]).map(ph => ({ "@type": "ContactPoint", contactType: "sales",
+      ...(ph ? { telephone: ph } : {}), ...(s.email ? { email: s.email } : {}),
+      areaServed: "UZ", availableLanguage: ["Russian", "Uzbek", "English"] }));
   }
   if (s.street && s.city) {
     org.address = { "@type": "PostalAddress", streetAddress: s.street, addressLocality: s.city,
@@ -84,7 +90,7 @@ function localBusiness() {
   const lb = { "@type": "Store", "@id": abs("/#store"), name: s.business_name || "GENERAL MODERN", url: abs("/"),
     image: abs("/icon-512.png"), parentOrganization: { "@id": abs("/#organization") },
     address: организация().address };
-  if (s.phone) lb.telephone = s.phone;
+  if (телефоны()[0]) lb.telephone = телефоны()[0];
   if (s.lat && s.lng) lb.geo = { "@type": "GeoCoordinates", latitude: Number(s.lat), longitude: Number(s.lng) };
   if (s.hours) lb.openingHours = String(s.hours).split(/\s*;\s*/).filter(Boolean);
   return lb;

@@ -40,7 +40,8 @@ export const НАСТРОЙКИ_ПО_УМОЛЧАНИЮ = {
   telegram: "https://t.me/generalmodernbot",
   street: "", city: "", region: "", postal: "", country: "UZ",
   lat: "", lng: "",
-  hours: "",               // например: "Mo-Sa 09:00-18:00"
+  hours: "",               // для поисковиков: "Tu-Su 09:00-17:00"
+  hours_ru: "", hours_uz: "", hours_en: "",   // то же словами для людей
   delivery_ru: "", delivery_uz: "", delivery_en: "",   // текст о доставке — только подтверждённый
   local_business: false,   // включать разметку LocalBusiness — только при подтверждённом адресе
   price_policy: "hidden",  // hidden | show — показывать ли цены поисковикам и в фиде

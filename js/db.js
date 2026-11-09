@@ -7,8 +7,8 @@
 //  не зная, какой режим активен.
 // ========================================================================
 
-import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20261109l";
-import { сверитьСОстатком } from "./inventory.js?v=20261109l";
+import { freshFirst, lastForCustomerMap, lastAnyMap } from "./prices.js?v=20261109m";
+import { сверитьСОстатком } from "./inventory.js?v=20261109m";
 
 const cfg = window.APP_CONFIG || {};
 const useSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
