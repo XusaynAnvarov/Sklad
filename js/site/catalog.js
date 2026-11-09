@@ -1,15 +1,15 @@
 // Каталог товаров: карточки, поиск, фильтры, корзина
-import { api, isLoggedIn } from "./api.js?v=20261109d";
-import { t, sToast } from "./app.js?v=20261109d";
-import { openLogin } from "./auth.js?v=20261109d";
-import { thumb, full } from "../img.js?v=20261109d";
-import { подходит } from "../productsearch.js?v=20261109d";
-import { подписьКода } from "../catalogcode.js?v=20261109d";
+import { api, isLoggedIn } from "./api.js?v=20261109e";
+import { t, sToast } from "./app.js?v=20261109e";
+import { openLogin } from "./auth.js?v=20261109e";
+import { thumb, full } from "../img.js?v=20261109e";
+import { подходит } from "../productsearch.js?v=20261109e";
+import { подписьКода } from "../catalogcode.js?v=20261109e";
 // Главное фото товара выбирает владелец (звезда в карточке товара на
 // складе), и это не обязательно первый снимок: см. js/photo.js.
-import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261109d";
+import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261109e";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261109d";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261109e";
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 

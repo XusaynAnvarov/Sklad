@@ -1,6 +1,6 @@
 // Модуль авторизации: вход, регистрация, верификация через Telegram
-import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261109d";
-import { sToast, openModal, closeModal } from "./app.js?v=20261109d";
+import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261109e";
+import { sToast, openModal, closeModal } from "./app.js?v=20261109e";
 
 let onAuthChange = null;
 export function setAuthChangeCallback(fn) { onAuthChange = fn; }
@@ -339,12 +339,13 @@ function buildAuthModal(start) {
       err.style.display = "none";
       btn.disabled = true; btn.innerHTML = '<span class="s-spinner"></span>';
       ячейки.заблокировать(true);
+      ячейки.проверяем(true);          // ячейки собираются в кольцо и вращаются
       await завершитьВход(зн, (сообщение) => {
         занято = false;
         err.textContent = сообщение; err.style.display = "";
         btn.disabled = false; btn.textContent = "Подтвердить";
         ячейки.заблокировать(false);
-        ячейки.ошибка();
+        ячейки.ошибка();              // кольцо распадается обратно в ряд
       }, () => {
         // успех: гасим форму и проигрываем галочку
         clearInterval(таймер);
@@ -640,19 +641,65 @@ function ячейкиКода(длина, приГотовности) {
 
   setTimeout(() => поля[0].focus(), 80);
 
+  // ---- Кольцо на время проверки ----
+  //
+  // Пока сервер сверяет код, ячейки съезжают из ряда в круг и медленно
+  // вращаются: по образцу, который прислал владелец. Это не просто
+  // украшение — по кругу сразу видно, что ответа ещё ждём, и ячейки при
+  // этом никуда не исчезают, так что цифры остаются перед глазами.
+  //
+  // Сдвиг считаем в пикселях от нынешнего места каждой ячейки, а не
+  // переключаем position: из обычного потока в absolute анимации нет, и
+  // ячейки прыгали бы в круг рывком.
+  const РАДИУС = 46;
+  let вКольце = false;
+
+  function кольцо(да) {
+    if (меньшеДвижения()) return;            // просьбу «меньше движения» уважаем
+    if (да === вКольце) return;
+    вКольце = да;
+    if (!да) {
+      узел.classList.remove("gm-кольцо");
+      поля.forEach(п => { п.style.transform = ""; });
+      return;
+    }
+    const р = узел.getBoundingClientRect();
+    const цx = р.left + р.width / 2, цy = р.top + р.height / 2;
+    поля.forEach((п, i) => {
+      const пр = п.getBoundingClientRect();
+      const угол = (i / длина) * Math.PI * 2 - Math.PI / 2;
+      const цельX = цx + Math.cos(угол) * РАДИУС;
+      const цельY = цy + Math.sin(угол) * РАДИУС;
+      п.style.transform =
+        `translate(${цельX - (пр.left + пр.width / 2)}px, ${цельY - (пр.top + пр.height / 2)}px)`;
+    });
+    узел.classList.add("gm-кольцо");
+  }
+
   return {
     узел,
     значение,
     очистить() { поля.forEach(п => п.value = ""); узел.classList.remove("gm-code-err"); поля[0].focus(); },
     заблокировать(да) { поля.forEach(п => п.disabled = !!да); },
+    проверяем(да) { кольцо(!!да); },
     ошибка() {
+      кольцо(false);
       узел.classList.remove("gm-code-err");
       void узел.offsetWidth;          // перезапуск анимации встряски
       узел.classList.add("gm-code-err");
       поля.forEach(п => п.value = "");
       поля[0].focus();
     },
-    принято() { узел.classList.add("gm-code-ok"); },
+    принято() {
+      // Из кольца — в точку: ячейки зеленеют, сходятся к центру и гаснут,
+      // уступая место галочке «Личность подтверждена».
+      узел.classList.add("gm-code-ok");
+      if (меньшеДвижения() || !вКольце) return;
+      setTimeout(() => {
+        поля.forEach(п => { п.style.transform = "translate(0,0) scale(.25)"; });
+        узел.classList.add("gm-код-схлопнулся");
+      }, 260);
+    },
   };
 }
 

@@ -34,11 +34,16 @@ export default async function handler(req, res) {
     const known = Array.isArray(acc.known_devices) ? acc.known_devices : [];
     const isKnownDevice = !!deviceId && known.includes(hashDevice(deviceId));
 
-    // ----- проверка кода из Telegram (админу и на известном устройстве код не нужен — только пароль) -----
+    // ----- проверка кода из Telegram -----
     // login_code === undefined → колонки 2FA ещё не созданы (db/site-auth.sql не запущен) → вход только по паролю (миграция);
     // login_code === null → код не запрашивали → нужен шаг login-start;
     // login_code строка → сверяем код.
-    if (!isAdminPhone(phone) && !isKnownDevice && acc.login_code !== undefined) {
+    //
+    // Владельцу код нужен ВСЕГДА, даже с привычного устройства: он для
+    // того и сделан, чтобы владелец видел каждую попытку войти под собой.
+    // Клиентам доверенное устройство код по-прежнему заменяет.
+    const нуженКод = acc.login_code !== undefined && (isAdminPhone(phone) || !isKnownDevice);
+    if (нуженКод) {
       if (acc.login_code === null) return res.status(401).json({ error: "Сначала получите код в Telegram" });
       if (!acc.login_code_exp || new Date(acc.login_code_exp) < new Date())
         return res.status(401).json({ error: "Код устарел — запросите новый" });

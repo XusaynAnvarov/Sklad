@@ -3,7 +3,7 @@
 import { normPhone, genCode, hashCode, hashDevice } from "../lib/clientauth.js";
 import { sget, spatch } from "../lib/supa.js";
 import { isAdminPhone } from "../lib/siteadmin.js";
-import { recordEvent } from "../lib/crm.js";
+import { recordEvent, geoFromHeaders, parseUA, countryName } from "../lib/crm.js";
 const журнал = (req, extra) => { recordEvent(req, { channel: "site", kind: "login_code", ...extra }).catch(() => {}); };
 
 const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN;
@@ -19,8 +19,10 @@ export default async function handler(req, res) {
   const deviceId = String(body?.device_id || "");
   if (phone.length < 7) return res.status(400).json({ error: "Некорректный номер телефона" });
 
-  // администратору код из Telegram не нужен — вход по паролю
-  if (isAdminPhone(phone)) return res.status(200).json({ ok: true, code_required: false });
+  // Раньше владельцу код не слали — он входил по одному паролю. Теперь
+  // слать: он сам попросил видеть каждую попытку входа, чтобы понимать,
+  // он это или кто-то другой. Поэтому обхода здесь больше нет.
+  const владелец = isAdminPhone(phone);
 
   try {
     const blocked = await sget(`blocked_phones?phone=eq.${encodeURIComponent(phone)}&select=phone`);
@@ -32,9 +34,11 @@ export default async function handler(req, res) {
     const acc = rows[0];
     if (!acc) { журнал(req, { ok: false, phone9: phone }); return res.status(404).json({ error: "Аккаунт не найден. Сначала зарегистрируйтесь." }); }
 
-    // известное (доверенное) устройство → код не нужен, вход по паролю
+    // Известное (доверенное) устройство → код не нужен, вход по паролю.
+    // Владельца это не касается: ему код нужен именно затем, чтобы знать
+    // о каждом входе, в том числе со своего привычного компьютера.
     const known = Array.isArray(acc.known_devices) ? acc.known_devices : [];
-    if (deviceId && known.includes(hashDevice(deviceId)))
+    if (!владелец && deviceId && known.includes(hashDevice(deviceId)))
       return res.status(200).json({ ok: true, code_required: false });
 
     // chat_id: из аккаунта, иначе из привязанного клиента склада
@@ -42,6 +46,9 @@ export default async function handler(req, res) {
     if (!chatId && acc.customer_id) {
       try { const c = (await sget(`customers?id=eq.${acc.customer_id}&select=tg_chat_id`))[0]; chatId = c?.tg_chat_id || null; } catch {}
     }
+    // Владельцу — в крайнем случае на его личный чат из .env: иначе, если
+    // в аккаунте не оказалось chat_id, он остался бы заперт снаружи.
+    if (!chatId && владелец) chatId = process.env.ADMIN_CHAT_ID || null;
     if (!chatId) return res.status(409).json({ error: `Откройте Telegram-бота @${BOT} и нажмите /start, затем повторите вход.` });
     if (!CLIENT_TOKEN) return res.status(500).json({ error: "CLIENT_BOT_TOKEN не задан на сервере" });
 
@@ -66,7 +73,20 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Колонки кода входа не созданы — запустите db/site-auth.sql в Supabase" });
     }
 
-    const text = `🔐 Код для входа на generalmodern.uz:\n\n*${code}*\n\nДействует 5 минут. Никому не сообщайте этот код.`;
+    // Откуда вход — по этому и понятно, ты это или нет. Город и страну
+    // даёт Cloudflare, браузер с системой — строка user-agent.
+    const g = geoFromHeaders(req.headers || {});
+    const u = parseUA((req.headers || {})["user-agent"]);
+    const место = [g.city, g.region, countryName(g.country_code) || g.country_code].filter(Boolean).join(", ");
+    const устройство = [u.browser, u.os].filter(Boolean).join(" · ");
+    const откуда =
+      `\n\nОткуда: ${место || "место не определилось"}` +
+      `\nУстройство: ${устройство || "устройство не определилось"}` +
+      `\nВремя: ${new Date().toLocaleString("ru-RU", { timeZone: "Asia/Tashkent" })}`;
+
+    const text = `🔐 Код для входа на generalmodern.uz:\n\n*${code}*\n\nДействует 5 минут. Никому не сообщайте этот код.`
+      + откуда
+      + `\n\nЕсли это не вы — не вводите код и смените пароль.`;
     const reply_markup = { inline_keyboard: [[{ text: "🌐 Вернуться на сайт", url: PUBLIC_URL }]] };
     const r = await fetch(`https://api.telegram.org/bot${CLIENT_TOKEN}/sendMessage`, {
       method: "POST", headers: { "Content-Type": "application/json" },

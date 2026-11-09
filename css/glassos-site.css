@@ -956,3 +956,46 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
   .product-sku { gap: 6px; margin-bottom: 8px; }
   .sku-vendor { display: inline; }
 }
+
+/* ===================================================================
+   КОЛЬЦО НА ВРЕМЯ ПРОВЕРКИ КОДА.
+
+   Образец прислал владелец: пока сервер сверяет код, ячейки съезжают из
+   ряда в круг и медленно вращаются, а после успеха зеленеют и сходятся
+   в точку. Смысл не только в красоте — по кругу видно, что ответа ещё
+   ждём, и цифры при этом остаются перед глазами.
+
+   Куда ехать каждой ячейке, считает js/site/auth.js в пикселях: из
+   обычного потока в position:absolute перехода нет, и ячейки прыгали бы
+   в круг рывком.
+   =================================================================== */
+.gm-code { transition: height .34s var(--gs-e-spring, cubic-bezier(.2,.8,.25,1)); }
+
+.gm-code-cell {
+  /* transform уже участвует в :focus — добавляем его в переход явно,
+     иначе поездка в кольцо пойдёт без сглаживания. */
+  transition: border-color var(--gs-t-hover, .18s), box-shadow var(--gs-t-hover, .18s),
+              background var(--gs-t-hover, .18s),
+              transform .42s var(--gs-e-spring, cubic-bezier(.2,.8,.25,1)),
+              opacity .3s ease;
+}
+
+.gm-кольцо {
+  height: 132px;                 /* место под круг: ряд сжимается, страница не прыгает */
+  align-items: center;
+  animation: gmКольцоВертится 2.4s linear infinite;
+}
+/* Ячейки в кольце не мешают попадать по кнопке и не ловят курсор. */
+.gm-кольцо .gm-code-cell { pointer-events: none; }
+.gm-кольцо .gm-code-cell:focus { transform: inherit; box-shadow: none; }
+
+@keyframes gmКольцоВертится { to { rotate: 360deg; } }
+
+/* Успех: зелёные ячейки сходятся к центру и гаснут, уступая галочке. */
+.gm-код-схлопнулся { animation: none; rotate: 0deg; transition: rotate .4s ease, height .4s ease; height: 56px; }
+.gm-код-схлопнулся .gm-code-cell { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-кольцо { animation: none; height: auto; }
+  .gm-code, .gm-code-cell { transition: none; }
+}
