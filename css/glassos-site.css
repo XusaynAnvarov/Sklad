@@ -1075,3 +1075,39 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
 @media (prefers-reduced-motion: reduce) {
   .s-overlay.gm-проверка .s-modal { animation: none; }
 }
+
+/* ===================================================================
+   ОРБИТА: ПУНКТИРНОЕ КОЛЬЦО И ТОЧКА В ЦЕНТРЕ.
+
+   Разобрано по кадрам образца, который прислал владелец. Пунктир
+   нарочно: сплошное кольцо такого размера читается как обычный
+   «идёт загрузка», а здесь не загрузка, а проверка кода.
+
+   Вращение ведёт js/site/auth.js через WAAPI — заводом и торможением,
+   поэтому своей бесконечной анимации у кольца больше нет.
+   =================================================================== */
+.gm-орбита {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s ease;
+}
+.gm-кольцо .gm-орбита { opacity: 1; }
+.gm-орбита-путь {
+  stroke: var(--border, #d7dbe2);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 8;      /* пунктир: не спиннер загрузки */
+  stroke-linecap: round;
+}
+.gm-орбита-центр { fill: var(--muted, #8b95a1); }
+
+/* Кольцу нужна своя система координат — иначе орбита уедет из центра. */
+.gm-code { position: relative; }
+
+/* Своё вращение у ряда отключаем: им теперь управляет WAAPI. */
+.gm-кольцо { animation: none; }
+
+/* Ответ пришёл — кольцо гаснет вместе с ожиданием. */
+.gm-код-схлопнулся .gm-орбита { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) { .gm-орбита { display: none; } }
