@@ -85,7 +85,16 @@ async function взятьТокен(заново = false) {
     const есть = взять(КЛЮЧ_ТОКЕНА);
     if (есть) return есть;
   }
-  const r = await запрос("/api/auth/login", { тело: { email: ПОЧТА(), password: ПАРОЛЬ() } });
+  // Сеть тут падает так же легко, как при отправке. Без этой ловушки
+  // обрыв связи с Eskiz бросал исключение наружу — и вход на сайт
+  // отвечал 500 вместо того, чтобы спокойно уйти в Telegram.
+  let r;
+  try {
+    r = await запрос("/api/auth/login", { тело: { email: ПОЧТА(), password: ПАРОЛЬ() } });
+  } catch (e) {
+    console.error("sms: не достучались до Eskiz —", e.message);
+    return null;
+  }
   const токен = r.json?.data?.token || r.json?.token || null;
   if (!токен) {
     console.error("sms: не вышло войти в Eskiz —", r.статус, (r.текст || "").slice(0, 200));

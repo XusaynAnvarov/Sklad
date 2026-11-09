@@ -27,6 +27,9 @@ import { fileURLToPath } from "url";
 import { verifyPassword, genCode, hashCode, verifyCode } from "./lib/clientauth.js";
 import { взять, положить, забыть } from "./lib/memcache.js";
 import { sendAdmin, geoFromHeaders, clientIp, parseUA, countryName, esc } from "./lib/crm.js";
+// Запасной канал для кода: SMS. Если бот упал, владелец иначе не попадёт
+// в собственный склад (api/lib/sms.js).
+import { отправитьSMS, смсНастроены, каналКода, номерДляSMS } from "./lib/sms.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const CREDS_FILE = join(__dir, "../data/admin-creds.json");
@@ -66,6 +69,10 @@ function откуда(req) {
   };
 }
 
+// Телефон владельца для SMS: берём из .env. Без него второго канала нет,
+// и это не беда — Telegram работает как работал.
+const ТЕЛЕФОН_ВЛАДЕЛЬЦА = () => process.env.ADMIN_PHONE || "";
+
 async function послатьКод(req, code) {
   const о = откуда(req);
   const когда = new Date().toLocaleString("ru-RU", { timeZone: "Asia/Tashkent" });
@@ -82,7 +89,23 @@ async function послатьКод(req, code) {
     `Время: ${esc(когда)}\n\n` +
     `<b>Если это не вы — никому не называйте код и смените пароль склада</b> ` +
     `(Настройки → Смена логина / пароля).`;
-  return sendAdmin(текст, { html: true });
+
+  const канал = каналКода();
+  const смсМожно = смсНастроены() && !!номерДляSMS(ТЕЛЕФОН_ВЛАДЕЛЬЦА());
+  let ушло = false;
+
+  if (канал !== "sms" || !смсМожно) ушло = await sendAdmin(текст, { html: true });
+
+  // SMS: либо так выбран канал, либо Telegram не ответил. Второй канал
+  // тут важнее, чем на сайте: если бот упал, владелец без него не
+  // попадёт в собственный склад.
+  if (смсМожно && (канал !== "telegram" || !ушло)) {
+    const с = await отправитьSMS(ТЕЛЕФОН_ВЛАДЕЛЬЦА(),
+      `Kod vhoda v sklad: ${code}. Deystvuet ${ЖИВЁТ / 60} minut. Nikomu ne soobshchayte.`);
+    if (с.ok) ушло = true;
+    else console.error("admin-auth: SMS не ушла —", с.error);
+  }
+  return ушло;
 }
 
 export default async function handler(req, res) {

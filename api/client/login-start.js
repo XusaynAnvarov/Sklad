@@ -4,6 +4,9 @@ import { normPhone, genCode, hashCode, hashDevice } from "../lib/clientauth.js";
 import { sget, spatch } from "../lib/supa.js";
 import { isAdminPhone } from "../lib/siteadmin.js";
 import { recordEvent, geoFromHeaders, parseUA, countryName } from "../lib/crm.js";
+// Второй канал для кода: SMS. Нужен и тем, у кого нет бота, и ради того,
+// что код из SMS телефон подставляет в поле сам (см. api/lib/sms.js).
+import { отправитьSMS, смсНастроены, каналКода, номерДляSMS } from "../lib/sms.js";
 const журнал = (req, extra) => { recordEvent(req, { channel: "site", kind: "login_code", ...extra }).catch(() => {}); };
 
 const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN;
@@ -72,7 +75,9 @@ export default async function handler(req, res) {
     const доКонца = acc.login_code_exp ? (new Date(acc.login_code_exp).getTime() - Date.now()) : 0;
     if (доКонца > 4 * 60 * 1000) {
       const ждать = Math.max(1, Math.ceil((доКонца - 4 * 60 * 1000) / 1000));
-      return res.status(429).json({ error: `Код уже отправлен в Telegram. Повторить можно через ${ждать} с.` });
+      // Куда именно отправили — зависит от канала, поэтому не называем
+      // Telegram: человек мог получить код обычной SMS.
+      return res.status(429).json({ error: `Код уже отправлен. Повторить можно через ${ждать} с.` });
     }
 
     const code = genCode();
@@ -103,15 +108,41 @@ export default async function handler(req, res) {
       + откуда
       + `\n\nЕсли это не вы — не вводите код и смените пароль.`;
     const reply_markup = { inline_keyboard: [[{ text: "🌐 Вернуться на сайт", url: PUBLIC_URL }]] };
-    const r = await fetch(`https://api.telegram.org/bot${CLIENT_TOKEN}/sendMessage`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown", reply_markup }),
-    });
-    const j = await r.json();
-    if (!j.ok) return res.status(502).json({ error: `Не удалось отправить код. Откройте бота @${BOT}, нажмите /start и повторите.` });
+
+    // Текст SMS короткий и без лишнего: телефон подставляет код в поле
+    // сам, и чем проще сообщение, тем надёжнее он его узнаёт. Город и
+    // браузер в SMS не пишем — это платные символы, а в Telegram они и
+    // так есть.
+    const смсТекст = `Kod: ${code}. generalmodern.uz. Deystvuet 5 minut. Nikomu ne soobshchayte.`;
+
+    let ушло = false;
+    const беды = [];
+
+    if (шлёмTG) {
+      try {
+        const r = await fetch(`https://api.telegram.org/bot${CLIENT_TOKEN}/sendMessage`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown", reply_markup }),
+        });
+        const j = await r.json();
+        if (j.ok) ушло = true; else беды.push("Telegram: " + (j.description || "отказ"));
+      } catch (e) { беды.push("Telegram: " + e.message); }
+    }
+
+    // SMS шлём, если так выбран канал — или если в Telegram не ушло.
+    if (шлёмSMS && (канал !== "telegram" || !ушло)) {
+      const с = await отправитьSMS(phone, смсТекст);
+      if (с.ok) ушло = true; else беды.push("SMS: " + с.error);
+    }
+
+    if (!ушло) {
+      console.error("login-start: код не доставлен —", беды.join(" | "));
+      return res.status(502).json({ error: `Не удалось отправить код. Откройте бота @${BOT}, нажмите /start и повторите.` });
+    }
 
     журнал(req, { ok: true, phone9: phone, site_account_id: acc.id, customer_id: acc.customer_id });
-    return res.status(200).json({ ok: true, code_required: true });
+    // Куда именно ушёл код — чтобы на экране написать честно.
+    return res.status(200).json({ ok: true, code_required: true, канал: шлёмSMS && !шлёмTG ? "sms" : (шлёмSMS && шлёмTG ? "both" : "telegram") });
   } catch (e) {
     console.error("login-start error", e);
     return res.status(500).json({ error: "Ошибка сервера" });
