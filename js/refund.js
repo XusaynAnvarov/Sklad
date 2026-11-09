@@ -19,8 +19,8 @@
 //  Здесь только расчёт, без записи, — поэтому проверяется тестом
 //  _tools/tests/t-refund.mjs.
 // ========================================================================
-import { ensureBatches, returnToStock, sumQty, costAfter } from "./inventory.js?v=20261109a";
-import { isIssued } from "./debt.js?v=20261109a";
+import { ensureBatches, returnToStock, sumQty, costAfter } from "./inventory.js?v=20261109b";
+import { isIssued } from "./debt.js?v=20261109b";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
