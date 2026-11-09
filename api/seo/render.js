@@ -202,7 +202,7 @@ ${altLinks}
 <meta property="og:image" content="${esc(abs(image || "/icon-512.png"))}">
 <meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}">
 <meta name="theme-color" content="#1c2b4a">
-<link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
+<link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" href="/favicon-96.png" type="image/png" sizes="96x96"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
 ${verification()}
 <style>${CSS}</style>
 ${ld(graph)}
@@ -354,7 +354,7 @@ export function страницаКаталога(кат, lang) {
   const n = кат.товары.length, k = кат.товары.filter(x => x.status === "in_stock").length;
   const crumbs = [{ name: t.home, url: uHome(lang) }, { name: t.catalog, url: uCats(lang) }];
   const body = `${крошки(crumbs)}
-<h1>${esc(lang === "ru" ? "Запчасти для швейных машин" : lang === "uz" ? "Tikuv mashinasi ehtiyot qismlari" : "Sewing machine spare parts")}</h1>
+<h1>${esc(lang === "ru" ? "Швейные запчасти — запчасти для швейных машин" : lang === "uz" ? "Tikuv mashinasi ehtiyot qismlari" : "Sewing machine spare parts")}</h1>
 <p class="lead">${esc(t.catsIntro(n, k))}</p>
 <form class="s" action="${prefix(lang)}/search" method="get" role="search"><input name="q" type="search" placeholder="${esc(t.searchPh)}" aria-label="${esc(t.search)}"><button class="btn" type="submit">${esc(t.search)}</button></form>
 <h2>${esc(t.categories)}</h2>
