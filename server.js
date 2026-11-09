@@ -89,6 +89,12 @@ const routes = [
   [["POST"],  "/api/track",                   "./api/track.js"],
   // SEO и поисковая видимость (склад → «SEO»)
   [["GET","POST"], "/api/admin/seo",          "./api/admin/seo.js"],
+  // вступительный ролик сайта: настройки (склад → «Вступительное видео»),
+  // публичные настройки, сам ролик и обезличенные счётчики показов
+  [["GET","POST"], "/api/admin/intro",        "./api/admin/intro.js"],
+  [["GET"],   "/api/intro-config",            "./api/intro-config.js"],
+  [["GET","HEAD"], "/api/intro-video",        "./api/intro-video.js"],
+  [["POST"],  "/api/intro-stat",              "./api/intro-stat.js"],
   [["POST","OPTIONS"], "/api/video-sign-upload", "./api/video-sign-upload.js"],
   [["POST","OPTIONS"], "/api/supplier-order-pdf", "./api/supplier-order-pdf.js"],
   [["GET"],   "/api/videos",                  "./api/videos.js"],

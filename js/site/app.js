@@ -12,6 +12,10 @@ import { пустить, проекция, резинка, вести } from "..
 import { сменитьТемуВолной } from "../temavolna.js?v=20261109c";
 import { обновитьЕслиУстарело } from "../version.js?v=20261109c";
 import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261109c";
+// Вступительный ролик для новых посетителей и окно «Как заказать»
+import { maybeInviteTour, openTour } from "./tour.js?v=20261109c";
+// Кнопка «▶ Как заказать» видна, пока владелец не выключил её в складе
+function кнопкаКакЗаказать() { try { const c = JSON.parse(localStorage.getItem("gm_intro_cfg") || "null"); return !c || c.howto_button !== false; } catch { return true; } }
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -28,6 +32,7 @@ const TRANSLATIONS = {
     heroSub: "Профессиональная техника General Modern. Широкий ассортимент по лучшим ценам.",
     heroCta: "Смотреть каталог",
     authModal: "Войти / Зарегистрироваться", errorMsg: "Ошибка",
+    howTo: "Как заказать",
   },
   uz: {
     catalog: "Katalog", cabinet: "Kabinet", login: "Kirish", logout: "Chiqish",
@@ -42,6 +47,7 @@ const TRANSLATIONS = {
     heroSub: "General Modern'dan professional texnika. Keng assortiment, eng yaxshi narxlar.",
     heroCta: "Katalogni ko'rish",
     authModal: "Kirish / Ro'yxatdan o'tish", errorMsg: "Xato",
+    howTo: "Qanday buyurtma berish",
   },
   en: {
     catalog: "Catalog", cabinet: "Cabinet", login: "Login", logout: "Logout",
@@ -56,6 +62,7 @@ const TRANSLATIONS = {
     heroSub: "Professional equipment from General Modern. Wide range at the best prices.",
     heroCta: "Browse catalog",
     authModal: "Sign In / Register", errorMsg: "Error",
+    howTo: "How to order",
   },
 };
 export function getLang() { return localStorage.getItem("gm_lang") || "ru"; }
@@ -370,6 +377,19 @@ function buildHeader() {
     const a = document.createElement("a"); a.className = "site-nav-link"; a.href = l.hash; a.textContent = l.label;
     nav.append(a);
   });
+  // «▶ Как заказать» — окно с тем же роликом и шагами текстом, не уходя со страницы
+  const кнопкаКак = (cls) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "site-nav-link gm-howto " + cls;
+    b.title = t("howTo");
+    b.innerHTML = `<span class="gm-howto-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg></span>`;
+    const s = document.createElement("span"); s.textContent = t("howTo");
+    b.append(s);
+    b.addEventListener("click", () => openTour());
+    return b;
+  };
+  const естьКак = кнопкаКакЗаказать();
+  if (естьКак) nav.append(кнопкаКак(""));
 
   const right = document.createElement("div"); right.className = "site-header-right";
   // На телефоне в шапке остаётся только логотип, «Заказать» и кнопка меню.
@@ -398,6 +418,7 @@ function buildHeader() {
     a.className = "site-nav-link menu-only"; a.href = l.hash; a.textContent = l.label;
     menu.append(a);
   });
+  if (естьКак) menu.append(кнопкаКак("menu-only"));
 
   // Кнопка "Склад" — только для администратора (доступ по JWT phone)
   if (isAdmin()) {
@@ -796,6 +817,10 @@ export async function boot() {
   const savedTheme = getTheme();
   document.documentElement.setAttribute("data-site-theme", savedTheme);
 
+  // Экскурсия по сайту: новым посетителям — приглашение (js/site/tour.js).
+  // Не ждём: приглашение появляется поверх уже готового сайта и ничего не блокирует.
+  try { maybeInviteTour().catch(() => {}); } catch {}
+
   // Заставка уходит, когда первый экран ГОТОВ, а не по таймеру. Раньше тут
   // стояли жёсткие 600 мс: на быстром соединении человек ждал их впустую,
   // на медленном — всё равно видел пустоту после них. Прячем в rebuild(),
@@ -902,9 +927,14 @@ function startSessionWatch() {
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=247", { updateViaCache: "none" }).catch(() => {}));
-  // когда активируется новый SW — страница сама перезагружается со свежим кодом
+  // когда активируется новый SW — страница сама перезагружается со свежим кодом.
+  // Только при ОБНОВЛЕНИИ: на самом первом визите работника ещё не было, и
+  // clients.claim() тоже вызывает controllerchange — страница и так свежая,
+  // а перезагрузка обрывала новому посетителю и первый экран, и вступление.
+  const _hadController = !!navigator.serviceWorker.controller;
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!_hadController) return;
     if (_swRefreshing) return; _swRefreshing = true; location.reload();
   });
 }

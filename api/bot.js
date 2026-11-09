@@ -176,9 +176,14 @@ async function clientSales(custId) {
   if (!okId(custId)) return [];
   return sget(`sales?customer_id=eq.${eid(custId)}&select=*&order=date.desc`);
 }
+// Долг и оборот — ТОЛЬКО по выданным накладным, как на сайте (js/debt.js, NOT_ISSUED).
+// Раньше сюда шли все строки: заказ с выставленной ценой, который клиент ещё
+// не подтвердил, и даже отменённый уже числились долгом, и цифра в боте
+// расходилась с кабинетом на сайте.
+const НЕ_ВЫДАНО = ["order", "pending_confirm", "confirmed", "draft", "canceled"];
 function debtAndTurnover(sales, payments, customer) {
   const debt = { som: 0, usd: 0, yuan: 0 }, turn = { som: 0, usd: 0, yuan: 0 };
-  sales.forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; if (turn[c] === undefined) return; turn[c] += it.qty * it.unit_price; debt[c] += it.qty * it.unit_price; }));
+  sales.filter(s => !НЕ_ВЫДАНО.includes(String(s.status || ""))).forEach(s => (s.items || []).forEach(it => { const c = it.currency || s.currency; if (turn[c] === undefined) return; turn[c] += it.qty * it.unit_price; debt[c] += it.qty * it.unit_price; }));
   const od = (customer && customer.opening_debt) || {};
   ["som", "usd", "yuan"].forEach(c => debt[c] += Number(od[c]) || 0); // старый долг
   payments.forEach(p => { if (debt[p.currency] !== undefined) debt[p.currency] -= Number(p.amount) || 0; }); // оплаты вычитаются из долга

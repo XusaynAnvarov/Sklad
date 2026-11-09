@@ -166,7 +166,7 @@ export default async function render(box, ctx) {
         el("label.field", { style: { marginBottom: "10px" } }, [el("span.field-label", { text: "Кому выдаём" }), sel]),
         строки,
         итог,
-        el("div.hint", { text: "Оформление спишет товар со склада и запишет накладную. Клиенту она отсюда не уходит — отправите с сайта." }),
+        el("div.hint", { text: "Оформление спишет товар со склада и запишет накладную. PDF накладной уйдёт клиенту в Telegram, если он привязан к боту." }),
       ].filter(Boolean)),
       actions: [
         { label: "Закрыть", kind: "btn-outline", onClick: c => c() },

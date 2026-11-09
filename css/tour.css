@@ -1,0 +1,337 @@
+/* ========================================================================
+   ЭКСКУРСИЯ ПО САЙТУ (js/site/tour.js).
+   Грузится только когда экскурсию открыли. Сами экраны сайта рисуют
+   настоящие стили (site.css, glassos-site.css) — здесь только то, чего на
+   сайте нет: сцена, курсор, подсветка, подписи, управление, телефон с
+   ботом, склад, карта. Цвета — переменные сайта (--navy, --gold, --bg…),
+   поэтому работает и в тёмной теме.
+   ======================================================================== */
+.gt {
+  position: fixed; inset: 0; z-index: 10000; overflow: hidden;
+  background: var(--bg, #f0f2f8); color: var(--text, #1a1f2e);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none;
+  transition: opacity .5s ease;
+}
+.gt::before {
+  content: ""; position: absolute; inset: -10%; pointer-events: none; z-index: 0;
+  background: radial-gradient(40% 40% at 12% 8%, rgba(201,168,76,.16), transparent 70%),
+              radial-gradient(45% 45% at 92% 18%, rgba(110,150,230,.14), transparent 70%),
+              radial-gradient(50% 40% at 70% 100%, rgba(227,193,99,.12), transparent 70%);
+}
+.gt-paused *, .gt-paused *::before, .gt-paused *::after { animation-play-state: paused !important; }
+.gt-bye { opacity: 0; }
+.gt button { font-family: inherit; }
+
+.gt-stage { position: absolute; inset: 0; overflow: hidden; z-index: 1; }
+.gt-cam { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
+.gt-page { position: absolute; left: 0; right: 0; top: 0; min-height: 100%; padding: 0 0 200px; will-change: transform; pointer-events: none; }
+.gt-page.gt-in { animation: gtIn .5s cubic-bezier(.22,1,.36,1) both; }
+.gt-page.gt-out { opacity: 0; transform: translateY(-8px); transition: opacity .25s ease, transform .25s ease; }
+@keyframes gtIn { from { opacity: 0; transform: translateY(10px); } }
+.gt-page .site-header { position: relative; top: auto; margin-top: 14px; }
+.gt-page .site-main { padding-top: 18px; }
+.gt-hidden { display: none !important; }
+.gt-swap { animation: gtIn .45s cubic-bezier(.22,1,.36,1) both; }
+.gt-gone { opacity: 0 !important; transform: translateX(14px); transition: opacity .3s, transform .3s; }
+.gt-pressed { transform: scale(.95) !important; transition: transform .12s ease !important; }
+.gt-ris { width: 100%; height: 100%; display: grid; place-items: center; background: linear-gradient(150deg, #f6f7fb, #e8ecf4); }
+.gt-ris svg { width: 54%; height: 54%; }
+.product-card-img .gt-ris { position: absolute; inset: 0; }
+.sku-copy.copied { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(201,168,76,.25); }
+
+/* сборка главной по частям */
+.sc-home .site-header, .sc-home .cat-rail, .sc-home .feature-tile, .sc-home .catalog-toolbar, .sc-home .product-grid {
+  transition: opacity .7s cubic-bezier(.22,1,.36,1), transform .7s cubic-bezier(.22,1,.36,1);
+}
+.sc-home .cat-rail { transition-delay: .15s; } .sc-home .feature-tile { transition-delay: .3s; }
+.sc-home .catalog-toolbar { transition-delay: .45s; } .sc-home .product-grid { transition-delay: .6s; }
+.gt-build .site-header, .gt-build .cat-rail, .gt-build .feature-tile, .gt-build .catalog-toolbar, .gt-build .product-grid { opacity: 0; transform: translateY(18px); }
+.sc-home.gt-build .site-header { transform: translateY(-14px); }
+
+/* ---------- курсор и подсветка ---------- */
+.gt-fx { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.gt-cursor { position: absolute; left: 0; top: 0; width: 26px; height: 26px; margin: -3px 0 0 -4px; opacity: 0; transition: opacity .3s; filter: drop-shadow(0 4px 8px rgba(0,0,0,.25)); }
+.gt-cursor.on { opacity: 1; }
+.gt-cursor i { position: absolute; left: 0; top: 0; width: 34px; height: 34px; margin: -14px 0 0 -13px; border-radius: 50%; border: 2px solid var(--gold, #c9a84c); opacity: 0; }
+.gt-cursor.tap i { animation: gtTap .5s ease-out; }
+@keyframes gtTap { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+.gt-mobile .gt-cursor svg { display: none; }
+.gt-mobile .gt-cursor::before { content: ""; position: absolute; left: -10px; top: -10px; width: 30px; height: 30px; border-radius: 50%; background: rgba(28,43,74,.28); border: 2px solid rgba(255,255,255,.9); }
+.gt-spot {
+  position: absolute; border-radius: 16px; opacity: 0; border: 2px solid var(--gold, #c9a84c);
+  box-shadow: 0 0 0 4px rgba(201,168,76,.2), 0 10px 30px -8px rgba(201,168,76,.45);
+  transition: opacity .35s ease, left .45s cubic-bezier(.22,1,.36,1), top .45s cubic-bezier(.22,1,.36,1), width .45s cubic-bezier(.22,1,.36,1), height .45s cubic-bezier(.22,1,.36,1);
+}
+.gt-spot.on { opacity: 1; }
+
+/* ---------- подпись сцены ---------- */
+.gt-cap {
+  position: absolute; z-index: 6; left: 24px; bottom: 96px; width: min(520px, calc(100% - 48px));
+  padding: 16px 18px 17px; border-radius: 18px; display: flex; flex-direction: column; gap: 4px;
+  background: linear-gradient(152deg, rgba(255,255,255,.92), rgba(255,255,255,.78));
+  border: 1px solid rgba(255,255,255,.95); box-shadow: 0 18px 44px -18px rgba(28,43,74,.35);
+  -webkit-backdrop-filter: blur(20px) saturate(165%); backdrop-filter: blur(20px) saturate(165%);
+}
+html[data-site-theme="dark"] .gt-cap, html[data-site-theme="dark"] .gt-bar, html[data-site-theme="dark"] .gt-skip, html[data-site-theme="dark"] .gt-invite { background: rgba(20,20,25,.78); border-color: rgba(255,255,255,.1); }
+.gt-cap.in { animation: gtIn .5s cubic-bezier(.22,1,.36,1) both; }
+.gt-cap-n { font: 600 11.5px ui-monospace, "SF Mono", Consolas, monospace; color: var(--gold-d, #a07828); }
+.gt-cap-t { font-size: 18px; font-weight: 800; letter-spacing: -.01em; }
+.gt-cap-d { font-size: 14.5px; line-height: 1.5; color: var(--muted, #64748b); }
+
+/* ---------- управление ---------- */
+.gt-skip {
+  position: absolute; z-index: 7; top: max(14px, env(safe-area-inset-top)); right: 16px; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 42px; padding: 0 16px; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text);
+  background: rgba(255,255,255,.88); border: 1px solid var(--border, #dde1ea); box-shadow: 0 6px 18px -8px rgba(28,43,74,.3);
+}
+.gt-bar {
+  position: absolute; z-index: 7; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom));
+  width: min(980px, calc(100% - 32px)); display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 10px; border-radius: 999px;
+  background: linear-gradient(152deg, rgba(255,255,255,.9), rgba(255,255,255,.74)); border: 1px solid rgba(255,255,255,.95);
+  box-shadow: 0 18px 40px -16px rgba(28,43,74,.35); -webkit-backdrop-filter: blur(20px) saturate(165%); backdrop-filter: blur(20px) saturate(165%);
+}
+.gt-ctl { display: flex; gap: 4px; }
+.gt-b { width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; color: var(--navy, #1c2b4a); display: grid; place-items: center; cursor: pointer; transition: background .15s; }
+.gt-b:hover:not(:disabled) { background: rgba(28,43,74,.07); }
+.gt-b:disabled { opacity: .3; cursor: default; }
+.gt-b[hidden] { display: none; }
+.gt-chap { flex: 1; display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.gt-chap li { flex: 1; min-width: 0; }
+.gt-chap button { width: 100%; height: 30px; border: 0; background: none; padding: 0; cursor: pointer; position: relative; }
+.gt-chap button::before, .gt-chap button i { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; border-radius: 4px; }
+.gt-chap button::before { background: rgba(28,43,74,.12); }
+.gt-chap button i { background: var(--navy, #1c2b4a); transform-origin: left; transform: scaleX(var(--p, 0)); }
+.gt-chap li.done button i { background: var(--gold, #c9a84c); transform: none; }
+.gt-chap span { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: 600; color: var(--text); background: #fff; border: 1px solid var(--border); padding: 4px 8px; border-radius: 8px; opacity: 0; pointer-events: none; transition: opacity .15s; }
+.gt-chap button:hover span, .gt-chap button:focus-visible span { opacity: 1; }
+.gt-go { white-space: nowrap; padding: 11px 20px !important; border-radius: 999px !important; }
+.gt :focus-visible { outline: 2px solid var(--gold, #c9a84c); outline-offset: 2px; }
+
+/* ---------- галерея фото ---------- */
+.gt-gal { position: absolute; inset: 0; z-index: 30; background: rgba(10,12,20,.9); display: grid; place-items: center; opacity: 0; transition: opacity .3s; }
+.gt-gal.open { opacity: 1; }
+.gt-gal-img { position: relative; width: min(62vw, 560px); aspect-ratio: 1; border-radius: 16px; overflow: hidden; background: #fff; }
+.gt-gal-img > * { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transform: scale(1.03); transition: opacity .35s, transform .45s cubic-bezier(.22,1,.36,1); }
+.gt-gal-img > .on { opacity: 1; transform: none; }
+.gt-gal-a { position: absolute; top: 50%; width: 48px; height: 48px; margin-top: -24px; border-radius: 50%; border: 0; background: rgba(255,255,255,.16); color: #fff; font-size: 30px; line-height: 1; }
+.gt-gal-a.l { left: 6%; } .gt-gal-a.r { right: 6%; }
+.gt-gal-c { position: absolute; bottom: 120px; left: 0; right: 0; text-align: center; color: #fff; font-size: 14px; }
+
+/* ---------- телефон с ботом ---------- */
+.gt-phone {
+  position: absolute; z-index: 20; right: 5%; top: 50%; width: 340px; height: min(640px, 76vh); margin-top: calc(min(640px, 76vh) / -2 - 30px);
+  display: flex; flex-direction: column; overflow: hidden; border-radius: 34px; background: #e7ecf3;
+  border: 9px solid #16203a; box-shadow: 0 40px 80px -30px rgba(16,24,40,.55);
+  opacity: 0; transform: translateX(40px) scale(.97); transition: opacity .45s, transform .55s cubic-bezier(.22,1,.36,1);
+}
+.gt-phone.show { opacity: 1; transform: none; }
+.gt-ph-top { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; background: #fff; border-bottom: 1px solid #e3e7ee; }
+.gt-ph-av { width: 34px; height: 34px; flex: 0 0 auto; } .gt-ph-av svg { width: 100%; height: 100%; }
+.gt-ph-top b { font-size: 14px; display: block; color: #16203a; } .gt-ph-top small { font-size: 11.5px; color: #8a93a3; }
+.gt-ph-msgs { flex: 1; min-height: 0; overflow: hidden; padding: 12px; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; }
+.gt-msg { align-self: flex-start; max-width: 88%; padding: 9px 11px; border-radius: 14px 14px 14px 4px; background: #fff; color: #16203a; font-size: 13px; line-height: 1.45; box-shadow: 0 1px 1px rgba(16,24,40,.06); animation: gtMsg .35s cubic-bezier(.22,1,.36,1) both; }
+.gt-msg.me { align-self: flex-end; border-radius: 14px 14px 4px 14px; background: #d9f2d2; }
+@keyframes gtMsg { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+.gt-msg-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+.gt-msg-btns span { text-align: center; padding: 7px 6px; border-radius: 9px; background: #eef2f8; color: #2b4596; font-size: 12px; font-weight: 600; transition: transform .12s; }
+.gt-ph-kb { display: flex; gap: 6px; padding: 0 10px 12px; }
+.gt-ph-kb:empty { display: none; }
+.gt-kb-b { flex: 1; text-align: center; padding: 10px; border-radius: 10px; background: #fff; color: #2b4596; font-size: 13px; font-weight: 700; box-shadow: 0 1px 1px rgba(16,24,40,.08); }
+.gt-kb-b.pri { background: #1c2b4a; color: #fff; }
+.gt-pdf { display: flex; gap: 10px; align-items: center; padding: 8px; margin: -2px -2px 8px; border-radius: 10px; background: #f3f5f9; }
+.gt-pdf span { width: 38px; height: 44px; border-radius: 6px; background: #fff; border: 1px solid #e3e7ee; display: grid; place-items: center; color: #a07828; }
+.gt-pdf small { display: block; color: #8a93a3; font-size: 11.5px; }
+
+/* мини-приложение внутри телефона */
+.gt-app { align-self: stretch; display: flex; flex-direction: column; gap: 8px; padding: 2px; overflow: hidden; animation: gtIn .4s both; }
+.gt-app-s { border: 1px solid #dfe3ea; border-radius: 10px; padding: 9px 11px; font-size: 13px; background: #fff; }
+.gt-app-h { font-weight: 800; font-size: 15px; display: flex; gap: 8px; align-items: center; color: #16203a; }
+.gt-app-c { display: flex; gap: 10px; padding: 9px; border-radius: 12px; background: #fff; transition: opacity .3s, transform .3s; }
+.gt-app-c.gt-new { background: #fdf8ea; animation: gtIn .4s both; }
+.gt-app-ph { width: 52px; height: 52px; flex: 0 0 auto; border-radius: 9px; overflow: hidden; background: #f3f5f9; }
+.gt-app-ph img { width: 100%; height: 100%; object-fit: cover; }
+.gt-app-b { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.gt-app-b b { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #16203a; }
+.gt-app-b small { font-size: 11px; color: #8a93a3; } .gt-app-b .ok { color: #1d7a45; }
+.gt-app-r { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
+.gt-st { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: #16203a; }
+.gt-st i { font-style: normal; width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; background: #eef1f6; color: #1c2b4a; }
+.gt-app-add { font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 8px; background: #c9a84c; color: #1c2b4a; }
+.gt-app-add.done { background: #e3f3e8; color: #1d6b3d; }
+.gt-app-x { font-size: 12px; color: #b4412e; font-weight: 600; }
+.gt-app-more { text-align: center; padding: 9px; border: 1px dashed #c8ccd4; border-radius: 10px; font-size: 12.5px; font-weight: 600; color: #1c2b4a; background: #fafbfc; }
+.gt-app-note { margin: 0; font-size: 12px; color: #5b6272; line-height: 1.4; }
+.gt-app-bar { flex: 1; text-align: center; padding: 12px; border-radius: 12px; background: #1c2b4a; color: #fff; font-size: 13.5px; font-weight: 700; }
+.gt-app-send { background: #c9a84c; color: #1c2b4a; }
+
+/* ---------- сцены с панелью и телефоном ---------- */
+.gt-split { position: relative; min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 6vw; align-items: center; padding: 96px 7vw 180px; }
+.gt-split .gt-phone { position: relative; right: auto; top: auto; margin: 0; height: min(620px, 70vh); }
+.gt-side-note { max-width: 460px; }
+.gt-kicker { font: 600 12px ui-monospace, Consolas, monospace; color: var(--gold-d, #a07828); }
+.gt-side-note h3 { margin: 6px 0 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+.gt-side-note p { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.6; }
+.gt-panel { border-radius: 24px; overflow: hidden; background: linear-gradient(152deg, rgba(255,255,255,.92), rgba(255,255,255,.7)); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 14px 34px rgba(28,43,74,.10); }
+html[data-site-theme="dark"] .gt-panel { background: rgba(20,20,25,.7); border-color: rgba(255,255,255,.1); }
+.gt-panel-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 14px; }
+.gt-panel-b { padding: 10px 18px 18px; }
+.gt-pr { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.gt-pr-ph { width: 46px; height: 46px; border-radius: 10px; overflow: hidden; background: var(--bg2); }
+.gt-pr-ph img { width: 100%; height: 100%; object-fit: cover; }
+.gt-pr-n b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gt-pr-n small { font-size: 12px; color: var(--muted); }
+.gt-pr-q { font: 600 13px ui-monospace, Consolas, monospace; }
+.gt-pr-in { min-width: 96px; height: 34px; padding: 0 10px; display: flex; align-items: center; border-radius: 9px; border: 1px solid var(--border); background: var(--white, #fff); font: 600 13px ui-monospace, Consolas, monospace; transition: border-color .2s, box-shadow .2s; }
+.gt-pr-in.f { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,.22); }
+.gt-pick { grid-template-columns: 26px 46px minmax(0, 1fr) auto; transition: background .3s; }
+.gt-pick.ok { background: linear-gradient(90deg, rgba(34,197,94,.08), transparent); }
+.gt-chk { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--border); transition: background .2s, border-color .2s; }
+.gt-pick.ok .gt-chk { background: #22c55e; border-color: #22c55e; box-shadow: inset 0 0 0 3px #fff; }
+.gt-places { margin-top: 12px; font-size: 14px; color: var(--muted); } .gt-places b { color: var(--text); font-size: 16px; }
+.gt-pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--bg2); color: var(--muted); white-space: nowrap; }
+.gt-pill.n { background: #e9eefb; color: #2b4596; } .gt-pill.w { background: #fff2d4; color: #7f5a0c; }
+.gt-pill.ok { background: #e3f3e8; color: #1d6b3d; } .gt-pill.done { background: #eef0f4; color: #3b4256; } .gt-pill.debt { background: #fde8e6; color: #a3321f; }
+.gt-flow { position: absolute; z-index: 3; top: 78px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; white-space: nowrap; }
+.gt-fs { font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 999px; background: rgba(255,255,255,.7); color: var(--muted); border: 1px solid var(--border); transition: background .35s, color .35s, border-color .35s; }
+.gt-fs.done { color: #a07828; border-color: rgba(201,168,76,.45); }
+.gt-fs.on { background: var(--navy, #1c2b4a); color: #fff; border-color: var(--navy); }
+.sc-confirm .gt-split, .sc-stock .gt-split { padding-top: 140px; }
+
+/* склад: полки и коробка */
+.gt-ware { display: flex; flex-direction: column; align-items: center; gap: 30px; perspective: 900px; }
+.gt-shelf { display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 16px; background: rgba(28,43,74,.05); transform: rotateY(-12deg) rotateX(4deg); }
+.gt-shelf-row { display: flex; gap: 10px; padding-bottom: 8px; border-bottom: 5px solid #b9c0cc; }
+.gt-bin { width: 52px; height: 40px; border-radius: 5px; background: linear-gradient(170deg, #d9b678, #b48a4c); box-shadow: inset 0 -6px 8px rgba(0,0,0,.12); animation: gtIn .5s both; animation-delay: var(--d); transition: transform .5s cubic-bezier(.22,1,.36,1), opacity .5s; }
+.gt-bin.take { transform: translateY(-26px) scale(.9); opacity: .25; }
+.gt-box3 { position: relative; width: 190px; height: 130px; perspective: 600px; }
+.gt-box3-b { position: absolute; left: 0; right: 0; bottom: 0; height: 100px; border-radius: 0 0 10px 10px; background: linear-gradient(170deg, #d9b678, #b48a4c 70%, #9d7640); box-shadow: 0 24px 40px -16px rgba(0,0,0,.45); }
+.gt-box3-f { position: absolute; top: 30px; width: 50%; height: 46px; background: linear-gradient(180deg, #e2c288, #c39a5a); transition: transform .55s cubic-bezier(.3,1.2,.4,1); }
+.gt-box3-f.l { left: 0; transform-origin: left top; transform: rotateZ(-115deg); }
+.gt-box3-f.r { right: 0; transform-origin: right top; transform: rotateZ(115deg); }
+.gt-box3.close .gt-box3-f { transform: none; } .gt-box3.close .gt-box3-f.r { transition-delay: .15s; }
+.gt-box3-t { position: absolute; left: 50%; top: 30px; width: 24px; margin-left: -12px; height: 0; background: rgba(255,240,200,.85); transition: height .35s ease .7s; }
+.gt-box3.close .gt-box3-t { height: 64px; }
+.gt-box3-l { position: absolute; right: 18px; bottom: 14px; width: 46px; height: 40px; border-radius: 6px; background: #fbfaf6; display: grid; place-items: center; opacity: 0; transition: opacity .3s 1s; }
+.gt-box3.close .gt-box3-l { opacity: 1; } .gt-box3-l svg { width: 70%; height: 70%; }
+
+/* доставка */
+.gt-deliv { display: flex; flex-direction: column; gap: 20px; }
+.gt-map { width: 100%; max-width: 520px; height: auto; overflow: visible; }
+.gt-map .land { fill: rgba(255,255,255,.55); stroke: var(--gold, #c9a84c); stroke-width: 2.5; stroke-linejoin: round; }
+.gt-map .route { fill: none; stroke: var(--navy, #1c2b4a); stroke-width: 2.5; stroke-dasharray: 7 7; opacity: 0; }
+.gt-deliv.go .route { animation: gtRoute 1.4s ease both; animation-delay: var(--d); }
+@keyframes gtRoute { from { opacity: 0; stroke-dashoffset: 120; } to { opacity: .85; stroke-dashoffset: 0; } }
+.gt-map .core { fill: var(--gold, #c9a84c); } .gt-map .halo { fill: rgba(201,168,76,.3); transform-box: fill-box; transform-origin: center; animation: gtHalo 1.8s ease-out infinite; }
+@keyframes gtHalo { from { transform: scale(.5); opacity: 1; } to { transform: scale(2.3); opacity: 0; } }
+.gt-map .dst { fill: var(--navy, #1c2b4a); opacity: 0; transform-box: fill-box; transform-origin: center; }
+.gt-deliv.go .dst { animation: gtDot .5s cubic-bezier(.3,1.6,.4,1) both; animation-delay: var(--d); }
+@keyframes gtDot { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
+.gt-ways { display: flex; gap: 12px; flex-wrap: wrap; }
+.gt-way { flex: 1; min-width: 200px; display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-radius: 18px; background: linear-gradient(152deg, rgba(255,255,255,.92), rgba(255,255,255,.7)); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 10px 26px rgba(28,43,74,.08); }
+.gt-way span { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--navy, #1c2b4a); color: #fff; }
+.gt-way b { font-size: 17px; display: block; } .gt-way small { color: var(--muted); font-size: 13px; }
+.gt-deliv-n { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* кабинет */
+.gt-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+.gt-tile { padding: 14px; border-radius: 14px; background: var(--bg2, #e6e9f2); }
+.gt-tile small { display: block; font-size: 12.5px; color: var(--muted); } .gt-tile b { font: 700 16px ui-monospace, Consolas, monospace; }
+.gt-tile.debt b { color: #b4412e; }
+.gt-ava { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: var(--navy, #1c2b4a); }
+.gt-or { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.gt-or > span:first-child { flex: 1; }
+.gt-mini { font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--white, #fff); }
+.gt-tbl { width: 100%; border-collapse: collapse; font-size: 14px; } .gt-tbl th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12.5px; padding: 6px 0; }
+.gt-tbl td { padding: 10px 0; border-top: 1px solid var(--border); } .gt-tbl td:nth-child(2) { font-family: ui-monospace, Consolas, monospace; }
+
+/* окно входа внутри сцены: на месте, без затемнения всей сцены */
+.gt-auth { position: absolute !important; left: 0; right: 0; top: 0; bottom: auto; height: 100vh; -webkit-backdrop-filter: blur(3px) !important; backdrop-filter: blur(3px) !important; }
+.gt-auth .s-modal { max-width: 440px; }
+.gt-auth-form .s-form[hidden], .gt-pass[hidden] { display: none; }
+.sc-auth .gt-phone { right: 4%; top: 50vh; z-index: 3000; }
+.gm-code-cell.filled { border-color: var(--gold) !important; }
+
+/* финал */
+.gt-final { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 60px 6vw 200px; text-align: center; }
+.gt-chain { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; max-width: 900px; }
+.gt-chain span { padding: 9px 15px; border-radius: 999px; font-size: 14px; font-weight: 700; background: rgba(255,255,255,.8); border: 1px solid var(--border); opacity: .25; transition: opacity .4s, background .4s, color .4s; }
+.gt-chain i { width: 14px; height: 2px; background: var(--border); }
+.gt-final.go .gt-chain span { opacity: 1; animation: gtLit .5s both; animation-delay: var(--d); }
+@keyframes gtLit { from { opacity: .25; background: rgba(255,255,255,.8); } 60% { background: var(--gold); color: #1c2b4a; } to { opacity: 1; } }
+.gt-fin-mark { width: 110px; height: 110px; filter: drop-shadow(0 18px 34px rgba(28,43,74,.2)); }
+.gt-final.go .gt-fin-mark { animation: gtIn .7s both 1.9s; } .gt-fin-mark svg { width: 100%; height: 100%; }
+.gt-final p { margin: 0; max-width: 640px; font-size: 26px; line-height: 1.3; font-weight: 800; letter-spacing: -.02em; }
+.gt-final.go p { animation: gtIn .7s both 2.3s; }
+
+/* ---------- приглашение при первом визите ---------- */
+.gt-invite {
+  position: fixed; z-index: 9000; right: 20px; bottom: 20px; width: min(400px, calc(100% - 24px));
+  display: grid; grid-template-columns: 52px 1fr; gap: 12px 14px; padding: 16px; border-radius: 22px;
+  background: linear-gradient(152deg, rgba(255,255,255,.94), rgba(255,255,255,.82)); border: 1px solid rgba(255,255,255,.95);
+  box-shadow: 0 24px 60px -20px rgba(28,43,74,.45); -webkit-backdrop-filter: blur(20px) saturate(165%); backdrop-filter: blur(20px) saturate(165%);
+  font-family: "Inter", system-ui, sans-serif; color: var(--text, #1a1f2e);
+  opacity: 0; transform: translateY(16px); transition: opacity .35s, transform .45s cubic-bezier(.22,1,.36,1);
+}
+.gt-invite.open { opacity: 1; transform: none; }
+.gt-inv-mark svg { width: 52px; height: 52px; }
+.gt-inv-t b { display: block; font-size: 16px; } .gt-inv-t span { font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+.gt-inv-b { grid-column: 1 / -1; display: flex; gap: 8px; }
+.gt-inv-b .btn-primary { flex: 1; } .gt-inv-b button { padding: 11px 16px; font-size: 14px; }
+
+/* ---------- телефон (узкий экран): отдельная раскладка ---------- */
+.gt-mobile .gt-cap { left: 12px; right: 12px; width: auto; bottom: 84px; padding: 12px 14px 13px; border-radius: 16px; }
+.gt-mobile .gt-cap-t { font-size: 16px; } .gt-mobile .gt-cap-d { font-size: 13.5px; }
+.gt-mobile .gt-bar { gap: 8px; padding: 6px; width: calc(100% - 20px); bottom: max(10px, env(safe-area-inset-bottom)); }
+.gt-mobile .gt-b { width: 36px; height: 36px; }
+.gt-mobile .gt-go { padding: 10px 14px !important; font-size: 13px !important; }
+.gt-mobile .gt-ctl .gt-snd { display: none; }
+.gt-mobile .gt-chap { gap: 2px; }
+.gt-mobile .gt-page { padding-bottom: 260px; }
+.gt-mobile .gt-page .site-header { margin-top: 0; }
+.gt-mobile .gt-split { grid-template-columns: 1fr; gap: 14px; padding: 66px 12px 210px; align-content: start; }
+.gt-mobile .gt-side-note { display: none; }
+.gt-mobile .gt-split .gt-phone { width: 100%; max-width: 360px; margin: 0 auto; height: min(540px, 62vh); }
+.gt-mobile .sc-confirm .gt-split, .gt-mobile .sc-stock .gt-split { padding-top: 112px; }
+.gt-mobile .sc-confirm .gt-phone { position: absolute; left: 12px; right: 12px; top: 112px; width: auto; z-index: 10; }
+.gt-mobile .gt-flow { top: 60px; gap: 4px; max-width: calc(100% - 20px); overflow: hidden; }
+.gt-mobile .gt-fs { font-size: 11px; padding: 6px 9px; }
+.gt-mobile .gt-fs:not(.on) { max-width: 26px; overflow: hidden; color: transparent; }
+.gt-mobile .gt-ware { display: none; }
+.gt-mobile .sc-auth .gt-phone { left: 12px; right: 12px; width: auto; top: 58%; height: 54vh; }
+.gt-mobile .gt-tiles { grid-template-columns: 1fr; }
+.gt-mobile .gt-final p { font-size: 20px; }
+.gt-mobile .gt-gal-img { width: 86vw; }
+.gt-mobile .gt-way { min-width: 0; }
+@media (max-width: 760px) {
+  .gt-invite { right: 10px; left: 10px; bottom: 10px; width: auto; }
+}
+
+/* ---------- спокойный режим ---------- */
+.gt-calm *, .gt-calm *::before, .gt-calm *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
+
+/* ---------- блокировка и проявление сайта ---------- */
+html.gt-lock, html.gt-lock body { overflow: hidden !important; }
+html.gt-reveal .site-header { animation: gtSite .7s cubic-bezier(.22,1,.36,1) both; }
+html.gt-reveal #site-main .site-main > * { animation: gtSite .75s cubic-bezier(.22,1,.36,1) both .12s; }
+@keyframes gtSite { from { opacity: 0; transform: translateY(16px); } }
+@media (prefers-reduced-motion: reduce) { html.gt-reveal .site-header, html.gt-reveal #site-main .site-main > * { animation: none; } }
+
+.sc-delivery .gt-split { align-items: start; padding-top: 60px; }
+.gt[data-scene="final"] .gt-cap { opacity: 0; pointer-events: none; }
+.gt-final { min-height: calc(100vh - 90px); padding-bottom: 120px; gap: 22px; }
+.gt-fin-mark { width: 92px; height: 92px; }
+.gt-chain { gap: 6px; }
+
+/* телефон: окно входа и доставка — выше подписи сцены */
+.gt-mobile .gt-auth { align-items: flex-start !important; padding-top: 64px !important; }
+.gt-mobile .sc-auth .gt-phone { top: 64vh; height: 30vh; }
+.gt-mobile .sc-delivery .gt-split { padding-top: 60px; }
+.gt-mobile .sc-delivery .gt-phone { order: -1; height: 290px; }
+.gt-mobile .sc-delivery .gt-map { max-width: 260px; margin: 0 auto; }
+.gt-mobile .sc-delivery .gt-deliv { gap: 10px; }
+
+/* телефон, регистрация: подпись наверху, чтобы не закрывать окно входа */
+.gt-mobile[data-scene="auth"] .gt-cap { top: 62px; bottom: auto; }
+.gt-mobile[data-scene="auth"] .gt-cap-d { display: none; }
+.gt-mobile .sc-auth .gt-phone { top: 142px; margin-top: 0; height: min(310px, 38vh); }

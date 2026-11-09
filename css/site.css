@@ -1728,3 +1728,17 @@ html:active-view-transition { cursor: default; }
 }
 .site-смена { animation: gmСменаРаздела .42s cubic-bezier(.2,.8,.25,1); }
 @media (prefers-reduced-motion: reduce) { .site-смена { animation: none; } }
+
+/* ---- Кнопка «▶ Как заказать» (окно с роликом и шагами — js/site/intro.js) ---- */
+.gm-howto {
+  font: inherit; font-size: 0.875rem; cursor: pointer;
+  border: 0; background: none; color: var(--muted); white-space: nowrap;
+}
+.gm-howto-ic {
+  width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto;
+  display: inline-grid; place-items: center;
+  background: linear-gradient(140deg, var(--gold-l), var(--gold-d)); color: #1c2b4a;
+}
+.gm-howto-ic svg { width: 9px; height: 9px; margin-left: 1px; }
+.site-menu > .gm-howto { border: 1px solid var(--border); text-align: left; }
+.site-nav .gm-howto:focus-visible, .site-menu .gm-howto:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }

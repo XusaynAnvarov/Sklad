@@ -32,6 +32,7 @@ import supplierOrder from "./pages/supplier_order.js?v=20261109c";
 import stockCheck from "./pages/stock_check.js?v=20261109c";
 import packingSetup from "./pages/packing_setup.js?v=20261109c";
 import seoPage from "./pages/seo.js?v=20261109c";
+import introAdmin from "./pages/intro_admin.js?v=20261109c";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -49,6 +50,7 @@ const NAV = [
   { id: "crm",          label: "Клиенты и безопасность", ic: "shield", render: crmPage },
   { id: "site_clients", label: "Клиенты сайта",   ic: "broadcast", render: siteClients },
   { id: "seo",          label: "SEO",             ic: "search",     render: seoPage },
+  { id: "intro",        label: "Презентация сайта", ic: "broadcast", render: introAdmin },
   { id: "trash",        label: "Корзина",         ic: "trash",     render: trash },
   { id: "settings",     label: "Настройки",       ic: "settings",  render: settings },
 ];

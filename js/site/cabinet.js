@@ -3,7 +3,7 @@ import { api } from "./api.js?v=20261109c";
 import { sToast, t } from "./app.js?v=20261109c";
 
 const CURRENCIES = { som: "сум", usd: "$", yuan: "¥" };
-const STATUS_LABEL = { order: "Новый", pending_confirm: "Ждёт подтверждения", confirmed: "Подтверждён", final: "Оформлен" };
+const STATUS_LABEL = { order: "Новый", pending_confirm: "Ждёт подтверждения", confirmed: "Подтверждён", final: "Оформлен", canceled: "Отменён" };
 const STATUS_CLASS = { order: "order", pending_confirm: "pending", confirmed: "confirmed", final: "final" };
 const DEBT_LABEL = { paid: "Оплачено", partial: "Частично", debt: "Долг" };
 
