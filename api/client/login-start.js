@@ -49,8 +49,18 @@ export default async function handler(req, res) {
     // Владельцу — в крайнем случае на его личный чат из .env: иначе, если
     // в аккаунте не оказалось chat_id, он остался бы заперт снаружи.
     if (!chatId && владелец) chatId = process.env.ADMIN_CHAT_ID || null;
-    if (!chatId) return res.status(409).json({ error: `Откройте Telegram-бота @${BOT} и нажмите /start, затем повторите вход.` });
-    if (!CLIENT_TOKEN) return res.status(500).json({ error: "CLIENT_BOT_TOKEN не задан на сервере" });
+
+    // Бота может и не быть. Раньше это была стена: «откройте бота и
+    // нажмите /start» — и войти никак. Теперь, если на сервере заданы
+    // доступы Eskiz, код уходит обычной SMS, и бот не нужен вовсе.
+    const канал = каналКода();
+    const смсМожно = смсНастроены() && !!номерДляSMS(phone);
+    const шлёмSMS = смсМожно && (канал === "sms" || канал === "both" || !chatId);
+    const шлёмTG = !!chatId && !!CLIENT_TOKEN && (канал !== "sms" || !смсМожно);
+
+    if (!шлёмTG && !шлёмSMS) {
+      return res.status(409).json({ error: `Откройте Telegram-бота @${BOT} и нажмите /start, затем повторите вход.` });
+    }
 
     // НЕ ЧАЩЕ ОДНОГО КОДА В МИНУТУ.
     // Без этого любой человек мог вбить чужой номер и жать «Получить код»
@@ -68,7 +78,9 @@ export default async function handler(req, res) {
     const code = genCode();
     const exp = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 минут
     try {
-      await spatch(`site_accounts?id=eq.${acc.id}`, { login_code: hashCode(code), login_code_exp: exp, login_attempts: 0, chat_id: String(chatId) });
+      const патч = { login_code: hashCode(code), login_code_exp: exp, login_attempts: 0 };
+      if (chatId) патч.chat_id = String(chatId);   // без бота колонку не трогаем
+      await spatch(`site_accounts?id=eq.${acc.id}`, патч);
     } catch (e) {
       return res.status(500).json({ error: "Колонки кода входа не созданы — запустите db/site-auth.sql в Supabase" });
     }
