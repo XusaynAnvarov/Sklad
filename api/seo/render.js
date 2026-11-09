@@ -134,6 +134,7 @@ h2{font-size:20px;margin:28px 0 12px}
 .facts th{color:var(--muted);font-weight:500;width:42%;padding-right:12px}
 .st{font-weight:700}.st.in_stock{color:var(--ok)}.st.out_stock{color:var(--no)}.st.soon{color:var(--soon)}
 .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.how{margin:0 0 16px;padding-left:20px;color:var(--muted);font-size:15px}.how li{margin:3px 0}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
 @media (max-width:640px){header.h{position:static}nav.n{margin-left:0}nav.n a{padding:6px 8px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.tile .t{font-size:13px}}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;text-decoration:none;display:flex;flex-direction:column;overflow:hidden}
@@ -280,6 +281,8 @@ export function страницаТовара(т, lang, кат) {
 <h1>${esc(т.name)}</h1>
 <table class="facts"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${v}</td></tr>`).join("")}</tbody></table>
 <p>${esc(descr)}</p>
+<h2 style="font-size:16px;margin:16px 0 6px">${esc(t.howTitle)}</h2>
+<ol class="how">${t.how.map(x => `<li>${esc(x)}</li>`).join("")}</ol>
 <div class="cta"><a class="btn" href="/#catalog?q=${encodeURIComponent(т.code)}">${esc(t.order)}</a>${s.telegram ? `<a class="btn alt" href="${esc(s.telegram)}" rel="noopener">${esc(t.orderTg)}</a>` : ""}</div>
 </div>
 </article>
@@ -356,6 +359,8 @@ export function страницаКаталога(кат, lang) {
 <form class="s" action="${prefix(lang)}/search" method="get" role="search"><input name="q" type="search" placeholder="${esc(t.searchPh)}" aria-label="${esc(t.search)}"><button class="btn" type="submit">${esc(t.search)}</button></form>
 <h2>${esc(t.categories)}</h2>
 <div class="cats">${все.map(c => `<a class="card" href="${uCat(lang, c.slug)}">${esc(имяКат(c, lang))}<span>${esc(t.products(c.items.length))}</span></a>`).join("")}</div>
+${кат.марки && кат.марки.size ? `<h2>${esc(lang === "ru" ? "Запчасти по маркам" : lang === "uz" ? "Markalar bo‘yicha" : "By brand")}</h2>
+<div class="cats">${[...кат.марки.values()].sort((a, b) => b.items.length - a.items.length).map(b => `<a class="card" href="${uCat(lang, b.slug)}">${esc(имяКат(b, lang))}<span>${esc(t.products(b.items.length))}</span></a>`).join("")}</div>` : ""}
 <h2>${esc(lang === "ru" ? "Новые поступления" : lang === "uz" ? "Yangi kelganlar" : "New arrivals")}</h2>
 <div class="grid">${[...кат.товары].filter(x => x.photos.length).sort((a, b) => String(b.lastmod || "").localeCompare(String(a.lastmod || ""))).slice(0, 12).map(x => плитка(x, lang)).join("")}</div>`;
   return страница({

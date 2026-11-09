@@ -43,7 +43,7 @@ export function sitemapPages() {
 
 export function sitemapCategories(кат) {
   const out = [];
-  for (const c of кат.категории.values()) {
+  for (const c of [...кат.категории.values(), ...(кат.марки ? кат.марки.values() : [])]) {
     const last = дата(c.items.map(т => т.lastmod).filter(Boolean).sort().pop());
     const страниц = Math.max(1, Math.ceil(c.items.length / НА_СТРАНИЦЕ));
     for (let p = 1; p <= страниц; p++) {
@@ -129,7 +129,7 @@ export function llmsTxt(кат) {
     s.street && s.city ? `- Адрес: ${s.street}, ${s.city}` : null,
     s.hours ? `- Часы работы: ${s.hours}` : null,
     s.delivery_ru ? `- Доставка: ${s.delivery_ru}` : null,
-    s.price_policy === "show" ? "- Цены указаны на страницах товаров." : "- Цены на сайте не публикуются, их подтверждают при заказе.",
+    "- Цены на сайте не публикуются. Как проходит заказ: клиент выбирает товар, указывает количество и отправляет заявку; магазин рассчитывает цену и присылает её клиенту; клиент подтверждает заказ или отказывается.",
     `- У каждого товара есть постоянная страница с фото, кодом (например MK-003) и артикулом: ${abs("/p/")}<код>-<название>`,
     `- Поиск по названию, артикулу или коду: ${abs("/search?q=")}<запрос>`,
     `- Вопросы и ответы: ${abs(uFaq("ru"))}`,
@@ -141,7 +141,10 @@ export function llmsTxt(кат) {
     "",
     Object.keys(марки).length ? "## Марки и модели, встречающиеся в названиях товаров" : null,
     Object.keys(марки).length ? "" : null,
-    ...Object.entries(марки).sort((a, b) => b[1] - a[1]).map(([m, c]) => `- ${m}: ${c}`),
+    ...Object.entries(марки).sort((a, b) => b[1] - a[1]).map(([m, c]) => {
+      const b = кат.марки && кат.марки.get("zapchasti-" + m.toLowerCase());
+      return b ? `- [${m}](${abs(uCat("ru", b.slug))}): ${c}` : `- ${m}: ${c}`;
+    }),
   ];
   return lines.filter(l => l !== null).filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
 }

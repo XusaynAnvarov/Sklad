@@ -27,7 +27,6 @@ function проверитьТовар(т, дубли) {
   if (!т.ov.description) add("info", "no_descr", "Нет своего описания (используется автоматическое)");
   if (!т.ov.compat) add("info", "no_compat", "Не указана совместимость с машинами");
   if (/\s{2,}|\(\s|\s\)/.test(т.rawName || "")) add("info", "spaces", "Лишние пробелы в названии (на сайте уже убраны)");
-  if (настройки().price_policy === "show" && !т.price) add("warn", "no_price", "Показ цен включён, а у товара нет цены — в фид не попадёт");
   return issues;
 }
 
@@ -43,7 +42,6 @@ function проверитьРазметку(т) {
   if (!p) return ["Нет Product"];
   if (!p.name) errs.push("Product.name пуст");
   if (!p.image) errs.push("Product.image нет (нет фото)");
-  if (!p.offers) errs.push("Нет offers — расширенный сниппет с ценой недоступен, пока цены скрыты");
   if (!/<link rel="canonical"/.test(html)) errs.push("Нет canonical");
   if (!/hreflang="uz"/.test(html)) errs.push("Нет hreflang");
   return errs;

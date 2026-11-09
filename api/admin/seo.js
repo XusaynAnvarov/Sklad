@@ -110,7 +110,7 @@ export default async function handler(req, res) {
         if (typeof НАСТРОЙКИ_ПО_УМОЛЧАНИЮ[k] === "boolean") next[k] = !!v;
         else next[k] = str(v, k.startsWith("delivery") ? 600 : 200);
       }
-      if (!["hidden", "show"].includes(next.price_policy)) next.price_policy = "hidden";
+      next.price_policy = "hidden";   // цены не публикуются никогда — решение владельца
       if (next.telegram && !/^https:\/\/t\.me\/[\w]{3,64}$/.test(next.telegram)) return res.status(400).json({ error: "Telegram: нужна ссылка вида https://t.me/имя" });
       if (next.google_file && !/^google[0-9a-f]{8,40}\.html$/.test(next.google_file)) return res.status(400).json({ error: "Файл Google: имя вида google1234abcd.html" });
       if (next.yandex_file && !/^[0-9a-f]{8,40}$/.test(next.yandex_file)) return res.status(400).json({ error: "Яндекс: только код из имени файла yandex_<код>.html" });

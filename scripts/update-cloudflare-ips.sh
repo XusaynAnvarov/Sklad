@@ -1,9 +1,10 @@
 #!/bin/sh
 # ========================================================================
 #  Обновить список адресов Cloudflare для nginx.
-#  Запуск на сервере:  sh scripts/update-cloudflare-ips.sh
-#  Cron (1-го числа в 04:00):
-#    0 4 1 * * sh /var/www/skladanvarov/scripts/update-cloudflare-ips.sh >> /var/log/cf-ips.log 2>&1
+#  На сервере лежит копией в /usr/local/bin/update-cloudflare-ips.sh
+#  (установлено 2026-11-09). Cron (1-го числа в 04:00):
+#    0 4 1 * * sh /usr/local/bin/update-cloudflare-ips.sh >> /var/log/cf-ips.log 2>&1
+#  Журнал: /var/log/cf-ips.log
 #
 #  Безопасно: если Cloudflare не ответил, список пустой или nginx -t
 #  не прошёл — оставляем прежний файл и ничего не перезагружаем.

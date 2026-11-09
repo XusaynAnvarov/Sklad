@@ -30,8 +30,8 @@ function вопросы(lang, кат) {
       "Chelnok mashina modeli va turiga qarab tanlanadi. Mashinaning modelini (u odatda korpusdagi plastinkada yozilgan) va chelnok korpusidagi belgini toping, so‘ng kod yoki artikul bo‘yicha qidiring. Shubha bo‘lsa, eski chelnok rasmini Telegramga yuboring — rasmini katalogdagi bilan solishtiramiz."],
     ["Sanoat tikuv mashinasiga qaysi ninalar mos keladi?",
       "Nina tizimi mashina turiga bog‘liq: to‘g‘ri chokli sanoat mashinalari odatda DBx1, overloklar — DCx27, rasposhivalkalar — UYx128GAS, ayrim maxsus mashinalar — DPx5 tizimini ishlatadi. Ninadagi raqam (masalan, 90, 100, 110) — uning qalinligi millimetrning yuzdan bir ulushida: 90 = 0,9 mm. Qalinlik matoga qarab tanlanadi: yupqa matolar uchun ingichka, qalin matolar uchun yo‘g‘onroq nina."],
-    ["Narxlarni qanday bilsam bo‘ladi?",
-      "Narx buyurtma rasmiylashtirilganda aniqlanadi: saytda buyurtma bering yoki Telegram-bot orqali yozing."],
+    ["Narxlarni qanday bilsam bo‘ladi? Buyurtma qanday beriladi?",
+      "Saytda narxlar ko‘rsatilmaydi — narx har bir buyurtma uchun alohida aytiladi. Kerakli detallarni tanlang, miqdorini ko‘rsating va buyurtma yuboring (saytda yoki Telegramda). Biz narxni hisoblab, sizga yuboramiz. Siz narxni tasdiqlaysiz — shundan keyin buyurtma rasmiylashtiriladi; narx to‘g‘ri kelmasa, rad etishingiz mumkin."],
   ];
   if (lang === "en") return [
     ["Where can I buy industrial sewing machine parts in Uzbekistan?",
@@ -42,8 +42,8 @@ function вопросы(lang, кат) {
       "A hook is matched to the machine model and type. Find the machine model (usually on the plate on the machine body) and any marking on the hook itself, then search by code or part number. If in doubt, send a photo of your old hook via Telegram and we will compare it with the catalog."],
     ["Which needles fit an industrial sewing machine?",
       "The needle system depends on the machine type: industrial lockstitch machines usually use DBx1, overlocks DCx27, coverstitch machines UYx128GAS, and some special machines DPx5. The number on the needle (90, 100, 110…) is the blade diameter in hundredths of a millimetre: 90 = 0.9 mm. Pick a thinner needle for light fabrics and a thicker one for heavy fabrics."],
-    ["How can I find out the price?",
-      "The price is confirmed when the order is placed: order on the website or message us via the Telegram bot."],
+    ["How do I find out the price? How does ordering work?",
+      "Prices are not shown on the website — we quote a price for each order. Choose the parts, enter the quantity and send a request (on the website or via Telegram). We calculate the price and send it to you. You confirm it and the order is processed; if the price does not suit you, you can decline."],
   ];
   return [
     ["Где купить запчасти для промышленной швейной машины в Узбекистане?",
@@ -54,8 +54,8 @@ function вопросы(lang, кат) {
       "Челнок подбирается под модель и тип машины. Найдите модель машины (обычно она указана на табличке на корпусе) и маркировку на самом челноке, затем ищите по коду или артикулу. Если сомневаетесь, отправьте фото старого челнока в Telegram — сверим его с каталогом."],
     ["Какие иглы подходят для промышленной швейной машины?",
       "Система иглы зависит от типа машины: промышленные прямострочные машины обычно используют систему DBx1, оверлоки — DCx27, распошивальные — UYx128GAS, часть специальных машин — DPx5. Число на игле (90, 100, 110…) — толщина в сотых долях миллиметра: 90 = 0,9 мм. Для тонких тканей берут иглу тоньше, для плотных — толще."],
-    ["Как узнать цену?",
-      "Цена подтверждается при оформлении заказа: оформите заказ на сайте или напишите в Telegram-бот."],
+    ["Как узнать цену? Как проходит заказ?",
+      "Цены на сайте не публикуются — цену мы называем под каждый заказ. Выберите детали, укажите количество и отправьте заявку (на сайте или в Telegram). Мы рассчитаем цену и пришлём её вам. Вы подтверждаете цену — и заказ оформляется; если цена не подходит, можно отказаться."],
   ];
 }
 

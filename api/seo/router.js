@@ -61,7 +61,8 @@ for (const lang of ["ru", "uz", "en"]) {
 
   r.get(`${pre}/c/:slug`, обёртка(async (req, res) => {
     const кат = await каталог();
-    const c = кат.категории.get(String(req.params.slug).toLowerCase());
+    const slug = String(req.params.slug).toLowerCase();
+    const c = кат.категории.get(slug) || кат.марки.get(slug);
     if (!c) return html(res, 404, страница404(lang));
     const raw = req.query.page;
     const page = raw === undefined ? 1 : Number(raw);

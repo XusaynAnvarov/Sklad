@@ -77,9 +77,9 @@ export default async function renderSeo(page, ctx) {
     ["Страницы товаров", productLive ? значок(productLive.ok, "Доступны, разметка Product есть", "Ошибка " + productLive.status) : значок(false, "", "не проверено"), "Полный HTML без JavaScript, фото, хлебные крошки, hreflang", productLive && productLive.path],
     ["Каталог и категории", живой("/c/"), L ? `${L.pages} страниц категорий` : "", "/c/"],
     ["llms.txt (для ИИ-поиска)", живой("/llms.txt"), "Краткая справка о магазине для ChatGPT, Perplexity и др.", st.urls.llms],
-    ["Товарный фид Merchant Center", L ? значок(L.feed.ready, `Готов: ${L.feed.items} товаров`, "Не готов") : значок(false), L ? (L.feed.reason || "") : "", st.urls.feed],
+    ["Товарный фид Merchant Center", значок(false, "", "Не используется"), "Merchant Center принимает товар только с ценой, а цены не публикуются", null],
     ["Структурированные данные", L ? значок(L.schema.withErrors === 0, `Без ошибок (${L.schema.checked} проверено)`, `Ошибок: ${L.schema.withErrors}`) : значок(false, "", "не проверено"),
-      st.settings.price_policy === "show" ? "Product, Offer, BreadcrumbList, ItemList, Organization" : "Product без Offer — цены скрыты (см. настройки)", null],
+      "Product, BreadcrumbList, ItemList, FAQPage, OnlineStore. Без Offer — цены не публикуются", null],
     ["Google Search Console", значок(st.gsc && st.gsc.connected, "Подключено"), st.gsc && !st.gsc.connected ? st.gsc.reason : (st.gsc ? st.gsc.property : ""), "https://search.google.com/search-console"],
     ["Подтверждение Google", значок(st.services.google_verify, "Код задан", "Не задан"), "Подтверждение владения: DNS в Cloudflare или файл google….html", null],
     ["Яндекс Вебмастер", значок(st.services.yandex_verify, "Код задан", "Не задан"), "Подтверждение: meta-тег или файл yandex_….html", "https://webmaster.yandex.ru"],
@@ -251,25 +251,22 @@ function настройки(s, ctx) {
   const grid = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: "12px" } },
     поля.map(([k, l]) => { inputs[k] = input({ value: s[k] || "" }); return el("label.field", {}, [el("span.field-label", { text: l }), inputs[k]]); }));
   const chk = (k, label) => { const c = el("input", { type: "checkbox" }); c.checked = !!s[k]; inputs[k] = c; return el("label", { style: { display: "flex", gap: "8px", alignItems: "center", marginTop: "10px" } }, [c, label]); };
-  const price = el("input", { type: "checkbox" }); price.checked = s.price_policy === "show";
   const card = el("div.card", { style: { padding: "16px" } }, [
     grid,
     chk("local_business", "Показывать поисковикам физический магазин (LocalBusiness) — только при подтверждённом адресе"),
     chk("indexnow", "Сообщать Bing и Яндексу о новых товарах (IndexNow)"),
-    el("label", { style: { display: "flex", gap: "8px", alignItems: "center", marginTop: "10px" } }, [price, "Показывать цены в поиске и в фиде Merchant Center (сейчас клиенты цен не видят)"]),
+    el("div.hint", { style: { marginTop: "12px" }, text: "Цены на сайте и в поиске не публикуются: клиент присылает заявку с количеством, вы называете цену, клиент подтверждает." }),
     el("div", { style: { display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap" } }, [
       el("button.btn.btn-primary", { text: "Сохранить настройки", onclick: () => {
         const settings = {};
         Object.entries(inputs).forEach(([k, i]) => { settings[k] = i.type === "checkbox" ? i.checked : i.value; });
-        settings.price_policy = price.checked ? "show" : "hidden";
         const go = async () => {
           try {
             if (settings.indexnow && !s.indexnow_key) await api("POST", "", { action: "indexnow-key" });
             await api("POST", "", { action: "settings", settings }); toast("Сохранено", "ok"); ctx.refresh();
           } catch (e) { toast(e.message, "err"); }
         };
-        if (price.checked && s.price_policy !== "show") confirmDialog("Цены станут видны всем: в Google, на страницах товаров и в фиде. Сейчас клиенты на сайте цен не видят. Включить?", go);
-        else go();
+        go();
       } }),
       s.indexnow ? el("button.btn.btn-outline", { text: "Отправить все страницы в IndexNow", onclick: async () => {
         try { const r = await api("POST", "", { action: "indexnow-all" }); toast(r.sent ? `Отправлено: ${r.sent}` : "Не отправлено (код " + (r.status || "—") + ")", r.sent ? "ok" : "err"); } catch (e) { toast(e.message, "err"); }

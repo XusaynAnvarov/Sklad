@@ -19,7 +19,6 @@ import { данные, виденные, сохранитьВиденные, н�
 const СЕКУНД = 300;
 
 const ПОЛЯ = [
-  "id,name,category,sku,code,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at,price_som,price_usd",
   "id,name,category,sku,code,photo_url,photos,stock_qty,site_status,created_at,last_arrival_at",
   "id,name,category,code,photo_url,photos,stock_qty,site_status,created_at",
 ];
@@ -75,7 +74,8 @@ export function марки(p) {
 
 function построить({ строки, вДороге }) {
   const d = данные();
-  const цены = настройки().price_policy === "show";
+  // Цены НЕ публикуются: владелец называет цену каждому клиенту после
+  // заявки. Колонки цен даже не читаются — случайно показать нечего.
   const товары = [];
   const поКоду = new Map();
   for (const p of строки) {
@@ -90,11 +90,7 @@ function построить({ строки, вДороге }) {
       if (путь && !фото.includes(путь)) фото.push(путь);
     }
     const ov = d.products[code] || {};
-    let price = null;
-    if (цены) {
-      if (Number(p.price_som) > 0) price = { value: Math.round(Number(p.price_som)), currency: "UZS" };
-      else if (Number(p.price_usd) > 0) price = { value: Number(p.price_usd), currency: "USD" };
-    }
+    const price = null;
     const created = p.created_at || null;
     const lastmod = [p.created_at, p.last_arrival_at].filter(Boolean).sort().pop() || null;
     const т = {
@@ -123,8 +119,29 @@ function построить({ строки, вДороге }) {
     c.items.sort((a, b) => (a.status === "in_stock" ? 0 : 1) - (b.status === "in_stock" ? 0 : 1)
       || String(b.lastmod || "").localeCompare(String(a.lastmod || "")));
   }
+  // Марки из названий: страница «Запчасти JACK» собирает реальные товары,
+  // где марка указана в названии или артикуле. Меньше трёх — не делаем,
+  // такая страница была бы пустышкой.
+  const поМаркам = new Map();
+  for (const т of товары) for (const m of т.mentions) {
+    const slug = "zapchasti-" + m.toLowerCase();
+    if (!поМаркам.has(slug)) поМаркам.set(slug, { name: m, slug, items: [], inStock: 0 });
+    const b = поМаркам.get(slug); b.items.push(т); if (т.status === "in_stock") b.inStock++;
+  }
+  for (const [k, b] of поМаркам) {
+    if (b.items.length < 3) { поМаркам.delete(k); continue; }
+    const m = b.name, n = b.items.length, s = b.inStock;
+    b.raw = m; b.brand = true;
+    b.ru = `Запчасти ${m}`; b.uz = `${m} ehtiyot qismlari`; b.en = `${m} spare parts`;
+    b.text = {
+      ru: `Товары, у которых в названии или артикуле указана марка ${m}: ${n} шт., в наличии ${s}. Марка в названии обычно означает машину или модель, к которой подходит деталь, — сверяйте по фото, коду и артикулу. Цену назовём после заявки.`,
+      uz: `Nomi yoki artikulida ${m} markasi ko‘rsatilgan mahsulotlar: ${n} ta, mavjud: ${s}. Nomidagi marka odatda detal mos keladigan mashina yoki modelni bildiradi — rasm, kod va artikul bo‘yicha solishtiring. Narxni buyurtmadan keyin aytamiz.`,
+      en: `Products with the ${m} brand in the name or part number: ${n}, ${s} in stock. A brand in the name usually means the machine or model the part fits — check against the photos, code and part number. Price is quoted after your request.`,
+    };
+    b.items.sort((a, c) => (a.status === "in_stock" ? 0 : 1) - (c.status === "in_stock" ? 0 : 1));
+  }
   запомнитьВиденные(товары);
-  return { товары, поКоду, категории, построено: new Date().toISOString() };
+  return { товары, поКоду, категории, марки: поМаркам, построено: new Date().toISOString() };
 }
 
 let новые = [];          // коды, которых раньше не было — для IndexNow
