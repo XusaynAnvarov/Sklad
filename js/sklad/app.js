@@ -4,13 +4,13 @@
 //  тот же токен склада, что и вход по паролю. Дальше работает обычный
 //  js/db.js, поэтому база ОДНА: движение с телефона сразу видно на сайте.
 // ========================================================================
-import { db } from "../db.js?v=20261109h";
-import { el } from "../el.js?v=20261109h";
-import { setRates } from "../fx.js?v=20261109h";
-import { обновитьЕслиУстарело } from "../version.js?v=20261109h";
-import { icon } from "../icons.js?v=20261109h";
-import { toast } from "../ui.js?v=20261109h";
-import { кнопкаРазвернуть } from "../miniapp.js?v=20261109h";
+import { db } from "../db.js?v=20261109j";
+import { el } from "../el.js?v=20261109j";
+import { setRates } from "../fx.js?v=20261109j";
+import { обновитьЕслиУстарело } from "../version.js?v=20261109j";
+import { icon } from "../icons.js?v=20261109j";
+import { toast } from "../ui.js?v=20261109j";
+import { кнопкаРазвернуть } from "../miniapp.js?v=20261109j";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const TOKEN_KEY = "sklad_admin_token";
@@ -24,7 +24,7 @@ export const isGuest = () => {
 
 // Помощник переехал в js/el.js — им пользуется и мини-приложение заказа,
 // которому вход в склад не нужен. Экспорт оставлен, чтобы все экраны
-// склада продолжали брать его отсюда: import { el } from "../app.js?v=20261109h".
+// склада продолжали брать его отсюда: import { el } from "../app.js?v=20261109j".
 export { el };
 
 const root = () => document.getElementById("mini-root");
@@ -94,20 +94,20 @@ export const VERSION = ((import.meta.url.split("?v=")[1] || "").split("&")[0]) |
 
 // ---------- экраны ----------
 const SCREENS = {
-  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20261109h") },
-  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20261109h") },
-  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20261109h") },
-  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20261109h") },
-  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20261109h") },
-  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20261109h") },
-  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20261109h") },
-  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20261109h") },
-  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20261109h") },
-  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20261109h") },
-  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20261109h") },
-  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20261109h") },
-  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20261109h") },
-  videos:    { title: "Видео товаров",      mod: () => import("./screens/videos.js?v=20261109h") },
+  home:      { title: "Склад",              mod: () => import("./screens/home.js?v=20261109j") },
+  products:  { title: "Товары",             mod: () => import("./screens/products.js?v=20261109j") },
+  sale:      { title: "Продажа",            mod: () => import("./screens/sale.js?v=20261109j") },
+  report:    { title: "Отчёт",              mod: () => import("./screens/report.js?v=20261109j") },
+  labels:    { title: "Наклейки",           mod: () => import("./screens/labels.js?v=20261109j") },
+  clients:   { title: "Клиенты",            mod: () => import("./screens/clients.js?v=20261109j") },
+  arrival:   { title: "Приход из магазина", mod: () => import("./screens/arrival.js?v=20261109j") },
+  docs:      { title: "Накладные и оплаты", mod: () => import("./screens/docs.js?v=20261109j") },
+  more:      { title: "Ещё",                mod: () => import("./screens/more.js?v=20261109j") },
+  orders:    { title: "Заказы",             mod: () => import("./screens/orders.js?v=20261109j") },
+  purchases: { title: "Приход",             mod: () => import("./screens/purchases.js?v=20261109j") },
+  check:     { title: "Проверка склада",    mod: () => import("./screens/check.js?v=20261109j") },
+  trash:     { title: "Корзина",            mod: () => import("./screens/trash.js?v=20261109j") },
+  videos:    { title: "Видео товаров",      mod: () => import("./screens/videos.js?v=20261109j") },
 };
 
 // Меню в шапке: отсюда достаётся ЛЮБОЙ раздел, не возвращаясь на главную.
@@ -269,7 +269,7 @@ async function draw() {
     body.innerHTML = "";
     await mod.default(body, { db, go, params });
     // Крупные числа набегают от нуля — как на дашборде в браузере.
-    const { оживитьЧисла } = await import("../ui.js?v=20261109h");
+    const { оживитьЧисла } = await import("../ui.js?v=20261109j");
     оживитьЧисла(body);
   } catch (e) {
     console.error(e);

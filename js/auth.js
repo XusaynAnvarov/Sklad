@@ -9,8 +9,10 @@
 //  Пароль уходит на сервер и на втором шаге тоже: код сам по себе дверь
 //  не открывает. Поэтому держим его в замыкании, а не в поле формы.
 // ========================================================================
-import { el, toast } from "./ui.js?v=20261109h";
-import { icon } from "./icons.js?v=20261109h";
+import { el, toast } from "./ui.js?v=20261109j";
+import { icon } from "./icons.js?v=20261109j";
+// Код из Telegram подставляется из буфера сам — см. js/kodizbufera.js
+import { следитьЗаБуфером } from "./kodizbufera.js?v=20261109j";
 
 // Возвращает Promise, который резолвится после успешного входа.
 export function ensureAccess(root) {
@@ -95,6 +97,7 @@ function renderCode(root, resolve, доступ) {
         fCode.value = ""; fCode.focus();
         return;
       }
+      буфер.стоп();
       впустить(j, resolve);
     } catch (e) {
       toast("Ошибка сети: " + e.message, "err");
@@ -104,16 +107,35 @@ function renderCode(root, resolve, доступ) {
   };
   кнопка.onclick = подтвердить;
 
+  // Вернулись из Telegram, где нажали на код, — подставляем его сами и
+  // сразу проверяем. Где браузер не даёт читать буфер молча (Safari на
+  // iPhone), вместо этого появляется кнопка: по нажатию буфер читается
+  // уже законно. Подробности — js/kodizbufera.js.
+  const вставить = el("button.btn.btn-outline", {
+    text: "📋 Вставить код", style: { width: "100%", justifyContent: "center", marginTop: "8px", display: "none" },
+  });
+  const буфер = следитьЗаБуфером({
+    длина: 6,
+    занято: () => fCode.value.trim().length > 0,
+    вставить: (код) => { fCode.value = код; подтвердить(); },
+    неВышло: () => { вставить.style.display = ""; },
+  });
+  вставить.onclick = async () => {
+    if (!(await буфер.попробовать()))
+      toast("В буфере нет кода. Скопируйте его в Telegram — нажмите на цифры.", "err");
+  };
+
   const card = el("div.login-card", {}, [
     el("div.lock-emoji", {}, [icon("lock", { size: 38 })]),
     el("div.logo", { text: "Код подтверждения" }),
     el("p", { text: "Отправили его вам в Telegram. Там же видно, откуда входят." }),
     fCode,
     кнопка,
+    вставить,
     el("button.btn.btn-outline", {
       text: "Назад",
       style: { width: "100%", justifyContent: "center", marginTop: "8px" },
-      onclick: () => renderLogin(root, resolve),
+      onclick: () => { буфер.стоп(); renderLogin(root, resolve); },
     }),
   ]);
 

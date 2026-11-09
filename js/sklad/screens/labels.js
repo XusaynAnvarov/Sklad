@@ -4,12 +4,12 @@
 // Печатаем СО СТРАНИЦЫ, а не через новое окно: Telegram новые окна блокирует
 // («Разрешите открытие окна»), поэтому лист собирается тут же и уходит на
 // принтер по window.print().
-import { el } from "../app.js?v=20261109h";
-import { icon } from "../../icons.js?v=20261109h";
-import { toast } from "../../ui.js?v=20261109h";
-import { qrSvg, skuPayload } from "../../qr.js?v=20261109h";
-import { подходит } from "../../productsearch.js?v=20261109h";
-import { подписьКода } from "../../catalogcode.js?v=20261109h";
+import { el } from "../app.js?v=20261109j";
+import { icon } from "../../icons.js?v=20261109j";
+import { toast } from "../../ui.js?v=20261109j";
+import { qrSvg, skuPayload } from "../../qr.js?v=20261109j";
+import { подходит } from "../../productsearch.js?v=20261109j";
+import { подписьКода } from "../../catalogcode.js?v=20261109j";
 
 const PAGE = 24;   // сразу рисовать сотни QR — телефон не потянет
 
