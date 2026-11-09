@@ -4,6 +4,10 @@
 import { normPhone, verifyPassword, verifyCode, signToken, genSessionId, hashDevice } from "../lib/clientauth.js";
 import { sget, spatch } from "../lib/supa.js";
 import { isAdminPhone } from "../lib/siteadmin.js";
+import { recordEvent, linkSiteAccount, refreshIpGeo } from "../lib/crm.js";
+
+// Журнал входов пишем, не задерживая ответ клиенту.
+const журнал = (req, extra) => { recordEvent(req, { channel: "site", ...extra }).catch(() => {}); };
 
 const MAX_ATTEMPTS = 5;
 
@@ -24,7 +28,7 @@ export default async function handler(req, res) {
 
     const rows = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=*`);
     const acc = rows[0];
-    if (!acc) return res.status(401).json({ error: "Неверный номер или пароль" });
+    if (!acc) { журнал(req, { kind: "login_fail", ok: false, phone9: phone }); return res.status(401).json({ error: "Неверный номер или пароль" }); }
 
     // известное (доверенное) устройство → код не нужен
     const known = Array.isArray(acc.known_devices) ? acc.known_devices : [];
@@ -43,13 +47,17 @@ export default async function handler(req, res) {
       if (!code) return res.status(400).json({ error: "Введите код из Telegram" });
       if (!verifyCode(code, acc.login_code)) {
         try { await spatch(`site_accounts?id=eq.${acc.id}`, { login_attempts: (acc.login_attempts || 0) + 1 }); } catch {}
+        журнал(req, { kind: "login_fail", ok: false, phone9: phone, site_account_id: acc.id, customer_id: acc.customer_id, device_hash: deviceId ? hashDevice(deviceId) : null });
         return res.status(401).json({ error: "Неверный код" });
       }
     }
 
     // ----- проверка пароля -----
     const ok = await verifyPassword(password, acc.password_hash);
-    if (!ok) return res.status(401).json({ error: "Неверный номер или пароль" });
+    if (!ok) {
+      журнал(req, { kind: "login_fail", ok: false, phone9: phone, site_account_id: acc.id, customer_id: acc.customer_id, device_hash: deviceId ? hashDevice(deviceId) : null });
+      return res.status(401).json({ error: "Неверный номер или пароль" });
+    }
 
     // ----- успех: новая сессия, сброс кода, запоминаем устройство -----
     const sid = genSessionId();
@@ -66,6 +74,9 @@ export default async function handler(req, res) {
       try { await spatch(`site_accounts?id=eq.${acc.id}`, { last_login: new Date().toISOString() }); } catch {}
     }
 
+    журнал(req, { kind: "login_ok", ok: true, phone9: phone, site_account_id: acc.id, customer_id: acc.customer_id, device_hash: deviceId ? hashDevice(deviceId) : null });
+    linkSiteAccount({ phone, site_account_id: acc.id, customer_id: acc.customer_id, tg_chat_id: acc.chat_id, tg_username: acc.tg_username })
+      .then(crm => refreshIpGeo(crm, req)).catch(() => {});
     const jwt = signToken({ sub: acc.id, customer_id: acc.customer_id, phone, sid });
     return res.status(200).json({ token: jwt, customer_id: acc.customer_id });
   } catch (e) {

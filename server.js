@@ -83,6 +83,10 @@ const routes = [
   [["GET","HEAD"], "/api/catalog-book-file",   "./api/catalog-book-file.js"],
   [["GET"],   "/api/admin/act-pdf",           "./api/admin/act-pdf.js"],
   [["GET"],   "/api/admin/bot-contacts",      "./api/admin/bot-contacts.js"],
+  // «Клиенты и безопасность»: CRM-карточки, журнал входов, подозрительное
+  [["GET","POST"], "/api/admin/crm",          "./api/admin/crm.js"],
+  // отметка визита на сайт / в мини-приложение (приблизительное гео по IP)
+  [["POST"],  "/api/track",                   "./api/track.js"],
   [["POST","OPTIONS"], "/api/video-sign-upload", "./api/video-sign-upload.js"],
   [["POST","OPTIONS"], "/api/supplier-order-pdf", "./api/supplier-order-pdf.js"],
   [["GET"],   "/api/videos",                  "./api/videos.js"],
@@ -231,6 +235,16 @@ setInterval(async () => {
     console.log("[GM] Итоги дня отправлены:", label);
   } catch (e) { console.error("[GM] Итоги дня не ушли:", e.message); }
 }, 60000);
+
+// ---------- хранение персональных данных ----------
+// Раз в сутки: IP старше 30 дней стираем, визиты старше 180 и прочие
+// события старше 365 дней удаляем (политика — privacy.html).
+async function очисткаДанных() {
+  try { const { purgeOld } = await import("./api/lib/crm.js"); await purgeOld(); }
+  catch (e) { console.error("[GM] Очистка старых данных не прошла:", e.message); }
+}
+setTimeout(очисткаДанных, 5 * 60e3);
+setInterval(очисткаДанных, 24 * 3600e3);
 
 app.listen(PORT, async () => {
   console.log(`[GM] Server running on port ${PORT}`);

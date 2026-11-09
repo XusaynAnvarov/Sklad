@@ -25,6 +25,7 @@ import reports from "./pages/reports.js?v=20261103j";
 import catalogPage from "./pages/catalog_admin.js?v=20261103j";
 import settings from "./pages/settings.js?v=20261103j";
 import siteClients from "./pages/site_clients.js?v=20261103j";
+import crmPage from "./pages/crm.js?v=20261103j";
 import trash from "./pages/trash.js?v=20261103j";
 import videosAdmin from "./pages/videos_admin.js?v=20261103j";
 import supplierOrder from "./pages/supplier_order.js?v=20261103j";
@@ -44,6 +45,7 @@ const NAV = [
   { id: "reports",      label: "Отчёты",          ic: "chart",     render: reports },
   { id: "catalog",      label: "Каталог",         ic: "globe",     render: catalogPage },
   { id: "videos",       label: "Видео",           ic: "broadcast", render: videosAdmin },
+  { id: "crm",          label: "Клиенты и безопасность", ic: "shield", render: crmPage },
   { id: "site_clients", label: "Клиенты сайта",   ic: "broadcast", render: siteClients },
   { id: "trash",        label: "Корзина",         ic: "trash",     render: trash },
   { id: "settings",     label: "Настройки",       ic: "settings",  render: settings },

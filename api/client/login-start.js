@@ -3,6 +3,8 @@
 import { normPhone, genCode, hashCode, hashDevice } from "../lib/clientauth.js";
 import { sget, spatch } from "../lib/supa.js";
 import { isAdminPhone } from "../lib/siteadmin.js";
+import { recordEvent } from "../lib/crm.js";
+const журнал = (req, extra) => { recordEvent(req, { channel: "site", kind: "login_code", ...extra }).catch(() => {}); };
 
 const CLIENT_TOKEN = process.env.CLIENT_BOT_TOKEN;
 const BOT = process.env.CLIENT_BOT_USERNAME || "generalmodernbot";
@@ -28,7 +30,7 @@ export default async function handler(req, res) {
     try { rows = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id,chat_id,known_devices,login_code_exp`); }
     catch { rows = await sget(`site_accounts?phone=eq.${encodeURIComponent(phone)}&select=id,customer_id,chat_id`); }
     const acc = rows[0];
-    if (!acc) return res.status(404).json({ error: "Аккаунт не найден. Сначала зарегистрируйтесь." });
+    if (!acc) { журнал(req, { ok: false, phone9: phone }); return res.status(404).json({ error: "Аккаунт не найден. Сначала зарегистрируйтесь." }); }
 
     // известное (доверенное) устройство → код не нужен, вход по паролю
     const known = Array.isArray(acc.known_devices) ? acc.known_devices : [];
@@ -73,6 +75,7 @@ export default async function handler(req, res) {
     const j = await r.json();
     if (!j.ok) return res.status(502).json({ error: `Не удалось отправить код. Откройте бота @${BOT}, нажмите /start и повторите.` });
 
+    журнал(req, { ok: true, phone9: phone, site_account_id: acc.id, customer_id: acc.customer_id });
     return res.status(200).json({ ok: true, code_required: true });
   } catch (e) {
     console.error("login-start error", e);

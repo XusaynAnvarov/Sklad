@@ -4,6 +4,7 @@
 import { normPhone, genVerifToken } from "../lib/clientauth.js";
 import { sget, supsert } from "../lib/supa.js";
 import { sdelete } from "../lib/supa.js";
+import { recordEvent } from "../lib/crm.js";
 
 const BOT = process.env.CLIENT_BOT_USERNAME || "generalmodernbot";
 
@@ -31,6 +32,7 @@ export default async function handler(req, res) {
     const expires_at = new Date(Date.now() + 3600 * 1000).toISOString(); // 1 час
     await supsert("site_verifications", { token, phone, verified: false, expires_at, created_at: new Date().toISOString() });
 
+    recordEvent(req, { channel: "site", kind: "verify_start", ok: true, phone9: phone }).catch(() => {});
     return res.status(200).json({
       token,
       bot_url: `https://t.me/${BOT}?start=verify_${token}`,

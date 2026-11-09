@@ -11,6 +11,7 @@ import { поставитьСнимок } from "../img.js?v=20261103j";
 import { пустить, проекция, резинка, вести } from "../spring.js?v=20261103j";
 import { сменитьТемуВолной } from "../temavolna.js?v=20261103j";
 import { обновитьЕслиУстарело } from "../version.js?v=20261103j";
+import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261103j";
 
 // ---- Translations ----
 const TRANSLATIONS = {
@@ -786,6 +787,10 @@ export async function boot() {
   // остального: перезагрузка всё равно отменит начатую работу.
   if (await следитьЗаВерсией()) return;
   document.addEventListener("visibilitychange", () => { if (!document.hidden) следитьЗаВерсией(); });
+
+  // Визит (время, примерный город по IP, устройство) и разовое уведомление об этом
+  отметитьВизит();
+  setTimeout(() => уведомлениеОДанных(getLang()), 1500);
 
   // Применяем сохранённую тему сразу
   const savedTheme = getTheme();

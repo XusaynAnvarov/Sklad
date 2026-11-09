@@ -13,6 +13,15 @@ import { отправитьНакладнуюPDF } from "./lib/invoicesend.js";
 import { накладныеКлиента, подписьКнопки, своя } from "./lib/clientinvoices.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { touchTelegram, registerTelegramContact, setTelegramGeo, parseStartPayload, recordEvent, botRate,
+  nearestCity, cityByName, countryName, CITY_BUTTONS } from "./lib/crm.js";
+
+// Ждём, что клиент напишет свой город (после кнопки «Другой город»).
+// В памяти, а не в bot_sessions.state: state уже занят регистрацией на
+// сайте и оплатами — перезаписывать его ради города нельзя. Потеря при
+// перезапуске сервера не страшна: клиент просто нажмёт кнопку ещё раз.
+const ждёмГород = new Map();   // chat_id → до какого времени ждём
+const PRIVACY = () => (process.env.PUBLIC_URL || "https://generalmodern.uz") + "/privacy.html";
 
 const TOKEN = process.env.CLIENT_BOT_TOKEN;
 const ADMIN_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -97,6 +106,7 @@ async function alertImpersonation(from, sharedPhone, where) {
     `• Это номер: ${targetName}\n\n` +
     `❌ Доступ заблокирован — контакт не принадлежит отправителю.`
   );
+  await recordEvent(null, { kind: "impersonation", channel: "telegram", ok: false, phone9: norm(sharedPhone), impersonation: true, silent: true }).catch(() => {});
 }
 const money = (n, cur) => { const v = Number(n) || 0; const s = (cur === "som" ? Math.round(v) : Math.round(v * 100) / 100).toLocaleString("ru-RU"); return cur === "som" ? s + " сум" : (SIGN[cur] || "") + s; };
 const norm = (s) => (String(s || "").replace(/\D/g, "")).slice(-9);
@@ -108,6 +118,34 @@ const T = {
   uz: { welcome: "👋 Xush kelibsiz!\nTizimdan topish uchun telefon raqamingizni yuboring.", share: "📱 Raqamni yuborish", notFound: "❌ Raqamingiz topilmadi. Tez orada bog‘lanamiz.", found: n => `✅ Topdik: ${n}`, menu: n => `Assalomu alaykum, ${n}! 👋\nTanlang:`, advYou: "🟢 Avansingiz (sizga qarzdormiz): ", bOrder: "🛒 Buyurtma berish", bCat: "🌐 Mahsulotlar katalogi", bDebt: "💰 Aylanma va qarzim", bInv: "🧾 Mening nakladnoylarim", catMsg: u => `🌐 Katalogimiz:\n${u}`, debtMsg: (n, t, d) => `💰 *${n}*\n\nUmumiy aylanma: ${t}\nJoriy qarz: *${d}*`, noInv: "Sizda hali nakladnoy yo‘q.", invList: "🧾 Nakladnoylaringiz (PDF uchun bosing):", invListOf: (n, всего) => "🧾 Nakladnoylaringiz — oxirgi " + n + " ta, jami " + всего + " (PDF uchun bosing):", invAll: (n) => "📂 Barcha nakladnoylar — " + n, invCap: d => `🧾 ${d} sanadagi nakladnoy` },
   en: { welcome: "👋 Welcome!\nShare your phone number so we can find you.", share: "📱 Share number", notFound: "❌ Your number was not found. We will contact you.", found: n => `✅ Found you: ${n}`, menu: n => `Hello, ${n}! 👋\nChoose:`, advYou: "🟢 Your advance (we owe you): ", bOrder: "🛒 Order products", bCat: "🌐 Product catalog", bDebt: "💰 My turnover & debt", bInv: "🧾 My invoices", catMsg: u => `🌐 Our catalog:\n${u}`, debtMsg: (n, t, d) => `💰 *${n}*\n\nTotal turnover: ${t}\nCurrent debt: *${d}*`, noInv: "You have no invoices yet.", invList: "🧾 Your invoices (tap for PDF):", invListOf: (n, всего) => "🧾 Your invoices — latest " + n + " of " + всего + " (tap for PDF):", invAll: (n) => "📂 All invoices — " + n, invCap: d => `🧾 Invoice ${d}` },
 };
+// Уведомление о данных + тексты лида и выбора города — отдельно от T,
+// чтобы не трогать строки, которыми бот сверяет нажатия кнопок.
+const T2 = {
+  ru: { consent: u => `\n\nНажимая кнопку, вы передаёте нам номер телефона, имя и @username из Telegram — только чтобы узнать вас и обслуживать заказы. Город — по желанию. Подробнее: ${u}`,
+        lead: "✅ Спасибо! Вы зарегистрированы. Менеджер свяжется с вами.", review: "✅ Номер получен. Менеджер проверит и подключит вас.",
+        askCity: "Из какого вы города? Это необязательно — помогает с доставкой.", other: "✏️ Другой город", geo: "📍 Отправить геопозицию", skip: "Пропустить",
+        typeCity: "Напишите название города одним сообщением.", geoKb: "Нажмите кнопку ниже — Telegram спросит разрешение. Мы сохраним только ближайший город, без координат.",
+        sendGeo: "📍 Поделиться местоположением", cancel: "Отмена", thanks: c => `Спасибо! Записали: ${c}.`, noCity: "Не удалось определить город по геопозиции. Напишите его, пожалуйста." },
+  uz: { consent: u => `\n\nTugmani bosib, siz telefon raqamingiz, ismingiz va Telegram @username'ingizni faqat sizni tanish va buyurtmalarga xizmat qilish uchun berasiz. Shahar — ixtiyoriy. Batafsil: ${u}`,
+        lead: "✅ Rahmat! Siz ro‘yxatdan o‘tdingiz. Menejer siz bilan bog‘lanadi.", review: "✅ Raqam qabul qilindi. Menejer tekshirib, ulaydi.",
+        askCity: "Qaysi shahardansiz? Ixtiyoriy — yetkazib berishga yordam beradi.", other: "✏️ Boshqa shahar", geo: "📍 Joylashuvni yuborish", skip: "O‘tkazib yuborish",
+        typeCity: "Shahar nomini bitta xabarda yozing.", geoKb: "Quyidagi tugmani bosing. Faqat eng yaqin shaharni saqlaymiz, koordinatalarni emas.",
+        sendGeo: "📍 Joylashuvni ulashish", cancel: "Bekor qilish", thanks: c => `Rahmat! Yozib oldik: ${c}.`, noCity: "Joylashuv bo‘yicha shaharni aniqlab bo‘lmadi. Iltimos, yozib yuboring." },
+  en: { consent: u => `\n\nBy tapping the button you share your phone number, name and Telegram @username with us — only to recognise you and serve your orders. City is optional. Details: ${u}`,
+        lead: "✅ Thank you! You are registered. A manager will contact you.", review: "✅ Number received. A manager will check and connect you.",
+        askCity: "Which city are you from? Optional — it helps with delivery.", other: "✏️ Other city", geo: "📍 Send location", skip: "Skip",
+        typeCity: "Type your city name in one message.", geoKb: "Tap the button below. We keep only the nearest city, not coordinates.",
+        sendGeo: "📍 Share location", cancel: "Cancel", thanks: c => `Thanks! Saved: ${c}.`, noCity: "Could not detect a city from the location. Please type it." },
+};
+const L2 = (L) => T2[Object.keys(T).find(k => T[k] === L) || "ru"] || T2.ru;
+function askCity(chatId, L) {
+  const M = L2(L);
+  const rows = [];
+  for (let i = 0; i < CITY_BUTTONS.length; i += 4) rows.push(CITY_BUTTONS.slice(i, i + 4).map(c => ({ text: c, callback_data: "city:" + c })));
+  rows.push([{ text: M.other, callback_data: "city:other" }, { text: M.geo, callback_data: "city:geo" }]);
+  rows.push([{ text: M.skip, callback_data: "city:skip" }]);
+  return tg("sendMessage", { chat_id: chatId, text: M.askCity, reply_markup: { inline_keyboard: rows } });
+}
 const CHOOSE_LANG = "Выберите язык / Tilni tanlang / Choose language:";
 const langKb = { inline_keyboard: [[{ text: "🇷🇺 Русский", callback_data: "lang:ru" }, { text: "🇺🇿 O‘zbek", callback_data: "lang:uz" }, { text: "🇬🇧 English", callback_data: "lang:en" }]] };
 
@@ -240,16 +278,28 @@ function clientMenu(chatId, c, L) {
     [{ text: L.bInv, callback_data: "inv" }],
   ] } });
 }
-const askContact = (chatId, L) => tg("sendMessage", { chat_id: chatId, text: L.welcome, reply_markup: { keyboard: [[{ text: L.share, request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
+const askContact = (chatId, L) => tg("sendMessage", { chat_id: chatId, text: L.welcome + L2(L).consent(PRIVACY()), disable_web_page_preview: true, reply_markup: { keyboard: [[{ text: L.share, request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
 const askLang = (chatId) => tg("sendMessage", { chat_id: chatId, text: CHOOSE_LANG, reply_markup: langKb });
 // Заставка-логотип при входе (анимация GENERAL MODERN). Не блокирует /start, если файл недоступен.
 const sendIntro = (chatId) => tg("sendAnimation", { chat_id: chatId, animation: PUBLIC_URL + "/brand/bot-intro.gif" }).catch(() => {});
 
-async function linkByPhone(phone, chatId, fromUser, username) {
+// Все клиенты склада с этим номером (основной + дополнительные номера).
+async function customersByPhone(phone) {
   const ph = norm(phone);
+  if (ph.length < 7) return [];
   const all = await sget("customers?select=*");
-  // совпадение по ЛЮБОМУ из номеров клиента (основной + дополнительные)
-  const c = all.find(x => ph.length >= 7 && custNumbers(x).some(n => norm(n) === ph));
+  return all.filter(x => custNumbers(x).some(n => norm(n) === ph));
+}
+// quiet — уведомление владельцу шлёт CRM (единый формат), старое молчит.
+// Номер у двух и более клиентов — НЕ привязываем ни к кому: это решает
+// владелец вручную в «Клиенты и безопасность» (раньше брался первый попавшийся).
+async function linkByPhone(phone, chatId, fromUser, username, { quiet = false, matches = null } = {}) {
+  const list = matches || await customersByPhone(phone);
+  if (list.length > 1) {
+    if (!quiet) await notifyAdmin(`⚠️ Номер ${phone} есть у ${list.length} клиентов склада (${list.map(x => x.name).join(", ")}). Telegram ${fromUser || "—"} (chat_id ${chatId}) не привязан — проверьте вручную.`);
+    return null;
+  }
+  const c = list[0];
   if (c) {
     const cid = String(chatId);
     const ids = Array.isArray(c.tg_chat_ids) ? c.tg_chat_ids.map(String) : [];
@@ -269,7 +319,7 @@ async function linkByPhone(phone, chatId, fromUser, username) {
       }
     }
     // владельцу — уведомление, что клиент ПОДКЛЮЧИЛСЯ к боту (только при первой привязке этого Telegram)
-    if (isNewLink) {
+    if (isNewLink && !quiet) {
       await notifyAdmin(
         `✅ Клиент подключился к Telegram-боту\n\n` +
         `Клиент: ${c.name}\n` +
@@ -281,7 +331,7 @@ async function linkByPhone(phone, chatId, fromUser, username) {
     }
     return c;
   }
-  await notifyAdmin(`🔔 Клиент пишет боту, номер не найден:\nТел: ${phone}\nchat_id: ${chatId}\nTG: ${fromUser || "—"}`);
+  if (!quiet) await notifyAdmin(`🔔 Клиент пишет боту, номер не найден:\nТел: ${phone}\nchat_id: ${chatId}\nTG: ${fromUser || "—"}`);
   return null;
 }
 
@@ -567,6 +617,19 @@ export default async function handler(req, res) {
     // --- сообщения ---
     if (u.message) {
       const chatId = u.message.chat.id;
+      const dedupKey = u.update_id != null ? "tg:" + u.update_id : null;
+
+      // --- CRM: первое обращение, точка входа, защита от флуда (только личные чаты клиентов) ---
+      if (u.message.chat.type === "private" && !isAdmin(chatId) && !u.message.from?.is_bot) {
+        const вМинуту = botRate(chatId);
+        if (вМинуту === 30) await recordEvent(null, { kind: "bot_flood", channel: "telegram", ok: false, botMsgsPerMin: вМинуту, dedup_key: dedupKey });
+        // больше 40 сообщений в минуту — молча пропускаем: это не человек
+        if (вМинуту > 40) return res.status(200).send("ok");
+        const entry = parseStartPayload(u.message.text);
+        const crm = await touchTelegram(u.message.from, { entry });
+        if (entry || /^\/start(@\w+)?$/.test((u.message.text || "").trim()))
+          await recordEvent(null, { kind: "bot_start", channel: "telegram", ok: true, crm_client_id: crm?.id, customer_id: crm?.customer_id, dedup_key: dedupKey });
+      }
 
       // --- Регистрация на сайте идёт РАНЬШЕ админ-меню (чтобы работала и для владельца бота) ---
       const rawMsg0 = (u.message.text || "").trim();
@@ -632,6 +695,28 @@ export default async function handler(req, res) {
         else { const handled = await tryAdminPayment(chatId, raw); if (!handled) await adminMenu(chatId); }
         return res.status(200).send("ok");
       }
+      // --- география: геопозиция или город текстом (всё добровольно) ---
+      if (u.message.location || (ждёмГород.get(String(chatId)) > Date.now() && u.message.text && !u.message.text.startsWith("/"))) {
+        const клиент = await findByChat(chatId);
+        const L = T[await getLang(chatId, клиент)] || T.ru, M = L2(L);
+        const kb = клиент ? clientKb(L) : { remove_keyboard: true };
+        ждёмГород.delete(String(chatId));
+        if (u.message.location) {
+          // координаты НЕ сохраняем — только ближайший город из встроенного списка
+          const hit = nearestCity(u.message.location.latitude, u.message.location.longitude);
+          if (!hit) { ждёмГород.set(String(chatId), Date.now() + 10 * 60e3); await tg("sendMessage", { chat_id: chatId, text: M.noCity, reply_markup: kb }); return res.status(200).send("ok"); }
+          await setTelegramGeo(u.message.from, { ...hit, geo_source: "location", geo_accuracy: "coords~10km" }, { dedupKey });
+          await tg("sendMessage", { chat_id: chatId, text: M.thanks([hit.city, hit.country].filter(Boolean).join(", ")), reply_markup: kb });
+        } else {
+          const name = u.message.text.trim().replace(/\s+/g, " ").slice(0, 40);
+          if (!/^[\p{L}][\p{L}\s.'’-]{1,39}$/u.test(name)) { await tg("sendMessage", { chat_id: chatId, text: M.typeCity }); ждёмГород.set(String(chatId), Date.now() + 10 * 60e3); return res.status(200).send("ok"); }
+          // знаем город — знаем и страну; незнакомый город — страну не угадываем
+          const known = cityByName(name);
+          await setTelegramGeo(u.message.from, known ? { ...known, geo_source: "user_city", geo_accuracy: "city" } : { city: name, geo_source: "user_city", geo_accuracy: "city" }, { dedupKey });
+          await tg("sendMessage", { chat_id: chatId, text: M.thanks(known ? `${known.city}, ${known.country}` : name), reply_markup: kb });
+        }
+        return res.status(200).send("ok");
+      }
       const fromName = [u.message.from?.first_name, u.message.from?.last_name].filter(Boolean).join(" ");
       // поделился контактом
       if (u.message.contact && u.message.contact.phone_number) {
@@ -675,11 +760,19 @@ export default async function handler(req, res) {
           }
           // директория контактов бота — чтобы владелец мог ПРИВЯЗАТЬ клиента вручную, если авто-match не сработал
           try { await supsert("bot_sessions", { chat_id: String(chatId), phone: String(phone), tg_name: fromName || "", tg_username: u.message.from?.username || "", updated_at: new Date().toISOString() }); } catch {}
-          const c = await linkByPhone(phone, chatId, fromName, u.message.from?.username);
+          // CRM-карточка: создаётся/обновляется по Telegram ID (повторный /start дубль не создаёт).
+          // Если таблиц CRM ещё нет — crm = null, и работает прежняя логика с прежними уведомлениями.
+          const matches = await customersByPhone(phone);
+          const reg = await registerTelegramContact(u.message.from, phone, matches, { dedupKey });
+          const crmOn = !!reg?.crm;
+          const c = await linkByPhone(phone, chatId, fromName, u.message.from?.username, { quiet: crmOn, matches });
           const L = T[await getLang(chatId, c)] || T.ru;
           // клавиатуру «Поделиться номером» заменяем на постоянные кнопки клиента
           if (c) { await setLang(chatId, await getLang(chatId, null), c); await tg("sendMessage", { chat_id: chatId, text: L.found(c.name), reply_markup: clientKb(L) }); await clientMenu(chatId, c, L); }
+          else if (crmOn) await tg("sendMessage", { chat_id: chatId, text: matches.length > 1 ? L2(L).review : L2(L).lead, reply_markup: { remove_keyboard: true } });
           else await tg("sendMessage", { chat_id: chatId, text: L.notFound, reply_markup: { remove_keyboard: true } });
+          // город — добровольно и только один раз (если ещё не указан)
+          if (crmOn && !reg.crm.city && !reg.crm.geo_source) await askCity(chatId, L);
         }
         return res.status(200).send("ok");
       }
@@ -724,6 +817,25 @@ export default async function handler(req, res) {
     if (u.callback_query) {
       const cq = u.callback_query, chatId = cq.message.chat.id, data = cq.data || "";
       await tg("answerCallbackQuery", { callback_query_id: cq.id });
+
+      // город (необязательный вопрос после регистрации)
+      if (data.startsWith("city:")) {
+        const v = data.slice(5);
+        const клиент = await findByChat(chatId);
+        const L = T[await getLang(chatId, клиент)] || T.ru, M = L2(L);
+        if (v === "skip") { try { await tg("deleteMessage", { chat_id: chatId, message_id: cq.message.message_id }); } catch {} return res.status(200).send("ok"); }
+        if (v === "other") { ждёмГород.set(String(chatId), Date.now() + 10 * 60e3); await tg("sendMessage", { chat_id: chatId, text: M.typeCity }); return res.status(200).send("ok"); }
+        if (v === "geo") {
+          await tg("sendMessage", { chat_id: chatId, text: M.geoKb, reply_markup: { keyboard: [[{ text: M.sendGeo, request_location: true }], [{ text: M.cancel }]], resize_keyboard: true, one_time_keyboard: true } });
+          return res.status(200).send("ok");
+        }
+        const known = cityByName(v);           // только из нашего списка кнопок
+        if (known) {
+          await setTelegramGeo(cq.from, { ...known, geo_source: "user_city", geo_accuracy: "city" }, { dedupKey: u.update_id != null ? "tg:" + u.update_id : null });
+          try { await tg("editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: M.thanks(`${known.city}, ${known.country}`) }); } catch {}
+        }
+        return res.status(200).send("ok");
+      }
 
       // выбор языка
       if (data.startsWith("lang:")) {

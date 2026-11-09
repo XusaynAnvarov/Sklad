@@ -4,6 +4,7 @@
 import { normPhone, hashPassword, signToken, genSessionId } from "../lib/clientauth.js";
 import { sget, supsert, spatch } from "../lib/supa.js";
 import { sinsert, sdelete } from "../lib/supa.js";
+import { recordEvent, linkSiteAccount } from "../lib/crm.js";
 
 const MIN_PASS = 6;
 
@@ -86,6 +87,10 @@ export default async function handler(req, res) {
       }
     } catch {}
 
+    // CRM: одна карточка на человека. Номер на сайте подтверждён контактом
+    // в Telegram (site_verifications), поэтому склейка по нему надёжна.
+    recordEvent(req, { channel: "site", kind: "register", ok: true, phone9: phone, site_account_id: acc.id, customer_id: acc.customer_id }).catch(() => {});
+    linkSiteAccount({ phone, site_account_id: acc.id, customer_id: acc.customer_id, tg_chat_id: v.chat_id, tg_username: v.tg_username, req }).catch(() => {});
     const jwt = signToken({ sub: acc.id, customer_id: acc.customer_id, phone, sid });
     return res.status(200).json({ token: jwt, customer_id: acc.customer_id });
   } catch (e) {

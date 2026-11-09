@@ -16,6 +16,7 @@ import { setLang, applyI18n } from "../i18n.js?v=20261103j";
 import { кнопкаРазвернуть } from "../miniapp.js?v=20261103j";
 import { мои, каталог, подпись } from "./api.js?v=20261103j";
 import * as корзина from "./cart.js?v=20261103j";
+import { отметитьВизит } from "../site/visit.js?v=20261103j";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const корень = () => document.getElementById("ord-root");
@@ -156,6 +157,8 @@ export async function boot() {
     return;
   }
   try { TG.ready(); TG.expand(); } catch {}
+  // открытие мини-приложения: подпись Telegram проверит сервер
+  отметитьВизит({ initData: подпись() });
 
   загрузка("Открываем каталог…");
 
