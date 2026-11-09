@@ -76,7 +76,10 @@ function оператор({ токен = "ТОКЕН", падатьНа401 = fal
     }
     if (u.endsWith("/api/message/sms/send")) {
       з.заголовки.push(opt.headers?.Authorization || "");
-      if (протух) return { ok: false, status: 401, text: async () => JSON.stringify({ message: "Unauthenticated" }) };
+      if (протух) {
+        з.отказов++;
+        return { ok: false, status: 401, text: async () => JSON.stringify({ message: "Unauthenticated" }) };
+      }
       з.отправок++; з.последняя = поля;
       return { ok: true, status: 200, text: async () => JSON.stringify({ id: "7" }) };
     }
