@@ -1,6 +1,8 @@
 // Модуль авторизации: вход, регистрация, верификация через Telegram
 import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261109h";
 import { sToast, openModal, closeModal } from "./app.js?v=20261109h";
+// Код из Telegram подставляется из буфера сам — см. js/kodizbufera.js
+import { следитьЗаБуфером } from "../kodizbufera.js?v=20261109h";
 
 let onAuthChange = null;
 export function setAuthChangeCallback(fn) { onAuthChange = fn; }
@@ -307,19 +309,34 @@ function buildAuthModal(start) {
     const успех = el("div.gm-ok", { style: "display:none" });
     успех.innerHTML = ЗНАК_ГАЛОЧКИ;
 
+    // Вернулись из Telegram, где нажали на код, — подставляем его сами.
+    // Где браузер читать буфер молча не даёт (Safari на iPhone), вместо
+    // этого появляется кнопка: по нажатию буфер читается уже законно.
+    const вставитьКнопка = button("📋 Вставить код", "s-link-btn", { style: "display:none" });
+    const буфер = следитьЗаБуфером({
+      длина: ДЛИНА_КОДА,
+      занято: () => ячейки.значение().length > 0,
+      вставить: (код) => { ячейки.разложить(код); sToast("Код вставлен из буфера", "ok"); },
+      неВышло: () => { вставитьКнопка.style.display = ""; },
+    });
+    вставитьКнопка.addEventListener("click", async () => {
+      if (!(await буфер.попробовать()))
+        sToast("В буфере нет кода. Скопируйте его в Telegram — нажмите на цифры.", "err");
+    });
+
     // Повторная отправка: сервер не чаще одного кода в минуту — столько же
     // держим кнопку закрытой, чтобы человек не ловил отказ 429.
     const повтор = button("Отправить код ещё раз", "s-link-btn", {});
     const отсчёт = el("div.gm-code-timer");
     let осталось = 60, таймер = 0;
     function тикать() {
-      clearInterval(таймер);
+      clearInterval(таймер); буфер.стоп();
       повтор.disabled = true;
       отсчёт.textContent = `Отправить код ещё раз можно через ${осталось} с`;
       таймер = setInterval(() => {
         осталось--;
         if (осталось <= 0) {
-          clearInterval(таймер);
+          clearInterval(таймер); буфер.стоп();
           повтор.disabled = false;
           отсчёт.textContent = "";
         } else отсчёт.textContent = `Отправить код ещё раз можно через ${осталось} с`;
@@ -343,7 +360,7 @@ function buildAuthModal(start) {
     const назад = el("div", { style: "text-align:center;margin-top:4px" });
     назад.innerHTML = `<a href="#" style="font-size:13px;color:var(--navy);font-weight:600">← Изменить номер</a>`;
     назад.querySelector("a").addEventListener("click", (e) => {
-      e.preventDefault(); clearInterval(таймер); loginStep = "phone"; renderПлавно("назад");
+      e.preventDefault(); clearInterval(таймер); буфер.стоп(); loginStep = "phone"; renderПлавно("назад");
     });
 
     let занято = false;
@@ -364,7 +381,7 @@ function buildAuthModal(start) {
         ячейки.ошибка();              // кольцо распадается обратно в ряд
       }, () => {
         // успех: гасим форму и проигрываем галочку
-        clearInterval(таймер);
+        clearInterval(таймер); буфер.стоп();
         ячейки.принято();
         f.classList.add("gm-code-done");
         успех.style.display = "";
@@ -379,7 +396,7 @@ function buildAuthModal(start) {
     }
     btn.addEventListener("click", () => проверить());
 
-    f.append(шапка, err, ячейки.узел, успех, btn, отсчёт, повтор, назад);
+    f.append(шапка, err, ячейки.узел, вставитьКнопка, успех, btn, отсчёт, повтор, назад);
     return f;
   }
 
