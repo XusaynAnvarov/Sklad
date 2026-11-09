@@ -15,13 +15,13 @@
 //      появляется «Аванс: мы должны клиенту». Следующая выдача товара
 //      этот аванс съедает.
 // ========================================================================
-import { el, toast, modal, input, select, field, showLoader, hideLoader } from "../ui.js?v=20261109m";
-import { icon } from "../icons.js?v=20261109m";
-import { fmt, CUR } from "../fx.js?v=20261109m";
-import { покупки, составить, подписьВозврата, выплаты } from "../refund.js?v=20261109m";
-import { подходит } from "../productsearch.js?v=20261109m";
-import { изменениеСклада } from "../db.js?v=20261109m";
-import { подписьКода } from "../catalogcode.js?v=20261109m";
+import { el, toast, modal, input, select, field, showLoader, hideLoader } from "../ui.js?v=20261109n";
+import { icon } from "../icons.js?v=20261109n";
+import { fmt, CUR } from "../fx.js?v=20261109n";
+import { покупки, составить, подписьВозврата, выплаты } from "../refund.js?v=20261109n";
+import { подходит } from "../productsearch.js?v=20261109n";
+import { изменениеСклада } from "../db.js?v=20261109n";
+import { подписьКода } from "../catalogcode.js?v=20261109n";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 

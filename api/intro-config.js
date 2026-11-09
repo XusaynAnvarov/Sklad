@@ -112,7 +112,7 @@ export default async function handler(req, res) {
     },
     products: [],
     // экскурсия
-    tour_mode: s.tour_mode || "invite",
+    tour_mode: s.tour_mode || "intro",
     scenes: s.scenes || [],
     tour_texts: { [язык]: (s.tour_texts || {})[язык] || {} },
     audio_url: (s.audio?.[язык] || s.audio?.all) ? `/api/intro-video?d=audio&l=${язык}&r=${rev}` : "",

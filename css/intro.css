@@ -1,0 +1,263 @@
+/* ========================================================================
+   КОРОТКИЙ РОЛИК ПРИ ВХОДЕ (js/site/intro.js) — 5 сцен, ~17 секунд.
+   Светлый, в цветах сайта: стекло GlassOS, тёмно-синий и золото. Детали —
+   свои иллюстрации (js/site/parts.js). Двигаются только transform и
+   opacity; раскладка — по размеру ролика (container queries).
+   Базовый стиль = конечное состояние; «спокойный» режим выключает анимации.
+   ======================================================================== */
+.gi {
+  --ink: #16203a; --navy: #1c2b4a; --gold: #c9a84c; --gold-l: #e3c163; --gold-d: #a07828; --muted: #5d6679;
+  --glass: linear-gradient(152deg, rgba(255,255,255,.86), rgba(255,255,255,.6));
+  --spring: cubic-bezier(.22,1,.36,1); --pop: cubic-bezier(.34,1.56,.64,1);
+  position: fixed; inset: 0; z-index: 10000; overflow: hidden; isolation: isolate;
+  container: gi / size;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink);
+  font-size: clamp(11px, .9cqw + 4px, 18px);
+  -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none;
+  background: #eef1f7;
+}
+.gi *, .gi *::before, .gi *::after { box-sizing: border-box; }
+.gi.paused *, .gi.paused *::before, .gi.paused *::after { animation-play-state: paused !important; }
+
+/* фон: мягкий свет, который медленно дышит */
+.gi-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: radial-gradient(120% 90% at 50% 0%, #f7f8fc 0%, #eef1f7 55%, #e6eaf3 100%); }
+.gi-bg i { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .75; will-change: transform; }
+.gi-bg i:nth-child(1) { width: 52cqw; height: 52cqw; left: -12cqw; top: -18cqw; background: rgba(227,193,99,.45); animation: giDrift 16s ease-in-out infinite alternate; }
+.gi-bg i:nth-child(2) { width: 46cqw; height: 46cqw; right: -14cqw; top: 10cqh; background: rgba(120,160,235,.35); animation: giDrift 19s ease-in-out infinite alternate-reverse; }
+.gi-bg i:nth-child(3) { width: 40cqw; height: 40cqw; left: 30cqw; bottom: -26cqw; background: rgba(201,168,76,.28); animation: giDrift 22s ease-in-out infinite alternate; }
+@keyframes giDrift { to { transform: translate3d(6cqw, 4cqh, 0) scale(1.12); } }
+.gi-sweep { position: absolute; inset: -20%; z-index: 4; pointer-events: none; opacity: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.75) 50%, transparent 60%); transform: translateX(-60%); }
+.gi-sweep.go { animation: giSweep .9s ease-out; }
+@keyframes giSweep { 0% { opacity: 0; transform: translateX(-60%); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateX(60%); } }
+
+/* ---------- сцены ---------- */
+.gi-stage { position: absolute; left: 0; right: 0; top: 0; bottom: 24cqh; }
+.gi-s { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; visibility: hidden; transform: scale(1.03);
+  transition: opacity .6s ease, transform .9s var(--spring), visibility 0s linear .6s; }
+.gi-s.on { opacity: 1; visibility: visible; transform: none; transition: opacity .6s ease, transform .9s var(--spring), visibility 0s; }
+.gi-s.out { opacity: 0; transform: scale(.97); }
+
+/* подпись — строка выезжает из-под маски по словам */
+.gi-cap { position: absolute; left: 6cqw; right: 6cqw; bottom: 11cqh; margin: 0; text-align: center;
+  font-size: clamp(22px, 2.1cqw + 10px, 50px); line-height: 1.14; font-weight: 800; letter-spacing: -.025em; text-wrap: balance; }
+.gi-cap .w { display: inline-block; overflow: hidden; vertical-align: bottom; padding-bottom: .08em; }
+.gi-cap .w > span { display: inline-block; animation: giWord .8s var(--spring) both; animation-delay: calc(var(--i) * 45ms + 120ms); }
+.gi-cap .g { color: var(--gold-d); }
+@keyframes giWord { from { transform: translateY(105%); } }
+
+/* управление */
+.gi-skip { position: absolute; z-index: 9; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; cursor: pointer;
+  font: 600 14px/1 "Inter", system-ui, sans-serif; color: var(--ink); background: rgba(255,255,255,.88); border: 1px solid rgba(28,43,74,.1);
+  box-shadow: 0 8px 22px -10px rgba(28,43,74,.35); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); transition: transform .15s, opacity .3s; }
+.gi-skip:active { transform: scale(.96); }
+.gi-skip:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.gi-skip.wait { opacity: 0; pointer-events: none; }
+.gi-prog { position: absolute; z-index: 9; left: 50%; bottom: max(26px, calc(env(safe-area-inset-bottom) + 14px)); transform: translateX(-50%);
+  width: min(360px, 60cqw); display: flex; gap: 6px; }
+.gi-prog span { flex: 1; height: 3px; border-radius: 3px; background: rgba(28,43,74,.12); overflow: hidden; }
+.gi-prog i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-d), var(--gold-l)); transform-origin: left; transform: scaleX(var(--p, 0)); }
+
+/* стекло и детали */
+.gi-glass { background: var(--glass); border: 1px solid rgba(255,255,255,.95); border-radius: 24px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 30px 60px -30px rgba(28,43,74,.4); -webkit-backdrop-filter: blur(20px) saturate(165%); backdrop-filter: blur(20px) saturate(165%); }
+.gi-part svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 .5em .6em rgba(28,43,74,.22)); }
+.gi-mark svg, .gi-hero svg, .gi-mark img, .gi-hero img { width: 100%; height: 100%; display: block; }
+.gi-mark .ring, .gi-hero .ring { stroke-dasharray: 1062 1144; }
+
+/* ======================= 1. Знак и детали ======================= */
+.gi-hello { position: relative; width: 100cqmin; height: 70cqmin; }
+.gi-mark { position: absolute; left: 50%; top: 46%; width: 24cqmin; height: 24cqmin; margin: -12cqmin 0 0 -12cqmin; filter: drop-shadow(0 2em 3em rgba(28,43,74,.25)); }
+.gi-s1.on .gi-mark { animation: giPop 1s var(--pop) both .1s; }
+.gi-s1.on .gi-mark .ring { animation: giDraw 1.4s ease both .3s; }
+@keyframes giPop { from { opacity: 0; transform: scale(.5) rotate(-8deg); } }
+@keyframes giDraw { from { stroke-dashoffset: 1144; } }
+.gi-word { position: absolute; left: 0; right: 0; top: calc(46% + 15cqmin); text-align: center; font-weight: 800; letter-spacing: .36em; font-size: 2.3cqmin; color: var(--navy); }
+.gi-word b { color: var(--gold-d); font-weight: 800; }
+.gi-s1.on .gi-word { animation: giRise .9s var(--spring) both .75s; }
+@keyframes giRise { from { opacity: 0; transform: translateY(1.2em); letter-spacing: .6em; } }
+.gi-orb { position: absolute; left: 50%; top: 46%; width: 15cqmin; height: 15cqmin; margin: -7.5cqmin 0 0 -7.5cqmin;
+  transform: translate(var(--x), var(--y)); }
+.gi-orb > div { width: 100%; height: 100%; padding: 14%; border-radius: 30%; display: grid; animation: giBob 5s ease-in-out infinite; animation-delay: calc(var(--i) * -.8s); }
+.gi-s1.on .gi-orb { animation: giFly 1.1s var(--spring) both; animation-delay: calc(var(--i) * 90ms + 250ms); }
+@keyframes giFly { from { opacity: 0; transform: translate(calc(var(--x) * 2.2), calc(var(--y) * 2.2)) scale(.5) rotate(-25deg); } }
+@keyframes giBob { 50% { transform: translateY(-.9em) rotate(4deg); } }
+
+/* ======================= 2. Выбор детали ======================= */
+.gi-win { position: relative; width: min(84cqw, 118cqh); aspect-ratio: 16 / 9.4; padding: 2cqmin; display: flex; flex-direction: column; gap: 1.8cqmin; container: win / inline-size; }
+.gi-s2.on .gi-win, .gi-s3.on .gi-card3 { animation: giIn .9s var(--spring) both; }
+@keyframes giIn { from { opacity: 0; transform: translateY(6%) scale(.95); } }
+.gi-bar { display: flex; align-items: center; gap: 1.6cqi; }
+.gi-logo { display: flex; align-items: center; gap: .9cqi; font-weight: 800; font-size: 1.9cqi; white-space: nowrap; }
+.gi-logo i { width: 4.2cqi; height: 4.2cqi; display: block; } .gi-logo i svg { width: 100%; height: 100%; }
+.gi-logo b { color: var(--gold-d); }
+.gi-search { flex: 1; height: 4.6cqi; border-radius: 99px; display: flex; align-items: center; gap: 1cqi; padding: 0 1.6cqi; background: #fff; border: 1px solid rgba(28,43,74,.1); font-size: 1.9cqi; font-weight: 600; }
+.gi-search svg { width: 2cqi; height: 2cqi; color: #8a93a6; }
+.gi-caret { width: 2px; height: 2.4cqi; background: var(--gold-d); animation: giBlink 1s steps(1) infinite; }
+@keyframes giBlink { 50% { opacity: 0; } }
+.gi-cart { position: relative; height: 4.6cqi; padding: 0 1.6cqi; border-radius: 99px; display: flex; align-items: center; gap: .8cqi; font-size: 1.7cqi; font-weight: 700; color: var(--navy); background: linear-gradient(140deg, var(--gold-l), var(--gold)); }
+.gi-cart svg { width: 2.2cqi; height: 2.2cqi; }
+.gi-badge { position: absolute; right: -.8cqi; top: -.8cqi; min-width: 2.8cqi; height: 2.8cqi; border-radius: 2cqi; padding: 0 .6cqi; display: grid; place-items: center;
+  background: var(--navy); color: #fff; font-size: 1.5cqi; font-weight: 800; transform: scale(0); transition: transform .5s var(--pop); }
+.gi-badge.show { transform: scale(1); }
+.gi-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.8cqi; }
+.gi-pc { position: relative; display: flex; flex-direction: column; gap: .9cqi; padding: 1.3cqi; border-radius: 2.2cqi; background: rgba(255,255,255,.9); border: 1px solid rgba(255,255,255,.95);
+  box-shadow: 0 14px 30px -18px rgba(28,43,74,.35); transition: transform .6s var(--spring), box-shadow .6s, opacity .5s; }
+.gi-s2.on .gi-pc { animation: giIn .8s var(--spring) both; animation-delay: calc(var(--i) * 110ms + 350ms); }
+.gi-grid.focus .gi-pc:not(.pick) { opacity: .5; transform: scale(.96); }
+.gi-pc.pick { transform: translateY(-4%) scale(1.04); box-shadow: 0 0 0 .35cqi var(--gold), 0 30px 50px -22px rgba(28,43,74,.5); z-index: 2; }
+.gi-ph { flex: 1; min-height: 0; border-radius: 1.6cqi; display: grid; place-items: center; background: radial-gradient(80% 80% at 50% 30%, #ffffff, #e9edf4); }
+.gi-ph .gi-part { width: 62%; height: 62%; }
+.gi-nm { font-size: 1.7cqi; font-weight: 700; }
+.gi-row { display: flex; align-items: center; justify-content: space-between; font-size: 1.35cqi; }
+.gi-ok { color: #16804a; font-weight: 700; display: inline-flex; align-items: center; gap: .5cqi; } .gi-ok::before { content: ""; width: .9cqi; height: .9cqi; border-radius: 50%; background: #22c55e; }
+.gi-code { font: 600 1.3cqi ui-monospace, Consolas, monospace; color: #6b7280; }
+.gi-qty { display: flex; align-items: center; gap: .8cqi; font-weight: 800; font-size: 1.7cqi; opacity: 0; transform: translateY(40%); transition: opacity .35s, transform .5s var(--spring); }
+.gi-pc.pick .gi-qty { opacity: 1; transform: none; }
+.gi-qty i { font-style: normal; width: 2.9cqi; height: 2.9cqi; border-radius: .9cqi; display: grid; place-items: center; background: #eef1f6; color: var(--navy); transition: background .15s, color .15s; }
+.gi-qty i.hit { background: var(--navy); color: #fff; }
+.gi-qty b.tick { animation: giTick .35s var(--pop); }
+@keyframes giTick { 50% { transform: translateY(-35%) scale(1.3); color: var(--gold-d); } }
+.gi-add { height: 3.8cqi; border-radius: 1.2cqi; display: grid; place-items: center; font-size: 1.55cqi; font-weight: 800; background: rgba(28,43,74,.08); color: rgba(28,43,74,.45); transition: transform .15s, background .3s, color .3s; position: relative; overflow: hidden; }
+.gi-pc.pick .gi-add { background: var(--navy); color: #fff; }
+.gi-press { transform: scale(.94) !important; }
+.gi-press::after { content: ""; position: absolute; left: 50%; top: 50%; width: 3em; height: 3em; margin: -1.5em; border-radius: 50%; background: rgba(255,255,255,.5); animation: giRipple .6s ease-out forwards; }
+@keyframes giRipple { from { transform: scale(0); opacity: 1; } to { transform: scale(5); opacity: 0; } }
+.gi-fly { position: absolute; z-index: 20; pointer-events: none; }
+.gi-fly svg { width: 100%; height: 100%; }
+
+/* курсор */
+.gi-cur { position: absolute; z-index: 8; left: 0; top: 0; width: 28px; height: 28px; margin: -4px 0 0 -5px; opacity: 0; transition: opacity .3s; pointer-events: none; filter: drop-shadow(0 4px 8px rgba(0,0,0,.25)); }
+.gi-cur.on { opacity: 1; }
+.gi-cur i { position: absolute; left: -12px; top: -12px; width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--gold); opacity: 0; }
+.gi-cur.tap i { animation: giTap .5s ease-out; }
+@keyframes giTap { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+
+/* ======================= 3. Цена и подтверждение ======================= */
+.gi-duo { display: flex; align-items: center; justify-content: center; gap: 6cqw; width: 100%; padding: 0 6cqw; }
+.gi-card3 { width: min(38cqw, 420px); padding: 2.4em 2.2em; display: flex; flex-direction: column; gap: 1em; }
+.gi-card3 h4 { margin: 0; font-size: 1.5em; font-weight: 800; letter-spacing: -.02em; }
+.gi-card3 .st { display: flex; flex-direction: column; gap: .7em; }
+.gi-step { display: flex; align-items: center; gap: .8em; font-weight: 600; color: var(--muted); transition: color .3s; }
+.gi-step i { width: 1.9em; height: 1.9em; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: .85em; font-weight: 800; background: rgba(28,43,74,.08); color: rgba(28,43,74,.45); transition: background .35s, color .35s, transform .45s var(--pop); }
+.gi-step.on { color: var(--ink); } .gi-step.on i { background: var(--navy); color: #fff; transform: scale(1.08); }
+.gi-step.done i { background: #22c55e; color: #fff; }
+.gi-phone { position: relative; width: min(30cqw, 320px); height: min(66cqh, 560px); border-radius: 2.6em; background: #e8edf4; border: .55em solid #16203a; overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 40px 80px -36px rgba(16,24,40,.6); }
+.gi-s3.on .gi-phone { animation: giPhone 1s var(--spring) both .15s; }
+@keyframes giPhone { from { opacity: 0; transform: translateY(12%) rotate(4deg); } }
+.gi-ph-top { display: flex; align-items: center; gap: .6em; padding: .9em .9em .7em; background: #fff; border-bottom: 1px solid #e3e7ee; }
+.gi-ph-top i { width: 2.2em; height: 2.2em; display: block; } .gi-ph-top i svg { width: 100%; height: 100%; }
+.gi-ph-top b { display: block; font-size: .9em; } .gi-ph-top small { font-size: .7em; color: #8a93a3; }
+.gi-msgs { flex: 1; min-height: 0; padding: .8em; display: flex; flex-direction: column; justify-content: flex-end; gap: .55em; }
+.gi-msg { align-self: flex-start; max-width: 92%; padding: .65em .75em; border-radius: 1em 1em 1em .3em; background: #fff; font-size: .78em; line-height: 1.45; box-shadow: 0 1px 1px rgba(16,24,40,.06); opacity: 0; transform: translateY(.8em) scale(.97); transition: opacity .4s, transform .5s var(--spring); }
+.gi-msg.show { opacity: 1; transform: none; }
+.gi-msg.me { align-self: flex-end; border-radius: 1em 1em .3em 1em; background: #d9f2d2; }
+.gi-msg .ln { display: flex; justify-content: space-between; gap: .8em; color: #3b4256; }
+.gi-msg .ln em { font-style: normal; font-family: ui-monospace, Consolas, monospace; }
+.gi-btns { display: grid; grid-template-columns: 1fr 1fr; gap: .35em; margin-top: .55em; }
+.gi-btns span { position: relative; overflow: hidden; text-align: center; padding: .55em .3em; border-radius: .6em; background: #eef2f8; color: #2b4596; font-weight: 700; font-size: .95em; transition: transform .15s; }
+.gi-btns span.pri { background: var(--navy); color: #fff; }
+
+/* ======================= 4. Сборка и доставка ======================= */
+.gi-ship { position: relative; width: 90cqw; height: 100%; display: flex; align-items: center; justify-content: center; gap: 5cqw; }
+.gi-boxw { position: relative; width: 26cqmin; height: 26cqmin; transition: transform 1s var(--spring); }
+.gi-s4.map .gi-boxw { transform: translateX(-4cqw) scale(.82); }
+.gi-drop { position: absolute; left: 50%; top: -6%; width: 9cqmin; height: 9cqmin; margin-left: -4.5cqmin; opacity: 0; z-index: 1; }
+.gi-s4.on .gi-drop { animation: giDrop .8s cubic-bezier(.55,0,.8,.3) both; animation-delay: calc(var(--i) * 230ms + 300ms); }
+@keyframes giDrop { 0% { opacity: 0; transform: translate(var(--dx), -120%) rotate(-30deg); } 20% { opacity: 1; } 90% { opacity: 1; transform: translate(calc(var(--dx) * .2), 130%) rotate(14deg) scale(.8); } 100% { opacity: 0; transform: translate(0, 150%) scale(.7); } }
+.gi-box { position: absolute; left: 0; right: 0; bottom: 0; height: 62%; z-index: 2; perspective: 700px; }
+.gi-box .b { position: absolute; inset: 0; border-radius: 0 0 1.4cqmin 1.4cqmin; background: linear-gradient(175deg, #e2c189, #c39a5a 62%, #a77c43); box-shadow: 0 2em 3em -1.2em rgba(70,48,15,.55), inset 0 -1cqmin 1.6cqmin rgba(0,0,0,.12); }
+.gi-box .f { position: absolute; top: 0; width: 50%; height: 46%; background: linear-gradient(180deg, #ecd09a, #c9a062); }
+.gi-box .f.l { left: 0; transform-origin: left top; } .gi-box .f.r { right: 0; transform-origin: right top; }
+.gi-s4.on .gi-box .f.l { animation: giFlapL .55s var(--pop) both 1.35s; }
+.gi-s4.on .gi-box .f.r { animation: giFlapR .55s var(--pop) both 1.5s; }
+@keyframes giFlapL { from { transform: rotate(-118deg); } } @keyframes giFlapR { from { transform: rotate(118deg); } }
+.gi-box .t { position: absolute; left: 50%; top: 0; width: 14%; margin-left: -7%; height: 62%; background: linear-gradient(180deg, rgba(255,245,215,.92), rgba(243,220,165,.85)); transform-origin: top; }
+.gi-s4.on .gi-box .t { animation: giTape .4s ease both 1.95s; }
+@keyframes giTape { from { transform: scaleY(0); } }
+.gi-box .lb { position: absolute; right: 9%; bottom: 13%; width: 28%; height: 36%; border-radius: .7cqmin; background: #fbfbf7; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.18); }
+.gi-box .lb svg { width: 70%; height: 70%; }
+.gi-s4.on .gi-box .lb { animation: giPop .5s var(--pop) both 2.2s; }
+.gi-map { position: relative; width: min(46cqw, 70cqh * 1.55); opacity: 0; transform: translateX(6%) scale(.96); transition: opacity .7s, transform 1s var(--spring); display: flex; flex-direction: column; gap: 1.2em; }
+.gi-s4.map .gi-map { opacity: 1; transform: none; }
+.gi-map svg { width: 100%; height: auto; overflow: visible; }
+.gi-map .land { fill: rgba(255,255,255,.7); stroke: var(--gold); stroke-width: 2.5; stroke-linejoin: round; stroke-dasharray: 2600; }
+.gi-s4.map .gi-map .land { animation: giLand 1.3s ease both; }
+@keyframes giLand { from { stroke-dashoffset: 2600; fill: rgba(255,255,255,0); } }
+.gi-map .route { fill: none; stroke: var(--navy); stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 2 9; opacity: 0; }
+.gi-s4.map .gi-map .route { animation: giRoute 1s ease both; animation-delay: calc(var(--i) * 170ms + 650ms); }
+@keyframes giRoute { from { opacity: 0; stroke-dashoffset: 90; } to { opacity: .9; stroke-dashoffset: 0; } }
+.gi-map .wh { fill: var(--gold); } .gi-map .halo { fill: rgba(201,168,76,.3); transform-box: fill-box; transform-origin: center; animation: giHalo 1.8s ease-out infinite; }
+@keyframes giHalo { from { transform: scale(.4); opacity: 1; } to { transform: scale(2.6); opacity: 0; } }
+.gi-map .dst { fill: var(--navy); opacity: 0; transform-box: fill-box; transform-origin: center; }
+.gi-s4.map .gi-map .dst { animation: giDot .5s var(--pop) both; animation-delay: calc(var(--i) * 170ms + 1300ms); }
+@keyframes giDot { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: none; } }
+.gi-ways { display: flex; gap: .8em; justify-content: center; }
+.gi-way { display: inline-flex; align-items: center; gap: .6em; padding: .65em 1.1em; border-radius: 999px; font-weight: 800; background: var(--glass); border: 1px solid #fff; box-shadow: 0 12px 26px -16px rgba(28,43,74,.45); opacity: 0; transform: translateY(.6em) scale(.9); }
+.gi-way svg { width: 1.3em; height: 1.3em; color: var(--gold-d); }
+.gi-s4.map .gi-way { animation: giWay .6s var(--pop) both; animation-delay: calc(var(--i) * 140ms + 1250ms); }
+@keyframes giWay { to { opacity: 1; transform: none; } }
+
+/* ======================= 5. Посылка у вас ======================= */
+.gi-home { position: relative; width: 44cqmin; height: 44cqmin; display: grid; place-items: center; }
+.gi-pad { position: absolute; left: 6%; right: 6%; bottom: 14%; height: 14%; border-radius: 50%; background: radial-gradient(closest-side, rgba(201,168,76,.35), transparent); }
+.gi-s5.on .gi-pad { animation: giPad .8s ease both .4s; }
+@keyframes giPad { from { transform: scale(.2); opacity: 0; } }
+.gi-parcel { position: relative; width: 30cqmin; height: 22cqmin; }
+.gi-parcel .gi-box { height: 100%; } .gi-parcel .gi-box .f { display: none; }
+.gi-parcel .gi-box .t, .gi-parcel .gi-box .lb { animation: none !important; } .gi-parcel .gi-box .t { height: 100%; }
+.gi-s5.on .gi-parcel { animation: giLandP .9s var(--spring) both; }
+@keyframes giLandP { 0% { opacity: 0; transform: translateY(-90%) rotate(-7deg); } 55% { opacity: 1; transform: translateY(4%) rotate(1deg); } 75% { transform: translateY(-2%); } }
+.gi-seal { position: absolute; right: -9%; top: -16%; width: 10cqmin; height: 10cqmin; border-radius: 50%; display: grid; place-items: center; background: #22c55e; color: #fff; z-index: 3;
+  box-shadow: 0 0 0 1cqmin rgba(34,197,94,.2), 0 1em 2em -.6em rgba(0,0,0,.35); }
+.gi-seal svg { width: 52%; height: 52%; }
+.gi-s5.on .gi-seal { animation: giPop .6s var(--pop) both .95s; }
+.gi-hero { position: absolute; left: 50%; top: 46%; width: 18cqmin; height: 18cqmin; margin: -9cqmin 0 0 -9cqmin; opacity: 0; z-index: 6; filter: drop-shadow(0 1.6em 2.4em rgba(28,43,74,.3)); }
+.gi-s5.logo .gi-home { opacity: 0; transform: scale(.9); transition: opacity .5s, transform .6s; }
+.gi-s5.logo .gi-hero { opacity: 1; transition: opacity .5s; }
+
+/* ======================= телефон и узкое окно ======================= */
+@container gi (orientation: portrait) {
+  .gi-stage { bottom: 30cqh; top: 6cqh; }
+  .gi-cap { bottom: 12cqh; font-size: clamp(22px, 6.6cqw, 34px); }
+  .gi-hello { width: 96cqw; height: 70cqh; }
+  .gi-mark { width: 34cqmin; height: 34cqmin; margin: -17cqmin 0 0 -17cqmin; }
+  .gi-word { font-size: 3.4cqmin; top: calc(46% + 20cqmin); }
+  .gi-orb { width: 18cqmin; height: 18cqmin; margin: -9cqmin 0 0 -9cqmin; transform: translate(calc(var(--x) * .74), calc(var(--y) * 1.75)); }
+  .gi-win { width: 94cqw; aspect-ratio: 10 / 13; padding: 3.2cqw; gap: 3cqw; }
+  .gi-logo span { display: none; }
+  .gi-logo i { width: 8cqi; height: 8cqi; }
+  .gi-search { height: 9cqi; font-size: 3.8cqi; } .gi-search svg { width: 4cqi; height: 4cqi; }
+  .gi-cart { height: 9cqi; font-size: 3.4cqi; padding: 0 3cqi; } .gi-cart svg { width: 4.4cqi; height: 4.4cqi; } .gi-cart span { display: none; }
+  .gi-badge { min-width: 5cqi; height: 5cqi; font-size: 2.8cqi; }
+  .gi-grid { grid-template-columns: repeat(2, 1fr); gap: 3cqi; } .gi-pc:nth-child(3) { display: none; }
+  .gi-pc { padding: 2.4cqi; gap: 1.8cqi; border-radius: 4cqi; }
+  .gi-nm { font-size: 3.6cqi; } .gi-row { font-size: 2.7cqi; } .gi-code { display: none; }
+  .gi-qty { font-size: 3.6cqi; gap: 1.6cqi; } .gi-qty i { width: 6cqi; height: 6cqi; border-radius: 1.8cqi; }
+  .gi-add { height: 7.4cqi; font-size: 3.2cqi; border-radius: 2.2cqi; }
+  .gi-duo { flex-direction: column; gap: 3cqh; padding: 0 5cqw; }
+  .gi-card3 { display: none; }
+  .gi-phone { width: min(78cqw, 340px); height: 60cqh; font-size: clamp(14px, 4cqw, 18px); }
+  .gi-ship { flex-direction: column; gap: 2cqh; width: 94cqw; }
+  .gi-s4.map .gi-boxw { transform: scale(.7); }
+  .gi-boxw { width: 34cqmin; height: 34cqmin; }
+  .gi-map { width: 92cqw; }
+  .gi-home { width: 70cqmin; height: 70cqmin; } .gi-parcel { width: 46cqmin; height: 34cqmin; }
+  .gi-seal { width: 15cqmin; height: 15cqmin; }
+  .gi-hero { width: 26cqmin; height: 26cqmin; margin: -13cqmin 0 0 -13cqmin; }
+}
+
+/* ======================= спокойный режим ======================= */
+.gi-calm *, .gi-calm *::before, .gi-calm *::after { animation: none !important; }
+.gi-calm .gi-s { transform: none !important; }
+.gi-calm .gi-drop { display: none; }
+
+/* ======================= переход в сайт ======================= */
+html.gi-lock, html.gi-lock body { overflow: hidden !important; }
+html.gi-lock #site-app { opacity: 0; }
+html.gi-reveal .site-header { animation: giSite .75s var(--spring, cubic-bezier(.22,1,.36,1)) both; }
+html.gi-reveal #site-main .site-main > * { animation: giSite .8s cubic-bezier(.22,1,.36,1) both .14s; }
+@keyframes giSite { from { opacity: 0; transform: translateY(20px); } }
+@media (prefers-reduced-motion: reduce) { html.gi-reveal .site-header, html.gi-reveal #site-main .site-main > * { animation: none; } }

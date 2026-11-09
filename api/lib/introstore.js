@@ -41,34 +41,13 @@ export const УСТРОЙСТВА = ["desktop", "mobile"];
 // Тексты сцен. Только то, что есть на сайте на самом деле: вход через
 // Telegram, заказ без онлайн-оплаты, цену уточняет менеджер.
 export const ТЕКСТЫ_ПО_УМОЛЧАНИЮ = {
-  ru: {
-    s1: "Всё для швейного оборудования — в одном месте",
-    s2: "Выбирайте нужные товары за несколько секунд",
-    s3: "Оформляйте заказ быстро и удобно",
-    s3_note: "Менеджер уточнит цену и свяжется с вами",
-    s4: "От нашего склада — до вашего адреса",
-    s5: "Ваш заказ — наша забота",
-  },
-  uz: {
-    s1: "Tikuv uskunalari uchun hammasi — bir joyda",
-    s2: "Kerakli mahsulotlarni bir necha soniyada tanlang",
-    s3: "Buyurtmani tez va qulay rasmiylashtiring",
-    s3_note: "Menejer narxni aniqlashtirib, siz bilan bog‘lanadi",
-    s4: "Omborimizdan — manzilingizgacha",
-    s5: "Buyurtmangiz — bizning g‘amxo‘rligimiz",
-  },
-  en: {
-    s1: "Everything for sewing equipment — in one place",
-    s2: "Find the parts you need in seconds",
-    s3: "Place your order quickly and easily",
-    s3_note: "A manager will confirm the price and contact you",
-    s4: "From our warehouse — to your address",
-    s5: "Your order is our care",
-  },
+  ru: { s1: "Всё для швейного оборудования — в одном месте", s2: "Выбирайте нужные детали за секунды", s3: "Менеджер ставит цену — вы подтверждаете в Telegram", s4: "Собираем, упаковываем и отправляем: Яндекс или BTS", s5: "Ваш заказ — наша забота" },
+  uz: { s1: "Tikuv uskunalari uchun hammasi — bir joyda", s2: "Kerakli detallarni bir necha soniyada tanlang", s3: "Menejer narx qo‘yadi — siz Telegramda tasdiqlaysiz", s4: "Yig‘amiz, qadoqlaymiz va jo‘natamiz: Yandex yoki BTS", s5: "Buyurtmangiz — bizning g‘amxo‘rligimiz" },
+  en: { s1: "Everything for sewing equipment — in one place", s2: "Pick the parts you need in seconds", s3: "A manager sets the price — you confirm in Telegram", s4: "We pick, pack and ship: Yandex or BTS", s5: "Your order is our care" },
 };
 
 export const НАСТРОЙКИ_ПО_УМОЛЧАНИЮ = {
-  enabled: false,              // включает владелец после просмотра
+  enabled: true,               // короткий ролик при входе; выключается в складе
   mode: "animation",           // animation — встроенная анимация; video — загруженный ролик
   frequency: "once",           // once | 30d | 7d | session
   skip_show: true,             // кнопка «Пропустить»
@@ -84,7 +63,7 @@ export const НАСТРОЙКИ_ПО_УМОЛЧАНИЮ = {
   poster_url: "",
   seen_version: 1,             // увеличить — интро снова увидят все
   // экскурсия по сайту (js/site/tour.js)
-  tour_mode: "invite",         // invite — приглашение; auto — запускать сразу; button — только кнопка «Как заказать»
+  tour_mode: "intro",          // intro — короткий ролик при входе; invite — приглашение на экскурсию; button — только кнопка «Как заказать»
   scenes: [],                  // [{ id, on, k }] — порядок, показ, темп (k: 0.6–1.6); пусто — все по порядку
   tour_texts: {},              // { ru: { home: { t, d } } } — свои заголовки и пояснения сцен
   audio: { all: "", ru: "", uz: "", en: "" },   // музыка или озвучка
@@ -131,7 +110,7 @@ export function очистить(вход = {}, было = НАСТРОЙКИ_П
     }
     s.video = v;
   }
-  if (["invite", "auto", "button"].includes(вход.tour_mode)) s.tour_mode = вход.tour_mode;
+  if (["intro", "invite", "button"].includes(вход.tour_mode)) s.tour_mode = вход.tour_mode;
   if ("audio_loop" in вход) s.audio_loop = !!вход.audio_loop;
   if (Array.isArray(вход.scenes)) {
     const виден = new Set();

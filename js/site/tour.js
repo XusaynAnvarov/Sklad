@@ -23,7 +23,7 @@
 //  так выбрал владелец); дальше — кнопка «▶ Как заказать» в шапке.
 // ========================================================================
 
-const ВЕРСИЯ = "20261109t2";
+const ВЕРСИЯ = "20261109t3";
 const CSS_URL = new URL(`../../css/tour.css?v=${ВЕРСИЯ}`, import.meta.url).href;
 const КЛЮЧ_СМОТРЕЛ = "gm_tour_seen";
 const КЛЮЧ_НАСТРОЕК = "gm_intro_cfg";
@@ -366,6 +366,14 @@ function играть(cfg, lang, opts) {
           setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; setTimeout(() => el.remove(), 300); }, 2400 * K);
         });
       },
+      // показать пункт внутри прокручиваемого списка (колонка категорий)
+      reveal(sel, t) {
+        at(t, () => {
+          const el = q(sel); const box = el && el.closest(".cat-rail"); if (!el || !box) return;
+          const top = el.offsetTop - box.clientHeight / 2 + el.offsetHeight / 2, left = el.offsetLeft - box.clientWidth / 2 + el.offsetWidth / 2;
+          box.scrollTo({ top: Math.max(0, top), left: Math.max(0, left), behavior: calm ? "auto" : "smooth" });
+        });
+      },
       mark(sel, cls, t, on = true) { at(t, () => { const el = q(sel); if (el) el.classList.toggle(cls, on); }); },
       set(sel, html, t) { at(t, () => { const el = q(sel); if (el) el.innerHTML = html; }); },
     };
@@ -547,9 +555,11 @@ const СЦЕНЫ = {
     [0, 1, 3].forEach((n, k) => {
       const имя = перваяКат(ctx, n);
       const sel = `.rail-item[data-cat="${CSS.escape(имя)}"]`;
-      ctx.click(sel, t + 700, () => заменитьСетку(ctx, page, изКат(ctx, имя), имя));
-      ctx.spot(".product-grid", t + 1100, 1300, 4);
-      t += 2700;
+      ctx.reveal(sel, t);                                 // список категорий прокручивается к нужной
+      ctx.spot(sel, t + 650, 1100, 3);                    // и она подсвечивается до нажатия
+      ctx.click(sel, t + 1450, () => заменитьСетку(ctx, page, изКат(ctx, имя), имя), { move: 650 });
+      ctx.spot(".product-grid", t + 1900, 1300, 4);
+      t += 3300;
     });
     ctx.spot(".catalog-count", t - 600, 1200);
     ctx.end(t + 600);
@@ -593,7 +603,10 @@ const СЦЕНЫ = {
     главная(ctx, page, { кат: имя, товары });
     const p = товары.find(x => x.photos > 1) || товары[0];
     const c = `.product-card[data-code="${CSS.escape(p.code)}"]`;
-    ctx.zoom(c, ctx.mobile ? 1.15 : 1.35, 700, 1000);
+    const выбрана = `.rail-item[data-cat="${CSS.escape(имя)}"]`;
+    ctx.reveal(выбрана, 0);
+    ctx.spot(выбрана, 350, 900, 3);
+    ctx.zoom(c, ctx.mobile ? 1.15 : 1.35, 1300, 1000);
     ctx.spot(`${c} .gt-pb`, 1900, 1000, 4);
     ctx.spot(`${c} .product-status`, 3000, 1000, 4);
     ctx.click(`${c} .sku-copy`, 4400, (el) => { el?.classList.add("copied"); });
@@ -884,10 +897,12 @@ export async function maybeInviteTour() {
   const сохр = прочитать(КЛЮЧ_НАСТРОЕК);
   let cfg = сохр;
   if (!сохр || Date.now() - (Number(сохр.at) || 0) > 3600e3) {
-    try { const c = await загрузитьНастройки(lang, 4000); cfg = { enabled: !!c.enabled, frequency: c.frequency, seen_version: c.seen_version, howto_button: c.howto_button !== false, tour_mode: c.tour_mode || "invite", at: Date.now() }; записать(КЛЮЧ_НАСТРОЕК, cfg); }
+    try { const c = await загрузитьНастройки(lang, 4000); cfg = { enabled: !!c.enabled, frequency: c.frequency, seen_version: c.seen_version, howto_button: c.howto_button !== false, tour_mode: c.tour_mode || "intro", at: Date.now() }; записать(КЛЮЧ_НАСТРОЕК, cfg); }
     catch { return; }
   }
-  if (!cfg || !cfg.enabled || cfg.tour_mode === "button" || уже(cfg)) return;
+  // при входе по умолчанию идёт короткий ролик (js/site/intro.js); приглашение
+  // на экскурсию — только если владелец выбрал этот режим
+  if (!cfg || !cfg.enabled || cfg.tour_mode !== "invite" || уже(cfg)) return;
   try { sessionStorage.setItem("gm_tour_s", "1"); } catch { }
   if (cfg.tour_mode === "auto" && !меньшеДвижения()) { openTour({}); return; }
   // приглашение: не мешает, сайт работает под ним

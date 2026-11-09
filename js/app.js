@@ -3,36 +3,36 @@
 // ========================================================================
 // показатьПоявление больше не зовём: лесенку раздела ведёт js/glassos.js
 // (прийти) — она знает порядок слоёв и умеет отменять незаконченный переход.
-import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261109m";
-import { обновитьЕслиУстарело } from "./version.js?v=20261109m";
-import { icon } from "./icons.js?v=20261109m";
-import { db, rawClient } from "./db.js?v=20261109m";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261109m";
-import { setRates } from "./fx.js?v=20261109m";
+import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261109n";
+import { обновитьЕслиУстарело } from "./version.js?v=20261109n";
+import { icon } from "./icons.js?v=20261109n";
+import { db, rawClient } from "./db.js?v=20261109n";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261109n";
+import { setRates } from "./fx.js?v=20261109n";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261109m";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261109m";
+import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261109n";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261109n";
 // GlassOS: подсказки правого рейла, поиск в стиле Apple, последовательные переходы
-import { initПодсказкиРейла, создатьПоиск, уйти, прийти, запомнитьЗапрос, применитьЗапрос } from "./glassos.js?v=20261109m";
+import { initПодсказкиРейла, создатьПоиск, уйти, прийти, запомнитьЗапрос, применитьЗапрос } from "./glassos.js?v=20261109n";
 
-import dashboard from "./pages/dashboard.js?v=20261109m";
-import products from "./pages/products.js?v=20261109m";
-import sales from "./pages/sales.js?v=20261109m";
-import purchases from "./pages/purchases.js?v=20261109m";
-import customers from "./pages/customers.js?v=20261109m";
-import orders from "./pages/orders.js?v=20261109m";
-import reports from "./pages/reports.js?v=20261109m";
-import catalogPage from "./pages/catalog_admin.js?v=20261109m";
-import settings from "./pages/settings.js?v=20261109m";
-import siteClients from "./pages/site_clients.js?v=20261109m";
-import crmPage from "./pages/crm.js?v=20261109m";
-import trash from "./pages/trash.js?v=20261109m";
-import videosAdmin from "./pages/videos_admin.js?v=20261109m";
-import supplierOrder from "./pages/supplier_order.js?v=20261109m";
-import stockCheck from "./pages/stock_check.js?v=20261109m";
-import packingSetup from "./pages/packing_setup.js?v=20261109m";
-import seoPage from "./pages/seo.js?v=20261109m";
-import introAdmin from "./pages/intro_admin.js?v=20261109m";
+import dashboard from "./pages/dashboard.js?v=20261109n";
+import products from "./pages/products.js?v=20261109n";
+import sales from "./pages/sales.js?v=20261109n";
+import purchases from "./pages/purchases.js?v=20261109n";
+import customers from "./pages/customers.js?v=20261109n";
+import orders from "./pages/orders.js?v=20261109n";
+import reports from "./pages/reports.js?v=20261109n";
+import catalogPage from "./pages/catalog_admin.js?v=20261109n";
+import settings from "./pages/settings.js?v=20261109n";
+import siteClients from "./pages/site_clients.js?v=20261109n";
+import crmPage from "./pages/crm.js?v=20261109n";
+import trash from "./pages/trash.js?v=20261109n";
+import videosAdmin from "./pages/videos_admin.js?v=20261109n";
+import supplierOrder from "./pages/supplier_order.js?v=20261109n";
+import stockCheck from "./pages/stock_check.js?v=20261109n";
+import packingSetup from "./pages/packing_setup.js?v=20261109n";
+import seoPage from "./pages/seo.js?v=20261109n";
+import introAdmin from "./pages/intro_admin.js?v=20261109n";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -508,7 +508,7 @@ setTimeout(() => {
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=257", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=258", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

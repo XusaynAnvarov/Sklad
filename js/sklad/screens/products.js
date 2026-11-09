@@ -1,31 +1,31 @@
 // Товары: поиск по названию и артикулу, сканер наклейки, правка карточки
 // и добавление нового товара прямо с телефона.
 // Показываем то, за чем сюда заходят: остаток и себестоимость.
-import { el, go } from "../app.js?v=20261109m";
-import { icon } from "../../icons.js?v=20261109m";
-import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261109m";
-import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261109m";
-import { fmt, convert } from "../../fx.js?v=20261109m";
-import { thumb } from "../../img.js?v=20261109m";
-import { LOW_STOCK } from "../../advice.js?v=20261109m";
-import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261109m";
-import { qrSvg, skuPayload } from "../../qr.js?v=20261109m";
-import { setStock } from "../stock.js?v=20261109m";
+import { el, go } from "../app.js?v=20261109n";
+import { icon } from "../../icons.js?v=20261109n";
+import { toast, modal, confirmDialog, lightbox } from "../../ui.js?v=20261109n";
+import { ensureBatches, currentCost, costOutlook } from "../../inventory.js?v=20261109n";
+import { fmt, convert } from "../../fx.js?v=20261109n";
+import { thumb } from "../../img.js?v=20261109n";
+import { LOW_STOCK } from "../../advice.js?v=20261109n";
+import { scanSku, resolveScan, scanFailText } from "../qr.js?v=20261109n";
+import { qrSvg, skuPayload } from "../../qr.js?v=20261109n";
+import { setStock } from "../stock.js?v=20261109n";
 // Себестоимость показываем в той валюте, в которой её ввели. Расчёт общий
 // со складом на сайте: иначе один товар выглядит как «$33.87» на компьютере
 // и «241,94 ¥» в телефоне — цифра верная, а доверия к ней никакого.
-import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261109m";
-import { подпись as подписьКол, единица, вЕдинице, сЕдиницы } from "../../unit.js?v=20261109m";
-import { подходит } from "../../productsearch.js?v=20261109m";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261109m";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261109m";
+import { костВалюта, костЧисло, костСтрока, костПоля, ВАЛЮТЫ } from "../../cost.js?v=20261109n";
+import { подпись as подписьКол, единица, вЕдинице, сЕдиницы } from "../../unit.js?v=20261109n";
+import { подходит } from "../../productsearch.js?v=20261109n";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../../catalogcode.js?v=20261109n";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../../transit.js?v=20261109n";
 // Главное фото (аватар) и порядок снимков — две независимые вещи. Правило
 // и редактор общие со складом на сайте: см. js/photo.js и js/photoedit.js.
-import { снимки, главноеФото, индексГлавного } from "../../photo.js?v=20261109m";
+import { снимки, главноеФото, индексГлавного } from "../../photo.js?v=20261109n";
 // Маржа. Считает только показываемое: цену продажи от себестоимости этот
 // модуль не двигает — расчёт общий со складом на сайте (js/pricing.js).
-import { маржа } from "../../pricing.js?v=20261109m";
-import { редакторФото } from "../../photoedit.js?v=20261109m";
+import { маржа } from "../../pricing.js?v=20261109n";
+import { редакторФото } from "../../photoedit.js?v=20261109n";
 
 const PAGE = 40;   // рисуем порциями: 866 карточек разом вешают телефон
 const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);

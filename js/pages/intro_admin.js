@@ -6,10 +6,11 @@
 //  публикация сохраняет прежнюю версию — внизу её можно вернуть.
 //  Статистика — обезличенные счётчики по дням (без IP и идентификаторов).
 // ========================================================================
-import { el, toast, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261109m";
-import { icon } from "../icons.js?v=20261109m";
-import { authHeaders, db } from "../db.js?v=20261109m";
-import { ТЕКСТЫ_ТУРА, СЦЕНЫ_ПО_УМОЛЧАНИЮ } from "../site/tour.js?v=20261109m";
+import { el, toast, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261109n";
+import { icon } from "../icons.js?v=20261109n";
+import { authHeaders, db } from "../db.js?v=20261109n";
+import { ТЕКСТЫ_ТУРА, СЦЕНЫ_ПО_УМОЛЧАНИЮ } from "../site/tour.js?v=20261109n";
+import { ТЕКСТЫ_РОЛИКА } from "../site/intro.js?v=20261109n";
 
 async function api(method, query = "", body) {
   const r = await fetch("/api/admin/intro" + query, {
@@ -22,7 +23,8 @@ async function api(method, query = "", body) {
 }
 
 const ЯЗЫКИ = [["ru", "Русский"], ["uz", "O‘zbekcha"], ["en", "English"]];
-const РЕЖИМЫ = [["invite", "Приглашение «Посмотреть экскурсию» (рекомендуется)"], ["auto", "Запускать сразу (с кнопкой «Пропустить»)"], ["button", "Только по кнопке «▶ Как заказать»"]];
+const РЕЖИМЫ = [["intro", "Короткий ролик (≈17 с) — рекомендуется"], ["invite", "Приглашение «Посмотреть экскурсию»"], ["button", "Ничего — только кнопка «▶ Как заказать»"]];
+const ПОЛЯ_РОЛИКА = [["s1", "Сцена 1 — знак и детали"], ["s2", "Сцена 2 — выбор детали"], ["s3", "Сцена 3 — цена и подтверждение"], ["s4", "Сцена 4 — сборка и доставка"], ["s5", "Сцена 5 — финал"]];
 const ЧАСТОТА = [["once", "Один раз на устройстве"], ["30d", "Раз в 30 дней"], ["7d", "Раз в 7 дней"], ["session", "При каждом новом визите"]];
 const ТЕМП = [["0.7", "Быстрее"], ["1", "Обычно"], ["1.3", "Медленнее"], ["1.6", "Очень медленно"]];
 const дата = (s) => s ? new Date(s).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
@@ -72,13 +74,41 @@ export default async function renderIntroAdmin(page, ctx) {
   СЦЕНЫ_ПО_УМОЛЧАНИЮ.forEach(id => { if (!сцены.some(s => s.id === id)) сцены.push({ id, on: true, k: 1 }); });
 
   // ---------------- основное ----------------
-  const fEnabled = флажок("Показывать экскурсию новым посетителям", d.enabled,
+  const fEnabled = флажок("Показывать новым посетителям при входе на сайт", d.enabled,
     "Не показывается вошедшим клиентам, по прямым ссылкам на разделы, поисковым роботам и при экономии трафика. Кнопка «▶ Как заказать» работает всегда.");
-  const fMode = выбор(РЕЖИМЫ, d.tour_mode || "invite");
+  const fMode = выбор(РЕЖИМЫ, ["intro", "invite", "button"].includes(d.tour_mode) ? d.tour_mode : "intro");
   const fFreq = выбор(ЧАСТОТА, d.frequency);
   const fHow = флажок("Кнопка «▶ Как заказать» в шапке сайта", d.howto_button);
-  const fReset = флажок("Показать приглашение заново всем, кто уже видел", false, "Сработает при ближайшей публикации.");
-  host.append(карточка("Основное", [fEnabled.node, поле("Как показывать при первом визите", fMode, "Просмотр никогда не обязателен: сайт работает сразу, кнопки «Пропустить» и «Начать покупки» есть всегда."), поле("Как часто показывать одному посетителю", fFreq), fHow.node, fReset.node]));
+  const fReset = флажок("Показать заново всем, кто уже видел", false, "Сработает при ближайшей публикации.");
+  host.append(карточка("Основное", [fEnabled.node, поле("Что показывать при входе", fMode, "Подробная экскурсия по сайту всегда открывается кнопкой «▶ Как заказать». Просмотр не обязателен: «Пропустить» есть всегда."), поле("Как часто показывать одному посетителю", fFreq), fHow.node, fReset.node]));
+
+  // ---------------- короткий ролик при входе ----------------
+  d.texts = d.texts || {}; ЯЗЫКИ.forEach(([l]) => { d.texts[l] = d.texts[l] || {}; });
+  const роликТексты = el("div");
+  let языкРолика = "ru";
+  const вкладкиРолика = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", margin: "0 0 12px" } });
+  function нарисоватьРолик() {
+    роликТексты.innerHTML = "";
+    вкладкиРолика.querySelectorAll("button").forEach(b => b.classList.toggle("btn-primary", b.dataset.l === языкРолика));
+    for (const [k, подпись] of ПОЛЯ_РОЛИКА) {
+      const def = ТЕКСТЫ_РОЛИКА[языкРолика][k];
+      const своё = d.texts[языкРолика][k];
+      const i = el("input.inp", { maxlength: "140", placeholder: def, value: своё && своё !== def ? своё : "" });
+      i.addEventListener("input", () => { d.texts[языкРолика][k] = i.value.trim() || def; });
+      роликТексты.append(поле(подпись, i));
+    }
+  }
+  ЯЗЫКИ.forEach(([l, t]) => вкладкиРолика.append(el("button.btn.btn-outline", { type: "button", text: t, "data-l": l, onclick: () => { языкРолика = l; нарисоватьРолик(); } })));
+  нарисоватьРолик();
+  const кнопкиРолика = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
+    el("button.btn.btn-outline", { type: "button", onclick: () => {
+      try { localStorage.setItem("gm_intro_draft", JSON.stringify({ texts: d.texts })); } catch { }
+      window.open("/?intro=draft", "_blank", "noopener");
+    } }, [icon("broadcast", { size: 16 }), "Предпросмотр ролика"]),
+    el("a.btn.btn-outline", { href: "/?intro=1", target: "_blank", rel: "noopener" }, [icon("globe", { size: 16 }), "Опубликованный ролик"]),
+  ]);
+  host.append(карточка("Короткий ролик при входе", [вкладкиРолика, роликТексты, кнопкиРолика],
+    "Пять сцен: знак и детали → выбор детали → цена и подтверждение в Telegram → сборка и доставка (Яндекс / BTS) → посылка у вас. Детали нарисованы, а не взяты с фото. Пустое поле — текст по умолчанию (виден серым)."));
 
   // ---------------- сцены ----------------
   const списокСцен = el("div");
