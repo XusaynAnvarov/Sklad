@@ -20,10 +20,11 @@ function вопросы(lang, кат) {
   const где = s.street && s.city ? `${s.street}, ${s.city}` : "";
   const тг = s.telegram ? `<a href="${esc(s.telegram)}" rel="noopener">Telegram</a>` : "Telegram";
   const доставка = s["delivery_" + lang] || "";
+  const часы = s["hours_" + lang] || "";
 
   if (lang === "uz") return [
     ["O‘zbekistonda sanoat tikuv mashinasi uchun ehtiyot qismlarni qayerdan sotib olish mumkin?",
-      `GENERAL MODERN — tikuv uskunalari uchun ehtiyot qismlar va anjomlar do‘koni. Katalogda ${n} ta mahsulot (${k} tasi mavjud): ${ссылка("lapki", "lapkalar")}, ${ссылка("igly", "ninalar")}, ${ссылка("chelnoki", "chelnoklar")}, ${ссылка("shpulnye-kolpachki", "mokkilar")}, ${ссылка("petliteli", "petlitellar")}, ${ссылка("nozhi", "pichoqlar")}. Buyurtmani saytda yoki ${тг} orqali berish mumkin.${где ? " Manzil: " + esc(где) + "." : ""}${доставка ? " " + esc(доставка) : ""}`],
+      `GENERAL MODERN — tikuv uskunalari uchun ehtiyot qismlar va anjomlar do‘koni. Katalogda ${n} ta mahsulot (${k} tasi mavjud): ${ссылка("lapki", "lapkalar")}, ${ссылка("igly", "ninalar")}, ${ссылка("chelnoki", "chelnoklar")}, ${ссылка("shpulnye-kolpachki", "mokkilar")}, ${ссылка("petliteli", "petlitellar")}, ${ссылка("nozhi", "pichoqlar")}. Buyurtmani saytda yoki ${тг} orqali berish mumkin.${где ? " Manzil: " + esc(где) + "." : ""}${часы ? " " + esc(часы) + "." : ""}${доставка ? " " + esc(доставка) : ""}`],
     ["Tikuv mashinasi uchun lapkani qanday tanlash kerak?",
       "Avval mashina turini aniqlang: to‘g‘ri chok (bir ignali), ikki ignali, overlok yoki rasposhivalka — lapkalar ular orasida almashmaydi. Keyin vazifasini tanlang: oddiy chok, zamok (molniya), kant, burish, chetidan tikish. Eski lapkadagi belgi (masalan, P36LN, T36LN) bo‘yicha qidirsangiz, aynan shu modelni topish osonroq. Har bir mahsulot sahifasida kod, artikul va rasmlar bor — detalni o‘zingiznikiga solishtiring."],
     ["Chelnok modelini qanday aniqlash mumkin?",
@@ -35,7 +36,7 @@ function вопросы(lang, кат) {
   ];
   if (lang === "en") return [
     ["Where can I buy industrial sewing machine parts in Uzbekistan?",
-      `GENERAL MODERN is a store of spare parts and accessories for sewing equipment. The catalog lists ${n} products (${k} in stock): ${ссылка("lapki", "presser feet")}, ${ссылка("igly", "needles")}, ${ссылка("chelnoki", "rotary hooks")}, ${ссылка("shpulnye-kolpachki", "bobbin cases")}, ${ссылка("petliteli", "loopers")}, ${ссылка("nozhi", "knives")}. You can order on the website or via ${тг}.${где ? " Address: " + esc(где) + "." : ""}${доставка ? " " + esc(доставка) : ""}`],
+      `GENERAL MODERN is a store of spare parts and accessories for sewing equipment. The catalog lists ${n} products (${k} in stock): ${ссылка("lapki", "presser feet")}, ${ссылка("igly", "needles")}, ${ссылка("chelnoki", "rotary hooks")}, ${ссылка("shpulnye-kolpachki", "bobbin cases")}, ${ссылка("petliteli", "loopers")}, ${ссылка("nozhi", "knives")}. You can order on the website or via ${тг}.${где ? " Address: " + esc(где) + "." : ""}${часы ? " " + esc(часы) + "." : ""}${доставка ? " " + esc(доставка) : ""}`],
     ["How do I choose a presser foot for a sewing machine?",
       "First identify the machine type: single-needle lockstitch, double-needle, overlock or coverstitch — feet are not interchangeable between them. Then choose the purpose: plain seam, zipper, piping, hemming, edge stitching. Searching by the marking on your old foot (for example P36LN or T36LN) is the fastest way to find the same model. Every product page shows the code, part number and photos so you can compare the part with yours."],
     ["How do I identify a rotary hook model?",
@@ -47,7 +48,7 @@ function вопросы(lang, кат) {
   ];
   return [
     ["Где купить запчасти для промышленной швейной машины в Узбекистане?",
-      `GENERAL MODERN — магазин запчастей и принадлежностей для швейного оборудования. В каталоге ${n} товаров (в наличии ${k}): ${ссылка("lapki", "лапки")}, ${ссылка("igly", "иглы")}, ${ссылка("chelnoki", "челноки")}, ${ссылка("shpulnye-kolpachki", "шпульные колпачки")}, ${ссылка("petliteli", "петлители")}, ${ссылка("nozhi", "ножи")}. Заказать можно на сайте или через ${тг}.${где ? " Адрес: " + esc(где) + "." : ""}${доставка ? " " + esc(доставка) : ""}`],
+      `GENERAL MODERN — магазин запчастей и принадлежностей для швейного оборудования. В каталоге ${n} товаров (в наличии ${k}): ${ссылка("lapki", "лапки")}, ${ссылка("igly", "иглы")}, ${ссылка("chelnoki", "челноки")}, ${ссылка("shpulnye-kolpachki", "шпульные колпачки")}, ${ссылка("petliteli", "петлители")}, ${ссылка("nozhi", "ножи")}. Заказать можно на сайте или через ${тг}.${где ? " Адрес: " + esc(где) + "." : ""}${часы ? " " + esc(часы) + "." : ""}${доставка ? " " + esc(доставка) : ""}`],
     ["Как подобрать лапку для швейной машины?",
       "Сначала определите тип машины: прямострочная одноигольная, двухигольная, оверлок или распошивальная — лапки между ними не взаимозаменяемы. Затем выберите назначение: обычная строчка, молния, кант, подгибка, отстрочка края. Быстрее всего искать по маркировке на старой лапке (например, P36LN или T36LN) — так находится именно эта модель. На странице каждого товара есть код, артикул и фотографии, чтобы сверить деталь с вашей."],
     ["Как определить модель челнока?",

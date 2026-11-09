@@ -52,7 +52,7 @@ const ld = (obj) => `<script type="application/ld+json">${JSON.stringify(obj).re
 
 // Телефонов может быть несколько: «+998…, +998…»
 export function телефоны() {
-  return String(настройки().phone || "").split(/[,;]/).map(x => x.trim()).filter(x => /d{7,}/.test(x.replace(/D/g, "")));
+  return String(настройки().phone || "").split(/[,;]/).map(x => x.trim()).filter(x => /\d{7,}/.test(x.replace(/\D/g, "")));
 }
 
 // ---------- организация (одна на весь сайт) ----------
@@ -188,9 +188,10 @@ export function страница({ lang, title, desc, path, alternates, body, js
   const s = настройки();
   const graph = { "@context": "https://schema.org", "@graph": [организация(), website(), ...(localBusiness() ? [localBusiness()] : []), ...jsonld] };
   const контакты = [
-    s.phone ? `<a href="tel:${esc(s.phone.replace(/[^\d+]/g, ""))}">${esc(s.phone)}</a>` : "",
+    ...телефоны().map(ph => `<a href="tel:${esc(ph.replace(/[^\d+]/g, ""))}">${esc(ph)}</a>`),
     s.telegram ? `<a href="${esc(s.telegram)}" rel="noopener">Telegram</a>` : "",
     s.street && s.city ? `<span>${esc(s.street)}, ${esc(s.city)}</span>` : "",
+    s["hours_" + lang] ? `<span>${esc(s["hours_" + lang])}</span>` : "",
   ].filter(Boolean).join(" · ");
   return `<!DOCTYPE html>
 <html lang="${lang}">
