@@ -110,6 +110,8 @@ async function карточка(key) {
   // география посещений: город/страна → сколько раз и когда последний
   const geo = new Map();
   for (const e of events) {
+    // сообщения боту гео не несут вовсе (Telegram его не передаёт) — это не «визит»
+    if (e.channel === "telegram" && e.kind !== "location") continue;
     const k = [e.city, e.country].filter(Boolean).join(", ") || "Не определено";
     const g = geo.get(k) || { place: k, source: e.geo_source, count: 0, last: e.created_at };
     g.count++; geo.set(k, g);

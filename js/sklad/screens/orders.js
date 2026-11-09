@@ -4,15 +4,15 @@
 //   «Оформить»      — выдать накладную и списать товар.
 // Оформление сразу шлёт клиенту PDF накладной — раньше это умел только
 // сайт, и после подтверждения цены приходилось идти к компьютеру.
-import { el } from "../app.js?v=20261103j";
-import { icon } from "../../icons.js?v=20261103j";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20261103j";
-import { fmt } from "../../fx.js?v=20261103j";
-import { issueInvoice, totalsByCur } from "../issue.js?v=20261103j";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20261103j";
-import { наПодтверждение, отправитьНакладную } from "../../orderconfirm.js?v=20261103j";
-import { списанные } from "../../stockcheck.js?v=20261103j";
-import { returnItems } from "../stock.js?v=20261103j";
+import { el } from "../app.js?v=20261109a";
+import { icon } from "../../icons.js?v=20261109a";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20261109a";
+import { fmt } from "../../fx.js?v=20261109a";
+import { issueInvoice, totalsByCur } from "../issue.js?v=20261109a";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote } from "../../prices.js?v=20261109a";
+import { наПодтверждение, отправитьНакладную } from "../../orderconfirm.js?v=20261109a";
+import { списанные } from "../../stockcheck.js?v=20261109a";
+import { returnItems } from "../stock.js?v=20261109a";
 
 const ЖДУТ = ["order", "pending_confirm", "confirmed"];
 // Сум первым — им торгуют каждый день, юань вторым, доллар последним.

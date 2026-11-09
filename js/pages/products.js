@@ -1,39 +1,39 @@
 // ========================================================================
 //  СТРАНИЦА «ТОВАРЫ» — список, добавление, редактирование, фото, остатки
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261103j";
-import { icon } from "../icons.js?v=20261103j";
-import { fmt, convert } from "../fx.js?v=20261103j";
-import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261103j";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261103j";
-import { openEditor } from "./sales.js?v=20261103j";
-import { thumbAttrs, thumb } from "../img.js?v=20261103j";
-import { LOW_STOCK } from "../advice.js?v=20261103j";
-import { qrSvg, skuPayload } from "../qr.js?v=20261103j";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261109a";
+import { icon } from "../icons.js?v=20261109a";
+import { fmt, convert } from "../fx.js?v=20261109a";
+import { consumeFIFO, ensureBatches, sumQty, currentCost, costOutlook } from "../inventory.js?v=20261109a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261109a";
+import { openEditor } from "./sales.js?v=20261109a";
+import { thumbAttrs, thumb } from "../img.js?v=20261109a";
+import { LOW_STOCK } from "../advice.js?v=20261109a";
+import { qrSvg, skuPayload } from "../qr.js?v=20261109a";
 // Себестоимость в той валюте, в которой её ввели. Расчёт общий со складом
 // в телефоне — иначе один товар показывает разные цифры на разных экранах.
-import { костСтрока as costShow, костВалюта, костПоля, костЧисло, ВАЛЮТЫ } from "../cost.js?v=20261103j";
+import { костСтрока as costShow, костВалюта, костПоля, костЧисло, ВАЛЮТЫ } from "../cost.js?v=20261109a";
 // Единица измерения: товар считают штуками, пачками, коробками. Смена
 // единицы пересчитывает и остаток, и себестоимость, и все партии.
-import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение, заЕдиницу, сЕдиницы } from "../unit.js?v=20261103j";
-import { подходит } from "../productsearch.js?v=20261103j";
-import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261103j";
-import { изменениеСклада } from "../db.js?v=20261103j";
+import { ЕДИНИЦЫ, единица, вЕдинице, считаетсяПачками, подпись as подписьКол, перевести, объяснение, заЕдиницу, сЕдиницы } from "../unit.js?v=20261109a";
+import { подходит } from "../productsearch.js?v=20261109a";
+import { подписьКода, естьКолонкаКода, кодПриСохранении, следующийПосле, КОД_ЗАНЯТ } from "../catalogcode.js?v=20261109a";
+import { изменениеСклада } from "../db.js?v=20261109a";
 // Главное фото (аватар) и порядок снимков — две независимые вещи.
 // Правило общее с каталогом, складом в телефоне и PDF: см. js/photo.js.
-import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261103j";
-import { редакторФото } from "../photoedit.js?v=20261103j";
+import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261109a";
+import { редакторФото } from "../photoedit.js?v=20261109a";
 // Упаковка: в чём покупаем, в чём храним, в чём продаём и как пересчитать
 // приход. Расчёт общий с приёмкой и сервером — см. js/packing.js.
 import {
   настройки as настройкиУпаковки, статус as статусУпаковки, проверки as проверкиУпаковки,
   коэффициент as коэффициентУпаковки, поляНастроек as поляНастроекУпаковки,
   нуженПереводОстатка, цепочка as цепочкаУпаковки, описаниеЗакупки, ПРАВИЛА_ОСТАТКА,
-} from "../packing.js?v=20261103j";
+} from "../packing.js?v=20261109a";
 // Цена на каждом уровне упаковки и маржа. Считает только показываемое:
 // цену продажи от себестоимости этот модуль не двигает — см. js/pricing.js.
-import { уровниЦен, маржа } from "../pricing.js?v=20261103j";
-import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261103j";
+import { уровниЦен, маржа } from "../pricing.js?v=20261109a";
+import { картаДороги, вДороге, дорожеСейчас, едетВместоНет, подписьДороги } from "../transit.js?v=20261109a";
 
 // Себестоимость для показа — цена ТОЙ партии, что продаётся сейчас (FIFO),
 // а не сохранённое поле: у старых товаров оно могло остаться от прежнего поведения,
