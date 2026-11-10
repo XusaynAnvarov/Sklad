@@ -154,5 +154,56 @@ for (const [имя, b] of [["чужой id", { ...тело, sale_id: "1;drop" }]
   ok(`${имя} → 400 без обращения к базе`, res.statusCode === 400 && вызовы.length === 0);
 }
 
+// ---------------- 4. доска: порядок и «срочно» ----------------
+const к = (id, stage, extra = {}) => ({ id, stage, дата: extra.дата || "2026-11-10T08:00:00Z", row: extra.row || null, sort_key: extra.sort_key ?? null, срочно: !!extra.срочно, totals: extra.totals || { som: 0, usd: 0, yuan: 0 } });
+const колонка = [
+  к("a", "placed", { дата: "2026-11-10T09:00:00Z" }),
+  к("b", "placed", { дата: "2026-11-10T07:00:00Z" }),
+  к("c", "placed", { дата: "2026-11-10T08:00:00Z", sort_key: 2048 }),
+  к("d", "placed", { дата: "2026-11-10T10:00:00Z", sort_key: 1024, срочно: true }),
+];
+ok("ручной порядок: сначала по ключу, новые без места — в конце по дате",
+  core.упорядочить(колонка, "placed").map(z => z.id).join("") === "dcba".replace("cba", "cba") && core.упорядочить(колонка, "placed").map(z => z.id).join("") === "dcba");
+const отпр = [к("x", "shipped", { sort_key: 1024, row: { shipped_at: "2026-11-10T01:00:00Z" } }), к("y", "shipped", { row: { shipped_at: "2026-11-10T05:00:00Z" } })];
+ok("в «Отправленных» новые без места — сверху", core.упорядочить(отпр, "shipped").map(z => z.id).join("") === "yx");
+ok("сортировка «сначала старые» не смотрит на ручной порядок", core.упорядочить(колонка, "placed", "old").map(z => z.id).join("") === "bcad");
+ok("«срочные сверху»", core.упорядочить(колонка, "placed", "urgent")[0].id === "d");
+ok("по сумме", core.упорядочить([к("p", "placed", { totals: { som: 0, usd: 5, yuan: 0 } }), к("q", "placed", { totals: { som: 0, usd: 50, yuan: 0 } })], "placed", "sum", (v) => v).map(z => z.id).join("") === "qp");
+ok("вставка без повторов", core.вставитьВПорядок(["a", "b", "c", "d"], "a", 2).join("") === "bcad" && core.вставитьВПорядок(["a", "b"], "z", 9).join("") === "abz");
+ok("переходы: вперёд по одному — да", core.переход("placed", "packed").kind === "pack" && core.переход("packed", "shipped").kind === "ship");
+ok("переходы: перескок и назад — нет", core.переход("placed", "shipped").kind === null && core.переход("shipped", "packed").kind === null && core.переход("packed", "placed").kind === null);
+ok("переход внутри колонки — перестановка", core.переход("packed", "packed").kind === "reorder");
+
+// сервер: reorder / urgent
+let пишем = [];
+globalThis.fetch = async (url, opts = {}) => {
+  const u = String(url);
+  if (u.includes("/rest/v1/order_board")) { пишем.push(JSON.parse(opts.body)); return new Response("", { status: 201 }); }
+  return new Response("[]");
+};
+const ids3 = ["a0000000-0000-4000-8000-000000000001", "a0000000-0000-4000-8000-000000000002", "a0000000-0000-4000-8000-000000000003"];
+res = мокОтвет(); пишем = [];
+await handler({ method: "POST", headers: { authorization: админ }, body: { action: "reorder", ids: ids3, actor: "Хусайн" }, query: {} }, res);
+ok("порядок записан ключами 1024, 2048, …", res.statusCode === 200 && пишем[0].map(r => r.sort_key).join() === "1024,2048,3072" && !("urgent" in пишем[0][0]));
+res = мокОтвет(); пишем = [];
+await handler({ method: "POST", headers: { authorization: админ }, body: { action: "reorder", ids: [ids3[0], ids3[0]] }, query: {} }, res);
+ok("повтор в порядке — 400, без записи", res.statusCode === 400 && !пишем.length);
+res = мокОтвет(); пишем = [];
+await handler({ method: "POST", headers: { authorization: админ }, body: { action: "reorder", ids: ["x;drop"] }, query: {} }, res);
+ok("чужой id в порядке — 400", res.statusCode === 400 && !пишем.length);
+res = мокОтвет(); пишем = [];
+await handler({ method: "POST", headers: { authorization: гость }, body: { action: "reorder", ids: ids3 }, query: {} }, res);
+ok("гость порядок не меняет", res.statusCode === 401 && !пишем.length);
+res = мокОтвет(); пишем = [];
+await handler({ method: "POST", headers: { authorization: админ }, body: { action: "urgent", sale_id: ids3[1], urgent: true }, query: {} }, res);
+ok("«срочно» записано без ключа порядка", res.statusCode === 200 && пишем[0][0].urgent === true && !("sort_key" in пишем[0][0]));
+res = мокОтвет(); пишем = [];
+await handler({ method: "POST", headers: { authorization: админ }, body: { action: "urgent", sale_id: ids3[1], urgent: "да" }, query: {} }, res);
+ok("«срочно» не булево — 400", res.statusCode === 400 && !пишем.length);
+globalThis.fetch = async () => new Response(JSON.stringify({ code: "42P01", message: 'relation "order_board" does not exist' }), { status: 404 });
+res = мокОтвет();
+await handler({ method: "POST", headers: { authorization: админ }, body: { action: "reorder", ids: ids3 }, query: {} }, res);
+ok("без таблицы доски — 503 с подсказкой", res.statusCode === 503 && res.body.code === "board_not_migrated");
+
 console.log(плохо ? `\n${плохо} провал(ов)` : "\nВсе проверки прошли");
 process.exit(плохо ? 1 : 0);

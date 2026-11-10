@@ -203,8 +203,15 @@ html[data-theme="light"] .ff-node.ff-done .ff-node-ic { color: #fff; }
 .ff-node.ff-current .ff-node-ic::after {
   content: ""; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none;
   box-shadow: 0 0 0 2px var(--n-s), 0 0 22px var(--n-g);
-  opacity: 0; animation: ff-breathe 2.8s ease-in-out infinite;
+  opacity: .55;
 }
+/* «Дышит» только карточка под курсором или в фокусе: бесконечная анимация
+   на каждой из сотни карточек держала страницу занятой даже в покое
+   (замер на 1000 заказах: 95% времени кадра против 12% у «Товаров»). */
+@media (hover: hover) and (pointer: fine) {
+  .ff-card:hover .ff-node.ff-current .ff-node-ic::after { animation: ff-breathe 2.8s ease-in-out infinite; }
+}
+.ff-card:focus-visible .ff-node.ff-current .ff-node-ic::after { animation: ff-breathe 2.8s ease-in-out infinite; }
 .ff-node.ff-current .ff-node-lab { color: var(--n); font-weight: 700; }
 .ff-node.ff-todo { opacity: .55; }
 .ff-line { position: relative; flex: 1 1 auto; height: 3px; margin-top: 15px; border-radius: 3px; background: rgba(127, 127, 140, .18); overflow: hidden; }
@@ -359,3 +366,145 @@ html:not([data-theme="light"]) .ff-next { color: #101014 !important; }
   }
   .ff-card:hover, .ff-kpi:hover { transform: none !important; }
 }
+
+/* ===================================================================
+   ДОСКА: перетаскивание, ручной порядок, «срочно» (js/board-dnd.js)
+   Всё движение — transform/opacity. Тень у копии карточки статична:
+   анимируется только её подъём (scale), а не размытие тени.
+   =================================================================== */
+.ff-card { touch-action: pan-y; -webkit-touch-callout: none; }
+.ff-card:focus-visible { outline: 2px solid var(--tone); outline-offset: 3px; }
+html.ff-dragging, html.ff-dragging * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }
+html.ff-dragging .ff-board { scroll-snap-type: none !important; }
+
+/* копия, которая едет за указателем */
+.ff-ghost {
+  position: fixed !important; z-index: 1000; margin: 0 !important; pointer-events: none;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, .38), 0 0 0 1px var(--tone-g), 0 0 22px var(--tone-s) !important;
+  /* плотнее обычной карточки: сквозь поднятую не должны просвечивать соседи */
+  background: var(--glass-fill), var(--panel) !important;
+  opacity: .97; will-change: transform;
+  transition: transform 0ms, opacity 160ms;
+  animation: none !important;
+  --ff-lift-scale: 1;
+}
+.ff-ghost.ff-lift { --ff-lift-scale: 1.03; }
+.ff-ghost.ff-landing { transition: transform 180ms var(--e-out), opacity 180ms; opacity: 1; }
+.ff-ghost .ff-details { display: none; }
+html[data-theme="light"] .ff-ghost { box-shadow: 0 26px 54px rgba(16, 24, 40, .22), 0 0 0 1px var(--tone-g) !important; }
+
+/* сама карточка, пока её несут, прячется; на её месте — пустое место */
+.ff-card.ff-drag-src { display: none; }
+.ff-ph {
+  border-radius: var(--r-lg); border: 2px dashed var(--tone-g, var(--border));
+  background: var(--tone-s, rgba(127,127,140,.06));
+  animation: ff-ph-in 160ms var(--e-out) both;
+}
+.ff-col.ff-drop-ok .ff-ph, .ff-col.ff-drop-home .ff-ph { border-color: var(--tone); }
+@keyframes ff-ph-in { from { opacity: 0; transform: scaleY(.92); } to { opacity: 1; transform: none; } }
+
+/* колонка назначения: можно — светится бегущая рамка; нельзя — гаснет */
+.ff-col.ff-drop-ok { border-color: var(--tone); box-shadow: var(--glass-drop-hi), 0 0 0 1px var(--tone-g), 0 0 30px var(--tone-s), var(--glass-edge); }
+.ff-col.ff-drop-ok::after {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  background: conic-gradient(from var(--ff-a, 0deg), transparent 0 70%, var(--tone) 85%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+  padding: 2px; opacity: .9; animation: ff-spin 2.2s linear infinite;
+}
+@property --ff-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes ff-spin { to { --ff-a: 360deg; } }
+.ff-col.ff-drop-home { border-color: var(--tone-g); }
+.ff-col.ff-drop-no { opacity: .55; }
+.ff-drop-why {
+  margin: -4px 6px 10px; padding: 7px 10px; border-radius: var(--r-sm);
+  background: rgba(248, 113, 113, .12); border: 1px solid rgba(248, 113, 113, .35);
+  color: var(--text); font-size: 0.75rem; font-weight: 600;
+}
+
+/* сохранение после броска */
+.ff-card.ff-pending { pointer-events: none; }
+.ff-card.ff-pending::before {
+  content: ""; position: absolute; top: 12px; right: 12px; width: 16px; height: 16px; border-radius: 50%; z-index: 2;
+  border: 2px solid var(--tone-g); border-top-color: var(--tone); animation: ff-rot .7s linear infinite;
+}
+@keyframes ff-rot { to { transform: rotate(360deg); } }
+
+/* ручка и «срочно» в шапке карточки */
+.ff-grip, .ff-flag {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: var(--r-xs);
+  display: grid; place-items: center; border: 1px solid transparent; background: none;
+  color: var(--muted); cursor: grab; padding: 0;
+  transition: color var(--t-hover), background var(--t-hover), border-color var(--t-hover);
+}
+.ff-grip { touch-action: none; }
+.ff-flag { cursor: pointer; }
+.ff-grip:hover, .ff-flag:hover { background: rgba(127, 127, 140, .1); color: var(--text); }
+.ff-flag[aria-pressed="true"] { color: #f0743c; background: rgba(240, 116, 60, .12); border-color: rgba(240, 116, 60, .35); }
+.ff-grip:focus-visible, .ff-flag:focus-visible { outline: 2px solid var(--tone); outline-offset: 2px; }
+.ff-card.ff-urgent { border-color: rgba(240, 116, 60, .45); }
+.ff-card.ff-urgent::before {
+  content: ""; position: absolute; left: -1px; top: 14px; bottom: 14px; width: 3px; border-radius: 3px;
+  background: linear-gradient(#f0743c, #f2b64c);
+}
+.ff-urgent-chip {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: var(--r-pill); font-size: 0.6875rem; font-weight: 700;
+  color: #f0743c; background: rgba(240, 116, 60, .12); border: 1px solid rgba(240, 116, 60, .35);
+}
+.ff-card-top { gap: 8px; }
+
+/* краткий состав и время этапа на карточке */
+.ff-preview { margin-top: 8px; font-size: 0.8125rem; color: var(--muted); line-height: 1.4;
+  overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ff-when { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.75rem; font-weight: 600; color: var(--tone); }
+.ff-when-ship { color: var(--text); font-weight: 600; padding: 2px 8px; border-radius: var(--r-pill); background: var(--tone-s); }
+
+.ff-more-btn { width: 100%; justify-content: center; margin-top: 2px; }
+.ff-sort { width: 170px; }
+.ff-hint { flex: 1 1 100%; font-size: 0.75rem; color: var(--muted); padding: 0 4px; }
+.ff-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* телефон: колонки листаются вбок — так между ними можно перетаскивать */
+@media (max-width: 900px) {
+  .ff-board, .ff-board:not(.ff-one) {
+    display: flex; gap: 10px; overflow-x: auto; overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory; scrollbar-width: none;
+    margin: 0 -12px; padding: 0 12px 10px; align-items: flex-start;
+  }
+  .ff-board::-webkit-scrollbar { display: none; }
+  .ff-board > .ff-col, .ff-board:not(.ff-one) .ff-col[data-stage="shipped"] { flex: 0 0 88%; scroll-snap-align: center; grid-column: auto; }
+  .ff-sort { flex: 1 1 100%; width: auto; grid-column: 1 / -1; }
+  .ff-grip { width: 36px; height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ff-col.ff-drop-ok::after { animation: none; }
+  .ff-ghost { transition: none !important; }
+}
+
+/* Карточки за пределами экрана браузер не раскладывает и не рисует, пока
+   до них не докрутили: на длинной колонке это основная экономия кадра.
+   «auto» в размере — браузер запоминает настоящую высоту карточки. */
+.ff-list > .ff-card { content-visibility: auto; contain-intrinsic-size: auto 230px; }
+.ff-list > .ff-card.open, .ff-ghost { content-visibility: visible; }
+
+/* кнопка «Фильтры» — только на телефоне */
+.ff-filters-btn { display: none; }
+@media (max-width: 900px) {
+  .ff-filters-btn { display: inline-flex; flex: 0 0 auto; }
+  .ff-search-wrap { flex: 1 1 0; min-width: 0; }
+  .ff-tools:not(.open) .ff-tools-row, .ff-tools:not(.open) .ff-hint { display: none; }
+  .ff-tools .ff-seg { order: 3; }
+}
+
+/* у копии карточки кнопки не нужны: её несут, а не нажимают */
+.ff-ghost .ff-actions { visibility: hidden; }
+.ff-num { white-space: nowrap; }
+@media (max-width: 520px) {
+  /* статус на узкой карточке и так виден: колонка, шкала и значок этапа */
+  .ff-card-top > .ff-chip { display: none; }
+}
+
+.ff-num { display: flex; align-items: center; gap: 6px; }
+.ff-num .ff-urgent-chip { padding: 1px 7px; font-size: 0.625rem; letter-spacing: .02em; }
+.ff-card-title { overflow: hidden; }

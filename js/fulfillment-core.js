@@ -60,6 +60,7 @@ export function собратьЗаказы(sales, state, customers = []) {
   }
   for (const arr of logs.values()) arr.sort((a, b) => Number(a.id) - Number(b.id));
   const cmap = new Map(customers.map(c => [String(c.id), c]));
+  const доска = new Map((state?.board || []).map(b => [String(b.sale_id), b]));
 
   const out = [];
   for (const s of sales || []) {
@@ -80,6 +81,10 @@ export function собратьЗаказы(sales, state, customers = []) {
       row: row || null,
       log: logs.get(String(s.id)) || [],
       totals, штук, позиций,
+      sort_key: доска.get(String(s.id))?.sort_key ?? null,
+      t: Date.parse(s.date || s.created_at) || 0,      // разобрано заранее: сортировки вызывают сравнение тысячи раз
+      tЭтапа: Date.parse((row?.stage === "shipped" ? row?.shipped_at : row?.stage === "packed" ? row?.packed_at : null) || s.date || s.created_at) || 0,
+      срочно: !!доска.get(String(s.id))?.urgent,
     });
   }
   // Внутри раздела: ждущие — старые сверху (их собирать первыми),
@@ -145,4 +150,65 @@ export function история(z) {
 export function шкала(stage) {
   const i = ЭТАПЫ.indexOf(stage);
   return ЭТАПЫ.map((s, k) => ({ stage: s, state: k < i ? "done" : k === i ? "current" : "todo" }));
+}
+
+// ---------- порядок в колонке ----------
+// «Своё» время карточки: когда она пришла в этот раздел.
+export function времяЭтапа(z) {
+  if (z.tЭтапа != null) return z.tЭтапа;
+  const t = z.stage === "shipped" ? z.row?.shipped_at : z.stage === "packed" ? z.row?.packed_at : null;
+  return new Date(t || z.дата || 0).getTime();
+}
+const времяОформления = (z) => z.t != null ? z.t : new Date(z.дата || 0).getTime();
+// Порядок по умолчанию: ждущие — старые сверху (их собирать первыми),
+// отправленные — свежие сверху.
+const поУмолчанию = (stage) => (a, b) => stage === "shipped"
+  ? времяЭтапа(b) - времяЭтапа(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  : времяОформления(a) - времяОформления(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+export const СОРТИРОВКИ = {
+  manual: "Ручной порядок",
+  old: "Сначала старые",
+  new: "Сначала новые",
+  sum: "По сумме",
+  urgent: "Срочные сверху",
+};
+
+// Карточки одной колонки в нужном порядке.
+//  manual — сохранённый ручной порядок; карточки без места (новые) идут
+//  после него, а в «Отправленных» — над ним: там важнее свежие.
+//  sum — по сумме в долларах (пересчёт передаёт страница, курсы живут в fx.js).
+export function упорядочить(карточки, stage, сортировка = "manual", вДоллары = (v) => v) {
+  const список = [...карточки];
+  const base = поУмолчанию(stage);
+  if (сортировка === "old") return список.sort((a, b) => времяОформления(a) - времяОформления(b) || base(a, b));
+  if (сортировка === "new") return список.sort((a, b) => времяОформления(b) - времяОформления(a) || base(a, b));
+  if (сортировка === "urgent") return список.sort((a, b) => (b.срочно - a.срочно) || base(a, b));
+  if (сортировка === "sum") {
+    const usd = new Map(список.map(z => [z, ["som", "usd", "yuan"].reduce((acc, c) => acc + (вДоллары(z.totals[c] || 0, c) || 0), 0)]));
+    return список.sort((a, b) => usd.get(b) - usd.get(a) || base(a, b));
+  }
+  const сМестом = список.filter(z => z.sort_key != null).sort((a, b) => a.sort_key - b.sort_key || base(a, b));
+  const безМеста = список.filter(z => z.sort_key == null).sort(base);
+  return stage === "shipped" ? [...безМеста, ...сМестом] : [...сМестом, ...безМеста];
+}
+
+// Новый порядок колонки после того, как id встал на место index.
+// Повторов не бывает: id сначала убираем, потом вставляем.
+export function вставитьВПорядок(ids, id, index) {
+  const без = ids.filter(x => String(x) !== String(id));
+  const i = Math.max(0, Math.min(без.length, index));
+  return [...без.slice(0, i), id, ...без.slice(i)];
+}
+
+// Что значит «бросить карточку из from в to».
+//   reorder — перестановка внутри колонки (не статус)
+//   pack / ship — следующий этап, только через окно подтверждения
+//   null — нельзя (с причиной): этапы не перескакивают и не идут назад.
+export function переход(from, to) {
+  if (from === to) return { kind: "reorder" };
+  if (from === "placed" && to === "packed") return { kind: "pack" };
+  if (from === "packed" && to === "shipped") return { kind: "ship" };
+  if (from === "placed" && to === "shipped") return { kind: null, why: "Сначала подтвердите сборку" };
+  return { kind: null, why: "Назад — через «Исправить статус» в подробностях" };
 }

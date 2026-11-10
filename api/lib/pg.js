@@ -26,6 +26,7 @@ const КЛЮЧ = {
   bot_sessions: "chat_id",
   blocked_phones: "phone",
   site_verifications: "token",
+  order_board: "sale_id",
 };
 export const ключТаблицы = (t) => КЛЮЧ[t] || "id";
 

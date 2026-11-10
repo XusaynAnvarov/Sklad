@@ -56,6 +56,8 @@ const P = {
   clipboard: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4.5V3.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 10h6M9 13.5h6M9 17h3.5"/>',
   package: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/><path d="m7.5 4.6 9 5.1"/>',
   history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/>',
+  // «Срочно» на доске сборки: пламя.
+  flame: '<path d="M12 22c4 0 7-2.8 7-7 0-3.2-2-5.6-3.6-7.4-.4 1.9-1.4 3-2.6 3.4.3-3.3-1.2-6.4-4-8-.2 3.2-1.9 5.2-3.3 7.1C4.4 11.6 5 13.5 5 15c0 4.2 3 7 7 7Z"/><path d="M12 22c-1.7 0-3-1.3-3-3.1 0-1.7 1.4-2.9 2.3-4 .2 1 .8 1.6 1.5 1.8.9-1 1.2-2 1.2-3 1.4 1.2 2 2.8 2 4.6 0 2.2-1.6 3.7-4 3.7Z"/>',
   grip: '<circle cx="9" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/>',
 };
 

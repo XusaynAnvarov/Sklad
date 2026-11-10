@@ -6,13 +6,15 @@
 //  POST { sale_id, action, expected, actor, reason?, carrier?, tracking?, comment? }
 //       action: track | pack | ship | correct          (ТОЛЬКО админ)
 //       → { row, notified }
+//  POST { action: "reorder", ids: [...] }   ручной порядок колонки (не статус)
+//  POST { action: "urgent", sale_id, urgent } отметка «срочно» (не статус)
 //
 //  Этап меняется только SQL-функцией (см. api/lib/fulfillment.js): ответ
 //  приходит после записи в базу, уведомление клиенту — после ответа базы.
 //  409 — заказ уже изменил другой сотрудник (в ответе актуальный этап).
 // ========================================================================
 import { getUser } from "../lib/auth.js";
-import { состояние, проверитьЖурнал, перейти, уведомитьКлиента, ОшибкаЭтапа } from "../lib/fulfillment.js";
+import { состояние, проверитьЖурнал, перейти, уведомитьКлиента, переставить, отметитьСрочно, ОшибкаЭтапа } from "../lib/fulfillment.js";
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -41,6 +43,10 @@ export default async function handler(req, res) {
   body = body && typeof body === "object" ? body : {};
 
   try {
+    // Доска: порядок и «срочно» — не этапы, журнал статусов не пишут.
+    if (body.action === "reorder") return res.status(200).json(await переставить(body.ids, body.actor || "admin"));
+    if (body.action === "urgent") return res.status(200).json(await отметитьСрочно(body.sale_id, body.urgent, body.actor || "admin"));
+
     const row = await перейти({
       sale_id: body.sale_id, action: body.action, expected: body.expected ?? null,
       actor: body.actor, role: user.role === "admin" ? "admin" : "user",

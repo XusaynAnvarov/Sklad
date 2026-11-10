@@ -11,7 +11,7 @@
 //
 //  Остатки, суммы и оплата накладной не читаются и не меняются.
 // ========================================================================
-import { sget, okId } from "./supa.js";
+import { sget, supsert, okId } from "./supa.js";
 import { СВОЯ_БАЗА, база } from "./pg.js";
 import { забыть } from "./memcache.js";
 
@@ -117,19 +117,64 @@ export async function проверитьЖурнал() {
   catch (e) { throw перевести(e.message); }
 }
 
-// Всё для раздела склада: с какого момента идёт учёт, этапы и журнал.
+// Всё для раздела склада: с какого момента идёт учёт, этапы, журнал и
+// раскладка доски (ручной порядок, «срочно»). Доска читается отдельно:
+// без её таблицы этапы работают, просто перестановка выключена.
 export async function состояние({ журналДо = 3000 } = {}) {
+  let основное;
   try {
     const [cfg, rows, log] = await Promise.all([
       sget("fulfillment_config?id=eq.1&select=since"),
       sget("order_fulfillment?select=*&order=updated_at.desc"),
       sget(`order_fulfillment_log?select=id,sale_id,action,from_stage,to_stage,actor,actor_role,reason,carrier,tracking,comment,at&order=id.desc&limit=${журналДо}`),
     ]);
-    return { migrated: true, since: cfg[0]?.since || null, rows, log };
+    основное = { migrated: true, since: cfg[0]?.since || null, rows, log };
   } catch (e) {
-    if (нетТаблицы(e.message)) return { migrated: false, since: null, rows: [], log: [] };
+    if (нетТаблицы(e.message)) return { migrated: false, since: null, rows: [], log: [], board: [], boardMigrated: false };
     throw e;
   }
+  try {
+    const board = await sget("order_board?select=sale_id,sort_key,urgent");
+    return { ...основное, board, boardMigrated: true };
+  } catch (e) {
+    if (!/order_board/.test(e.message || "")) console.warn("[доска] раскладка не прочитана:", e.message);
+    return { ...основное, board: [], boardMigrated: false };
+  }
+}
+
+// ---------- доска: порядок и «срочно» ----------
+// Не статус: журнал не пишется, этап не меняется, накладная не трогается.
+const МАКС_КАРТОЧЕК = 3000;
+const нетДоски = (msg) => /order_board/.test(msg || "") && /does not exist|could not find|PGRST205|42P01|schema cache/i.test(msg || "");
+
+// Ручной порядок колонки: ids сверху вниз. Ключи переписываются целиком —
+// так не накапливаются дроби и не бывает двух карточек на одном месте.
+export async function переставить(ids, actor) {
+  if (!Array.isArray(ids) || !ids.length || ids.length > МАКС_КАРТОЧЕК) throw new ОшибкаЭтапа(400, "bad_order", "Неверный порядок карточек.");
+  if (!ids.every(этоUuid)) throw new ОшибкаЭтапа(400, "bad_id", "Неверный номер накладной.");
+  if (new Set(ids.map(String)).size !== ids.length) throw new ОшибкаЭтапа(400, "duplicate", "Карточка повторяется в порядке.");
+  const now = new Date().toISOString(), кто = обрезать(actor, 80);
+  const строки = ids.map((id, i) => ({ sale_id: id, sort_key: (i + 1) * 1024, updated_at: now, updated_by: кто }));
+  try { await supsert("order_board", строки); }
+  catch (e) {
+    if (нетДоски(e.message)) throw new ОшибкаЭтапа(503, "board_not_migrated", "Порядок ещё не сохраняется: примените db/order-board-migration.sql");
+    console.error("[доска] порядок не записан:", e.message);
+    throw new ОшибкаЭтапа(500, "db", "Не удалось сохранить порядок. Попробуйте ещё раз.");
+  }
+  return { saved: строки.length };
+}
+
+export async function отметитьСрочно(sale_id, urgent, actor) {
+  if (!этоUuid(sale_id)) throw new ОшибкаЭтапа(400, "bad_id", "Неверный номер накладной.");
+  if (typeof urgent !== "boolean") throw new ОшибкаЭтапа(400, "bad_flag", "Неверная отметка.");
+  try {
+    await supsert("order_board", [{ sale_id, urgent, updated_at: new Date().toISOString(), updated_by: обрезать(actor, 80) }]);
+  } catch (e) {
+    if (нетДоски(e.message)) throw new ОшибкаЭтапа(503, "board_not_migrated", "Отметка «срочно» ещё не сохраняется: примените db/order-board-migration.sql");
+    console.error("[доска] «срочно» не записано:", e.message);
+    throw new ОшибкаЭтапа(500, "db", "Не удалось сохранить отметку. Попробуйте ещё раз.");
+  }
+  return { sale_id, urgent };
 }
 
 // Попадает ли накладная в учёт без отдельного «Взять в учёт».

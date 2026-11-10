@@ -11,20 +11,37 @@
 //  Остатки, суммы и оплата накладной здесь не меняются.
 //  Расчёты — в js/fulfillment-core.js, сервер — api/admin/fulfillment.js.
 // ========================================================================
-import { el, toast, modal, inputList } from "../ui.js?v=20261110b";
-import { icon } from "../icons.js?v=20261110b";
-import { authHeaders } from "../db.js?v=20261110b";
-import { fmt } from "../fx.js?v=20261110b";
-import { thumb } from "../img.js?v=20261110b";
+import { el, toast, modal, inputList } from "../ui.js?v=20261110c";
+import { icon as значокИзСтроки } from "../icons.js?v=20261110c";
+
+// Значок разбирается из SVG-строки один раз, дальше — клон узла. На доске
+// по десятку значков на карточку: разбор строки каждый раз был главной
+// ценой перерисовки (на 120 карточках — треть секунды).
+const кэшЗначков = new Map();
+function icon(name, opts = {}) {
+  const k = name + "|" + (opts.size || "") + "|" + (opts.stroke || "") + "|" + (opts.class || "");
+  let узел = кэшЗначков.get(k);
+  if (!узел) { узел = значокИзСтроки(name, opts); кэшЗначков.set(k, узел); }
+  return узел.cloneNode(true);
+}
+import { authHeaders } from "../db.js?v=20261110c";
+import { fmt, toUSD } from "../fx.js?v=20261110c";
+import { включитьПеретаскивание } from "../board-dnd.js?v=20261110c";
+import { thumb } from "../img.js?v=20261110c";
 import {
   ЭТАПЫ, ЭТАП, ДАЛЬШЕ, собратьЗаказы, счётчики, отфильтровать, история, шкала, вУчёте, номерЗаказа, итогНакладной,
-} from "../fulfillment-core.js?v=20261110b";
+  упорядочить, вставитьВПорядок, переход, СОРТИРОВКИ,
+} from "../fulfillment-core.js?v=20261110c";
 
 const API = "/api/admin/fulfillment";
 const ПЕРЕВОЗЧИКИ = ["BTS Express", "Fargo", "Yandex Доставка", "Узбекистон почтаси", "Автобус / попутка", "Своя доставка", "Самовывоз"];
 const КЛЮЧ_ФИЛЬТРОВ = "ff_filters_v1";
 const КЛЮЧ_ИМЕНИ = "ff_actor";
 const ОПРОС_МС = 45000;
+// Столько карточек колонки рисуем сразу; дальше — «Показать ещё». Тысяча
+// карточек в DOM — это ~40 тысяч узлов: и отрисовка, и перетаскивание
+// начинают тормозить. Поиск при этом ищет по всем заказам.
+const ПОРЦИЯ = 40;
 
 const меньшеДвижения = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const ждать = (мс) => new Promise(r => setTimeout(r, меньшеДвижения() ? 0 : мс));
@@ -56,14 +73,17 @@ async function запрос(method, body, query = "") {
   return j;
 }
 
-const времяДаты = (d) => d ? new Date(d).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+// Форматы создаём один раз: toLocaleString строит форматтер заново при
+// каждом вызове, и на доске это была заметная доля перерисовки.
+const ФОРМАТ_ДАТЫ = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const ФОРМАТ_ЧИСЛА = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
+const времяДаты = (d) => { if (!d) return "—"; const t = new Date(d); return isNaN(t) ? "—" : ФОРМАТ_ДАТЫ.format(t); };
 const суммаСтрокой = (t) => {
   const a = ["som", "usd", "yuan"].filter(c => Math.abs(t[c] || 0) >= (c === "som" ? 1 : 0.01)).map(c => fmt(t[c], c));
   return a.length ? a.join(" + ") : "цена не указана";
 };
 const штукСтрокой = (n) => {
-  const v = Math.round(n * 100) / 100;
-  return v.toLocaleString("ru-RU") + " шт";
+  return ФОРМАТ_ЧИСЛА.format(Math.round(n * 100) / 100) + " шт";
 };
 
 // Число набегает от прежнего значения к новому.
@@ -92,14 +112,25 @@ export default async function render(page, ctx) {
   let ошибкаЗагрузки = null;
   try { state = await запрос("GET"); } catch (e) { ошибкаЗагрузки = e; }
 
-  const ф = Object.assign({ q: "", stage: "all", from: "", to: "", customer: "" }, хранилище.json(КЛЮЧ_ФИЛЬТРОВ, {}));
+  const ф = Object.assign({ q: "", stage: "all", from: "", to: "", customer: "", sort: "manual" }, хранилище.json(КЛЮЧ_ФИЛЬТРОВ, {}));
   if (!ЭТАПЫ.includes(ф.stage) && ф.stage !== "all") ф.stage = "all";
-  // На телефоне три колонки не помещаются — показываем по одному разделу.
+  if (!СОРТИРОВКИ[ф.sort]) ф.sort = "manual";
+  // На телефоне колонки листаются вбок (так между ними можно перетаскивать),
+  // а вкладки сверху прокручивают к нужной.
   const узко = () => matchMedia("(max-width: 900px)").matches;
-  if (узко() && ф.stage === "all") ф.stage = "placed";
+  if (узко()) ф.stage = "all";
   const открыты = new Set();
+  const лимит = { placed: ПОРЦИЯ, packed: ПОРЦИЯ, shipped: ПОРЦИЯ };
   let заказы = собратьЗаказы(sales, state, customers);
   let занят = false;
+  let тащат = false;
+  let видимаяКолонка = "placed";
+  const toUsd = (v, c) => { try { return toUSD(v, c); } catch { return 0; } };
+  const упорядоченная = (stage, список = заказы) => упорядочить(список.filter(z => z.stage === stage), stage, "manual", toUsd);
+  // Ручной порядок можно менять, только когда на экране он и показан:
+  // при сортировке или фильтре место в списке не равно месту в порядке.
+  const ручнойВиден = () => ф.sort === "manual" && !ф.q.trim() && !ф.from && !ф.to && !ф.customer;
+  const объявить = el("div.ff-sr", { "aria-live": "polite", role: "status" });
 
   page.classList.add("ff-page", "gm-сквозной");
 
@@ -141,7 +172,10 @@ export default async function render(page, ctx) {
     const num = el("div.ff-kpi-num", { text: "0", "data-v": "0" });
     const card = el("button.ff-kpi.ff-tone-" + ЭТАП[s].tone, {
       type: "button", style: { "--i": i },
-      onclick: () => { ф.stage = ф.stage === s && !узко() ? "all" : s; сохранитьФильтры(); рисовать(); },
+      onclick: () => {
+        if (узко()) { показатьКолонку(s); return; }
+        ф.stage = ф.stage === s ? "all" : s; сохранитьФильтры(); рисовать();
+      },
     }, [
       el("span.ff-orb", {}, [icon(ЭТАП[s].ic, { size: 20 })]),
       el("div.ff-kpi-txt", {}, [el("div.ff-kpi-lab", { text: ЭТАП[s].short }), num]),
@@ -162,15 +196,29 @@ export default async function render(page, ctx) {
   [отДаты, доДаты].forEach(i => i.addEventListener("change", () => { ф.from = отДаты.value; ф.to = доДаты.value; сохранитьФильтры(); рисовать(); }));
   const клиентСел = el("select.inp.ff-client", { title: "Клиент" });
   клиентСел.addEventListener("change", () => { ф.customer = клиентСел.value; сохранитьФильтры(); рисовать(); });
+  const сортСел = el("select.inp.ff-sort", { title: "Сортировка" });
+  Object.entries(СОРТИРОВКИ).forEach(([k, v]) => сортСел.append(el("option", { value: k, text: v })));
+  сортСел.value = ф.sort;
+  сортСел.addEventListener("change", () => { ф.sort = сортСел.value; сохранитьФильтры(); рисовать({ перенос: true }); });
+  const подсказка = el("div.ff-hint");
   const сброс = el("button.btn.btn-outline.btn-sm.ff-reset", {
     type: "button",
-    onclick: () => { Object.assign(ф, { q: "", from: "", to: "", customer: "", stage: узко() ? ф.stage : "all" }); поиск.value = ""; отДаты.value = ""; доДаты.value = ""; клиентСел.value = ""; сохранитьФильтры(); рисовать(); },
+    onclick: () => { Object.assign(ф, { q: "", from: "", to: "", customer: "", stage: "all", sort: "manual" }); поиск.value = ""; отДаты.value = ""; доДаты.value = ""; клиентСел.value = ""; сортСел.value = "manual"; сохранитьФильтры(); рисовать(); },
   }, [icon("x", { size: 14 }), "Сбросить"]);
-  page.append(el("div.ff-tools", {}, [
-    el("div.ff-search-wrap", {}, [icon("search", { size: 16 }), поиск]),
+  // На телефоне фильтры свёрнуты под кнопку — иначе занимают пол-экрана.
+  const кнопкаФильтров = el("button.btn.btn-outline.btn-sm.ff-filters-btn", {
+    type: "button", "aria-expanded": "false",
+    onclick: () => { const откр = инструменты.classList.toggle("open"); кнопкаФильтров.setAttribute("aria-expanded", String(откр)); },
+  }, [icon("settings", { size: 15 }), el("span.ff-lbl", { text: "Фильтры" })]);
+  const инструменты = el("div.ff-tools");
+  page.append(инструменты);
+  инструменты.append(...[
+    el("div.ff-search-wrap", {}, [icon("search", { size: 16 }), поиск]), кнопкаФильтров,
     вкладки,
-    el("div.ff-tools-row", {}, [отДаты, el("span.ff-dash", { text: "—" }), доДаты, клиентСел, сброс]),
-  ]));
+    el("div.ff-tools-row", {}, [отДаты, el("span.ff-dash", { text: "—" }), доДаты, клиентСел, сортСел, сброс]),
+    подсказка,
+  ]);
+  page.append(объявить);
 
   function сохранитьФильтры() { хранилище.setJson(КЛЮЧ_ФИЛЬТРОВ, ф); }
 
@@ -216,8 +264,12 @@ export default async function render(page, ctx) {
   function карточка(z, i) {
     const тон = ЭТАП[z.stage].tone;
     const дальше = ДАЛЬШЕ[z.stage];
-    const card = el("article.ff-card.ff-tone-" + тон, { "data-id": z.id, style: { "--i": Math.min(i, 12) } });
+    const card = el("article.ff-card.ff-tone-" + тон, {
+      "data-id": z.id, style: { "--i": Math.min(i, 12) }, tabindex: "0",
+      "aria-label": `Заказ № ${z.номер}, ${z.клиент}, ${ЭТАП[z.stage].label}${z.срочно ? ", срочно" : ""}. Alt+стрелки вверх и вниз — переставить, Alt+стрелка вправо — следующий этап`,
+    });
     if (открыты.has(z.id)) card.classList.add("open");
+    if (z.срочно) card.classList.add("ff-urgent");
 
     const кнопкаДальше = дальше
       ? el("button.btn.btn-primary.btn-sm.ff-next", { type: "button", onclick: (e) => { e.stopPropagation(); подтвердить(z, дальше.action); } },
@@ -228,28 +280,39 @@ export default async function render(page, ctx) {
       onclick: (e) => { e.stopPropagation(); раскрыть(card, z); },
     }, [el("span", { text: "Подробнее" }), icon("arrow-up-right", { size: 13, class: "ff-chev" })]);
 
-    card.append(
+    card.append(...[   // пустые (null) части не рисуем: родной append превратил бы их в текст «null»
       el("div.ff-card-top", {}, [
         el("span.ff-orb", {}, [icon(ЭТАП[z.stage].ic, { size: 19 })]),
         el("div.ff-card-title", {}, [
-          el("div.ff-num", { text: "№ " + z.номер }),
+          el("div.ff-num", {}, ["№ " + z.номер, z.срочно ? el("span.ff-urgent-chip", {}, [icon("flame", { size: 11 }), "Срочно"]) : null]),
           el("div.ff-client", { text: z.клиент, title: z.клиент }),
         ]),
         el("span.ff-chip", { text: ЭТАП[z.stage].step }),
+        el("button.ff-flag", {
+          type: "button", title: z.срочно ? "Снять отметку «срочно»" : "Отметить как срочный",
+          "aria-pressed": String(z.срочно), "aria-label": "Срочный заказ",
+          onclick: (e) => { e.stopPropagation(); переключитьСрочно(z); },
+        }, [icon("flame", { size: 15 })]),
+        el("button.ff-grip", { type: "button", title: "Перетащить", "aria-label": "Перетащить заказ" }, [icon("grip", { size: 16 })]),
       ]),
       el("div.ff-meta", {}, [
         el("span", {}, [icon("clock", { size: 13 }), времяДаты(z.дата)]),
         el("span", {}, [icon("box", { size: 13 }), `${штукСтрокой(z.штук)} · ${z.позиций} поз.`]),
         el("span.ff-sum", { text: суммаСтрокой(z.totals) }),
       ]),
+      z.stage !== "placed" ? el("div.ff-preview", { text: составКратко(z) }) : null,
+      z.stage === "packed" ? el("div.ff-when", {}, [icon("package", { size: 13 }), "Собран " + времяДаты(z.row?.packed_at)]) : null,
+      z.stage === "shipped" ? el("div.ff-when", {}, [icon("truck", { size: 13 }), "Отправлен " + времяДаты(z.row?.shipped_at),
+        (z.row?.carrier || z.row?.tracking) ? el("span.ff-when-ship", { text: [z.row?.carrier, z.row?.tracking ? "№ " + z.row.tracking : ""].filter(Boolean).join(" · ") }) : null]) : null,
       шкалаУзел(z.stage),
       el("div.ff-actions", {}, [кнопкаПодробнее, кнопкаДальше]),
       el("div.ff-details", {}, [el("div.ff-details-in")]),
-    );
+    ].filter(Boolean));
     card.addEventListener("click", (e) => {
       if (e.target.closest("button, a, input, select, textarea")) return;
       раскрыть(card, z);
     });
+    card.addEventListener("keydown", (e) => клавишаКарточки(e, card, z));
     if (открыты.has(z.id)) наполнитьПодробности(card, z);
     return card;
   }
@@ -324,7 +387,7 @@ export default async function render(page, ctx) {
   function рисовать({ перенос = false } = {}) {
     // FLIP: запомнить, где карточки были, перерисовать, плавно довести.
     const были = new Map();
-    if (перенос && !меньшеДвижения()) доска.querySelectorAll(".ff-card").forEach(n => были.set(n.dataset.id, n.getBoundingClientRect()));
+    if (перенос && !меньшеДвижения()) доска.querySelectorAll(".ff-card").forEach(n => были.set(n.dataset.id, n.getBoundingClientRect()));   // одни чтения подряд — одна раскладка
 
     const n = счётчики(заказы);
     ЭТАПЫ.forEach(s => {
@@ -338,8 +401,11 @@ export default async function render(page, ctx) {
     const варианты = узко() ? ЭТАПЫ : ["all", ...ЭТАПЫ];
     варианты.forEach(s => {
       const b = el("button", { type: "button", role: "tab", "aria-selected": String(ф.stage === s), text: s === "all" ? "Все" : ЭТАП[s].step + " · " + n[s] });
-      if (ф.stage === s) b.classList.add("active");
-      b.addEventListener("click", () => { ф.stage = s; сохранитьФильтры(); рисовать(); });
+      if (узко() ? s === видимаяКолонка : ф.stage === s) b.classList.add("active");
+      b.addEventListener("click", () => {
+        if (узко()) { показатьКолонку(s); return; }
+        ф.stage = s; сохранитьФильтры(); рисовать();
+      });
       вкладки.append(b);
     });
     заполнитьКлиентов();
@@ -349,7 +415,7 @@ export default async function render(page, ctx) {
     ЭТАПЫ.forEach(s => {
       const { col, list, cnt } = колонки[s];
       col.hidden = ф.stage !== "all" && ф.stage !== s;
-      const свои = видно.filter(z => z.stage === s);
+      const свои = упорядочить(видно.filter(z => z.stage === s), s, ф.sort, toUsd);
       cnt.textContent = String(свои.length);
       list.innerHTML = "";
       if (!свои.length) {
@@ -358,31 +424,53 @@ export default async function render(page, ctx) {
           el("p", { text: заказы.some(z => z.stage === s) ? "Ничего не найдено по фильтрам" : s === "placed" ? "Все заказы собраны" : s === "packed" ? "Нет заказов, ждущих отправки" : "Отправленных пока нет" }),
         ]));
       }
-      свои.forEach((z, i) => list.append(карточка(z, i)));
+      const сколько = Math.max(лимит[s], ПОРЦИЯ);
+      свои.slice(0, сколько).forEach((z, i) => list.append(карточка(z, i)));
+      if (свои.length > сколько) {
+        const ост = свои.length - сколько;
+        list.append(el("button.btn.btn-outline.btn-sm.ff-more-btn", {
+          type: "button", onclick: () => { лимит[s] = сколько + ПОРЦИЯ; рисовать(); },
+        }, [`Показать ещё ${Math.min(ПОРЦИЯ, ост)} из ${ост}`]));
+      }
     });
+    подсказка.textContent = !state.boardMigrated
+      ? "Перетащите карточку в следующую колонку — статус меняется только после подтверждения. Ручной порядок и «срочно» заработают после db/order-board-migration.sql."
+      : ручнойВиден()
+        ? "Перетащите карточку в следующую колонку или выше/ниже в своей. С клавиатуры: Alt+↑/↓ — переставить, Alt+→ — следующий этап."
+        : "Включены сортировка или фильтры — переставлять внутри колонки нельзя, чтобы не сбить ручной порядок. Перенос в следующую колонку работает.";
 
     if (были.size) {
-      доска.querySelectorAll(".ff-card").forEach(node => {
+      // Сначала ВСЕ замеры, потом ВСЕ записи: чередование «прочитал —
+      // сдвинул» заставляло браузер пересчитывать раскладку на каждой
+      // карточке (на 120 карточках это 0,4 с).
+      const узлы = [...доска.querySelectorAll(".ff-card")];
+      const сдвиги = узлы.map(node => {
         const r0 = были.get(node.dataset.id);
-        if (!r0) { node.classList.add("ff-fresh"); return; }
+        if (!r0) return null;
         const r1 = node.getBoundingClientRect();
-        const dx = r0.left - r1.left, dy = r0.top - r1.top;
-        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-        node.classList.add("ff-moving");
-        node.style.transform = `translate(${dx}px, ${dy}px)`;
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          node.style.transition = "transform 520ms var(--e-out)";
-          node.style.transform = "";
-          setTimeout(() => { node.style.transition = ""; node.classList.remove("ff-moving"); }, 560);
-        }));
+        return { dx: r0.left - r1.left, dy: r0.top - r1.top, видно: r1.bottom > -200 && r1.top < innerHeight + 200 };
       });
+      const двигаем = [];
+      узлы.forEach((node, k) => {
+        const д = сдвиги[k];
+        if (!д) { node.classList.add("ff-fresh"); return; }
+        if ((Math.abs(д.dx) < 1 && Math.abs(д.dy) < 1) || !д.видно) return;   // за экраном не анимируем
+        node.classList.add("ff-moving");
+        node.style.transform = `translate(${д.dx}px, ${д.dy}px)`;
+        двигаем.push(node);
+      });
+      if (двигаем.length) requestAnimationFrame(() => requestAnimationFrame(() => {
+        двигаем.forEach(node => { node.style.transition = "transform 520ms var(--e-out)"; node.style.transform = ""; });
+        setTimeout(() => двигаем.forEach(node => { node.style.transition = ""; node.classList.remove("ff-moving"); }), 560);
+      }));
     } else if (!меньшеДвижения()) {
       доска.querySelectorAll(".ff-card").forEach(node => node.classList.add("ff-enter"));
     }
   }
 
   // ---------- синхронизация ----------
-  const отпечаток = (st) => (st.rows || []).map(r => r.sale_id + ":" + r.version).sort().join("|");
+  const отпечаток = (st) => (st.rows || []).map(r => r.sale_id + ":" + r.version).sort().join("|")
+    + "#" + (st.board || []).map(b => b.sale_id + ":" + b.sort_key + ":" + (b.urgent ? 1 : 0)).sort().join("|");
   async function обновить({ тихо = true, перенос = true } = {}) {
     try {
       const свежее = await запрос("GET");
@@ -425,14 +513,18 @@ export default async function render(page, ctx) {
 
   // ---------- подтверждение этапа ----------
   const ТЕКСТ = {
-    pack: { title: "Подтверждение сборки", q: "Вы подтверждаете, что все товары этого заказа собраны и проверены?", ok: "Подтвердить сборку", done: "Сборка подтверждена" },
-    ship: { title: "Подтверждение отправки", q: "Вы подтверждаете, что этот заказ действительно передан на отправку?", ok: "Подтвердить отправку", done: "Отправка подтверждена" },
+    pack: { title: "Подтверждение сборки", q: "Подтвердить, что заказ полностью собран?", ok: "Подтвердить сборку", done: "Сборка подтверждена" },
+    ship: { title: "Подтверждение отправки", q: "Подтвердить, что заказ действительно отправлен?", ok: "Подтвердить отправку", done: "Отправка подтверждена" },
     correct: { title: "Исправление статуса", q: "Статус вернётся на шаг назад. Исправление и причина навсегда останутся в истории заказа.", ok: "Исправить статус", done: "Статус исправлен" },
     track: { title: "Взять в учёт", q: "Накладная оформлена до запуска учёта. Добавить её в очередь сборки?", ok: "Взять в учёт", done: "Накладная в очереди сборки" },
   };
 
-  function подтвердить(z, action, { послеУспеха } = {}) {
-    if (занят) return;
+  // Окно подтверждения — одно и для кнопки, и для перетаскивания.
+  //  место — куда поставить карточку в новой колонке (индекс ручного
+  //  порядка) или null — по умолчанию; наОтмену — карточку вернуть.
+  function подтвердить(z, action, { послеУспеха, наОтмену, место = null } = {}) {
+    if (занят) { наОтмену?.(); return; }
+    let успех = false;
     const T = ТЕКСТ[action];
     const кто = el("input.inp", { value: хранилище.get(КЛЮЧ_ИМЕНИ, ""), placeholder: "Имя сотрудника", maxlength: "80", autocomplete: "name" });
     const ошибка = el("div.ff-err", { role: "alert", hidden: true });
@@ -485,6 +577,14 @@ export default async function render(page, ctx) {
       ],
     });
     const кнопка = m.content.parentElement.querySelector(".modal-foot .btn-primary");
+    // Закрыли крестиком, щелчком мимо или «Отменой» — карточка возвращается.
+    const оверлей = m.content.closest(".modal-overlay");
+    const следим = new MutationObserver(() => {
+      if (оверлей.isConnected) return;
+      следим.disconnect();
+      if (!успех) наОтмену?.();
+    });
+    следим.observe(document.body, { childList: true });
     setTimeout(() => (action === "correct" ? причина : кто.value ? (трек || кнопка) : кто)?.focus?.(), 60);
 
     async function отправить() {
@@ -503,17 +603,21 @@ export default async function render(page, ctx) {
           notify: уведомить ? уведомить.checked : false,
         });
         хранилище.set(КЛЮЧ_ИМЕНИ, имя);
+        успех = true;
         m.close();
         занят = false;
-        await послеПерехода(z, action, ответ);
+        await послеПерехода(z, action, ответ, { место, кто: имя });
         if (послеУспеха) послеУспеха();
       } catch (e) {
         занят = false;
         кнопка.disabled = false; кнопка.classList.remove("ff-loading"); кнопка.textContent = текстКнопки;
         if (e.status === 409) {
+          успех = true;            // руками не возвращаем — карточку поставит свежая доска
           m.close();
           toast(e.message, "err");
-          await обновить({ тихо: false, перенос: true });
+          const свежая = await обновить({ тихо: false, перенос: true });
+          if (!свежая) { заказы = собратьЗаказы(sales, state, customers); рисовать({ перенос: true }); }
+          послеУспеха?.();       // перетаскивание завершено: доска уже показывает правду
           return;
         }
         показать(e.message);
@@ -532,7 +636,7 @@ export default async function render(page, ctx) {
 
   // Успех: сначала шкала на карточке доходит до нового этапа и ставит
   // галочку, затем карточка переезжает в свой раздел.
-  async function послеПерехода(z, action, ответ) {
+  async function послеПерехода(z, action, ответ, { место = null, кто = "" } = {}) {
     const card = доска.querySelector(`.ff-card[data-id="${CSS.escape(String(z.id))}"]`);
     const куда = ответ?.row?.stage;
     if (card && куда && action !== "correct" && action !== "track") {
@@ -554,6 +658,15 @@ export default async function render(page, ctx) {
       const rows = (state.rows || []).filter(r => String(r.sale_id) !== String(z.id));
       rows.push(ответ.row);
       state = { ...state, rows };
+      // Место в новой колонке. Сохранять обязательно: у карточки мог остаться
+      // ключ порядка из прежней колонки, и она встала бы в случайное место.
+      if (state.boardMigrated && (action === "pack" || action === "ship" || action === "correct")) {
+        заказы = собратьЗаказы(sales, state, customers);
+        const куда2 = ответ.row.stage;
+        const ids = упорядоченная(куда2).map(x => x.id).filter(id => String(id) !== String(z.id));
+        const i = место != null ? место : (куда2 === "shipped" ? 0 : ids.length);
+        await сохранитьПорядок(вставитьВПорядок(ids, z.id, i), кто, { тихо: true });
+      }
     }
     const ок = await обновить({ тихо: false, перенос: true });
     if (!ок) { заказы = собратьЗаказы(sales, state, customers); рисовать({ перенос: true }); }
@@ -604,14 +717,149 @@ export default async function render(page, ctx) {
     нарисовать();
   }
 
+  // ---------- доска: порядок, «срочно», перетаскивание ----------
+  function составКратко(z) {
+    const it = z.sale.items || [];
+    const части = it.slice(0, 3).map(x => (имяТовара(x.product_id) || "Товар") + " ×" + (Number(x.qty) || 0).toLocaleString("ru-RU"));
+    return части.join(", ") + (it.length > 3 ? ` и ещё ${it.length - 3}` : "");
+  }
+
+  // Ручной порядок колонки: ключи в state.board, запрос — один на перестановку.
+  // Ошибка — порядок возвращается, этап при этом не трогается вовсе.
+  let сохраняюПорядок = null;
+  async function сохранитьПорядок(ids, кто = хранилище.get(КЛЮЧ_ИМЕНИ, ""), { тихо = false } = {}) {
+    if (!state.boardMigrated) return false;
+    const прежнее = state.board || [];
+    const map = new Map(прежнее.map(b => [String(b.sale_id), { ...b }]));
+    ids.forEach((id, i) => { const b = map.get(String(id)) || { sale_id: id, urgent: false }; b.sort_key = (i + 1) * 1024; map.set(String(id), b); });
+    state = { ...state, board: [...map.values()] };
+    заказы = собратьЗаказы(sales, state, customers);
+    const запрос1 = (сохраняюПорядок || Promise.resolve()).then(() => запрос("POST", { action: "reorder", ids, actor: кто || "admin" }));
+    сохраняюПорядок = запрос1.catch(() => {});
+    try { await запрос1; if (!тихо) toast("Порядок сохранён", "ok"); return true; }
+    catch (e) {
+      state = { ...state, board: прежнее };
+      заказы = собратьЗаказы(sales, state, customers);
+      рисовать({ перенос: true });
+      toast(e.message || "Порядок не сохранён", "err");
+      return false;
+    }
+  }
+
+  async function переключитьСрочно(z) {
+    if (!state.boardMigrated) { toast("Отметка «срочно» заработает после db/order-board-migration.sql", "err"); return; }
+    const станет = !z.срочно;
+    const прежнее = state.board || [];
+    const map = new Map(прежнее.map(b => [String(b.sale_id), { ...b }]));
+    const b = map.get(String(z.id)) || { sale_id: z.id, sort_key: null };
+    b.urgent = станет; map.set(String(z.id), b);
+    state = { ...state, board: [...map.values()] };
+    заказы = собратьЗаказы(sales, state, customers);
+    рисовать({ перенос: true });
+    try {
+      await запрос("POST", { action: "urgent", sale_id: z.id, urgent: станет, actor: хранилище.get(КЛЮЧ_ИМЕНИ, "") || "admin" });
+      toast(станет ? "Отмечен как срочный" : "Отметка «срочно» снята", "ok");
+    } catch (e) {
+      state = { ...state, board: прежнее };
+      заказы = собратьЗаказы(sales, state, customers);
+      рисовать({ перенос: true });
+      toast(e.message, "err");
+    }
+  }
+
+  const заказПоId = (id) => заказы.find(z => String(z.id) === String(id));
+
+  // Бросили карточку. Перестановка — сразу (это не статус), следующий
+  // этап — только через окно подтверждения; отмена или ошибка — назад.
+  async function наБросок({ id, from, to, index, вернуть }) {
+    const z = заказПоId(id);
+    if (!z) { вернуть(); return; }
+    const п = переход(from, to);
+    if (п.kind === "reorder") {
+      const ids = упорядоченная(from).map(x => x.id);
+      const ok = await сохранитьПорядок(вставитьВПорядок(ids, id, index));
+      if (ok) { объявить.textContent = `Заказ № ${z.номер} перемещён на место ${index + 1}`; рисовать(); }
+      return;
+    }
+    if (!п.kind) { вернуть(); return; }
+    await new Promise(готово => {
+      подтвердить(z, п.kind, {
+        место: ручнойВиден() ? index : null,
+        наОтмену: () => { вернуть(); объявить.textContent = "Перенос отменён"; готово(); },
+        послеУспеха: готово,
+      });
+      // окно не открылось (идёт другое сохранение) — наОтмену уже вызван
+    });
+  }
+
+  const днд = включитьПеретаскивание(доска, {
+    колонки: () => ЭТАПЫ.map(s => ({ stage: s, col: колонки[s].col, list: колонки[s].list })),
+    проверить: (from, to) => {
+      const п = переход(from, to);
+      if (п.kind === "reorder") {
+        if (!state.boardMigrated) return { ok: false, why: "Ручной порядок — после db/order-board-migration.sql" };
+        if (!ручнойВиден()) return { ok: false, why: "Переставлять можно в ручном порядке без фильтров" };
+        return { ok: true };
+      }
+      return п.kind ? { ok: true } : { ok: false, why: п.why };
+    },
+    можноНачать: () => !занят && state.migrated !== false,
+    начато: () => { тащат = true; },
+    закончено: () => { тащат = false; },
+    наБросок,
+  });
+
+  // Клавиатура: Enter — подробности, Alt+↑/↓ — переставить, Alt+→ — следующий этап.
+  async function клавишаКарточки(e, card, z) {
+    if (e.target !== card) return;
+    if (e.key === "Enter" || (e.key === " " && !e.altKey)) { e.preventDefault(); раскрыть(card, z); return; }
+    if (!e.altKey) return;
+    if (e.key === "ArrowRight" && ДАЛЬШЕ[z.stage]) { e.preventDefault(); подтвердить(z, ДАЛЬШЕ[z.stage].action); return; }
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    if (!state.boardMigrated || !ручнойВиден()) { объявить.textContent = "Переставлять можно в ручном порядке без фильтров"; toast("Переставлять можно в ручном порядке без фильтров", "err"); return; }
+    const ids = упорядоченная(z.stage).map(x => x.id);
+    const i = ids.findIndex(x => String(x) === String(z.id));
+    const j = e.key === "ArrowUp" ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    const ok = await сохранитьПорядок(вставитьВПорядок(ids, z.id, j), undefined, { тихо: true });
+    if (!ok) return;
+    рисовать({ перенос: true });
+    доска.querySelector(`.ff-card[data-id="${CSS.escape(String(z.id))}"]`)?.focus();
+    объявить.textContent = `Заказ № ${z.номер}: место ${j + 1} из ${ids.length}`;
+  }
+
+  // Телефон: колонки листаются вбок, вкладки показывают, какая на экране.
+  function показатьКолонку(s) {
+    const col = колонки[s].col;
+    доска.scrollTo({ left: col.offsetLeft - доска.offsetLeft - 8, behavior: меньшеДвижения() ? "auto" : "smooth" });
+  }
+  let кадрПрокрутки = 0;
+  доска.addEventListener("scroll", () => {
+    if (!узко() || кадрПрокрутки) return;
+    кадрПрокрутки = requestAnimationFrame(() => {
+      кадрПрокрутки = 0;
+      const центр = доска.scrollLeft + доска.clientWidth / 2;
+      let лучшая = видимаяКолонка, дист = Infinity;
+      ЭТАПЫ.forEach(s => {
+        const c = колонки[s].col; const m = c.offsetLeft - доска.offsetLeft + c.offsetWidth / 2;
+        if (Math.abs(m - центр) < дист) { дист = Math.abs(m - центр); лучшая = s; }
+      });
+      if (лучшая !== видимаяКолонка) {
+        видимаяКолонка = лучшая;
+        вкладки.querySelectorAll("button").forEach((b, k) => b.classList.toggle("active", ЭТАПЫ[k] === лучшая));
+      }
+    });
+  }, { passive: true });
+
   // ---------- старт ----------
   рисовать();
   проверитьЖурнал();
 
   // Другой сотрудник мог подтвердить этап — тихо сверяемся, пока раздел открыт.
   const таймер = setInterval(() => {
-    if (!page.isConnected) { clearInterval(таймер); return; }
-    if (document.visibilityState !== "visible" || занят || document.querySelector(".modal-overlay")) return;
+    if (!page.isConnected) { clearInterval(таймер); днд.снять(); return; }
+    if (document.visibilityState !== "visible" || занят || тащат || document.querySelector(".modal-overlay")) return;
     обновить({ тихо: true, перенос: true });
   }, ОПРОС_МС);
   let ширина = узко();
@@ -620,7 +868,7 @@ export default async function render(page, ctx) {
     const теперь = узко();
     if (теперь === ширина) return;
     ширина = теперь;
-    if (теперь && ф.stage === "all") ф.stage = "placed";
+    if (теперь) ф.stage = "all";
     рисовать();
   };
   addEventListener("resize", наРесайз);
