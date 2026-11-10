@@ -70,7 +70,7 @@ for (const lang of ["ru", "uz", "en"]) {
     if (!Number.isInteger(page) || page < 1) return res.redirect(301, uCat(lang, c.slug));
     if (raw !== undefined && page === 1) return res.redirect(301, uCat(lang, c.slug));   // ?page=1 — дубль
     if (page > страниц) return res.redirect(301, uCat(lang, c.slug, страниц));
-    html(res, 200, страницаКатегории(c, lang, page));
+    html(res, 200, страницаКатегории(c, lang, page, кат));
   }));
 
   r.get(`${pre}/faq`, обёртка(async (req, res) => html(res, 200, страницаFAQ(lang, await каталог()))));
