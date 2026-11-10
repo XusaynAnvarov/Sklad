@@ -1,6 +1,6 @@
 // Личный кабинет клиента: профиль, заказы, накладные, оплаты, экспорт
-import { api } from "./api.js?v=20261110a";
-import { sToast, t } from "./app.js?v=20261110a";
+import { api } from "./api.js?v=20261110b";
+import { sToast, t } from "./app.js?v=20261110b";
 
 const CURRENCIES = { som: "сум", usd: "$", yuan: "¥" };
 const STATUS_LABEL = { order: "Новый", pending_confirm: "Ждёт подтверждения", confirmed: "Подтверждён", final: "Оформлен", canceled: "Отменён" };
@@ -325,7 +325,9 @@ async function renderOrders(container) {
     head.style.cssText = "display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px";
     const date = new Date(o.date).toLocaleDateString("ru-RU");
     const cls = STATUS_CLASS[o.status] || "order";
-    const lbl = STATUS_LABEL[o.status] || "Заказ";   // только известные подписи (значение из БД в HTML не вставляем)
+    const ЭТАП_ПОДПИСЬ = { placed: "Оформлен", packed: "Собран", shipped: "Отправлен" };
+    // только известные подписи (значение из БД в HTML не вставляем)
+    const lbl = (o.fulfillment && ЭТАП_ПОДПИСЬ[o.fulfillment.stage]) || STATUS_LABEL[o.status] || "Заказ";
     const src = o.source === "site" ? "с сайта" : o.source === "bot" ? "из бота" : "";
     head.innerHTML = `
       <div>
@@ -351,7 +353,11 @@ async function renderOrders(container) {
       );
       items.append(row);
     });
-    card.append(head, items);
+    card.append(head);
+    // Сборка и отправка: этап меняет только владелец, сюда приходит лишь
+    // этап, время и данные доставки (без внутренних пометок склада).
+    if (o.fulfillment) card.append(шкалаЗаказа(o.fulfillment));
+    card.append(items);
     // Итог показываем ТОЛЬКО когда цены есть у всех позиций: иначе клиент увидел бы
     // сумму меньше настоящей и рассчитывал бы на неё.
     if (allPriced && ["som", "usd", "yuan"].some(c => totals[c] > 0.001)) {
@@ -367,6 +373,45 @@ async function renderOrders(container) {
     }
     container.append(card);
   });
+}
+
+// ---- Шкала «Оформлен → Собран → Отправлен» ----
+const ЭТАПЫ_ЗАКАЗА = ["placed", "packed", "shipped"];
+function шкалаЗаказа(f) {
+  const i = ЭТАПЫ_ЗАКАЗА.indexOf(f.stage);
+  if (i < 0) return document.createTextNode("");
+  const wrap = mkEl("div", "gm-ff");
+  wrap.dataset.stage = f.stage;
+  const подпись = { placed: t("ffPlaced") || "Заказ оформлен", packed: t("ffPacked") || "Заказ собран", shipped: t("ffShipped") || "Заказ отправлен" };
+  const когда = { placed: f.placed_at, packed: f.packed_at, shipped: f.shipped_at };
+  const значок = {
+    placed: '<path d="M9 4.5V3.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 10h6M9 13.5h6M9 17h3.5"/>',
+    packed: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+    shipped: '<path d="M14 18V6a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h1"/><path d="M14 9h4l3 3v6h-2"/><circle cx="7.5" cy="18.5" r="1.8"/><circle cx="17.5" cy="18.5" r="1.8"/>',
+    done: '<path d="M20 6 9 17l-5-5"/>',
+  };
+  const steps = mkEl("div", "gm-ff-steps");
+  ЭТАПЫ_ЗАКАЗА.forEach((s, k) => {
+    if (k > 0) { const line = mkEl("span", "gm-ff-line" + (k <= i ? " on" : "")); line.append(mkEl("i")); steps.append(line); }
+    const сост = k < i ? "done" : k === i ? "current" : "todo";
+    const node = mkEl("div", "gm-ff-node gm-ff-" + s + " " + сост);
+    const ic = mkEl("span", "gm-ff-ic");
+    // разметка значков — наши константы выше, данных из базы в ней нет
+    ic.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${сост === "done" ? 2.4 : 1.8}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${сост === "done" ? значок.done : значок[s]}</svg>`;
+    const lab = mkEl("span", "gm-ff-lab"); lab.textContent = подпись[s];
+    const time = mkEl("span", "gm-ff-time");
+    time.textContent = k <= i && когда[s] ? new Date(когда[s]).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : (t("ffPending") || "ожидается");
+    node.append(ic, lab, time);
+    steps.append(node);
+  });
+  wrap.append(steps);
+  if (f.stage === "shipped" && (f.carrier || f.tracking)) {
+    const d = mkEl("div", "gm-ff-ship");
+    if (f.carrier) { const a = mkEl("span"); a.textContent = (t("ffCarrier") || "Перевозчик") + ": " + f.carrier; d.append(a); }
+    if (f.tracking) { const b = mkEl("span"); b.textContent = (t("ffTracking") || "Номер накладной") + ": " + f.tracking; d.append(b); }
+    wrap.append(d);
+  }
+  return wrap;
 }
 
 // ---- Накладные ----
@@ -451,7 +496,7 @@ async function renderInvoices(container) {
       const old = xlsBtn.innerHTML;
       xlsBtn.disabled = true; xlsBtn.innerHTML = '<span class="s-spinner"></span> Готовим…';
       try {
-        const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20261110a");
+        const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20261110b");
         await exportClientInvoiceExcel(inv, clientName);
         sToast("Excel файл сохранён", "ok");
       } catch (e) { sToast("Ошибка: " + (e.message || e), "err"); }

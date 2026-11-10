@@ -1,0 +1,361 @@
+/* ===================================================================
+   СБОРКА И ОТПРАВКА — стекло GlassOS для js/pages/fulfillment.js.
+
+   Цвет этапа задаётся одной парой переменных на тоне:
+     amber — оформлен, не собран
+     blue  — собран, не отправлен
+     green — отправлен
+   Всё остальное (стекло, скругления, время, кривые) — токены
+   css/glassos.css, поэтому раздел живёт в той же системе, что и склад.
+   Двигаем только transform и opacity; размытие — лишь у окна.
+   =================================================================== */
+
+.ff-page {
+  --ff-amber: #f2b64c; --ff-amber-s: rgba(242, 182, 76, .16); --ff-amber-g: rgba(242, 182, 76, .38);
+  --ff-blue:  #79a8ff; --ff-blue-s:  rgba(121, 168, 255, .16); --ff-blue-g:  rgba(121, 168, 255, .38);
+  --ff-green: #4fd1a1; --ff-green-s: rgba(79, 209, 161, .15);  --ff-green-g: rgba(79, 209, 161, .36);
+}
+html[data-theme="light"] .ff-page,
+html[data-theme="light"] .ff-confirm {
+  --ff-amber: #b07414; --ff-amber-s: rgba(214, 150, 40, .13); --ff-amber-g: rgba(214, 150, 40, .30);
+  --ff-blue:  #2f66c9; --ff-blue-s:  rgba(47, 102, 201, .11);  --ff-blue-g:  rgba(47, 102, 201, .26);
+  --ff-green: #1b8a60; --ff-green-s: rgba(27, 138, 96, .12);   --ff-green-g: rgba(27, 138, 96, .26);
+}
+/* окно подтверждения живёт в body, вне .ff-page — даём ему те же цвета */
+.ff-confirm {
+  --ff-amber: #f2b64c; --ff-amber-s: rgba(242, 182, 76, .16); --ff-amber-g: rgba(242, 182, 76, .38);
+  --ff-blue:  #79a8ff; --ff-blue-s:  rgba(121, 168, 255, .16); --ff-blue-g:  rgba(121, 168, 255, .38);
+  --ff-green: #4fd1a1; --ff-green-s: rgba(79, 209, 161, .15);  --ff-green-g: rgba(79, 209, 161, .36);
+}
+.ff-tone-amber { --tone: var(--ff-amber); --tone-s: var(--ff-amber-s); --tone-g: var(--ff-amber-g); }
+.ff-tone-blue  { --tone: var(--ff-blue);  --tone-s: var(--ff-blue-s);  --tone-g: var(--ff-blue-g); }
+.ff-tone-green { --tone: var(--ff-green); --tone-s: var(--ff-green-s); --tone-g: var(--ff-green-g); }
+
+/* ---------- шапка ---------- */
+.ff-top { align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.ff-top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+.ff-integrity {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  border: 1px solid var(--glass-line); background: var(--glass-fill);
+  color: var(--muted); font: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+  transition: border-color var(--t-hover), color var(--t-hover);
+}
+.ff-integrity.ok { color: var(--ff-green); border-color: var(--ff-green-g); }
+.ff-integrity.bad { color: var(--danger); border-color: rgba(248, 113, 113, .5); background: rgba(248, 113, 113, .08); }
+
+.ff-banner {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin: 12px 0 0; padding: 14px 16px;
+  border-radius: var(--r-lg); border: 1px solid var(--ff-amber-g);
+  background: var(--ff-amber-s); color: var(--text); font-size: 0.875rem; line-height: 1.45;
+}
+.ff-banner > svg { color: var(--ff-amber); margin-top: 1px; }
+.ff-banner[hidden] { display: none; }
+
+/* ---------- стеклянная поверхность (общая) ---------- */
+.ff-kpi, .ff-col, .ff-tools, .ff-card {
+  position: relative;
+  border: 1px solid var(--glass-line);
+  background: var(--glass-fill);
+  box-shadow: var(--glass-drop), var(--glass-edge);
+}
+.ff-kpi::after, .ff-card::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(120% 70% at 0% 0%, rgba(255, 255, 255, .13), transparent 58%);
+}
+html[data-theme="light"] .ff-kpi::after,
+html[data-theme="light"] .ff-card::after {
+  background: radial-gradient(120% 70% at 0% 0%, rgba(255, 255, 255, .7), transparent 58%);
+}
+
+/* значок этапа в стеклянном круге */
+.ff-orb {
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--tone); background: var(--tone-s);
+  border: 1px solid var(--tone-g);
+  box-shadow: 0 0 0 4px var(--tone-s), 0 6px 18px var(--tone-s), inset 0 1px 0 rgba(255, 255, 255, .25);
+}
+
+/* ---------- три счётчика ---------- */
+.ff-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0 12px; }
+.ff-kpi {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 14px;
+  align-items: center; text-align: left;
+  padding: 16px 18px; border-radius: var(--r-lg);
+  color: var(--text); font: inherit; cursor: pointer; overflow: hidden;
+  transition: transform var(--t-hover) var(--e-out), box-shadow var(--t-hover) var(--e-out), border-color var(--t-hover) var(--e-out);
+  animation: ff-rise 420ms var(--e-out) both; animation-delay: calc(var(--i, 0) * 60ms);
+}
+.ff-kpi .ff-orb { grid-row: 1 / 3; width: 46px; height: 46px; }
+.ff-kpi-lab { font-size: 0.75rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
+.ff-kpi-num { font-size: 2rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; display: inline-block; }
+.ff-kpi-hint { grid-column: 2; font-size: 0.75rem; color: var(--muted); }
+.ff-kpi.active { border-color: var(--tone-g); box-shadow: var(--glass-drop-hi), 0 0 0 1px var(--tone-g), 0 0 28px var(--tone-s), var(--glass-edge); }
+.ff-kpi:focus-visible { outline: 2px solid var(--tone); outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .ff-kpi:hover { transform: translateY(-3px); border-color: var(--tone-g); box-shadow: var(--glass-drop-hi), 0 0 24px var(--tone-s), var(--glass-edge); }
+}
+.ff-bump { animation: ff-bump 420ms var(--e-spring); }
+
+/* ---------- поиск и фильтры ---------- */
+.ff-tools {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  padding: 10px; border-radius: var(--r-lg); margin-bottom: 14px;
+}
+.ff-search-wrap { position: relative; flex: 1 1 260px; min-width: 200px; display: flex; align-items: center; }
+.ff-search-wrap > svg { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
+.ff-search-wrap .ff-search { width: 100%; padding-left: 36px; }
+.ff-tools-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ff-date { width: 150px; }
+.ff-client { width: 190px; }
+.ff-dash { color: var(--muted); }
+.ff-seg {
+  display: inline-flex; gap: 3px; padding: 3px; border-radius: var(--r-pill);
+  border: 1px solid var(--border); background: rgba(127, 127, 140, .07);
+}
+.ff-seg button {
+  border: none; background: none; color: var(--muted); font: inherit; font-size: 0.8125rem; font-weight: 600;
+  padding: 7px 14px; border-radius: var(--r-pill); cursor: pointer; white-space: nowrap;
+  transition: background var(--t-hover), color var(--t-hover);
+}
+.ff-seg button.active { background: var(--grad); color: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, .18); }
+html[data-theme="light"] .ff-seg button.active { color: #fff; }
+
+/* ---------- доска ---------- */
+.ff-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.ff-board.ff-one { grid-template-columns: minmax(0, 1fr); }
+.ff-board.ff-one .ff-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+.ff-col { border-radius: var(--r-xl); padding: 12px; min-width: 0; }
+.ff-col[hidden] { display: none; }
+.ff-col::before {   /* цветная кромка раздела */
+  content: ""; position: absolute; left: 18px; right: 18px; top: -1px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--tone), transparent); opacity: .8;
+}
+.ff-col-h { display: flex; align-items: center; gap: 8px; padding: 4px 6px 12px; font-size: 0.875rem; font-weight: 700; }
+.ff-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 0 4px var(--tone-s), 0 0 12px var(--tone-g); }
+.ff-col-count {
+  margin-left: auto; min-width: 28px; text-align: center; padding: 2px 9px; border-radius: var(--r-pill);
+  background: var(--tone-s); color: var(--tone); font-size: 0.75rem; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.ff-list { display: flex; flex-direction: column; gap: 10px; }
+.ff-empty {
+  display: grid; place-items: center; gap: 6px; padding: 26px 12px; text-align: center;
+  color: var(--muted); font-size: 0.8125rem; border: 1px dashed var(--border); border-radius: var(--r-lg);
+}
+.ff-empty p { margin: 0; }
+.ff-empty svg { color: var(--tone, var(--muted)); opacity: .7; }
+
+/* ---------- карточка заказа ---------- */
+.ff-card {
+  border-radius: var(--r-lg); padding: 14px; cursor: pointer;
+  transition: transform var(--t-hover) var(--e-out), box-shadow var(--t-hover) var(--e-out), border-color var(--t-hover) var(--e-out);
+}
+.ff-card.ff-enter { animation: ff-rise 380ms var(--e-out) both; animation-delay: calc(var(--i, 0) * var(--stagger, 45ms)); }
+.ff-card.ff-fresh { animation: ff-rise 380ms var(--e-out) both; }
+.ff-card.ff-moving { z-index: 3; }
+@media (hover: hover) and (pointer: fine) {
+  .ff-card:hover { transform: translateY(-3px); border-color: var(--tone-g); box-shadow: var(--glass-drop-hi), 0 0 0 1px var(--tone-s), 0 0 26px var(--tone-s), var(--glass-edge); }
+  .ff-card.ff-moving:hover { transform: none; }
+}
+.ff-card.open { border-color: var(--tone-g); cursor: default; }
+.ff-card.ff-success { box-shadow: var(--glass-drop-hi), 0 0 0 1px var(--tone-g), 0 0 36px var(--tone-g), var(--glass-edge); }
+.ff-card.ff-landed { animation: ff-landed 1300ms var(--e-out); }
+
+.ff-card-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ff-card-title { min-width: 0; flex: 1; }
+.ff-num { font-size: 0.75rem; font-weight: 700; letter-spacing: .04em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ff-client { font-size: 1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ff-chip {
+  flex: 0 0 auto; padding: 4px 10px; border-radius: var(--r-pill);
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: .02em;
+  color: var(--tone); background: var(--tone-s); border: 1px solid var(--tone-g);
+  transition: color var(--t-micro), background var(--t-micro), border-color var(--t-micro);
+}
+.ff-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0 2px; font-size: 0.8125rem; color: var(--muted); }
+.ff-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.ff-meta .ff-sum { margin-left: auto; color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---------- шкала Оформлен → Собран → Отправлен ---------- */
+.ff-track { display: flex; align-items: flex-start; margin: 14px 2px 12px; }
+.ff-node { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 0 0 auto; width: 64px; }
+.ff-node-ic {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  border: 1px solid var(--border); background: rgba(127, 127, 140, .08); color: var(--muted);
+  transition: background var(--t-micro), color var(--t-micro), border-color var(--t-micro), box-shadow var(--t-micro);
+}
+.ff-node-lab { font-size: 0.6875rem; font-weight: 600; color: var(--muted); }
+.ff-node.ff-n-placed { --n: var(--ff-amber); --n-s: var(--ff-amber-s); --n-g: var(--ff-amber-g); }
+.ff-node.ff-n-packed { --n: var(--ff-blue); --n-s: var(--ff-blue-s); --n-g: var(--ff-blue-g); }
+.ff-node.ff-n-shipped { --n: var(--ff-green); --n-s: var(--ff-green-s); --n-g: var(--ff-green-g); }
+.ff-node.ff-done .ff-node-ic { background: var(--n); border-color: var(--n); color: #101014; }
+html[data-theme="light"] .ff-node.ff-done .ff-node-ic { color: #fff; }
+.ff-node.ff-done .ff-node-lab { color: var(--text); }
+.ff-node.ff-current .ff-node-ic {
+  background: var(--n-s); border-color: var(--n); color: var(--n);
+  box-shadow: 0 0 0 4px var(--n-s), 0 0 14px var(--n-s);
+}
+/* «Дыхание» текущего этапа — через прозрачность отдельного слоя: её
+   считает видеокарта, а анимированная тень перерисовывала бы карточку
+   каждый кадр (на доске их десятки). */
+.ff-node-ic { position: relative; }
+.ff-node.ff-current .ff-node-ic::after {
+  content: ""; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--n-s), 0 0 22px var(--n-g);
+  opacity: 0; animation: ff-breathe 2.8s ease-in-out infinite;
+}
+.ff-node.ff-current .ff-node-lab { color: var(--n); font-weight: 700; }
+.ff-node.ff-todo { opacity: .55; }
+.ff-line { position: relative; flex: 1 1 auto; height: 3px; margin-top: 15px; border-radius: 3px; background: rgba(127, 127, 140, .18); overflow: hidden; }
+.ff-line i {
+  position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(90deg, var(--ff-amber), var(--ff-blue) 60%, var(--ff-green));
+  transform: scaleX(0); transform-origin: left center;
+}
+.ff-line.on i { transform: scaleX(1); }
+/* после подтверждения: линия плавно дотягивается, галочка рисуется,
+   новый этап «встаёт» с лёгкой пружиной. Классы ff-new* ставит JS. */
+.ff-track.ff-advance .ff-line.ff-new i { animation: ff-fill 560ms var(--e-out) both; }
+.ff-track.ff-advance .ff-new-done .ff-node-ic path { stroke-dasharray: 24; animation: ff-draw 480ms 300ms var(--e-out) both; }
+.ff-track.ff-advance .ff-new-cur .ff-node-ic { animation: ff-pop 520ms 420ms var(--e-spring) both; }
+
+/* ---------- кнопки карточки ---------- */
+.ff-actions { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.ff-more { display: inline-flex; align-items: center; gap: 6px; }
+.ff-more .ff-chev { transform: rotate(135deg); transition: transform var(--t-micro) var(--e-out); }
+.ff-card.open .ff-more .ff-chev { transform: rotate(-45deg); }
+.ff-next {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--tone) !important; border-color: transparent !important; color: #fff !important;
+  box-shadow: 0 6px 20px var(--tone-g);
+  transition: transform var(--t-hover) var(--e-out), box-shadow var(--t-hover) var(--e-out), filter var(--t-hover);
+}
+html:not([data-theme="light"]) .ff-next { color: #101014 !important; }
+@media (hover: hover) and (pointer: fine) {
+  .ff-next:hover { transform: translateY(-1px); box-shadow: 0 10px 28px var(--tone-g); filter: brightness(1.06); }
+}
+.ff-next:active { transform: scale(.97); }
+.ff-done-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 600; color: var(--ff-green); }
+
+/* ---------- раскрытие ---------- */
+.ff-details { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--t-page) var(--e-out); }
+.ff-details-in { min-height: 0; overflow: hidden; }
+.ff-card.open .ff-details { grid-template-rows: 1fr; }
+.ff-card.open .ff-details-in { padding-top: 14px; margin-top: 12px; border-top: 1px solid var(--border); }
+.ff-h { display: flex; align-items: center; gap: 7px; margin: 4px 0 10px; font-size: 0.8125rem; font-weight: 700; color: var(--text); }
+.ff-h svg { color: var(--tone); }
+.ff-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.ff-item { display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: var(--r-sm); background: rgba(127, 127, 140, .06); }
+.ff-thumb { width: 40px; height: 40px; border-radius: var(--r-xs); object-fit: cover; flex: 0 0 auto; background: rgba(127, 127, 140, .12); }
+.ff-thumb-empty { display: grid; place-items: center; color: var(--muted); }
+.ff-item-name { flex: 1; min-width: 0; font-size: 0.8125rem; font-weight: 600; }
+.ff-item-name > div:first-child { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ff-item-sub { font-size: 0.75rem; color: var(--muted); font-weight: 500; margin-top: 2px; }
+.ff-item-qty { display: flex; flex-direction: column; align-items: flex-end; font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+.ff-item-qty b { font-size: 0.875rem; color: var(--text); font-variant-numeric: tabular-nums; }
+.ff-ship { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.ff-ship > div { padding: 8px 10px; border-radius: var(--r-sm); background: var(--ff-green-s); display: flex; flex-direction: column; gap: 2px; font-size: 0.8125rem; }
+.ff-ship span { font-size: 0.6875rem; color: var(--muted); }
+.ff-ship .ff-ship-wide { grid-column: 1 / -1; }
+
+/* ---------- история: вертикальная стеклянная шкала ---------- */
+.ff-history { list-style: none; margin: 0 0 12px; padding: 0 0 0 6px; position: relative; }
+.ff-history::before { content: ""; position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: linear-gradient(var(--ff-amber-g), var(--ff-blue-g), var(--ff-green-g)); }
+.ff-ev { position: relative; display: flex; gap: 12px; padding: 4px 0 10px; animation: ff-rise 360ms var(--e-out) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.ff-ev-dot { position: relative; z-index: 1; flex: 0 0 auto; width: 12px; height: 12px; margin-top: 4px; border-radius: 50%; background: var(--panel); border: 2px solid var(--ff-amber); }
+.ff-ev-pack .ff-ev-dot { border-color: var(--ff-blue); }
+.ff-ev-ship .ff-ev-dot { border-color: var(--ff-green); background: var(--ff-green); }
+.ff-ev-correct .ff-ev-dot { border-color: var(--danger); }
+.ff-ev-track .ff-ev-dot { border-style: dashed; }
+.ff-ev-body {
+  flex: 1; min-width: 0; padding: 8px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--glass-line); background: rgba(127, 127, 140, .06); font-size: 0.8125rem;
+}
+.ff-ev-title { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ff-ev-title time { color: var(--muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.ff-ev-text { color: var(--muted); margin-top: 2px; }
+.ff-ev-reason { margin-top: 4px; padding: 5px 8px; border-radius: var(--r-xs); background: rgba(248, 113, 113, .09); color: var(--text); }
+.ff-ev-who { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 0.75rem; color: var(--muted); }
+.ff-fix { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ff-fix-note { font-size: 0.75rem; color: var(--muted); flex: 1 1 220px; }
+
+/* ---------- окно подтверждения ---------- */
+.ff-confirm { display: flex; flex-direction: column; gap: 12px; }
+.ff-confirm-head { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--r-md); background: var(--tone-s); border: 1px solid var(--tone-g); }
+.ff-confirm-head .ff-num { color: var(--text); font-size: 0.875rem; }
+.ff-confirm-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+.ff-q { margin: 0; font-size: 0.9375rem; line-height: 1.5; font-weight: 600; }
+.ff-field { display: flex; flex-direction: column; gap: 5px; font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+.ff-field .inp { width: 100%; box-sizing: border-box; font-weight: 500; }
+.ff-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ff-check { display: flex; gap: 8px; align-items: center; font-size: 0.8125rem; color: var(--text); cursor: pointer; }
+.ff-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.ff-arrow { font-size: 1.1rem; color: var(--muted); }
+.ff-step-change { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--muted); }
+.ff-err { padding: 9px 12px; border-radius: var(--r-sm); background: rgba(248, 113, 113, .12); border: 1px solid rgba(248, 113, 113, .4); color: var(--text); font-size: 0.8125rem; }
+.ff-err[hidden] { display: none; }
+.ff-shake { animation: ff-shake 360ms ease; }
+.btn.ff-loading { opacity: .75; pointer-events: none; }
+.ff-modal-text p { margin: 0 0 10px; line-height: 1.5; }
+.ff-problem { padding: 6px 10px; margin-top: 6px; border-radius: var(--r-xs); background: rgba(248, 113, 113, .1); font-size: 0.8125rem; }
+.ff-old-wrap { display: flex; flex-direction: column; gap: 10px; }
+.ff-old-list { display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow-y: auto; }
+.ff-old { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: var(--r-sm); border: 1px solid var(--border); font-size: 0.875rem; }
+
+/* ---------- анимации ---------- */
+@keyframes ff-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes ff-bump { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
+@keyframes ff-breathe { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes ff-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ff-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@keyframes ff-pop { 0% { transform: scale(.6); } 100% { transform: scale(1); } }
+@keyframes ff-landed { 0% { box-shadow: var(--glass-drop-hi), 0 0 0 1px var(--tone-g), 0 0 40px var(--tone-g); } 100% { box-shadow: var(--glass-drop), var(--glass-edge); } }
+@keyframes ff-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-5px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } }
+
+/* ---------- планшет и телефон ---------- */
+@media (max-width: 1180px) {
+  .ff-board:not(.ff-one) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ff-board:not(.ff-one) .ff-col[data-stage="shipped"] { grid-column: 1 / -1; }
+}
+@media (max-width: 900px) {
+  .ff-kpis { gap: 8px; }
+  .ff-kpi { grid-template-columns: 1fr; padding: 12px; row-gap: 4px; }
+  .ff-kpi .ff-orb { grid-row: auto; width: 34px; height: 34px; }
+  .ff-kpi-num { font-size: 1.5rem; }
+  .ff-kpi-hint { display: none; }
+  .ff-kpi-lab { white-space: normal; font-size: 0.625rem; }
+  .ff-seg { width: 100%; }
+  .ff-seg button { flex: 1; padding: 8px 6px; }
+  .ff-board.ff-one .ff-list { grid-template-columns: minmax(0, 1fr); }
+  .ff-col { padding: 8px; border-radius: var(--r-lg); }
+  .ff-tools-row { width: 100%; }
+  .ff-date { flex: 1 1 120px; width: auto; }
+  .ff-client { flex: 1 1 100%; width: auto; }
+  /* кнопка «☰» склада висит поверх левого верхнего угла — заголовок отодвигаем */
+  .ff-top h1 { padding-left: 56px; min-height: 42px; display: flex; align-items: center; }
+  .topbar.ff-top > .ff-top-actions { display: flex; flex-wrap: nowrap; width: 100%; }
+  .ff-top-actions .ff-integrity { flex: 1 1 auto; justify-content: center; }
+  .ff-top-actions .btn { flex: 0 0 auto !important; }
+  .ff-top-actions .btn:last-child .ff-lbl { display: none; }
+  .ff-tools-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ff-tools-row .ff-dash { display: none; }
+  .ff-tools-row .ff-date, .ff-tools-row .ff-client { width: 100%; min-width: 0; }
+  .ff-tools-row .ff-reset { justify-content: center; }
+}
+@media (max-width: 520px) {
+  .ff-grid2, .ff-ship { grid-template-columns: 1fr; }
+  .ff-actions .btn { flex: 1 1 auto; justify-content: center; }
+  .ff-meta .ff-sum { margin-left: 0; width: 100%; }
+  .ff-node { width: 56px; }
+  .ff-top-actions { margin-left: 0; }
+}
+
+/* ---------- уменьшение движения ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .ff-page *, .ff-page *::before, .ff-page *::after, .ff-confirm * {
+    animation-duration: 1ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  .ff-card:hover, .ff-kpi:hover { transform: none !important; }
+}

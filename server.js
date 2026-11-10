@@ -78,6 +78,8 @@ const routes = [
   [["GET","POST"], "/api/admin/catalog-codes", "./api/admin/catalog-codes.js"],
   // история изменений остатков (для «Проверки склада»)
   [["GET"],   "/api/admin/stock-log",         "./api/admin/stock-log.js"],
+  // Сборка и отправка заказов: этапы, журнал, проверка целостности
+  [["GET","POST"], "/api/admin/fulfillment",  "./api/admin/fulfillment.js"],
   // печатный каталог: сборка в отдельном потоке и скачивание по пропуску
   [["GET","POST"], "/api/admin/catalog-book",  "./api/admin/catalog-book.js"],
   [["GET","HEAD"], "/api/catalog-book-file",   "./api/catalog-book-file.js"],
@@ -169,7 +171,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20261110a");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20261110b");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -183,7 +185,7 @@ app.get("/api/img", async (req, res) => {
 //  раньше, просто без этих страниц: ошибка не роняет сервер.
 // ------------------------------------------------------------------
 try {
-  const { default: seoRouter } = await import("./api/seo/router.js?v=20261110a");
+  const { default: seoRouter } = await import("./api/seo/router.js?v=20261110b");
   app.use(seoRouter);
 } catch (e) {
   console.error("[GM] SEO-модуль не загрузился:", e);
@@ -228,10 +230,10 @@ app.get("*", (req, res) => {
 // владелец включил IndexNow, отправка адресов новых товаров в Bing/Яндекс.
 async function seoПроверка() {
   try {
-    const { запуститьАудит } = await import("./api/seo/audit.js?v=20261110a");
-    const { забратьНовые, каталог } = await import("./api/seo/data.js?v=20261110a");
-    const { отправитьIndexNow } = await import("./api/seo/services.js?v=20261110a");
-    const { abs, uProduct } = await import("./api/seo/render.js?v=20261110a");
+    const { запуститьАудит } = await import("./api/seo/audit.js?v=20261110b");
+    const { забратьНовые, каталог } = await import("./api/seo/data.js?v=20261110b");
+    const { отправитьIndexNow } = await import("./api/seo/services.js?v=20261110b");
+    const { abs, uProduct } = await import("./api/seo/render.js?v=20261110b");
     await запуститьАудит();
     const новые = забратьНовые();
     if (новые.length) {
@@ -257,8 +259,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261110a");
-    const { sget } = await import("./api/lib/supa.js?v=20261110a");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261110b");
+    const { sget } = await import("./api/lib/supa.js?v=20261110b");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +
@@ -282,7 +284,7 @@ setInterval(async () => {
 // Раз в сутки: IP старше 30 дней стираем, визиты старше 180 и прочие
 // события старше 365 дней удаляем (политика — privacy.html).
 async function очисткаДанных() {
-  try { const { purgeOld } = await import("./api/lib/crm.js?v=20261110a"); await purgeOld(); }
+  try { const { purgeOld } = await import("./api/lib/crm.js?v=20261110b"); await purgeOld(); }
   catch (e) { console.error("[GM] Очистка старых данных не прошла:", e.message); }
 }
 setTimeout(очисткаДанных, 5 * 60e3);
@@ -295,7 +297,7 @@ app.listen(PORT, async () => {
   // продаже: сообщение будет крупным и с подсказкой, как откатиться.
   if (String(process.env.DB_MODE || "").toLowerCase() === "local") {
     try {
-      const { проверитьСвязь } = await import("./api/lib/pg.js?v=20261110a");
+      const { проверитьСвязь } = await import("./api/lib/pg.js?v=20261110b");
       const товаров = await проверитьСвязь();
       console.log(`[GM] База: СВОЯ (PostgreSQL здесь же), товаров в ней: ${товаров}`);
     } catch (e) {
@@ -307,5 +309,5 @@ app.listen(PORT, async () => {
   }
   // Греем короткую память сервера: иначе первый заход в склад после
   // выкладки ждёт базу несколько секунд на каждую таблицу.
-  import("./api/admin/db.js?v=20261110a").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
+  import("./api/admin/db.js?v=20261110b").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
 });

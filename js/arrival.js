@@ -8,15 +8,15 @@
 //  старую партию. Иначе прибыль по старому товару считалась бы по новой
 //  цене и врала.
 // ========================================================================
-import { ensureBatches, sumQty, costAfter, currentCost } from "./inventory.js?v=20261110a";
-import { convert } from "./fx.js?v=20261110a";
-import { isShop } from "./purchase.js?v=20261110a";
+import { ensureBatches, sumQty, costAfter, currentCost } from "./inventory.js?v=20261110b";
+import { convert } from "./fx.js?v=20261110b";
+import { isShop } from "./purchase.js?v=20261110b";
 // Упаковка: поставщик продаёт штуками, у нас лежит пачками. Расчёт общий
 // с карточкой товара и с предпросмотром — см. js/packing.js.
-import { автоВключено, настройки, пересчитатьПриход } from "./packing.js?v=20261110a";
+import { автоВключено, настройки, пересчитатьПриход } from "./packing.js?v=20261110b";
 // Доставка и растаможка ложатся в себестоимость. Делёж — в js/pricing.js:
 // там он идёт целыми копейками, чтобы сумма долей сошлась с расходом.
-import { доплаты, ценаСРасходами } from "./pricing.js?v=20261110a";
+import { доплаты, ценаСРасходами } from "./pricing.js?v=20261110b";
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const к6 = (n) => Math.round((Number(n) || 0) * 1e6) / 1e6;
