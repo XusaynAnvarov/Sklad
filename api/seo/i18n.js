@@ -110,8 +110,8 @@ export const T = {
     catIntro: (name, n, k) => `GENERAL MODERN do‘konida ${name.toLowerCase()}: ${n} ta pozitsiya, shundan ${k} tasi mavjud. Har bir mahsulotda rasm, kod va artikul bor — detalni o‘zingiznikiga solishtirish oson. Buyurtma — saytda yoki Telegram-bot orqali.`,
     catTitle: (name) => `${name} — O‘zbekistonda sotib olish | GENERAL MODERN`,
     catDesc: (name, n) => `${name}: rasm, kod va artikul bilan ${n} ta pozitsiya. Ombordagi mavjudlik, onlayn buyurtma. GENERAL MODERN, O‘zbekiston.`,
-    catsTitle: "Tikuv mashinasi ehtiyot qismlari — katalog | GENERAL MODERN",
-    catsDesc: (n) => `Sanoat va maishiy tikuv mashinalari uchun ehtiyot qismlar katalogi: ${n} ta mahsulot — lapkalar, ninalar, chelnoklar, mokkilar, petlitellar, pichoqlar. O‘zbekiston.`,
+    catsTitle: "Tikuv mashinasi zapchastlari va ehtiyot qismlari — Toshkent | GENERAL MODERN",
+    catsDesc: (n) => `Tikuv mashinasi zapchastlari va ehtiyot qismlari — sanoat va maishiy tikuv mashinalari uchun: ${n} ta mahsulot — lapkalar, ninalar, chelnoklar, mokkilar, petlitellar, pichoqlar. O‘zbekiston.`,
     catsIntro: (n, k) => `GENERAL MODERN — O‘zbekistonda tikuv uskunalari uchun ehtiyot qismlar va anjomlar do‘koni. Katalogda ${n} ta mahsulot, shundan ${k} tasi mavjud. Toifani tanlang yoki detalni nomi, artikuli yoki kodi bo‘yicha toping.`,
   },
   en: {

@@ -361,7 +361,7 @@ export function страницаКаталога(кат, lang) {
   const n = кат.товары.length, k = кат.товары.filter(x => x.status === "in_stock").length;
   const crumbs = [{ name: t.home, url: uHome(lang) }, { name: t.catalog, url: uCats(lang) }];
   const body = `${крошки(crumbs)}
-<h1>${esc(lang === "ru" ? "Швейные запчасти — запчасти для швейных машин" : lang === "uz" ? "Tikuv mashinasi ehtiyot qismlari" : "Sewing machine spare parts")}</h1>
+<h1>${esc(lang === "ru" ? "Швейные запчасти — запчасти для швейных машин" : lang === "uz" ? "Tikuv mashinasi ehtiyot qismlari (zapchastlari)" : "Sewing machine spare parts")}</h1>
 <p class="lead">${esc(t.catsIntro(n, k))}</p>
 <form class="s" action="${prefix(lang)}/search" method="get" role="search"><input name="q" type="search" placeholder="${esc(t.searchPh)}" aria-label="${esc(t.search)}"><button class="btn" type="submit">${esc(t.search)}</button></form>
 <h2>${esc(t.categories)}</h2>

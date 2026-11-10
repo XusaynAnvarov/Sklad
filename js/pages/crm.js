@@ -7,9 +7,9 @@
 //
 //  Ссылка из уведомления Telegram: #/crm?id=<crm_id> — сразу открывает карточку.
 // ========================================================================
-import { el, toast, modal, select } from "../ui.js?v=20261109n";
-import { icon } from "../icons.js?v=20261109n";
-import { authHeaders } from "../db.js?v=20261109n";
+import { el, toast, modal, select } from "../ui.js?v=20261110a";
+import { icon } from "../icons.js?v=20261110a";
+import { authHeaders } from "../db.js?v=20261110a";
 
 const НЕТ = "Не определено";
 const API = "/api/admin/crm";

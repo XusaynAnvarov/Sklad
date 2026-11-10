@@ -2,19 +2,19 @@
 // Сканируем наклейку за наклейкой — каждая позиция ложится в общий список.
 // Цена подставляется из прошлой продажи этого товара, остаток показывается
 // живой: отсканировали ту же наклейку после продажи — увидели новый остаток.
-import { el, go } from "../app.js?v=20261109n";
-import { icon } from "../../icons.js?v=20261109n";
-import { toast, confirmDialog, modal } from "../../ui.js?v=20261109n";
-import { fmt } from "../../fx.js?v=20261109n";
-import { LOW_STOCK } from "../../advice.js?v=20261109n";
-import { issueInvoice } from "../issue.js?v=20261109n";
-import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20261109n";
-import { invoiceHtml, openPrint } from "../print.js?v=20261109n";
-import { qrSvg, skuPayload } from "../../qr.js?v=20261109n";
-import { setStock } from "../stock.js?v=20261109n";
-import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote, repriceItems } from "../../prices.js?v=20261109n";
-import { photoBlock } from "../photo.js?v=20261109n";
-import { подходит } from "../../productsearch.js?v=20261109n";
+import { el, go } from "../app.js?v=20261110a";
+import { icon } from "../../icons.js?v=20261110a";
+import { toast, confirmDialog, modal } from "../../ui.js?v=20261110a";
+import { fmt } from "../../fx.js?v=20261110a";
+import { LOW_STOCK } from "../../advice.js?v=20261110a";
+import { issueInvoice } from "../issue.js?v=20261110a";
+import { scanSku, canScan, resolveScan, scanFailText } from "../qr.js?v=20261110a";
+import { invoiceHtml, openPrint } from "../print.js?v=20261110a";
+import { qrSvg, skuPayload } from "../../qr.js?v=20261110a";
+import { setStock } from "../stock.js?v=20261110a";
+import { freshFirst, lastAnyMap, lastForCustomerMap, suggestPrice, priceNote, repriceItems } from "../../prices.js?v=20261110a";
+import { photoBlock } from "../photo.js?v=20261110a";
+import { подходит } from "../../productsearch.js?v=20261110a";
 
 // Сум первым — им торгуют каждый день, юань вторым, доллар последним.
 const CURS = [{ value: "som", label: "сум" }, { value: "yuan", label: "¥" }, { value: "usd", label: "$" }];

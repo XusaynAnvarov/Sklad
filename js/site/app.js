@@ -1,21 +1,21 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261109n";
-import { renderCatalog } from "./catalog.js?v=20261109n";
-import { renderVideos } from "./videos.js?v=20261109n";
-import { renderCabinet } from "./cabinet.js?v=20261109n";
-import { renderAdminPanel } from "./admin-panel.js?v=20261109n";
-import { renderOrder } from "./order.js?v=20261109n";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261109n";
-import { поставитьСнимок } from "../img.js?v=20261109n";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261110a";
+import { renderCatalog } from "./catalog.js?v=20261110a";
+import { renderVideos } from "./videos.js?v=20261110a";
+import { renderCabinet } from "./cabinet.js?v=20261110a";
+import { renderAdminPanel } from "./admin-panel.js?v=20261110a";
+import { renderOrder } from "./order.js?v=20261110a";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261110a";
+import { поставитьСнимок } from "../img.js?v=20261110a";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261109n";
-import { сменитьТемуВолной } from "../temavolna.js?v=20261109n";
-import { обновитьЕслиУстарело } from "../version.js?v=20261109n";
-import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261109n";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261110a";
+import { сменитьТемуВолной } from "../temavolna.js?v=20261110a";
+import { обновитьЕслиУстарело } from "../version.js?v=20261110a";
+import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261110a";
 // Экскурсия по сайту: приглашение новым посетителям и кнопка «▶ Как заказать»
-import { maybeInviteTour, openTour } from "./tour.js?v=20261109n";
+import { maybeInviteTour, openTour } from "./tour.js?v=20261110a";
 // Короткий ролик при входе (js/site/intro.js) — новым посетителям
-import { maybeShowIntro } from "./intro.js?v=20261109n";
+import { maybeShowIntro } from "./intro.js?v=20261110a";
 // Кнопка «▶ Как заказать» видна, пока владелец не выключил её в складе
 function кнопкаКакЗаказать() { try { const c = JSON.parse(localStorage.getItem("gm_intro_cfg") || "null"); return !c || c.howto_button !== false; } catch { return true; } }
 
@@ -274,7 +274,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261109n");
+        const { api: siteApi } = await import("./api.js?v=20261110a");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -642,6 +642,33 @@ function запомнитьШирины(header) {
   setTimeout(мерить, 1500);
 }
 
+// ---- Подвал со ссылками на страницы каталога ----
+// Обычные ссылки на /c/… — по ним Google с главной находит каталог,
+// категории и товары (в самом магазине товары открываются без перехода).
+function подвалКаталога() {
+  const f = document.createElement("footer");
+  f.className = "site-подвал";
+  f.style.cssText = "max-width:1200px;margin:40px auto 24px;padding:18px 16px 0;border-top:1px solid var(--border);color:var(--muted);font-size:13px;line-height:1.9";
+  const ссылки = [
+    ["/c/", "Каталог запчастей для швейных машин"], ["/c/lapki", "Лапки"], ["/c/igly", "Иглы"],
+    ["/c/chelnoki", "Челноки"], ["/c/shpulnye-kolpachki", "Шпульные колпачки"], ["/c/petliteli", "Петлители"],
+    ["/c/nozhi", "Ножи"], ["/c/zapchasti-jack", "Запчасти JACK"], ["/uz/c/", "Tikuv mashinasi ehtiyot qismlari"],
+    ["/en/c/", "Sewing machine spare parts"], ["/faq", "Вопросы и ответы"],
+  ];
+  const nav = document.createElement("nav");
+  nav.setAttribute("aria-label", "Каталог");
+  ссылки.forEach(([href, text], i) => {
+    if (i) nav.append(document.createTextNode(" · "));
+    const a = document.createElement("a"); a.href = href; a.textContent = text;
+    a.style.cssText = "color:inherit;text-decoration:none";
+    nav.append(a);
+  });
+  const адрес = document.createElement("div");
+  адрес.textContent = "GENERAL MODERN — швейные запчасти, Ташкент, рынок Абу Сахий · +998 97 409 01 19 · вт–вс 9:00–17:00";
+  f.append(nav, адрес);
+  return f;
+}
+
 // ---- Router ----
 function getRoute() {
   const h = location.hash.replace(/^#\/?/, "") || "catalog";
@@ -858,7 +885,7 @@ export async function boot() {
   function rebuild() {
     app.innerHTML = "";
     const main = document.createElement("div"); main.id = "site-main";
-    app.append(buildHeader(), main);
+    app.append(buildHeader(), main, подвалКаталога());
     const готово = route(main);
     // Шапка и каркас уже в странице — заставке больше нечего закрывать.
     // Без requestAnimationFrame: в фоновой вкладке браузер кадры не рисует,
@@ -930,7 +957,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=258", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=259", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом.
   // Только при ОБНОВЛЕНИИ: на самом первом визите работника ещё не было, и
   // clients.claim() тоже вызывает controllerchange — страница и так свежая,
