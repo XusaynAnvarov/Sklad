@@ -2,10 +2,10 @@
 //  Экспорт накладных в Excel (.xlsx) — скачивание на компьютер с сайта.
 //  SheetJS через CDN. Без сервера и без Telegram (всё на клиенте).
 // ========================================================================
-import { CUR } from "./fx.js?v=20261111a";
-import { thumb } from "./img.js?v=20261111a";
+import { CUR } from "./fx.js?v=20261111b";
+import { thumb } from "./img.js?v=20261111b";
 // В выгрузках показываем ГЛАВНОЕ фото товара — то же, что в списках.
-import { главноеФото } from "./photo.js?v=20261111a";
+import { главноеФото } from "./photo.js?v=20261111b";
 
 let _xlsx = null;
 async function lib() { if (!_xlsx) _xlsx = await import("https://esm.sh/xlsx@0.18.5"); return _xlsx; }

@@ -1,21 +1,21 @@
 // SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261111a";
-import { renderCatalog } from "./catalog.js?v=20261111a";
-import { renderVideos } from "./videos.js?v=20261111a";
-import { renderCabinet } from "./cabinet.js?v=20261111a";
-import { renderAdminPanel } from "./admin-panel.js?v=20261111a";
-import { renderOrder } from "./order.js?v=20261111a";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261111a";
-import { поставитьСнимок } from "../img.js?v=20261111a";
+import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261111b";
+import { renderCatalog } from "./catalog.js?v=20261111b";
+import { renderVideos } from "./videos.js?v=20261111b";
+import { renderCabinet } from "./cabinet.js?v=20261111b";
+import { renderAdminPanel } from "./admin-panel.js?v=20261111b";
+import { renderOrder } from "./order.js?v=20261111b";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261111b";
+import { поставитьСнимок } from "../img.js?v=20261111b";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261111a";
-import { сменитьТемуВолной } from "../temavolna.js?v=20261111a";
-import { обновитьЕслиУстарело } from "../version.js?v=20261111a";
-import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261111a";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261111b";
+import { сменитьТемуВолной } from "../temavolna.js?v=20261111b";
+import { обновитьЕслиУстарело } from "../version.js?v=20261111b";
+import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261111b";
 // Экскурсия по сайту: приглашение новым посетителям и кнопка «▶ Как заказать»
-import { maybeInviteTour, openTour } from "./tour.js?v=20261111a";
+import { maybeInviteTour, openTour } from "./tour.js?v=20261111b";
 // Короткий ролик при входе (js/site/intro.js) — новым посетителям
-import { maybeShowIntro } from "./intro.js?v=20261111a";
+import { maybeShowIntro } from "./intro.js?v=20261111b";
 // Кнопка «▶ Как заказать» видна, пока владелец не выключил её в складе
 function кнопкаКакЗаказать() { try { const c = JSON.parse(localStorage.getItem("gm_intro_cfg") || "null"); return !c || c.howto_button !== false; } catch { return true; } }
 
@@ -277,7 +277,7 @@ function renderCartDrawerContent() {
       if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
       orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
       try {
-        const { api: siteApi } = await import("./api.js?v=20261111a");
+        const { api: siteApi } = await import("./api.js?v=20261111b");
         await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
         cart = []; saveCart();
         closeCartDrawer();
@@ -960,7 +960,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=262", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=263", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом.
   // Только при ОБНОВЛЕНИИ: на самом первом визите работника ещё не было, и
   // clients.claim() тоже вызывает controllerchange — страница и так свежая,

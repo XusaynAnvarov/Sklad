@@ -9,9 +9,9 @@
 //  Все правки — в файле SEO-уточнений на сервере, не в складе. Перед
 //  каждой правкой сохраняется снимок, внизу страницы — откат.
 // ========================================================================
-import { el, toast, modal, confirmDialog, input, showLoader, hideLoader } from "../ui.js?v=20261111a";
-import { icon } from "../icons.js?v=20261111a";
-import { authHeaders } from "../db.js?v=20261111a";
+import { el, toast, modal, confirmDialog, input, showLoader, hideLoader } from "../ui.js?v=20261111b";
+import { icon } from "../icons.js?v=20261111b";
+import { authHeaders } from "../db.js?v=20261111b";
 
 async function api(method, query = "", body) {
   const r = await fetch("/api/admin/seo" + query, {
@@ -108,8 +108,9 @@ export default async function renderSeo(page, ctx) {
     host.append(таблица(["Запрос", "Клики", "Показы", "CTR", "Позиция"], st.gsc.queries.map(q => [q.q, число(q.clicks), число(q.impressions), (q.ctr * 100).toFixed(1) + "%", q.position.toFixed(1)])));
   } else {
     host.append(el("div.card", { style: { padding: "16px", lineHeight: "1.55" } }, [
-      el("div", { text: "Не подключено. Показы, клики, CTR, позиции и поисковые запросы появятся здесь после подключения Search Console." }),
-      el("div.muted", { style: { marginTop: "8px" }, text: "Что нужно: 1) подтвердить сайт в Search Console (ресурс «Домен» через DNS в Cloudflare); 2) создать сервисный аккаунт Google Cloud с включённым Search Console API; 3) добавить его e-mail пользователем ресурса; 4) положить JSON-ключ на сервер в .env как GSC_SERVICE_ACCOUNT." }),
+      el("div", { text: "Сайт в Search Console подтверждён. Показы, клики, CTR, позиции и запросы уже собираются — смотрите их в самой Search Console (аккаунт generalmodern.uz@gmail.com). Здесь, в складе, они появятся только после необязательной настройки ниже." }),
+      el("div.muted", { style: { marginTop: "8px" }, text: (st.services.google_verify ? "✓ 1) Сайт подтверждён в Search Console (файлом). " : "1) Подтвердить сайт в Search Console. ")
+        + "2) Создать сервисный аккаунт Google Cloud с включённым Search Console API — не сделано. 3) Добавить его e-mail пользователем ресурса — не сделано. 4) Положить JSON-ключ на сервер в .env как GSC_SERVICE_ACCOUNT — не сделано." }),
     ]));
   }
 
