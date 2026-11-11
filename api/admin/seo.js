@@ -112,7 +112,7 @@ export default async function handler(req, res) {
       }
       next.price_policy = "hidden";   // цены не публикуются никогда — решение владельца
       if (next.telegram && !/^https:\/\/t\.me\/[\w]{3,64}$/.test(next.telegram)) return res.status(400).json({ error: "Telegram: нужна ссылка вида https://t.me/имя" });
-      if (next.google_file && !/^google[0-9a-f]{8,40}\.html$/.test(next.google_file)) return res.status(400).json({ error: "Файл Google: имя вида google1234abcd.html" });
+      if (next.google_file && !String(next.google_file).split(/[,\s]+/).filter(Boolean).every(x => /^google[0-9a-f]{8,40}\.html$/.test(x))) return res.status(400).json({ error: "Файл Google: имя вида google1234abcd.html" });
       if (next.yandex_file && !/^[0-9a-f]{8,40}$/.test(next.yandex_file)) return res.status(400).json({ error: "Яндекс: только код из имени файла yandex_<код>.html" });
       if (next.ga4_id && !/^G-[A-Z0-9]{4,20}$/.test(next.ga4_id)) return res.status(400).json({ error: "GA4: идентификатор вида G-XXXXXXX" });
       if (next.lat && !/^-?\d{1,3}(\.\d+)?$/.test(next.lat)) return res.status(400).json({ error: "Широта — число" });

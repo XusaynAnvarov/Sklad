@@ -119,7 +119,9 @@ r.get("/llms.txt", обёртка(async (req, res) => xml(res, llmsTxt(await к�
 // ---------- подтверждение владения (файлы, которые выдают Google/Яндекс/Bing) ----------
 r.get(/^\/(google[0-9a-f]{8,40}\.html)$/, (req, res) => {
   const f = req.params[0];
-  if (настройки().google_file !== f) return res.status(404).send("Not found");
+  // файлов может быть несколько: у каждого аккаунта Google — свой (через запятую)
+  const файлы = String(настройки().google_file || "").split(/[,\s]+/).filter(Boolean);
+  if (!файлы.includes(f)) return res.status(404).send("Not found");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.end(`google-site-verification: ${f}`);
 });
