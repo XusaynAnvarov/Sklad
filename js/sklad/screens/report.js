@@ -3,13 +3,13 @@
 // мелкие и нечитаемые, а цифра нужна одна и сразу.
 // Обороты считаем по фактическим ценам позиций и сводим в сумы.
 // Прибыль считает общий js/profit.js — тот же, что в отчётах сайта.
-import { el } from "../app.js?v=20261110c";
-import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20261110c";
-import { byMethod, methodLabel } from "../../payment.js?v=20261110c";
-import { isShop } from "../../purchase.js?v=20261110c";
-import { curStr, convert } from "../../fx.js?v=20261110c";
-import { loadRules, aggregate } from "../../profit.js?v=20261110c";
-import { debtByCur, onlyPositive } from "../../debt.js?v=20261110c";
+import { el } from "../app.js?v=20261111a";
+import { matchPeriod, buildPeriodOptions } from "../../period.js?v=20261111a";
+import { byMethod, methodLabel } from "../../payment.js?v=20261111a";
+import { isShop } from "../../purchase.js?v=20261111a";
+import { curStr, convert } from "../../fx.js?v=20261111a";
+import { loadRules, aggregate } from "../../profit.js?v=20261111a";
+import { debtByCur, onlyPositive } from "../../debt.js?v=20261111a";
 
 const som = (n) => Math.round(Number(n) || 0).toLocaleString("ru-RU") + " сум";
 

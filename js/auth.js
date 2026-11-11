@@ -9,10 +9,10 @@
 //  Пароль уходит на сервер и на втором шаге тоже: код сам по себе дверь
 //  не открывает. Поэтому держим его в замыкании, а не в поле формы.
 // ========================================================================
-import { el, toast } from "./ui.js?v=20261110c";
-import { icon } from "./icons.js?v=20261110c";
+import { el, toast } from "./ui.js?v=20261111a";
+import { icon } from "./icons.js?v=20261111a";
 // Код из Telegram подставляется из буфера сам — см. js/kodizbufera.js
-import { следитьЗаБуфером } from "./kodizbufera.js?v=20261110c";
+import { следитьЗаБуфером } from "./kodizbufera.js?v=20261111a";
 
 // Возвращает Promise, который резолвится после успешного входа.
 export function ensureAccess(root) {

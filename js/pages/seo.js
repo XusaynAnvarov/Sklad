@@ -9,9 +9,9 @@
 //  Все правки — в файле SEO-уточнений на сервере, не в складе. Перед
 //  каждой правкой сохраняется снимок, внизу страницы — откат.
 // ========================================================================
-import { el, toast, modal, confirmDialog, input, showLoader, hideLoader } from "../ui.js?v=20261110c";
-import { icon } from "../icons.js?v=20261110c";
-import { authHeaders } from "../db.js?v=20261110c";
+import { el, toast, modal, confirmDialog, input, showLoader, hideLoader } from "../ui.js?v=20261111a";
+import { icon } from "../icons.js?v=20261111a";
+import { authHeaders } from "../db.js?v=20261111a";
 
 async function api(method, query = "", body) {
   const r = await fetch("/api/admin/seo" + query, {
@@ -80,11 +80,16 @@ export default async function renderSeo(page, ctx) {
     ["Товарный фид Merchant Center", значок(false, "", "Не используется"), "Merchant Center принимает товар только с ценой, а цены не публикуются", null],
     ["Структурированные данные", L ? значок(L.schema.withErrors === 0, `Без ошибок (${L.schema.checked} проверено)`, `Ошибок: ${L.schema.withErrors}`) : значок(false, "", "не проверено"),
       "Product, BreadcrumbList, ItemList, FAQPage, OnlineStore. Без Offer — цены не публикуются", null],
-    ["Google Search Console", значок(st.gsc && st.gsc.connected, "Подключено"), st.gsc && !st.gsc.connected ? st.gsc.reason : (st.gsc ? st.gsc.property : ""), "https://search.google.com/search-console"],
+    // Две разные вещи: сайт подтверждён в Search Console (это главное, уже сделано)
+    // и статистика Search Console прямо здесь, в складе (нужен ключ на сервере).
+    ["Google Search Console — сайт", значок(st.services.google_verify, "Подтверждён и работает", "Не подтверждён"),
+      st.services.google_verify ? "Google видит сайт и карту сайта. Показы и клики смотрите в самой Search Console (аккаунт generalmodern.uz@gmail.com)." : "Подтвердите сайт в Search Console", "https://search.google.com/search-console"],
+    ["Статистика Google в складе", значок(st.gsc && st.gsc.connected, "Показывается", "Не настроена"),
+      st.gsc && st.gsc.connected ? st.gsc.property : "Необязательно. Чтобы клики и запросы были видны прямо здесь, нужен ключ сервисного аккаунта Google на сервере.", null],
     ["Подтверждение Google", значок(st.services.google_verify, "Код задан", "Не задан"), "Подтверждение владения: DNS в Cloudflare или файл google….html", null],
     ["Яндекс Вебмастер", значок(st.services.yandex_verify, "Код задан", "Не задан"), "Подтверждение: meta-тег или файл yandex_….html", "https://webmaster.yandex.ru"],
     ["Bing Webmaster Tools", значок(st.services.bing_verify, "Код задан", "Не задан"), "Можно импортировать сайт из Search Console", "https://www.bing.com/webmasters"],
-    ["Google Analytics 4", значок(st.services.ga4, "Подключено"), "Счётчик на SEO-страницах", null],
+    ["Google Analytics 4", значок(st.services.ga4, "Подключено", "Не используется"), "Необязательно: счётчик посещений. На поиск не влияет.", null],
     ["IndexNow (Bing, Яндекс)", значок(st.services.indexnow, "Включено", "Выключено"), "Сообщает поисковикам о новых товарах сразу", null],
   ];
   host.append(таблица(["Что", "Статус", "Подробности", ""], rows.map(([a, b, c, href]) => [

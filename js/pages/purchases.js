@@ -1,26 +1,26 @@
 // ========================================================================
 //  СТРАНИЦА «ПРИХОД» — поступления: «в дороге» / «уже пришёл»
 // ========================================================================
-import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261110c";
-import { fmt, CUR, convert } from "../fx.js?v=20261110c";
-import { placeholder } from "./products.js?v=20261110c";
-import { consumeFIFO, ensureBatches, currentCost } from "../inventory.js?v=20261110c";
-import { icon } from "../icons.js?v=20261110c";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261110c";
-import { notifyOwner } from "../telegram.js?v=20261110c";
-import { authHeaders } from "../db.js?v=20261110c";
-import { thumb, поставитьСнимок } from "../img.js?v=20261110c";
-import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261110c";
+import { el, toast, modal, confirmDialog, field, input, select, inputList, lightbox, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261111a";
+import { fmt, CUR, convert } from "../fx.js?v=20261111a";
+import { placeholder } from "./products.js?v=20261111a";
+import { consumeFIFO, ensureBatches, currentCost } from "../inventory.js?v=20261111a";
+import { icon } from "../icons.js?v=20261111a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261111a";
+import { notifyOwner } from "../telegram.js?v=20261111a";
+import { authHeaders } from "../db.js?v=20261111a";
+import { thumb, поставитьСнимок } from "../img.js?v=20261111a";
+import { KIND_SHOP, purchaseKind, isShop, kindOptions, kindText, kindWho } from "../purchase.js?v=20261111a";
 // Оприходование общее со складом в телефоне — иначе остатки разойдутся.
-import { applyArrival, записатьПачкой, откатитьПриход, пересчётПрихода, применитьПравку, ужеОприходован } from "../arrival.js?v=20261110c";
+import { applyArrival, записатьПачкой, откатитьПриход, пересчётПрихода, применитьПравку, ужеОприходован } from "../arrival.js?v=20261111a";
 // Единицы, упаковка и главное фото — для предпросмотра прихода.
-import { подпись as подписьКол } from "../unit.js?v=20261110c";
-import { статус as статусУпаковки, СТАТУС } from "../packing.js?v=20261110c";
+import { подпись as подписьКол } from "../unit.js?v=20261111a";
+import { статус as статусУпаковки, СТАТУС } from "../packing.js?v=20261111a";
 // Доставка и растаможка — часть себестоимости. Делёж по позициям общий
 // с оприходованием: предпросмотр и склад считают одним кодом.
-import { расходы as расходыПрихода, поляРасходов, ПРАВИЛА_РАСХОДОВ } from "../pricing.js?v=20261110c";
-import { главноеФото } from "../photo.js?v=20261110c";
-import { изменениеСклада } from "../db.js?v=20261110c";
+import { расходы as расходыПрихода, поляРасходов, ПРАВИЛА_РАСХОДОВ } from "../pricing.js?v=20261111a";
+import { главноеФото } from "../photo.js?v=20261111a";
+import { изменениеСклада } from "../db.js?v=20261111a";
 
 // разослать клиентам в Telegram-бот, что пришли новые товары (не блокирует оприходование)
 async function notifyClientsNewProducts(productIds) {
