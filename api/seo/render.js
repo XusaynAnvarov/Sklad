@@ -50,6 +50,10 @@ export function altФото(т, n, lang) {
 
 const ld = (obj) => `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, "\\u003c")}</script>`;
 
+// Номер магазина по умолчанию — тот же, что в config.js (PHONE): на
+// случай, если в настройках SEO телефон ещё не заполнен.
+const ТЕЛЕФОН_ПО_УМОЛЧАНИЮ = "+998 97 409 01 19";
+
 // Телефонов может быть несколько: «+998…, +998…»
 export function телефоны() {
   return String(настройки().phone || "").split(/[,;]/).map(x => x.trim()).filter(x => /\d{7,}/.test(x.replace(/\D/g, "")));
@@ -118,46 +122,47 @@ try { ВЕРСИЯ = (/const BUILD = "([^"]+)"/.exec(readFileSync(new URL("../..
 // в магазине нет: хлебные крошки, страница товара, вопросы-ответы.
 const CSS = `
 .ssr-main{max-width:1240px;margin:0 auto}
-.crumbs{font-size:13px;color:var(--muted);margin:4px 0 16px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.crumbs a{color:inherit;text-decoration:none;transition:color .2s}.crumbs a:hover{color:var(--gold-d,var(--gold))}
-.ssr-h1{font-size:clamp(24px,3.2vw,34px);font-weight:800;letter-spacing:-.02em;color:var(--text);margin:0 0 10px;line-height:1.15}
-.ssr-h2{font-size:clamp(18px,2.2vw,22px);font-weight:700;color:var(--text);margin:32px 0 14px;letter-spacing:-.01em}
-.lead{color:var(--muted);max-width:860px;margin:0 0 22px;line-height:1.65;font-size:15.5px}
-.card{background:var(--gs-glass);border:1px solid var(--gs-line);box-shadow:var(--gs-edge),var(--gs-drop);backdrop-filter:var(--gs-blur);-webkit-backdrop-filter:var(--gs-blur);border-radius:22px}
-a.card{text-decoration:none;color:var(--text);transition:transform .3s cubic-bezier(.2,.8,.25,1),box-shadow .3s,border-color .3s}
-a.card:hover{transform:translateY(-4px);box-shadow:var(--gs-edge),var(--gs-drop-hi);border-color:rgba(201,168,76,.45)}
-.prod{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:22px;animation:gm-karta .42s cubic-bezier(.2,.8,.25,1) both}
+.crumbs{font-size:13px;color:var(--muted);margin:4px 0 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.crumbs a{color:inherit;text-decoration:none;transition:color var(--t-fast) var(--ease)}.crumbs a:hover{color:var(--text)}
+.ssr-h1{font-size:clamp(24px,3vw,32px);font-weight:600;letter-spacing:-.02em;color:var(--text);margin:0 0 12px;line-height:1.15;text-wrap:balance}
+.ssr-h2{font-size:clamp(18px,2.2vw,22px);font-weight:600;color:var(--text);margin:32px 0 16px;letter-spacing:-.01em}
+.ssr-h3{font-size:1rem;font-weight:600;color:var(--text);margin:20px 0 8px}
+.lead{color:var(--muted);max-width:860px;margin:0 0 24px;line-height:1.6;font-size:15px}
+.mono{font-family:var(--mono)}
+.card{background:var(--white);border:1px solid var(--line);border-radius:20px}
+a.card{text-decoration:none;color:var(--text);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+a.card:hover{border-color:var(--line-strong);box-shadow:0 8px 24px rgba(16,24,40,.08)}
+.prod{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:24px}
 @media (max-width:860px){.prod{grid-template-columns:1fr}}
-.gal{padding:14px}.gal .main{aspect-ratio:1/1;object-fit:contain;width:100%;background:#fff;border-radius:16px;display:block}
-.thumbs{display:flex;gap:8px;margin-top:10px;overflow-x:auto}.thumbs img{width:76px;height:76px;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--border);transition:transform .2s}.thumbs a:hover img{transform:translateY(-2px)}
-.info{padding:22px 24px}.info p{color:var(--text);line-height:1.6}
-.facts{width:100%;border-collapse:collapse;margin:8px 0 16px}.facts th,.facts td{text-align:left;padding:10px 0;border-bottom:1px solid var(--border);vertical-align:top;font-size:15px;color:var(--text)}
-.facts th{color:var(--muted);font-weight:500;width:42%;padding-right:12px}.facts a{color:var(--gold-d,var(--gold));text-decoration:none;font-weight:600}
-.st{font-weight:700}.st.in_stock{color:#15803d}.st.out_stock{color:var(--muted)}.st.soon{color:#b45309}
-.how{margin:0 0 18px;padding-left:20px;color:var(--muted);font-size:15px}.how li{margin:4px 0}
-.cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
-.cta .btn-primary,.ssr-btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:12px 20px;font-weight:700}
-.ssr-ghost{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:14px;border:1px solid var(--gs-line);background:var(--gs-glass);color:var(--text);text-decoration:none;font-weight:600;box-shadow:var(--gs-edge);transition:transform .2s,border-color .2s}
-.ssr-ghost:hover{transform:translateY(-2px);border-color:rgba(201,168,76,.5)}
-.product-grid{display:grid}
-a.product-card{text-decoration:none;color:inherit;display:flex;flex-direction:column}
-.product-card-img img{aspect-ratio:1/1;object-fit:contain}
+.gal{padding:16px}.gal .main{aspect-ratio:1/1;object-fit:contain;width:100%;padding:6%;background:var(--img-bg);border-radius:12px;display:block}
+.gal .noimg{aspect-ratio:1/1;display:grid;place-items:center;background:var(--img-bg);border-radius:12px;color:var(--muted);font-family:var(--mono);font-size:1.25rem}
+.thumbs{display:flex;gap:8px;margin-top:12px;overflow-x:auto}.thumbs img{width:76px;height:76px;object-fit:contain;padding:4px;background:var(--img-bg);border-radius:8px;border:1px solid var(--line);transition:border-color var(--t-fast) var(--ease)}.thumbs a:hover img{border-color:var(--line-strong)}
+.info{padding:24px}.info p{color:var(--text);line-height:1.6}
+.facts{width:100%;border-collapse:collapse;margin:8px 0 16px}.facts th,.facts td{text-align:left;padding:12px 0;border-bottom:1px solid var(--border);vertical-align:top;font-size:15px;color:var(--text)}
+.facts th{color:var(--muted);font-weight:500;width:42%;padding-right:12px}.facts a{color:var(--brass);text-decoration:none;font-weight:500}.facts a:hover{text-decoration:underline;text-underline-offset:2px}
+.st{font-weight:500}.st.in_stock{color:var(--ok)}.st.out_stock{color:var(--muted)}.st.soon{color:var(--soon)}
+.how{margin:0 0 20px;padding-left:20px;color:var(--muted);font-size:15px}.how li{margin:4px 0}
+.cta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.ssr-btn{text-decoration:none}
+.ssr-ghost{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text);text-decoration:none;font-size:.875rem;font-weight:500;transition:background-color var(--t-fast) var(--ease)}
+.ssr-ghost:hover{background:var(--bg2)}
+a.product-card{text-decoration:none;color:inherit}
+.product-sku .sku-code{font-family:var(--mono);color:var(--text)}
 .cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-.cats a{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 18px;font-weight:600}
-.cats a span{color:var(--gold-d,var(--gold));font-weight:700;font-size:13px;white-space:nowrap}
+.cats a{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px;font-weight:500}
+.cats a span{color:var(--muted);font-weight:500;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
 a.rail-item{text-decoration:none;color:inherit;display:flex;justify-content:space-between}
-.pager{display:flex;gap:8px;flex-wrap:wrap;margin:26px 0}.pager a,.pager span{padding:9px 14px;border-radius:12px;border:1px solid var(--gs-line);background:var(--gs-glass);text-decoration:none;font-size:14px;color:var(--text);font-weight:600}
-.pager span{background:var(--gold);color:#1a1f2e;border-color:var(--gold)}
-form.s{display:flex;gap:8px;margin:0 0 20px;max-width:620px}form.s input{flex:1;min-width:0;padding:13px 16px;border-radius:14px;border:1px solid var(--gs-line);background:var(--gs-glass);color:var(--text);font:inherit;box-shadow:var(--gs-edge);outline:none}
-form.s input:focus{border-color:var(--gold)}
-.faq details{padding:16px 20px;margin-bottom:12px}.faq summary{font-weight:700;cursor:pointer;color:var(--text)}.faq details p{margin:10px 0 0;color:var(--text);line-height:1.6}.faq a{color:var(--gold-d,var(--gold))}
-.ssr-lang{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--gs-glass);border:1px solid var(--gs-line)}
-.ssr-lang a{padding:5px 9px;border-radius:9px;font-size:12.5px;font-weight:700;color:var(--muted);text-decoration:none}
-.ssr-lang a[aria-current]{background:var(--gold);color:#1a1f2e}
-.site-подвал{max-width:1200px;margin:40px auto 24px;padding:18px 16px 0;border-top:1px solid var(--border);color:var(--muted);font-size:13px;line-height:1.9}
-.site-подвал a{color:inherit;text-decoration:none}.site-подвал a:hover{color:var(--gold-d,var(--gold))}
-@media (max-width:640px){.product-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.product-card-body{padding:10px 11px 12px!important}.product-name{font-size:.86rem!important}.info{padding:18px}}
-@media (prefers-reduced-motion:reduce){.prod{animation:none}}
+.pager{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}.pager a,.pager span{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--white);text-decoration:none;font-size:14px;color:var(--text);font-weight:500;font-variant-numeric:tabular-nums}
+.pager a:hover{border-color:var(--line-strong)}
+.pager span{background:var(--navy);color:#fff;border-color:var(--navy)}
+form.s{display:flex;gap:8px;margin:0 0 20px;max-width:620px}form.s input{flex:1;min-width:0;padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:var(--white);color:var(--text);font:inherit;outline:none;transition:border-color var(--t-fast) var(--ease)}
+form.s input:focus{border-color:var(--navy)}
+.faq details{padding:16px 20px;margin-bottom:12px}.faq summary{font-weight:600;cursor:pointer;color:var(--text)}.faq details p{margin:12px 0 0;color:var(--text);line-height:1.6}.faq a{color:var(--brass)}
+.ssr-lang{display:inline-flex;gap:2px;padding:2px;border-radius:10px;border:1px solid var(--border)}
+.ssr-lang a{padding:4px 8px;border-radius:8px;font-size:12px;font-weight:600;color:var(--muted);text-decoration:none}
+.ssr-lang a[aria-current]{background:var(--navy);color:#fff}
+html[data-site-theme="dark"] .pager span,html[data-site-theme="dark"] .ssr-lang a[aria-current]{color:#17140c}
+@media (max-width:640px){.info{padding:16px}}
 `;
 
 function analytics() {
@@ -192,6 +197,8 @@ export function страница({ lang, title, desc, path, alternates, body, js
     s.street && s.city ? `<span>${esc(s.street)}, ${esc(s.city)}</span>` : "",
     s["hours_" + lang] ? `<span>${esc(s["hours_" + lang])}</span>` : "",
   ].filter(Boolean).join(" · ");
+  const тел = телефоны()[0] || ТЕЛЕФОН_ПО_УМОЛЧАНИЮ;
+  const телШапка = `<a class="site-phone" href="tel:+${esc(тел.replace(/\D/g, ""))}" aria-label="${esc(тел)}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span>${esc(тел)}</span></a>`;
   return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
@@ -210,7 +217,7 @@ ${altLinks}
 <meta name="theme-color" content="#eef1f7">
 <script>try{var t=localStorage.getItem("gm_site_theme");document.documentElement.setAttribute("data-site-theme",t==="dark"?"dark":"light")}catch(e){document.documentElement.setAttribute("data-site-theme","light")}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/css/site.css?v=${ВЕРСИЯ}"><link rel="stylesheet" href="/css/glassos-site.css?v=${ВЕРСИЯ}">
 <link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" href="/favicon-96.png" type="image/png" sizes="96x96"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
 ${verification()}
@@ -219,8 +226,7 @@ ${ld(graph)}
 ${analytics()}
 </head>
 <body>
-<div class="gm-glow" aria-hidden="true"></div>
-<div id="site-app" style="position:relative;z-index:1">
+<div id="site-app">
 <header class="site-header"><div class="site-header-inner">
 <a class="site-logo" href="${uHome(lang)}"><svg class="gm-znak" width="36" height="36" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="hst" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#e4e9f2"/></linearGradient><linearGradient id="hzl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/><stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/></linearGradient></defs><rect width="512" height="512" rx="116" fill="url(#hst)"/><rect x="5" y="5" width="502" height="502" rx="111" fill="none" stroke="#c8cedd" stroke-width="5"/><circle class="gm-koltso" cx="256" cy="256" r="182" fill="none" stroke="url(#hzl)" stroke-width="14" stroke-linecap="round" stroke-dasharray="1062 1144"/><text x="256" y="312" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="172" font-weight="700" letter-spacing="-6" fill="#16203a">GM</text></svg><span class="site-logo-text">GENERAL<span>MODERN</span></span></a>
 <nav class="site-nav" aria-label="${esc(t.catalog)}">
@@ -228,7 +234,7 @@ ${analytics()}
 <a class="site-nav-link${active === "search" ? " active" : ""}" href="${prefix(lang)}/search">${esc(t.search)}</a>
 <a class="site-nav-link${active === "faq" ? " active" : ""}" href="${uFaq(lang)}">${esc(t.faq)}</a>
 </nav>
-<div class="site-header-right">${langNav}<a class="btn-primary ssr-btn" href="/#catalog" style="padding:8px 16px;font-size:13px">${esc(t.openStore)}</a></div>
+<div class="site-header-right">${langNav}${телШапка}<a class="btn-primary btn-sm ssr-btn" href="/#catalog">${esc(t.openStore)}</a></div>
 </div></header>
 <div class="site-main site-смена"><div class="ssr-main">
 ${body}
@@ -249,8 +255,8 @@ function крошки(items) {
 function плитка(т, lang) {
   const статус = { in_stock: ["in-stock", "есть"], soon: ["soon", "скоро"], out_stock: ["out-stock", "нет"] }[т.status] || ["out-stock", "нет"];
   const img = т.photos.length
-    ? `<div class="product-card-img" style="--фото:url('${uImg(т, 1, 160)}')"><img src="${uImg(т, 1, 480)}" alt="${esc(altФото(т, 1, lang))}" width="480" height="480" loading="lazy" decoding="async"><div class="product-badges"><span class="product-badge ${статус[0]}">${esc(статусТекст(т.status, lang))}</span></div></div>`
-    : `<div class="product-card-img"><div class="product-card-img-placeholder">${esc(т.code)}</div></div>`;
+    ? `<div class="product-card-img"><img src="${uImg(т, 1, 480)}" alt="${esc(altФото(т, 1, lang))}" width="480" height="480" loading="lazy" decoding="async"><div class="product-badges"><span class="product-badge ${статус[0]}">${esc(статусТекст(т.status, lang))}</span></div></div>`
+    : `<div class="product-card-img"><div class="product-card-img-placeholder mono">${esc(т.code)}</div></div>`;
   return `<a class="product-card" href="${uProduct(lang, т)}">${img}<div class="product-card-body"><div class="product-name">${esc(т.name)}</div><div class="product-category">${esc(имяКат(т.cat, lang))}</div><div class="product-sku"><span class="sku-code">${esc(т.code)}</span>${т.sku ? `<span class="sku-vendor">${lang === "en" ? "P/N" : "Арт."}: ${esc(т.sku)}</span>` : ""}</div><div class="product-status ${статус[1]}"><span class="status-dot"></span><span>${esc(статусТекст(т.status, lang))}</span></div></div></a>`;
 }
 
@@ -279,12 +285,12 @@ export function страницаТовара(т, lang, кат) {
   const gallery = фото.length
     ? `<img class="main" src="${фото[0]}" alt="${esc(altФото(т, 1, lang))}" width="900" height="900" fetchpriority="high">`
       + (фото.length > 1 ? `<div class="thumbs">${фото.map((u, i) => `<a href="${u}"><img src="${uImg(т, i + 1, 160)}" alt="${esc(altФото(т, i + 1, lang))}" width="76" height="76" loading="lazy"></a>`).join("")}</div>` : "")
-    : `<div class="tile"><div class="noimg">${esc(т.code)}</div></div>`;
+    : `<div class="noimg">${esc(т.code)}</div>`;
 
   const ov = т.ov || {};
   const rows = [
-    [t.code, esc(т.code)],
-    т.sku ? [t.sku, esc(т.sku)] : null,
+    [t.code, `<span class="mono">${esc(т.code)}</span>`],
+    т.sku ? [t.sku, `<span class="mono">${esc(т.sku)}</span>`] : null,
     [t.category, `<a href="${uCat(lang, т.cat.slug)}">${esc(catName)}</a>`],
     [t.availability, `<span class="st ${т.status}">${esc(статусТекст(т.status, lang))}</span>`],
     ov.brand ? [lang === "ru" ? "Бренд" : lang === "uz" ? "Brend" : "Brand", esc(ov.brand)] : (т.mentions.length ? [t.mentions, esc(т.mentions.join(", "))] : null),
@@ -302,7 +308,7 @@ export function страницаТовара(т, lang, кат) {
 <h1 class="ssr-h1">${esc(т.name)}</h1>
 <table class="facts"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${v}</td></tr>`).join("")}</tbody></table>
 <p>${esc(descr)}</p>
-<h2 class="ssr-h2" style="font-size:16px;margin:18px 0 6px">${esc(t.howTitle)}</h2>
+<h2 class="ssr-h3">${esc(t.howTitle)}</h2>
 <ol class="how">${t.how.map(x => `<li>${esc(x)}</li>`).join("")}</ol>
 <div class="cta"><a class="btn-primary ssr-btn" href="/#catalog?q=${encodeURIComponent(т.code)}">${esc(t.order)}</a>${s.telegram ? `<a class="ssr-ghost" href="${esc(s.telegram)}" rel="noopener">${esc(t.orderTg)}</a>` : ""}</div>
 </div>

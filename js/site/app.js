@@ -1,4 +1,4 @@
-// SPA-роутер публичного сайта: шапка, корзина, темы, языки, панель
+// SPA-роутер публичного сайта: шапка, темы, языки, панель
 import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261111b";
 import { renderCatalog } from "./catalog.js?v=20261111b";
 import { renderVideos } from "./videos.js?v=20261111b";
@@ -6,9 +6,6 @@ import { renderCabinet } from "./cabinet.js?v=20261111b";
 import { renderAdminPanel } from "./admin-panel.js?v=20261111b";
 import { renderOrder } from "./order.js?v=20261111b";
 import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261111b";
-import { поставитьСнимок } from "../img.js?v=20261111b";
-// Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261111b";
 import { сменитьТемуВолной } from "../temavolna.js?v=20261111b";
 import { обновитьЕслиУстарело } from "../version.js?v=20261111b";
 import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261111b";
@@ -17,55 +14,46 @@ import { maybeInviteTour, openTour } from "./tour.js?v=20261111b";
 // Короткий ролик при входе (js/site/intro.js) — новым посетителям
 import { maybeShowIntro } from "./intro.js?v=20261111b";
 // Кнопка «▶ Как заказать» видна, пока владелец не выключил её в складе
-function кнопкаКакЗаказать() { try { const c = JSON.parse(localStorage.getItem("gm_intro_cfg") || "null"); return !c || c.howto_button !== false; } catch { return true; } }
+export function кнопкаКакЗаказать() { try { const c = JSON.parse(localStorage.getItem("gm_intro_cfg") || "null"); return !c || c.howto_button !== false; } catch { return true; } }
 
 // ---- Translations ----
 const TRANSLATIONS = {
   ru: {
     ffPlaced: "Заказ оформлен", ffPacked: "Заказ собран", ffShipped: "Заказ отправлен", ffPending: "ожидается", ffCarrier: "Перевозчик", ffTracking: "Номер накладной",
     catalog: "Каталог", cabinet: "Кабинет", login: "Войти", logout: "Выйти",
-    warehouse: "Склад", adminPanel: "Панель", cart: "Корзина", cartEmpty: "Корзина пуста", order: "Заказать",
-    checkout: "Оформить заказ", priceNote: "Цены уточнит менеджер",
-    orderSent: "Заказ отправлен! Менеджер свяжется с вами.",
-    sending: "Отправляем…", addToCart: "В корзину", inCart: "В корзине",
-    addedToCart: "добавлен в корзину",
+    warehouse: "Склад", adminPanel: "Панель", order: "Заказать",
+    priceNote: "Цены уточнит менеджер",
     noStock: "Нет в наличии", loginToOrder: "Войти для заказа",
     inStockBadge: "В наличии", noStockBadge: "Нет в наличии", soonBadge: "Скоро", newBadge: "Новинка",
-    heroTitle: "Оборудование для вашего бизнеса",
-    heroSub: "Профессиональная техника General Modern. Широкий ассортимент по лучшим ценам.",
-    heroCta: "Смотреть каталог",
+    heroTitle: "Запчасти для швейных машин",
+    heroSub: "Иглы, лапки, челноки, ножи и детали для промышленных и бытовых машин. Магазин в Ташкенте, заказ онлайн",
+    heroCta: "Смотреть каталог", heroHits: "Хиты недели", hitBadge: "Хит недели",
     authModal: "Войти / Зарегистрироваться", errorMsg: "Ошибка",
     howTo: "Как заказать",
   },
   uz: {
     ffPlaced: "Buyurtma rasmiylashtirildi", ffPacked: "Buyurtma yig‘ildi", ffShipped: "Buyurtma jo‘natildi", ffPending: "kutilmoqda", ffCarrier: "Tashuvchi", ffTracking: "Yuk xati raqami",
     catalog: "Katalog", cabinet: "Kabinet", login: "Kirish", logout: "Chiqish",
-    warehouse: "Ombor", adminPanel: "Panel", cart: "Savat", cartEmpty: "Savat bo'sh", order: "Buyurtma berish",
-    checkout: "Buyurtma berish", priceNote: "Narxni menejer aniqlashtiradi",
-    orderSent: "Buyurtma yuborildi! Menejer siz bilan bog'lanadi.",
-    sending: "Yuborilmoqda…", addToCart: "Savatga", inCart: "Savatda",
-    addedToCart: "savatga qo'shildi",
+    warehouse: "Ombor", adminPanel: "Panel", order: "Buyurtma berish",
+    priceNote: "Narxni menejer aniqlashtiradi",
     noStock: "Mavjud emas", loginToOrder: "Kirish va buyurtma berish",
     inStockBadge: "Mavjud", noStockBadge: "Mavjud emas", soonBadge: "Tez kunda", newBadge: "Yangi",
-    heroTitle: "Biznesingiz uchun uskunalar",
-    heroSub: "General Modern'dan professional texnika. Keng assortiment, eng yaxshi narxlar.",
-    heroCta: "Katalogni ko'rish",
+    heroTitle: "Tikuv mashinalari uchun ehtiyot qismlar",
+    heroSub: "Sanoat va maishiy mashinalar uchun igna, lapka, moki, pichoq va detallar. Toshkentdagi do‘kon, onlayn buyurtma",
+    heroCta: "Katalogni ko'rish", heroHits: "Hafta xitlari", hitBadge: "Hafta xiti",
     authModal: "Kirish / Ro'yxatdan o'tish", errorMsg: "Xato",
     howTo: "Qanday buyurtma berish",
   },
   en: {
     ffPlaced: "Order placed", ffPacked: "Order packed", ffShipped: "Order shipped", ffPending: "pending", ffCarrier: "Carrier", ffTracking: "Tracking number",
     catalog: "Catalog", cabinet: "Cabinet", login: "Login", logout: "Logout",
-    warehouse: "Warehouse", adminPanel: "Panel", cart: "Cart", cartEmpty: "Cart is empty", order: "Order",
-    checkout: "Place Order", priceNote: "Manager will confirm prices",
-    orderSent: "Order sent! A manager will contact you.",
-    sending: "Sending…", addToCart: "Add to Cart", inCart: "In Cart",
-    addedToCart: "added to cart",
+    warehouse: "Warehouse", adminPanel: "Panel", order: "Order",
+    priceNote: "Manager will confirm prices",
     noStock: "Out of Stock", loginToOrder: "Login to Order",
     inStockBadge: "In Stock", noStockBadge: "Out of Stock", soonBadge: "Coming Soon", newBadge: "New",
-    heroTitle: "Equipment for Your Business",
-    heroSub: "Professional equipment from General Modern. Wide range at the best prices.",
-    heroCta: "Browse catalog",
+    heroTitle: "Sewing machine spare parts",
+    heroSub: "Needles, presser feet, hooks, knives and parts for industrial and household machines. Shop in Tashkent, order online",
+    heroCta: "Browse catalog", heroHits: "Top this week", hitBadge: "Top this week",
     authModal: "Sign In / Register", errorMsg: "Error",
     howTo: "How to order",
   },
@@ -114,25 +102,6 @@ function isAdmin() {
   return ADMIN_PHONES.includes(p?.phone);
 }
 
-// ---- Cart state ----
-let cart = JSON.parse(localStorage.getItem("gm_cart") || "[]");
-function saveCart() { localStorage.setItem("gm_cart", JSON.stringify(cart)); document.dispatchEvent(new CustomEvent("gm:cart-change")); updateCartBadge(); }
-export function cartState() { return cart; }
-export function cartAdd(product) {
-  const ex = cart.find(i => i.id === product.id);
-  if (ex) ex.qty++; else cart.push({ id: product.id, name: product.name, photo_url: product.photo_url || null, qty: 1 });
-  saveCart();
-}
-export function cartRemove(id) { cart = cart.filter(i => i.id !== id); saveCart(); }
-export function cartSetQty(id, qty) {
-  const ex = cart.find(i => i.id === id);
-  if (!ex) return;
-  if (qty <= 0) { cartRemove(id); return; }
-  ex.qty = qty; saveCart();
-}
-export function cartQty(id) { return (cart.find(i => i.id === id) || {}).qty || 0; }
-export function cartCount() { return cart.reduce((s, i) => s + i.qty, 0); }
-
 // ---- Toast ----
 let toastContainer;
 export function sToast(msg, type = "") {
@@ -171,136 +140,6 @@ export function closeModal(id) {
   if (overlay) overlay.classList.remove("open");
 }
 
-// ---- Cart Drawer ----
-let cartDrawer, cartOverlay;
-function buildCartDrawer() {
-  cartOverlay = document.createElement("div"); cartOverlay.className = "cart-overlay";
-  cartDrawer = document.createElement("div"); cartDrawer.className = "cart-drawer";
-  cartOverlay.append(cartDrawer);
-  document.body.append(cartOverlay);
-  cartOverlay.addEventListener("click", (e) => { if (e.target === cartOverlay) closeCartDrawer(); });
-
-  // Корзину можно смахнуть вправо — туда же, откуда она выехала. Ящик идёт
-  // за пальцем один к одному, а на отпускании решает не место, где палец
-  // оторвался, а куда бросок летит: короткий резкий смах закрывает так же,
-  // как долгое протаскивание. На полпути его можно поймать и вернуть.
-  let тягаЯщика = null, сдвигЯщика = 0;
-  const ширинаЯщика = () => Math.max(1, cartDrawer.offsetWidth || 380);
-  const поставитьЯщик = (x) => { сдвигЯщика = x; cartDrawer.style.transform = "translate3d(" + x + "px,0,0)"; };
-  // Возвращаем ящик под управление стилей: пока мы его вели, переход был
-  // выключен — иначе CSS-переход и пружина тянули бы его каждый в свою
-  // сторону и движение дёргалось.
-  const отпуститьЯщик = () => { cartDrawer.style.transform = ""; cartDrawer.style.transition = ""; сдвигЯщика = 0; };
-
-  вести(cartDrawer, {
-    наНачало: () => {
-      if (тягаЯщика) { тягаЯщика.стоп(); тягаЯщика = null; }
-      cartDrawer.style.transition = "none";
-    },
-    наДвижение: ({ дх }) => {
-      // Влево ящику ехать некуда — там стена, поэтому сопротивление.
-      поставитьЯщик(дх >= 0 ? дх : резинка(дх, ширинаЯщика()));
-      cartOverlay.style.setProperty("--задёрнутость", String(Math.max(0, 1 - дх / ширинаЯщика())));
-    },
-    наОтпускание: ({ дх, скорость }) => {
-      const долёт = дх + проекция(скорость.x);
-      const закрыть = долёт > ширинаЯщика() * 0.35;
-      тягаЯщика = пустить({
-        от: сдвигЯщика, к: закрыть ? ширинаЯщика() : 0, скорость: скорость.x,
-        затухание: 1, отклик: 0.3,
-        наКадр: поставитьЯщик,
-        наКонец: () => {
-          тягаЯщика = null;
-          cartOverlay.style.removeProperty("--задёрнутость");
-          if (закрыть) { closeCartDrawer(); отпуститьЯщик(); } else отпуститьЯщик();
-        },
-      });
-    },
-  });
-  cartOverlay.__сброс = отпуститьЯщик;
-}
-function openCartDrawer() {
-  renderCartDrawerContent();
-  if (cartOverlay.__сброс) cartOverlay.__сброс();     // открываем с чистого места
-  cartOverlay.classList.add("open");
-}
-function closeCartDrawer() { cartOverlay.classList.remove("open"); }
-export function renderCartDrawer() { if (cartOverlay?.classList.contains("open")) renderCartDrawerContent(); }
-
-function renderCartDrawerContent() {
-  cartDrawer.innerHTML = "";
-  const head = document.createElement("div"); head.className = "cart-drawer-head";
-  const h2 = document.createElement("h2");
-  h2.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> ${t("cart")}`;
-  const closeBtn = document.createElement("button"); closeBtn.className = "cart-close";
-  closeBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-  closeBtn.addEventListener("click", closeCartDrawer);
-  head.append(h2, closeBtn);
-  cartDrawer.append(head);
-
-  const items = document.createElement("div"); items.className = "cart-items";
-  if (!cart.length) {
-    items.innerHTML = `<div class="cart-empty"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><p>${t("cartEmpty")}</p></div>`;
-  } else {
-    cart.forEach(it => {
-      const row = document.createElement("div"); row.className = "cart-item";
-      const imgEl = document.createElement("div");
-      imgEl.style.cssText = "width:56px;height:56px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0";
-      if (it.photo_url) { const img = document.createElement("img"); img.style.cssText = "width:100%;height:100%;object-fit:cover"; поставитьСнимок(img, it.photo_url, "", 160); imgEl.append(img); }
-      else imgEl.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
-      const info = document.createElement("div"); info.className = "cart-item-info";
-      const name = document.createElement("div"); name.className = "cart-item-name"; name.textContent = it.name;
-      const qtyRow = document.createElement("div"); qtyRow.className = "cart-item-qty";
-      const minus = document.createElement("button"); minus.className = "qty-btn"; minus.textContent = "−";
-      minus.addEventListener("click", () => { cartSetQty(it.id, it.qty - 1); renderCartDrawerContent(); document.dispatchEvent(new CustomEvent("gm:cart-change")); });
-      const qtyVal = document.createElement("span"); qtyVal.className = "qty-val"; qtyVal.textContent = it.qty;
-      const plus = document.createElement("button"); plus.className = "qty-btn"; plus.textContent = "+";
-      plus.addEventListener("click", () => { cartSetQty(it.id, it.qty + 1); renderCartDrawerContent(); document.dispatchEvent(new CustomEvent("gm:cart-change")); });
-      qtyRow.append(minus, qtyVal, plus);
-      info.append(name, qtyRow);
-      const del = document.createElement("button"); del.className = "cart-item-remove";
-      del.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
-      del.addEventListener("click", () => { cartRemove(it.id); renderCartDrawerContent(); document.dispatchEvent(new CustomEvent("gm:cart-change")); });
-      row.append(imgEl, info, del);
-      items.append(row);
-    });
-  }
-  cartDrawer.append(items);
-
-  if (cart.length) {
-    const footer = document.createElement("div"); footer.className = "cart-footer";
-    const info = document.createElement("div"); info.style.cssText = "font-size:13px;color:var(--muted);text-align:center";
-    info.textContent = t("priceNote");
-    const orderBtn = document.createElement("button"); orderBtn.className = "btn-primary"; orderBtn.style.width = "100%";
-    orderBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> ${t("checkout")}`;
-    orderBtn.addEventListener("click", async () => {
-      if (!isLoggedIn()) { closeCartDrawer(); openLogin(); return; }
-      orderBtn.disabled = true; orderBtn.innerHTML = `<span class="s-spinner"></span> ${t("sending")}`;
-      try {
-        const { api: siteApi } = await import("./api.js?v=20261111b");
-        await siteApi.placeOrder(cart.map(i => ({ product_id: i.id, qty: i.qty })));
-        cart = []; saveCart();
-        closeCartDrawer();
-        sToast(t("orderSent"), "ok");
-      } catch (e) {
-        sToast(e.message, "err");
-        orderBtn.disabled = false; orderBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> ${t("checkout")}`;
-      }
-    });
-    footer.append(info, orderBtn);
-    cartDrawer.append(footer);
-  }
-}
-
-// ---- updateCartBadge ----
-function updateCartBadge() {
-  const count = cartCount();
-  document.querySelectorAll(".cart-count").forEach(el => {
-    el.textContent = count;
-    el.classList.toggle("zero", count === 0);
-  });
-}
-
 // ---- Language Switcher ----
 function buildLangSwitcher() {
   const wrap = document.createElement("div"); wrap.className = "lang-switcher";
@@ -316,7 +155,7 @@ function buildLangSwitcher() {
   ];
   langs.forEach(({ code, label }) => {
     const opt = document.createElement("div"); opt.className = "lang-option" + (getLang() === code ? " active" : "");
-    opt.innerHTML = `<span style="font-weight:700;font-size:11px;letter-spacing:.05em;min-width:24px">${code.toUpperCase()}</span> <span style="font-weight:500">${label}</span>`;
+    opt.innerHTML = `<span style="font-weight:600;font-size:12px;min-width:24px">${code.toUpperCase()}</span> <span style="font-weight:500">${label}</span>`;
     opt.addEventListener("click", () => {
       if (getLang() === code) { dropdown.classList.remove("open"); btn.classList.remove("open"); return; }
       setLang(code);
@@ -365,6 +204,21 @@ function buildThemeToggle() {
   return btn;
 }
 
+// ---- Телефон магазина ----
+// Номер один на весь сайт (config.js → PHONE). Ссылка tel: — на телефоне
+// звонок в одно касание; на компьютере номер виден целиком.
+export function телефон() { return String((window.APP_CONFIG && window.APP_CONFIG.PHONE) || "+998 97 409 01 19"); }
+export function телефонСсылка() { return "tel:+" + телефон().replace(/\D/g, ""); }
+function телефонВШапке() {
+  const a = document.createElement("a");
+  a.className = "site-phone"; a.href = телефонСсылка();
+  a.setAttribute("aria-label", "Позвонить: " + телефон());
+  a.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
+  const s = document.createElement("span"); s.textContent = телефон();
+  a.append(s);
+  return a;
+}
+
 // ---- Header ----
 function buildHeader() {
   const header = document.createElement("header"); header.className = "site-header";
@@ -410,11 +264,11 @@ function buildHeader() {
   burger.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg><span>Меню</span><svg class="site-burger-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><polyline points="6 9 12 15 18 9"/></svg>`;
 
   // Кнопка «Заказать» (вместо корзины) — ведёт на страницу-форму заказа
-  const orderBtn = document.createElement("button"); orderBtn.className = "btn-primary"; orderBtn.style.cssText = "padding:8px 16px;font-size:13px;font-weight:600";
+  const orderBtn = document.createElement("button"); orderBtn.className = "btn-primary btn-sm";
   orderBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> ${t("order") || "Заказать"}`;
   orderBtn.addEventListener("click", () => { location.hash = "#order"; });
 
-  right.append(orderBtn);
+  right.append(телефонВШапке(), orderBtn);
   // Те же ссылки, что в строке меню на компьютере: на телефоне строка
   // спрятана, и попасть в «Каталог» или «Кабинет» было неоткуда.
   // «Панель» и «Кабинет» ниже есть кнопками — в списке они не нужны дважды.
@@ -446,22 +300,22 @@ function buildHeader() {
 
   if (isLoggedIn()) {
     if (isAdmin()) {
-      const panelBtn = document.createElement("button"); panelBtn.className = "btn-navy"; panelBtn.style.cssText = "padding:8px 16px;font-size:13px";
+      const panelBtn = document.createElement("button"); panelBtn.className = "btn-navy btn-sm";
       panelBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> ${t("adminPanel")}`;
       panelBtn.addEventListener("click", () => { location.hash = "#admin-panel"; });
       menu.insertBefore(panelBtn, menu.firstChild && menu.querySelector(".btn-warehouse, .site-tg-link"));
     } else {
-      const cabinetBtn = document.createElement("button"); cabinetBtn.className = "btn-navy"; cabinetBtn.style.cssText = "padding:8px 16px;font-size:13px";
+      const cabinetBtn = document.createElement("button"); cabinetBtn.className = "btn-navy btn-sm";
       cabinetBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${t("cabinet")}`;
       cabinetBtn.addEventListener("click", () => { location.hash = "#cabinet"; });
       menu.insertBefore(cabinetBtn, menu.querySelector(".site-tg-link"));
     }
-    const logoutBtn = document.createElement("button"); logoutBtn.className = "btn-ghost"; logoutBtn.style.cssText = "padding:8px 14px;font-size:13px";
+    const logoutBtn = document.createElement("button"); logoutBtn.className = "btn-ghost btn-sm";
     logoutBtn.textContent = t("logout");
     logoutBtn.addEventListener("click", () => { _logout(); location.hash = "#catalog"; location.reload(); });
     menu.append(logoutBtn);
   } else {
-    const loginBtn = document.createElement("button"); loginBtn.className = "btn-primary"; loginBtn.style.cssText = "padding:9px 18px;font-size:13px";
+    const loginBtn = document.createElement("button"); loginBtn.className = "btn-primary btn-sm";
     loginBtn.textContent = t("login");
     loginBtn.addEventListener("click", openLogin);
     menu.append(loginBtn);
@@ -651,7 +505,6 @@ function запомнитьШирины(header) {
 function подвалКаталога() {
   const f = document.createElement("footer");
   f.className = "site-подвал";
-  f.style.cssText = "max-width:1200px;margin:40px auto 24px;padding:18px 16px 0;border-top:1px solid var(--border);color:var(--muted);font-size:13px;line-height:1.9";
   const ссылки = [
     ["/c/", "Каталог запчастей для швейных машин"], ["/c/lapki", "Лапки"], ["/c/igly", "Иглы"],
     ["/c/chelnoki", "Челноки"], ["/c/shpulnye-kolpachki", "Шпульные колпачки"], ["/c/petliteli", "Петлители"],
@@ -663,11 +516,11 @@ function подвалКаталога() {
   ссылки.forEach(([href, text], i) => {
     if (i) nav.append(document.createTextNode(" · "));
     const a = document.createElement("a"); a.href = href; a.textContent = text;
-    a.style.cssText = "color:inherit;text-decoration:none";
     nav.append(a);
   });
   const адрес = document.createElement("div");
-  адрес.textContent = "GENERAL MODERN — швейные запчасти, Ташкент, рынок Абу Сахий · +998 97 409 01 19 · вт–вс 9:00–17:00";
+  const тел = document.createElement("a"); тел.href = телефонСсылка(); тел.textContent = телефон();
+  адрес.append("GENERAL MODERN — швейные запчасти, Ташкент, рынок Абу Сахий · ", тел, " · вт–вс 9:00–17:00");
   f.append(nav, адрес);
   return f;
 }
@@ -676,25 +529,6 @@ function подвалКаталога() {
 function getRoute() {
   const h = location.hash.replace(/^#\/?/, "") || "catalog";
   return h.split("?")[0];
-}
-
-// Волна от точки нажатия (материальный отклик). Один слушатель на весь документ.
-function initRipple() {
-  const SEL = ".btn-primary,.btn-navy,.btn-ghost,.btn-add-cart,.filter-chip,.cabinet-nav-item,.cart-btn,.site-nav-link,.site-burger";
-  document.addEventListener("pointerdown", (e) => {
-    const b = e.target.closest && e.target.closest(SEL);
-    if (!b || b.disabled) return;
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const r = b.getBoundingClientRect();
-    const s = Math.max(r.width, r.height);
-    const sp = document.createElement("span");
-    sp.className = "gm-ripple";
-    sp.style.width = sp.style.height = s + "px";
-    sp.style.left = (e.clientX - r.left - s / 2) + "px";
-    sp.style.top = (e.clientY - r.top - s / 2) + "px";
-    b.appendChild(sp);
-    setTimeout(() => sp.remove(), 560);
-  }, { passive: true });
 }
 
 // Позиция прокрутки по каждому разделу — чтобы возврат не начинался «сначала».
@@ -813,7 +647,7 @@ function полоскаОбновления() {
   текст.textContent = "Вышла новая версия сайта";
   const кнопка = document.createElement("button");
   кнопка.textContent = "Обновить";
-  кнопка.style.cssText = "flex:0 0 auto;padding:9px 16px;border-radius:10px;border:0;background:var(--gold,#d9b45a);color:#1c2b4a;font-weight:700;font-size:14px;cursor:pointer";
+  кнопка.style.cssText = "flex:0 0 auto;padding:9px 16px;border-radius:10px;border:0;background:var(--gold,#d9b45a);color:#1c2b4a;font-weight:600;font-size:14px;cursor:pointer";
   кнопка.addEventListener("click", async () => {
     кнопка.disabled = true; кнопка.textContent = "Обновляем…";
     try { if (window.caches) { const k = await caches.keys(); await Promise.all(k.map(x => caches.delete(x))); } } catch {}
@@ -876,15 +710,6 @@ export async function boot() {
     if (last && last !== "catalog") { try { history.replaceState(null, "", "#" + last); } catch { location.hash = "#" + last; } }
   }
 
-  // Тёплое свечение за стеклом (css/site.css, .gm-glow). Без него матовым
-  // поверхностям нечего размывать и они выглядят просто серыми.
-  if (!document.querySelector(".gm-glow")) {
-    const свечение = document.createElement("div");
-    свечение.className = "gm-glow";
-    свечение.setAttribute("aria-hidden", "true");
-    document.body.prepend(свечение);
-  }
-
   function rebuild() {
     app.innerHTML = "";
     const main = document.createElement("div"); main.id = "site-main";
@@ -901,7 +726,6 @@ export async function boot() {
   window.addEventListener("hashchange", () => route(document.getElementById("site-main") || document.createElement("div")));
 
   resumeRegistration();   // продолжить незаконченную регистрацию/вход
-  initRipple();           // волна от точки нажатия на кнопках
 
   // сами управляем позицией прокрутки: браузер не должен сбрасывать её наверх
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
@@ -921,10 +745,10 @@ function showOwnerReturnBar() {
   if (!ownerToken) return;
   const bar = document.createElement("div");
   bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9998;background:#1c2b4a;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:14px;font-size:14px;box-shadow:0 -4px 16px rgba(0,0,0,.2)";
-  const txt = document.createElement("span"); txt.textContent = "👁 Вы вошли как клиент (тест-режим)";
+  const txt = document.createElement("span"); txt.textContent = "Вы вошли как клиент (тест-режим)";
   const btn = document.createElement("button");
   btn.textContent = "← Вернуться владельцем";
-  btn.style.cssText = "background:#e3c163;color:#1c2b4a;border:none;border-radius:8px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:13px";
+  btn.style.cssText = "background:#e3c163;color:#1c2b4a;border:none;border-radius:8px;padding:8px 16px;font-weight:600;cursor:pointer;font-size:13px";
   btn.addEventListener("click", () => {
     localStorage.setItem("gm_client_token", ownerToken);
     localStorage.removeItem("gm_owner_token");

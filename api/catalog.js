@@ -4,6 +4,7 @@
 import { sget } from "./lib/supa.js";
 import { getSiteAdmin } from "./lib/siteadmin.js";
 import { помнить } from "./lib/memcache.js";
+import { slugТовара } from "./seo/text.js";
 
 // Столько секунд держим прочитанное из базы.
 //
@@ -101,6 +102,8 @@ export default async function handler(req, res) {
           sku: p.sku || "",
           // Постоянный код (LP-017) — публичный: он и так напечатан в каталоге.
           code: p.code || "",
+          // Адрес страницы товара (/p/…) — только у товаров с кодом.
+          slug: p.code ? slugТовара(p.code, p.name) : "",
           category: p.category || "",
           photo_url: p.photo_url || null,
           // все фото товара (для галереи у клиента); если колонки photos нет — из photo_url

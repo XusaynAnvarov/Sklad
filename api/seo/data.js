@@ -12,7 +12,7 @@
 // ========================================================================
 import { sget } from "../lib/supa.js";
 import { помнить } from "../lib/memcache.js";
-import { slugify, cleanName } from "./text.js";
+import { cleanName, slugТовара } from "./text.js";
 import { категория } from "./i18n.js";
 import { данные, виденные, сохранитьВиденные, настройки } from "./store.js";
 
@@ -96,7 +96,7 @@ function построить({ строки, вДороге }) {
     const т = {
       id: p.id, code, name, rawName: String(p.name || ""), sku: String(p.sku || "").trim(),
       catRaw: кат.raw, cat: кат,
-      slug: (code.toLowerCase() + "-" + slugify(name, 60)).replace(/-+$/, ""),
+      slug: slugТовара(code, name),
       photos: фото, status: статус(p, вДороге),
       created, lastmod, price, ov,
       mentions: [],

@@ -1,6 +1,7 @@
-// Каталог товаров: карточки, поиск, фильтры, корзина
+// Каталог товаров: витрина, карточки, поиск, категории
 import { api, isLoggedIn } from "./api.js?v=20261111b";
-import { t, sToast } from "./app.js?v=20261111b";
+import { t, sToast, кнопкаКакЗаказать } from "./app.js?v=20261111b";
+import { openTour } from "./tour.js?v=20261111b";
 import { openLogin } from "./auth.js?v=20261111b";
 import { thumb, full } from "../img.js?v=20261111b";
 import { подходит } from "../productsearch.js?v=20261111b";
@@ -10,6 +11,37 @@ import { подписьКода } from "../catalogcode.js?v=20261111b";
 import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261111b";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
 import { пустить, проекция, резинка, вести } from "../spring.js?v=20261111b";
+
+const ЗНАЧОК_ФОТО = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+
+// Страница товара: точный адрес из /api/catalog, а если каталог ещё из
+// старого кэша без slug — короткий /p/<код>, сервер сам перенаправит.
+function адресТовара(p) {
+  if (p.slug) return "/p/" + p.slug;
+  return p.code ? "/p/" + String(p.code).toLowerCase() : "";
+}
+function getLangSafe() { try { return localStorage.getItem("gm_lang") || "ru"; } catch { return "ru"; } }
+
+// Плитка товара на полке витрины.
+function плиткаПолки(p) {
+  const адрес = адресТовара(p);
+  const плитка = mkEl(адрес ? "a" : "div", "hero-item");
+  if (адрес) плитка.href = адрес;
+  const фото = mkEl("div", "hero-item-img");
+  const img = document.createElement("img");
+  img.src = thumb(главноеФото(p), 300); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+  img.onerror = () => { фото.innerHTML = PLACEHOLDER; };
+  фото.append(img);
+  const имя = mkEl("div", "hero-item-name"); имя.textContent = p.name;
+  const низ = mkEl("div", "hero-item-meta");
+  const код = mkEl("span", "sku-code"); код.textContent = p.code || p.sku || "";
+  const статус = mkEl("span", "product-status " + (p.status === "in_stock" ? "есть" : "скоро"));
+  статус.append(mkEl("span", "status-dot"));
+  статус.append(p.status === "in_stock" ? t("inStockBadge") : t("soonBadge"));
+  низ.append(код, статус);
+  плитка.append(фото, имя, низ);
+  return плитка;
+}
 
 const PLACEHOLDER = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l4-4 4 4 4-5 4 5"/><circle cx="9" cy="14" r="2"/></svg>`;
 
@@ -89,6 +121,12 @@ export async function renderCatalog(container) {
   heroBtn.className = "btn-primary"; heroBtn.textContent = t("heroCta");
   heroBtn.addEventListener("click", () => toolbar.scrollIntoView({ behavior: "smooth", block: "start" }));
   heroBtns.append(heroBtn);
+  if (кнопкаКакЗаказать()) {
+    const как = document.createElement("button");
+    как.type = "button"; как.className = "btn-ghost"; как.textContent = t("howTo");
+    как.addEventListener("click", () => openTour());
+    heroBtns.append(как);
+  }
   heroText.append(heroH1, heroP, heroBtns);
   const heroImg = mkEl("div", "feature-img");
   hero.append(heroText, heroImg);
@@ -154,33 +192,29 @@ export async function renderCatalog(container) {
   const grid = mkEl("div", "product-grid");
   main.append(grid);
 
-  // В витрине — фирменный знак, а не фотография товара.
-  // Снимок одного случайного товара рядом с надписью «Оборудование для
-  // вашего бизнеса» обещал не то: человек думал, что речь про эту вещь.
-  // Знак на тёплом свете ничего не обещает и не устаревает.
+  // ------------------------------------------------------------------
+  //  ВИТРИНА: ПОЛКА ХИТОВ НЕДЕЛИ
+  //  Справа от заголовка — четыре настоящих товара: то, что брали на этой
+  //  неделе (признак hit из /api/catalog). Если хитов нет — товары в
+  //  наличии. Снимок, код и наличие — то же, что в карточке, только
+  //  компактно; нажатие ведёт на страницу товара (/p/…).
+  // ------------------------------------------------------------------
+  let подписьПолки = "";
   function оформитьВитрину() {
-    if (heroImg.childElementCount) return;
-    const знак = document.createElement("div");
-    знак.className = "hero-znak";
-    знак.setAttribute("aria-hidden", "true");
-    знак.innerHTML = `
-      <svg viewBox="0 0 512 512" width="150" height="150" role="img" aria-label="GENERAL MODERN">
-        <defs>
-          <linearGradient id="hzst" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f2f4f9"/><stop offset="1" stop-color="#e4e9f2"/>
-          </linearGradient>
-          <linearGradient id="hzzl" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#f7e9a6"/><stop offset=".42" stop-color="#e3c163"/>
-            <stop offset=".74" stop-color="#c79a33"/><stop offset="1" stop-color="#a87b1f"/>
-          </linearGradient>
-        </defs>
-        <rect width="512" height="512" rx="116" fill="url(#hzst)"/>
-        <rect x="5" y="5" width="502" height="502" rx="111" fill="none" stroke="#c8cedd" stroke-width="5"/>
-        <circle cx="256" cy="256" r="182" fill="none" stroke="url(#hzzl)" stroke-width="14" stroke-linecap="round" stroke-dasharray="1062 1144"/>
-        <text x="256" y="312" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif"
-              font-size="172" font-weight="700" letter-spacing="-6" fill="#16203a">GM</text>
-      </svg>`;
-    heroImg.append(знак);
+    const сФото = products.filter(p => снимки(p).length && p.status !== "out_stock");
+    const хиты = сФото.filter(p => p.hit);
+    const набор = (хиты.length >= 2 ? хиты : сФото.filter(p => p.status === "in_stock")).slice(0, 4);
+    const ключ = набор.map(p => p.id).join(",") + "|" + getLangSafe();
+    if (ключ === подписьПолки) return;
+    подписьПолки = ключ;
+    heroImg.innerHTML = "";
+    if (!набор.length) { heroImg.hidden = true; return; }
+    heroImg.hidden = false;
+    const заголовок = mkEl("div", "hero-shelf-title");
+    заголовок.textContent = хиты.length >= 2 ? t("heroHits") : t("inStockBadge");
+    const полка = mkEl("div", "hero-shelf");
+    набор.forEach(p => полка.append(плиткаПолки(p)));
+    heroImg.append(заголовок, полка);
   }
 
   // Карточки рисуем ПОРЦИЯМИ по PAGE штук: на телефоне 800+ карточек с фото разом
@@ -440,15 +474,13 @@ function buildCard(p) {
     };
     // Галерея открывается на том снимке, который виден в плитке.
     img.addEventListener("click", (e) => { e.stopPropagation(); openGallery(photos, индексГлавного(p), p.name); });
-    // Поля по краям вписанного снимка заполняет его же размытая копия
-    // (css/site.css, .product-card-img::before). Берём самую мелкую
-    // миниатюру — её всё равно размывает, зато грузится мгновенно.
-    imgWrap.style.setProperty("--фото", "url('" + thumb(главный, 64) + "')");
     imgWrap.append(img);
-    {
-      const pb = mkEl("span");
-      pb.style.cssText = "position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:2;pointer-events:none";
-      pb.textContent = "📷 " + photos.length;
+    // Сколько снимков в галерее — только когда их больше одного.
+    if (photos.length > 1) {
+      const pb = mkEl("span", "photo-count");
+      pb.innerHTML = ЗНАЧОК_ФОТО;
+      pb.append(String(photos.length));
+      pb.setAttribute("aria-label", "Фото: " + photos.length);
       imgWrap.append(pb);
     }
   } else {
@@ -475,7 +507,7 @@ function buildCard(p) {
   }
   if (p.hit) {
     const hitBadge = mkEl("span", "product-badge hit-badge");
-    hitBadge.textContent = "Хит недели";
+    hitBadge.textContent = t("hitBadge");
     метки.append(hitBadge);
   }
   // Прежний бейдж наличия поверх снимка. На телефоне владелец просил
@@ -491,7 +523,9 @@ function buildCard(p) {
   imgWrap.append(метки);
 
   const body = mkEl("div", "product-card-body");
-  const name = mkEl("div", "product-name"); name.textContent = p.name;
+  const name = адресТовара(p) ? mkEl("a", "product-name") : mkEl("div", "product-name");
+  name.textContent = p.name;
+  if (name.tagName === "A") name.href = адресТовара(p);
   const cat  = mkEl("div", "product-category"); cat.textContent = p.category || "";
 
   // Код и артикул: по ним клиент находит нужную деталь и называет её в заказе.

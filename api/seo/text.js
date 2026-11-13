@@ -15,6 +15,13 @@ export function slugify(s, max = 70) {
   return cut.slice(0, Math.max(cut.lastIndexOf("-"), 20)).replace(/-+$/, "");
 }
 
+// Адрес страницы товара /p/<slug>: код + название латиницей.
+// Тот же адрес отдаёт /api/catalog — ссылка из каталога ведёт сразу
+// на страницу, без лишнего перенаправления.
+export function slugТовара(code, name) {
+  return (String(code || "").trim().toLowerCase() + "-" + slugify(cleanName(name), 60)).replace(/-+$/, "");
+}
+
 export const esc = (s) => String(s ?? "")
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;").replace(/'/g, "&#39;");

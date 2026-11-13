@@ -15,9 +15,7 @@
 }
 .gt::before {
   content: ""; position: absolute; inset: -10%; pointer-events: none; z-index: 0;
-  background: radial-gradient(40% 40% at 12% 8%, rgba(201,168,76,.16), transparent 70%),
-              radial-gradient(45% 45% at 92% 18%, rgba(110,150,230,.14), transparent 70%),
-              radial-gradient(50% 40% at 70% 100%, rgba(227,193,99,.12), transparent 70%);
+  background: none;   /* без цветных пятен */
 }
 .gt-paused *, .gt-paused *::before, .gt-paused *::after { animation-play-state: paused !important; }
 .gt-bye { opacity: 0; }
@@ -222,8 +220,7 @@ html[data-site-theme="dark"] .gt-panel { background: rgba(20,20,25,.7); border-c
 .gt-map .route { fill: none; stroke: var(--navy, #1c2b4a); stroke-width: 2.5; stroke-dasharray: 7 7; opacity: 0; }
 .gt-deliv.go .route { animation: gtRoute 1.4s ease both; animation-delay: var(--d); }
 @keyframes gtRoute { from { opacity: 0; stroke-dashoffset: 120; } to { opacity: .85; stroke-dashoffset: 0; } }
-.gt-map .core { fill: var(--gold, #c9a84c); } .gt-map .halo { fill: rgba(201,168,76,.3); transform-box: fill-box; transform-origin: center; animation: gtHalo 1.8s ease-out infinite; }
-@keyframes gtHalo { from { transform: scale(.5); opacity: 1; } to { transform: scale(2.3); opacity: 0; } }
+.gt-map .core { fill: var(--gold, #c9a84c); } .gt-map .halo { fill: rgba(201,168,76,.3); transform-box: fill-box; transform-origin: center; }
 .gt-map .dst { fill: var(--navy, #1c2b4a); opacity: 0; transform-box: fill-box; transform-origin: center; }
 .gt-deliv.go .dst { animation: gtDot .5s cubic-bezier(.3,1.6,.4,1) both; animation-delay: var(--d); }
 @keyframes gtDot { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }

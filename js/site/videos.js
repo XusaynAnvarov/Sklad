@@ -40,8 +40,8 @@ export async function renderVideos(container) {
       cover.append(im);
     }
     const play = document.createElement("div");
-    play.textContent = "▶";
-    play.style.cssText = "position:absolute;font-size:34px;color:#fff;width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;text-indent:4px";
+    play.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>`;
+    play.style.cssText = "position:absolute;color:#fff;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center";
     cover.append(play);
     const body = document.createElement("div"); body.className = "product-card-body";
     const nm = document.createElement("div"); nm.className = "product-name"; nm.textContent = v.title || "Видео";
@@ -57,8 +57,8 @@ async function openVideoPlayer(v) {
   const ov = document.createElement("div");
   ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px";
   const box = document.createElement("div"); box.style.cssText = "max-width:900px;width:100%;background:#000;border-radius:12px;overflow:hidden;position:relative";
-  const close = document.createElement("button"); close.textContent = "✕";
-  close.style.cssText = "position:absolute;top:8px;right:10px;z-index:3;background:rgba(0,0,0,.55);color:#fff;border:none;font-size:18px;width:36px;height:36px;border-radius:50%;cursor:pointer";
+  const close = document.createElement("button"); close.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>`; close.setAttribute("aria-label", "Закрыть");
+  close.style.cssText = "position:absolute;top:8px;right:10px;z-index:3;background:rgba(0,0,0,.55);color:#fff;border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;display:grid;place-items:center";
   const title = document.createElement("div"); title.textContent = v.title || ""; title.style.cssText = "color:#fff;padding:10px 14px;font-weight:600;font-size:15px";
 
   const video = document.createElement("video");

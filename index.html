@@ -31,20 +31,18 @@
   <link rel="apple-touch-icon" href="apple-touch-icon-180.png?v=20261111b" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="css/site.css?v=20261111b" />
-  <!-- GlassOS: компактный поиск, стеклянное окно входа, ячейки кода и
-       анимация подтверждения. Подключён последним, чтобы уточнять
-       основную тему. Откат редизайна = убрать эту одну строку. -->
+  <!-- GlassOS: витрина, карточка товара, поиск, окно входа и ячейки кода.
+       Подключается после site.css и уточняет его. -->
   <link rel="stylesheet" href="css/glassos-site.css?v=20261111b" />
   <link rel="stylesheet" href="css/fulfillment-site.css?v=20261111b" />
 </head>
 <body>
 
-<!-- Загрузка: стеклянная плитка со знаком, золотое кольцо чертится по кругу,
-     по плитке проходит блик. Светлый фон — как и весь сайт. -->
+<!-- Загрузка: плитка со знаком, золотое кольцо идёт по кругу, пока
+     сайт собирается. -->
 <div id="gm-loader">
-  <div class="gm-loader-glow" aria-hidden="true"></div>
   <div class="gm-loader-card">
     <svg width="104" height="104" viewBox="0 0 512 512" role="img" aria-label="GENERAL MODERN">
       <defs>

@@ -54,9 +54,9 @@ export function openLogin(start) {
 
 // Ссылка «Как зарегистрироваться?» → открывает видео-инструкцию (GIF, по языку сайта)
 const GUIDE_TXT = {
-  ru: { link: "❓ Как зарегистрироваться? Смотреть инструкцию", title: "Как зарегистрироваться", close: "Закрыть" },
-  uz: { link: "❓ Qanday ro'yxatdan o'tish? Yo'riqnomani ko'rish", title: "Qanday ro'yxatdan o'tish", close: "Yopish" },
-  en: { link: "❓ How to register? Watch the guide", title: "How to register", close: "Close" },
+  ru: { link: "Как зарегистрироваться? Смотреть инструкцию", title: "Как зарегистрироваться", close: "Закрыть" },
+  uz: { link: "Qanday ro'yxatdan o'tish? Yo'riqnomani ko'rish", title: "Qanday ro'yxatdan o'tish", close: "Yopish" },
+  en: { link: "How to register? Watch the guide", title: "How to register", close: "Close" },
 };
 function guideLang() { const l = localStorage.getItem("gm_lang") || "ru"; return GUIDE_TXT[l] ? l : "ru"; }
 export function openGuide() {
@@ -312,7 +312,7 @@ function buildAuthModal(start) {
     // Вернулись из Telegram, где нажали на код, — подставляем его сами.
     // Где браузер читать буфер молча не даёт (Safari на iPhone), вместо
     // этого появляется кнопка: по нажатию буфер читается уже законно.
-    const вставитьКнопка = button("📋 Вставить код", "s-link-btn", { style: "display:none" });
+    const вставитьКнопка = button("Вставить код", "s-link-btn", { style: "display:none" });
     const буфер = следитьЗаБуфером({
       длина: ДЛИНА_КОДА,
       занято: () => ячейки.значение().length > 0,

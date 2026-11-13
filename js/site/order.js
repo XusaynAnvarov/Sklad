@@ -57,7 +57,7 @@ export async function renderOrder(container) {
   function orderCount() { let n = 0; order.forEach(q => { if (q > 0) n++; }); return n; }
   let revTabEl = null, goBtnEl = null;
   function updateCounts() {
-    if (revTabEl) revTabEl.textContent = `🧾 Мои заказанные товары (${orderCount()})`;
+    if (revTabEl) revTabEl.textContent = `Мои заказанные товары (${orderCount()})`;
     if (goBtnEl) { goBtnEl.textContent = `Перейти к заказу (${orderCount()}) →`; goBtnEl.style.display = orderCount() ? "block" : "none"; }
   }
 
@@ -67,9 +67,9 @@ export async function renderOrder(container) {
 
     // переключатель Товары / Мой заказ
     const tabs = mkEl("div"); tabs.style.cssText = "display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap";
-    const tabList = mkEl("button", "s-tab" + (view === "list" ? " active" : "")); tabList.textContent = "➕ Товары";
+    const tabList = mkEl("button", "s-tab" + (view === "list" ? " active" : "")); tabList.textContent = "Товары";
     tabList.addEventListener("click", () => { view = "list"; render(); });
-    const tabRev = mkEl("button", "s-tab" + (view === "review" ? " active" : "")); tabRev.textContent = `🧾 Мои заказанные товары (${orderCount()})`;
+    const tabRev = mkEl("button", "s-tab" + (view === "review" ? " active" : "")); tabRev.textContent = `Мои заказанные товары (${orderCount()})`;
     tabRev.addEventListener("click", () => { view = "review"; render(); });
     revTabEl = tabRev;
     tabs.append(tabList, tabRev);
@@ -245,7 +245,7 @@ export async function renderOrder(container) {
     if (!orderCount()) {
       const e = mkEl("div", "s-empty"); e.style.padding = "20px";
       e.innerHTML = `<p style="margin-bottom:12px">Вы ещё ничего не добавили</p>`;
-      const add = mkEl("button", "btn-primary"); add.textContent = "➕ Добавить товары";
+      const add = mkEl("button", "btn-primary"); add.textContent = "Добавить товары";
       add.addEventListener("click", () => { view = "list"; render(); });
       e.append(add); card.append(e); root.append(card); return;
     }
@@ -292,7 +292,7 @@ export async function renderOrder(container) {
     });
 
     const actions = mkEl("div"); actions.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;margin-top:16px";
-    const addMore = mkEl("button", "btn-ghost"); addMore.style.cssText = "padding:10px 18px;font-weight:600"; addMore.textContent = "➕ Добавить товары";
+    const addMore = mkEl("button", "btn-ghost"); addMore.textContent = "Добавить товары";
     addMore.addEventListener("click", () => { view = "list"; render(); });
     const send = mkEl("button", "btn-primary"); send.style.cssText = "padding:10px 22px;font-weight:700;flex:1;min-width:160px"; send.textContent = "Отправить заказ";
     send.addEventListener("click", async () => {

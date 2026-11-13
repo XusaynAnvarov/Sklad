@@ -29,24 +29,21 @@ html[data-site-theme="dark"] .gm-ff {
   border: 1px solid var(--border); color: var(--muted); background: rgba(127, 127, 140, .07);
   transition: background .3s, color .3s, box-shadow .3s;
 }
-.gm-ff-lab { font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.25; }
+.gm-ff-lab { font-size: 12px; font-weight: 600; color: var(--muted); line-height: 1.25; }
 .gm-ff-time { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .gm-ff-node.done .gm-ff-ic { background: var(--n); border-color: var(--n); color: #fff; }
 html[data-site-theme="dark"] .gm-ff-node.done .gm-ff-ic { color: #101014; }
 .gm-ff-node.done .gm-ff-lab { color: var(--text); }
-.gm-ff-node.current .gm-ff-ic { background: var(--n-s); border-color: var(--n); color: var(--n); box-shadow: 0 0 0 4px var(--n-s), 0 0 14px var(--n-s); }
+.gm-ff-node.current .gm-ff-ic { background: var(--n-s); border-color: var(--n); color: var(--n); box-shadow: 0 0 0 4px var(--n-s); }
 .gm-ff-ic { position: relative; }
-.gm-ff-node.current .gm-ff-ic::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; box-shadow: 0 0 22px var(--n-g); opacity: 0; animation: gm-ff-breathe 2.8s ease-in-out infinite; pointer-events: none; }
 .gm-ff-node.current .gm-ff-lab { color: var(--n); }
-.gm-ff-node.todo { opacity: .55; }
+.gm-ff-node.todo .gm-ff-ic { border-style: dashed; }
 .gm-ff-line { position: relative; flex: 1 1 auto; height: 3px; margin-top: 16px; border-radius: 3px; background: rgba(127, 127, 140, .2); overflow: hidden; }
-.gm-ff-line i { position: absolute; inset: 0; background: linear-gradient(90deg, var(--a), var(--b) 60%, var(--g)); transform: scaleX(0); transform-origin: left; }
-.gm-ff-line.on i { animation: gm-ff-fill .7s cubic-bezier(.22, 1, .36, 1) .15s both; }
+.gm-ff-line i { position: absolute; inset: 0; background: var(--navy); transform: scaleX(0); transform-origin: left; }
+.gm-ff-line.on i { animation: gm-ff-fill .5s var(--ease, ease-out) .15s both; }
 .gm-ff-ship { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 13px; color: var(--text); }
 @keyframes gm-ff-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes gm-ff-breathe { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
 @media (max-width: 420px) { .gm-ff-node { width: 70px; } .gm-ff-lab { font-size: 11px; } }
 @media (prefers-reduced-motion: reduce) {
   .gm-ff-line.on i { animation: none; transform: scaleX(1); }
-  .gm-ff-node.current .gm-ff-ic::after { animation: none; opacity: .6; }
 }

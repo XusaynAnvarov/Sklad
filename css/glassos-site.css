@@ -9,45 +9,21 @@
      3. Анимация подтверждения: ячейки гаснут, в стеклянном круге
         прорисовывается галочка.
 
-   Откат — убрать строку <link> на этот файл в index.html: сайт
-   вернётся к прежнему виду, разметка остаётся рабочей.
+   Здесь же единственное определение карточки товара и витрины.
    =================================================================== */
 
 :root {
-  --gs-r-sm: 14px;
+  --gs-r-sm: 12px;
   --gs-r-md: 18px;
   --gs-r-lg: 24px;
   --gs-r-pill: 999px;
   --gs-t-hover: 160ms;
   --gs-t-micro: 220ms;
   --gs-e-out: cubic-bezier(.22, 1, .36, 1);
-  --gs-e-spring: cubic-bezier(.34, 1.46, .64, 1);
+  --gs-e-spring: cubic-bezier(.2, .8, .2, 1);   /* без перелёта: одна кривая на весь сайт */
 }
 
-/* ===================================================================
-   0. ПОЛЕ СТРАНИЦЫ
-
-   Стекло видно только тогда, когда за ним есть что размывать. Под
-   страницей лежат два мягких пятна: тёплое латунное сверху слева (цвет
-   знака) и холодное снизу справа. Они закреплены (attachment: fixed) —
-   значит при прокрутке не ездят и не заставляют браузер перерисовывать
-   фон каждый кадр.
-   =================================================================== */
-body {
-  background-color: var(--bg);
-  background-image:
-    radial-gradient(52% 42% at 8% 0%, rgba(201, 168, 76, .20), transparent 68%),
-    radial-gradient(46% 40% at 100% 18%, rgba(28, 43, 74, .10), transparent 70%),
-    radial-gradient(60% 46% at 74% 100%, rgba(201, 168, 76, .12), transparent 72%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
-}
-html[data-site-theme="dark"] body {
-  background-image:
-    radial-gradient(52% 42% at 8% 0%, rgba(217, 180, 90, .16), transparent 68%),
-    radial-gradient(46% 40% at 100% 18%, rgba(240, 220, 164, .07), transparent 70%),
-    radial-gradient(60% 46% at 74% 100%, rgba(168, 135, 60, .11), transparent 72%);
-}
+/* Поле страницы — ровное, без цветных пятен (var(--bg) из css/site.css). */
 
 /* Общие переменные стекла сайта — в одном месте, чтобы поверхности не
    разъезжались по оттенкам. */
@@ -360,40 +336,75 @@ html[data-site-theme="dark"] .site-logo::before {
     transition-duration: 1ms !important; transition-delay: 0ms !important;
   }
 }
-.site-nav-link.active { background: rgba(201, 168, 76, .18); color: var(--text); }
-html[data-site-theme="dark"] .site-nav-link.active { background: rgba(217, 180, 90, .20); }
-.site-tg-link, .cart-btn, .site-lang-btn, .site-theme-btn {
-  border-radius: var(--gs-r-pill);
-}
-.cart-btn {
-  border: 1px solid var(--gs-line);
-  background: rgba(255, 255, 255, .55);
-}
-html[data-site-theme="dark"] .cart-btn { background: rgba(255, 255, 255, .06); }
+.site-nav-link.active { background: rgba(28, 43, 74, .07); color: var(--text); }
+html[data-site-theme="dark"] .site-nav-link.active { background: rgba(255, 255, 255, .08); }
+.site-tg-link, .site-phone { border-radius: var(--gs-r-pill); }
 
 /* ===================================================================
    2. ВИТРИНА
-
-   Заголовок несёт страницу сам — надписи вразрядку над ним больше нет
-   (её убрали в js/site/catalog.js). Знак справа лежит на стеклянной
-   плитке: это единственное украшение на первом экране.
+   Слева — что продаём и две кнопки, справа — полка хитов недели:
+   настоящие товары, нажатие ведёт на их страницы. Фон полки ровный,
+   без пятен: цвет дают сами снимки товара.
    =================================================================== */
 .feature-tile {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
   border-radius: var(--gs-r-lg);
   border: 1px solid var(--gs-line);
   background: var(--gs-glass);
   box-shadow: var(--gs-drop), var(--gs-edge);
-  overflow: hidden;
+  overflow: hidden; margin-bottom: 24px;
 }
-.feature-text { padding: 40px 38px; }
-.feature-tile h1 { max-width: 20ch; text-wrap: balance; }
-.feature-tile p { max-width: 44ch; }
+.feature-text { min-width: 0; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
+.feature-tile h1 {
+  margin: 0 0 12px; max-width: 16ch; text-wrap: balance;
+  font-size: clamp(28px, 3.2vw, 40px); line-height: 1.12; font-weight: 600; letter-spacing: -.02em;
+  color: var(--text);
+}
+.feature-tile p { margin: 0 0 24px; max-width: 44ch; font-size: 1rem; line-height: 1.6; color: var(--muted); }
+.feature-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.feature-btns .btn-ghost { padding: 12px 20px; font-size: 0.875rem; }
+
 .feature-img {
-  background: linear-gradient(140deg, rgba(201, 168, 76, .16), rgba(201, 168, 76, .04));
-  border-left: 1px solid var(--gs-line);
+  min-width: 0; padding: 24px;
+  display: flex; flex-direction: column; justify-content: center; gap: 12px;
+  border-left: 1px solid var(--line);
+  background: var(--bg);
 }
-html[data-site-theme="dark"] .feature-img {
-  background: linear-gradient(140deg, rgba(217, 180, 90, .13), rgba(217, 180, 90, .03));
+.feature-img[hidden] { display: none; }
+.hero-shelf-title { font-size: 0.8125rem; font-weight: 500; color: var(--muted); }
+.hero-shelf { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.hero-item {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  padding: 8px 8px 12px; border-radius: 14px;
+  background: var(--white); border: 1px solid var(--line);
+  color: inherit; text-decoration: none;
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.hero-item:hover { border-color: var(--line-strong); box-shadow: 0 8px 20px rgba(16, 24, 40, .08); }
+.hero-item-img {
+  aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden;
+  background: var(--img-bg); display: grid; place-items: center; color: var(--muted);
+}
+.hero-item-img img { width: 100%; height: 100%; object-fit: contain; padding: 8%; }
+.hero-item-name {
+  padding: 0 4px;
+  font-size: 0.8125rem; font-weight: 500; line-height: 1.3; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  min-height: calc(0.8125rem * 1.3 * 2);
+}
+.hero-item-meta { padding: 0 4px; display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; }
+.hero-item-meta .sku-code { font-family: var(--mono); color: var(--muted); }
+.hero-item-meta .product-status { margin: 0; font-size: 0.75rem; gap: 6px; white-space: nowrap; }
+
+/* На средних экранах полка тесная — три плитки вместо четырёх */
+@media (max-width: 1440px) {
+  .hero-shelf { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hero-item:nth-child(n+4) { display: none; }
+}
+
+@media (max-width: 1180px) {
+  .feature-tile { grid-template-columns: 1fr; }
+  .feature-img { border-left: none; border-top: 1px solid var(--line); }
 }
 
 /* ===================================================================
@@ -407,8 +418,8 @@ html[data-site-theme="dark"] .feature-img {
   padding: 12px;
 }
 .cat-rail-title {
-  font-size: 0.6875rem; font-weight: 700; color: var(--muted);
-  padding: 2px 10px 10px;
+  font-size: 0.75rem; font-weight: 500; color: var(--muted);
+  padding: 4px 12px 8px;
 }
 .rail-item {
   border-radius: var(--gs-r-sm);
@@ -417,12 +428,10 @@ html[data-site-theme="dark"] .feature-img {
   transition: background var(--gs-t-hover), color var(--gs-t-hover),
               border-color var(--gs-t-hover), transform var(--gs-t-micro) var(--gs-e-out);
 }
-.rail-item:hover { background: rgba(201, 168, 76, .12); border-color: rgba(201, 168, 76, .22); padding-left: 14px; }
-.rail-item.active {
-  background: linear-gradient(100deg, rgba(201, 168, 76, .26), rgba(201, 168, 76, .08));
-  border-color: rgba(201, 168, 76, .42);
-  box-shadow: none;
-}
+.rail-item:hover { background: rgba(28, 43, 74, .05); }
+html[data-site-theme="dark"] .rail-item:hover { background: rgba(255, 255, 255, .06); }
+.rail-item.active { background: rgba(201, 168, 76, .16); border-color: rgba(160, 120, 40, .30); }
+html[data-site-theme="dark"] .rail-item.active { background: rgba(217, 180, 90, .14); border-color: rgba(217, 180, 90, .30); }
 
 /* ===================================================================
    4. ПАНЕЛЬ НАД СЕТКОЙ
@@ -430,184 +439,143 @@ html[data-site-theme="dark"] .feature-img {
    Слева — сколько товаров показано (и из скольких, если выборка сужена),
    справа — кнопка поиска. Раньше кнопка стояла в пустой строке одна.
    =================================================================== */
-.catalog-toolbar { align-items: center; gap: 12px; margin-bottom: 18px; }
+.catalog-toolbar { align-items: center; gap: 12px; margin-bottom: 16px; min-height: 40px; }
 .catalog-count {
   flex: 1 1 auto; min-width: 0;
-  font-size: 0.8125rem; font-weight: 600; color: var(--muted);
+  font-size: 0.8125rem; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums;
 }
 
 /* ===================================================================
-   5. КАРТОЧКА ТОВАРА — ГЛАВНОЕ МЕСТО НА САЙТЕ
-
-   Покупатель решает по трём вещам: что это (снимок и название), можно ли
-   взять сейчас (наличие) и как это назвать в заказе (код). Карточка
-   построена ровно в этом порядке, и у всех карточек он одинаков —
-   поэтому взгляд не ищет заново на каждой.
-
-   Снимок вписан целиком, а не обрезан: у длинной детали обрезка по
-   центру показала бы середину вместо вещи. Поля вокруг заполняет
-   размытая копия того же снимка (css/site.css).
+   5. КАРТОЧКА ТОВАРА — одно определение на весь сайт
+   Порядок у всех карточек один: снимок, название, код, наличие,
+   кнопка. Снимок вписан целиком (contain) на ровном нейтральном фоне —
+   у поставщиков фото разного цвета и пропорций, фон их выравнивает.
    =================================================================== */
-.product-grid { grid-template-columns: repeat(auto-fill, minmax(252px, 1fr)); gap: 18px; }
+.product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
 
 .product-card {
-  border-radius: var(--gs-r-lg);
-  border: 1px solid var(--gs-line);
-  background: var(--gs-glass);
-  box-shadow: var(--gs-drop), var(--gs-edge);
-  overflow: hidden;
-  transition: transform var(--gs-t-hover) var(--gs-e-out),
-              box-shadow var(--gs-t-hover) var(--gs-e-out),
-              border-color var(--gs-t-hover) var(--gs-e-out);
+  display: flex; flex-direction: column; height: 100%;
+  background: var(--white); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+  overflow: hidden; cursor: default;
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+  /* карточки за экраном браузер может не рисовать — их бывает восемь сотен */
+  content-visibility: auto; contain-intrinsic-size: 340px;
 }
 @media (hover: hover) and (pointer: fine) {
-  .product-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--gs-drop-hi), var(--gs-edge);
-    border-color: rgba(201, 168, 76, .45);
-  }
+  .product-card:hover { border-color: var(--line-strong); box-shadow: 0 8px 24px rgba(16, 24, 40, .08); }
 }
-.product-card:active { transform: scale(.99); transition-duration: 90ms; }
+html[data-site-theme="dark"] .product-card { box-shadow: none; }
 
-/* Снимок — вложенная плитка, а не край карточки: так видно, что это
-   изображение товара, а не фон блока. */
 .product-card-img {
-  margin: 10px 10px 0;
-  border-radius: var(--gs-r-md);
-  overflow: hidden;
-  background: rgba(28, 43, 74, .05);
+  position: relative; flex: none; aspect-ratio: 1 / 1;
+  margin: 8px 8px 0; border-radius: 12px; overflow: hidden;
+  background: var(--img-bg);
 }
-html[data-site-theme="dark"] .product-card-img { background: rgba(255, 255, 255, .04); }
+.product-card-img img { display: block; width: 100%; height: 100%; object-fit: contain; padding: 8%; cursor: zoom-in; }
+.product-card-img-placeholder {
+  width: 100%; height: 100%; aspect-ratio: 1 / 1;
+  display: grid; place-items: center;
+  background: var(--img-bg); color: var(--muted);
+}
 
-/* Метки поверх снимка — только про рекламу: «Новинка» и «Хит».
-   Наличие ушло в тело карточки (см. ниже). */
-.product-badges { top: 8px; left: 8px; right: 8px; gap: 6px; }
+/* Метки поверх снимка: «Новинка», «Хит недели» (на телефоне ещё наличие) */
+.product-badges {
+  position: absolute; top: 8px; left: 8px; right: 8px; z-index: 2;
+  display: flex; flex-wrap: wrap; gap: 4px;
+  justify-content: space-between; align-items: flex-start;
+  pointer-events: none;
+}
 .product-badge {
-  border-radius: var(--gs-r-pill);
-  padding: 4px 10px;
-  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0;
-  box-shadow: 0 4px 12px rgba(16, 24, 40, .18);
+  padding: 4px 8px; border-radius: 6px;
+  font-size: 0.75rem; font-weight: 500; line-height: 1.25; color: #fff;
 }
-/* Прежний бейдж наличия поверх снимка — только для телефона. На
-   компьютере наличие показывает строка в теле карточки. */
+.product-badge.new-badge { background: var(--navy); }
+.product-badge.hit-badge { background: var(--brass); }
+html[data-site-theme="dark"] .product-badge.hit-badge { background: #2a2418; color: var(--gold-l); border: 1px solid rgba(217, 180, 90, .35); }
 .product-badge.старый { display: none; }
-.product-badge.new-badge { background: var(--gold); color: #1f1a0c; }
-.product-badge.hit-badge { background: rgba(232, 129, 12, .95); color: #fff; }
+.product-badge.in-stock  { background: #15803d; }
+.product-badge.soon      { background: #b45309; }
+.product-badge.out-stock { background: #556070; }
 
-.product-card-body { padding: 12px 14px 14px; gap: 0; }
-/* Название — максимум две строки: иначе карточки в ряду разной высоты,
-   а длинное имя вытесняет наличие и кнопку за край. */
+/* Сколько снимков в галерее */
+.photo-count {
+  position: absolute; left: 8px; bottom: 8px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 6px;
+  background: rgba(255, 255, 255, .92); border: 1px solid var(--line); color: var(--text);
+  font-size: 0.75rem; font-weight: 500; font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.photo-count svg { color: var(--muted); }
+html[data-site-theme="dark"] .photo-count { background: rgba(20, 20, 25, .9); }
+
+.product-card-body { flex: 1; display: flex; flex-direction: column; padding: 12px 16px 16px; }
+/* Название — две строки всегда: наличие и кнопка в ряду стоят на одной высоте */
 .product-name {
-  font-size: 0.9375rem; font-weight: 650; line-height: 1.33;
-  margin-bottom: 3px;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden;
-  overflow-wrap: anywhere;      /* «HTD-5M-450-15» не должен рвать карточку */
-  /* Две строки под название всегда, даже если имя короткое: тогда
-     наличие и кнопка стоят на одной высоте во всех карточках ряда, и
-     глаз сравнивает товары, а не ищет, где что. */
-  min-height: calc(0.9375rem * 1.33 * 2);
+  margin-bottom: 4px;
+  font-size: 0.9375rem; font-weight: 500; line-height: 1.35; color: var(--text); text-decoration: none;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  overflow-wrap: anywhere;
+  min-height: calc(0.9375rem * 1.35 * 2);
 }
-.product-category { font-size: 0.75rem; color: var(--muted); margin-bottom: 9px; }
+a.product-name:hover { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.product-category { margin-bottom: 8px; font-size: 0.75rem; color: var(--muted); }
 
-/* ---- Код товара: его диктуют в заказе, поэтому он кнопка ---- */
-.product-sku {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  margin-bottom: 10px; font-size: 0.75rem;
-}
+/* Код товара — кнопка: его диктуют в заказе, нажатие копирует */
+.product-sku { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: 0.75rem; }
 .sku-copy {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 9px; cursor: pointer;
-  font-family: inherit; font-size: 0.75rem; font-weight: 700;
-  letter-spacing: .01em; color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--gs-r-pill);
-  background: rgba(255, 255, 255, .5);
-  transition: background var(--gs-t-hover), border-color var(--gs-t-hover),
-              color var(--gs-t-hover), transform var(--gs-t-micro) var(--gs-e-spring);
+  padding: 4px 8px; cursor: pointer;
+  font-family: var(--mono); font-size: 0.75rem; font-weight: 500; color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px; background: transparent;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
 }
-html[data-site-theme="dark"] .sku-copy { background: rgba(255, 255, 255, .06); }
-.sku-copy:hover { border-color: var(--gold); background: rgba(201, 168, 76, .14); }
-.sku-copy:active { transform: scale(.95); transition-duration: 90ms; }
-.sku-copy .sku-ic { opacity: .55; flex: none; }
-.sku-copy:hover .sku-ic { opacity: 1; }
-.sku-copy.скопировано {
-  border-color: var(--success); color: var(--success);
-  background: rgba(34, 197, 94, .12);
-}
-.sku-copy.скопировано .sku-ic { opacity: 1; }
-.sku-vendor { color: var(--muted); }
+.sku-copy:hover { border-color: var(--line-strong); background: var(--bg); }
+.sku-copy:active { transform: scale(.97); }
+.sku-copy .sku-ic { flex: none; color: var(--muted); }
+.sku-copy.скопировано { border-color: var(--ok); color: var(--ok); }
+.sku-copy.скопировано .sku-ic { color: var(--ok); }
+.sku-vendor { color: var(--muted); font-family: var(--mono); }
 
-/* ---- Наличие: одна строка, одно место на всех карточках ---- */
-.product-status {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 0.8125rem; font-weight: 600;
-  margin-bottom: 12px;
-}
-.product-status .status-dot {
-  width: 8px; height: 8px; border-radius: 50%; flex: none;
-  background: currentColor;
-}
-.product-status.есть  { color: #15803d; }
-.product-status.скоро { color: #b45309; }
+/* Наличие — строка с точкой, одно место на всех карточках */
+.product-status { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.8125rem; font-weight: 500; }
+.product-status .status-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: currentColor; }
+.product-status.есть  { color: var(--ok); }
+.product-status.скоро { color: var(--soon); }
 .product-status.нет   { color: var(--muted); }
-html[data-site-theme="dark"] .product-status.есть  { color: #4ade80; }
-html[data-site-theme="dark"] .product-status.скоро { color: #fbbf24; }
-/* Точка «есть в наличии» с лёгким ореолом — единственное место, где он
-   уместен: это и есть ответ на главный вопрос покупателя. */
-.product-status.есть .status-dot { box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
 
-.product-card-footer { padding-top: 0; }
+.product-card-footer { margin-top: auto; }
 .btn-add-cart {
-  border-radius: var(--gs-r-pill);
-  font-size: 0.8125rem; font-weight: 700;
-  transition: background var(--gs-t-hover), color var(--gs-t-hover),
-              border-color var(--gs-t-hover), transform var(--gs-t-hover) var(--gs-e-out);
+  width: 100%; min-height: 40px; padding: 8px 12px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid transparent; border-radius: 10px; cursor: pointer;
+  font-family: inherit; font-size: 0.8125rem; font-weight: 600;
+  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
+              border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
 }
-.btn-add-cart:hover:not(:disabled) { transform: translateY(-1.5px); }
-.btn-add-cart:active:not(:disabled) { transform: scale(.96); transition-duration: 90ms; }
-.btn-add-cart.unavailable, .btn-add-cart.soon-btn { opacity: .75; }
+.btn-add-cart:active:not(:disabled) { transform: scale(.98); }
+.btn-add-cart.available { background: var(--gold); color: var(--navy-d); }
+.btn-add-cart.available:hover { background: var(--gold-l); }
+.btn-add-cart.need-login { background: transparent; color: var(--navy); border-color: var(--navy); }
+.btn-add-cart.need-login:hover { background: rgba(28, 43, 74, .06); }
+html[data-site-theme="dark"] .btn-add-cart.need-login:hover { background: rgba(217, 180, 90, .10); }
+.btn-add-cart.unavailable { background: var(--bg2); color: var(--muted); cursor: not-allowed; }
+.btn-add-cart.soon-btn { background: transparent; color: var(--soon); border-color: rgba(180, 83, 9, .35); cursor: not-allowed; }
+html[data-site-theme="dark"] .btn-add-cart.soon-btn { border-color: rgba(251, 191, 36, .35); }
 
-/* Карточка без снимка не должна выглядеть сломанной. */
-.product-card-img-placeholder {
-  background: repeating-linear-gradient(135deg,
-    rgba(28, 43, 74, .035) 0 10px, rgba(28, 43, 74, .07) 10px 20px);
-  color: var(--muted);
-}
-html[data-site-theme="dark"] .product-card-img-placeholder {
-  background: repeating-linear-gradient(135deg,
-    rgba(255, 255, 255, .03) 0 10px, rgba(255, 255, 255, .06) 10px 20px);
-}
+/* Скелетоны — той же формы, что и карточки */
+.skeleton-img { margin: 8px 8px 0; border-radius: 12px; width: auto; }
+.skeleton-btn { border-radius: 10px; }
 
-/* Скелетоны — той же формы, что и карточки, иначе при загрузке сетка «прыгает». */
-.skeleton-card {
-  border-radius: var(--gs-r-lg);
-  border: 1px solid var(--gs-line);
-  background: var(--gs-glass);
-  box-shadow: var(--gs-drop), var(--gs-edge);
-}
-.skeleton-img { margin: 10px 10px 0; border-radius: var(--gs-r-md); width: auto; }
-.skeleton-btn { border-radius: var(--gs-r-pill); }
-
-/* Пусто — это ответ программы, а не сбой отрисовки. */
+/* Пусто — это ответ программы, а не сбой отрисовки */
 .s-empty {
   border-radius: var(--gs-r-lg);
   border: 1px solid var(--gs-line);
   background: var(--gs-glass);
   box-shadow: var(--gs-drop), var(--gs-edge);
-  padding: 46px 24px;
+  padding: 48px 24px;
 }
-
-/* ===================================================================
-   6. КОРЗИНА И ОКНА
-   =================================================================== */
-.cart-drawer {
-  border-radius: var(--gs-r-lg) 0 0 var(--gs-r-lg);
-  border-left: 1px solid var(--gs-line);
-  background: var(--gs-glass);
-  backdrop-filter: var(--gs-blur); -webkit-backdrop-filter: var(--gs-blur);
-  box-shadow: -20px 0 60px rgba(28, 43, 74, .18), var(--gs-edge);
-}
-.cart-overlay { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 
 /* ===================================================================
    7. ТЕЛЕФОН
@@ -625,8 +593,8 @@ html[data-site-theme="dark"] .product-card-img-placeholder {
   transition: color var(--gs-t-hover), border-color var(--gs-t-hover),
               background var(--gs-t-hover), transform var(--gs-t-micro) var(--gs-e-spring);
 }
-.gm-search-cat .gm-search-btn:hover { color: var(--navy); border-color: var(--navy); transform: scale(1.06); }
-.gm-search-cat .gm-search-btn:active { transform: scale(.93); transition-duration: 90ms; }
+.gm-search-cat .gm-search-btn:hover { color: var(--navy); border-color: var(--navy); }
+.gm-search-cat .gm-search-btn:active { transform: scale(.95); }
 .gm-search-cat.open .gm-search-btn { color: var(--navy); border-color: var(--navy); }
 
 /* Анимируем ширину одного элемента — соседей двигает сама строка
@@ -665,9 +633,7 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
 }
 .auth-side { border-radius: 0; }
 .auth-side-btn, .btn-primary, .s-input, .gm-pass-input { border-radius: var(--gs-r-sm); }
-.btn-primary { transition: transform var(--gs-t-hover) var(--gs-e-out), filter var(--gs-t-hover), box-shadow var(--gs-t-hover); }
-.btn-primary:hover { transform: translateY(-1.5px); }
-.btn-primary:active { transform: scale(.97); transition-duration: 90ms; }
+.btn-primary:active { transform: scale(.97); }
 .btn-primary:disabled { transform: none; }
 
 /* Поле в фокусе — заметно, но спокойно. */
@@ -746,7 +712,7 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
    =================================================================== */
 .gm-code-form { gap: 16px; }
 .gm-code-head { text-align: center; }
-.gm-code-title { font-size: 1.125rem; font-weight: 700; margin-bottom: 6px; }
+.gm-code-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 8px; }
 
 .gm-code {
   display: flex; justify-content: center; gap: 8px;
@@ -754,7 +720,7 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
 }
 .gm-code-cell {
   width: 46px; height: 56px; flex: 0 0 auto;
-  text-align: center; font-size: 1.5rem; font-weight: 700;
+  text-align: center; font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums;
   color: var(--text); caret-color: var(--navy);
   border: 1.5px solid var(--border); border-radius: var(--gs-r-md);
   background: var(--white); outline: none;
@@ -764,7 +730,6 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
 .gm-code-cell:focus {
   border-color: var(--navy);
   box-shadow: 0 0 0 3px rgba(28, 43, 74, .12);
-  transform: translateY(-2px);
 }
 .gm-code-cell:disabled { opacity: .7; }
 
@@ -827,7 +792,7 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
 @keyframes gmЧертить { to { stroke-dashoffset: 0; } }
 
 .gm-ok-text {
-  font-size: 0.9375rem; font-weight: 700; color: var(--text);
+  font-size: 0.9375rem; font-weight: 600; color: var(--text);
   opacity: 0; transform: translateY(6px);
 }
 .gm-ok.show .gm-ok-text { animation: gmПодписьВышла .35s var(--gs-e-out) .72s forwards; }
@@ -872,7 +837,6 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
   .gm-ok .gm-ok-ring { transform: none; }
   .gm-ok .gm-ok-c, .gm-ok .gm-ok-v { stroke-dashoffset: 0; }
   .gm-ok .gm-ok-text { opacity: 1; transform: none; }
-  .gm-search-cat .gm-search-btn:hover, .btn-primary:hover { transform: none; }
 }
 
 @media (prefers-contrast: more) {
@@ -908,14 +872,14 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
     box-shadow: 0 2px 12px rgba(28, 43, 74, .07);
   }
   .site-header-inner {
-    height: 56px; padding: 0 14px;
+    height: 56px; padding: 0 12px;
     border: none; border-radius: 0; background: none; box-shadow: none;
     max-width: none;
   }
   .site-header-inner::before { display: none; }   /* стеклянный слой не нужен */
   .site-logo { height: auto; padding: 0; }
   .site-logo::before { display: none; }
-  .site-main { padding: 20px 14px 50px; }
+  .site-main { padding: 16px 16px 48px; }
 
   /* Поиск в каталоге — снова открытой строкой во всю ширину. */
   .gm-search-cat { flex: 1 1 100%; }
@@ -923,38 +887,26 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
   .gm-search-cat .gm-search-btn { display: none; }
   .catalog-count { flex: 1 1 100%; order: -1; }
 
-  /* Карточка товара — прежняя: бейдж наличия поверх снимка, код и
-     артикул обычной подписью, без таблетки и кнопки копирования. */
-  .product-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
-  .product-card { border-radius: var(--radius); box-shadow: var(--shadow); }
-
-  /* БЕЗ РАЗМЫТИЯ НА КАРТОЧКАХ.
-
-     backdrop-filter заставляет браузер держать для КАЖДОЙ карточки
-     отдельный слой со снимком того, что под ней. Пока карточек полсотни,
-     это незаметно; на странице «Заказать» их почти тысяча — и Safari на
-     телефоне убивал вкладку: «На странице повторно возникла проблема».
-     Карточки и так лежат на ровном фоне сетки, размывать там нечего.
-
-     Это тот же приём, которым в css/site.css уже сняли размытие с бейджа
-     наличия — ровно по той же причине. Вид берём готовый: такой же, как в
-     запасном варианте для браузеров без backdrop-filter. */
-  .product-card, .skeleton-card {
-    backdrop-filter: none; -webkit-backdrop-filter: none;
-    background: var(--white); border-color: var(--border);
-  }
+  /* Карточка на телефоне: снимок во всю ширину, наличие меткой на снимке,
+     код обычной подписью. */
+  .product-grid { grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 12px; }
   .product-card-img { margin: 0; border-radius: 0; }
-  .product-card-body { padding: 12px 13px 14px; }
+  .product-card-body { padding: 12px; }
+  .product-name { min-height: 0; font-size: 0.875rem; }
+  .product-badge { padding: 4px 6px; font-size: 0.6875rem; }
   .product-badge.старый { display: inline-flex; }
   .product-status { display: none; }
-  .product-name { min-height: 0; }
-  .sku-copy {
-    border: none; background: none; padding: 0;
-    font-weight: 600; color: var(--muted); cursor: text;
-  }
+  .sku-copy { border: none; background: none; padding: 0; color: var(--muted); cursor: text; }
   .sku-copy .sku-ic { display: none; }
-  .product-sku { gap: 6px; margin-bottom: 8px; }
-  .sku-vendor { display: inline; }
+  .product-sku { gap: 8px; margin-bottom: 8px; }
+
+  /* Первый экран на телефоне: короткая витрина, сразу под ней — товар */
+  .feature-tile { border-radius: 16px; margin-bottom: 16px; }
+  .feature-text { padding: 20px; }
+  .feature-tile h1 { font-size: 1.5rem; max-width: none; margin-bottom: 8px; }
+  .feature-tile p { font-size: 0.9375rem; line-height: 1.5; margin-bottom: 16px; }
+  .feature-btns .btn-ghost { display: none; }
+  .feature-img { display: none; }
 }
 
 /* ===================================================================
@@ -1040,7 +992,7 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
 
 /* Разворот: экран приходит из глубины, а не подменяется рывком. */
 @keyframes gmПроверкаПриходит {
-  from { opacity: 0; transform: scale(.97); filter: blur(6px); }
+  from { opacity: 0; transform: scale(.98); }
 }
 
 /* Ячейкам — полная величина и воздух между ними.

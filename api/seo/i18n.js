@@ -80,7 +80,16 @@ export const T = {
     titleSuffix: "купить в Узбекистане",
     notFound: "Страница не найдена", notFoundText: "Такой страницы нет. Посмотрите каталог — возможно, товар переехал в другую категорию.",
     contacts: "Контакты", openStore: "Открыть магазин",
-    prodDesc: (p, cat) => `${p.name} — ${cat.toLowerCase()} в магазине GENERAL MODERN. Код ${p.code}${p.sku ? ", артикул " + p.sku : ""}. ${p.statusText}. Фото, наличие и заказ онлайн.`,
+    // Описание товара собирается из фактов: что это, к каким машинам,
+    // код для заказа и что делать при текущем наличии. Первые 158 знаков
+    // идут в meta description — поэтому самое важное стоит в начале.
+    prodDesc: (p, cat) => [
+      `${p.name} — ${cat.toLowerCase()}${p.ov?.compat ? ", подходит: " + p.ov.compat : p.mentions?.length ? " для машин " + p.mentions.join(", ") : ""}.`,
+      `Код ${p.code}${p.sku ? ", артикул " + p.sku : ""} — назовите его при заказе.`,
+      p.status === "in_stock" ? "Есть в наличии в Ташкенте; цену называем после заявки."
+        : p.status === "soon" ? "Скоро поступит — заявку можно оставить заранее."
+        : "Сейчас нет в наличии — срок поставки уточните в Telegram.",
+    ].join(" "),
     catIntro: (name, n, k) => `${name} в магазине GENERAL MODERN: ${n} ${plural(n, "позиция", "позиции", "позиций")}, из них ${k} в наличии. У каждого товара — фотографии, код и артикул, чтобы деталь можно было сверить с вашей. Заказ — на сайте или через Telegram-бот.`,
     catTitle: (name) => `${name} — купить в Узбекистане | GENERAL MODERN`,
     catDesc: (name, n) => `${name}: ${n} ${plural(n, "позиция", "позиции", "позиций")} с фото, кодом и артикулом. Наличие на складе, заказ онлайн. GENERAL MODERN, Узбекистан.`,
@@ -106,7 +115,13 @@ export const T = {
     titleSuffix: "O‘zbekistonda sotib olish",
     notFound: "Sahifa topilmadi", notFoundText: "Bunday sahifa yo‘q. Katalogni ko‘ring — mahsulot boshqa toifaga o‘tgan bo‘lishi mumkin.",
     contacts: "Aloqa", openStore: "Do‘konni ochish",
-    prodDesc: (p, cat) => `${p.name} — GENERAL MODERN do‘konida ${cat.toLowerCase()}. Kod ${p.code}${p.sku ? ", artikul " + p.sku : ""}. ${p.statusText}. Rasmlar, mavjudlik va onlayn buyurtma.`,
+    prodDesc: (p, cat) => [
+      `${p.name} — ${cat.toLowerCase()}${p.ov?.compat ? ", mos keladi: " + p.ov.compat : p.mentions?.length ? ", " + p.mentions.join(", ") + " mashinalari uchun" : ""}.`,
+      `Kod ${p.code}${p.sku ? ", artikul " + p.sku : ""} — buyurtmada shu kodni ayting.`,
+      p.status === "in_stock" ? "Toshkentda mavjud; narxni buyurtmadan keyin aytamiz."
+        : p.status === "soon" ? "Tez orada keladi — buyurtmani oldindan qoldirish mumkin."
+        : "Hozir mavjud emas — yetkazib berish muddatini Telegramda so‘rang.",
+    ].join(" "),
     catIntro: (name, n, k) => `GENERAL MODERN do‘konida ${name.toLowerCase()}: ${n} ta pozitsiya, shundan ${k} tasi mavjud. Har bir mahsulotda rasm, kod va artikul bor — detalni o‘zingiznikiga solishtirish oson. Buyurtma — saytda yoki Telegram-bot orqali.`,
     catTitle: (name) => `${name} — O‘zbekistonda sotib olish | GENERAL MODERN`,
     catDesc: (name, n) => `${name}: rasm, kod va artikul bilan ${n} ta pozitsiya. Ombordagi mavjudlik, onlayn buyurtma. GENERAL MODERN, O‘zbekiston.`,
@@ -132,7 +147,13 @@ export const T = {
     titleSuffix: "buy in Uzbekistan",
     notFound: "Page not found", notFoundText: "This page does not exist. Browse the catalog — the product may have moved to another category.",
     contacts: "Contacts", openStore: "Open the store",
-    prodDesc: (p, cat) => `${p.name} — ${cat.toLowerCase()} at GENERAL MODERN. Code ${p.code}${p.sku ? ", part number " + p.sku : ""}. ${p.statusText}. Photos, availability and online ordering.`,
+    prodDesc: (p, cat) => [
+      `${p.name} — ${cat.toLowerCase()}${p.ov?.compat ? ", fits: " + p.ov.compat : p.mentions?.length ? " for " + p.mentions.join(", ") + " machines" : ""}.`,
+      `Code ${p.code}${p.sku ? ", part number " + p.sku : ""} — quote it when ordering.`,
+      p.status === "in_stock" ? "In stock in Tashkent; we quote the price after your request."
+        : p.status === "soon" ? "Coming soon — you can place a request in advance."
+        : "Out of stock now — ask about delivery time on Telegram.",
+    ].join(" "),
     catIntro: (name, n, k) => `${name} at GENERAL MODERN: ${n} items, ${k} of them in stock. Every product has photos, a code and a part number so you can match the part with yours. Order on the website or via our Telegram bot.`,
     catTitle: (name) => `${name} — buy in Uzbekistan | GENERAL MODERN`,
     catDesc: (name, n) => `${name}: ${n} items with photos, codes and part numbers. Stock availability and online ordering. GENERAL MODERN, Uzbekistan.`,

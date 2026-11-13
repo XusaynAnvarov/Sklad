@@ -58,7 +58,7 @@ export async function renderAdminPanel(container) {
       <h1 class="ap-title">Панель администратора</h1>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn-ghost" id="ap-change-pass" style="padding:8px 14px;font-size:13px;font-weight:600">🔒 Сменить мой пароль</button>
+      <button class="btn-ghost" id="ap-change-pass" style="padding:8px 14px;font-size:13px;font-weight:600">Сменить мой пароль</button>
       <a href="/admin" class="btn-warehouse">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
         Открыть склад
@@ -73,7 +73,7 @@ export async function renderAdminPanel(container) {
     ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px";
     const card = mkEl("div");
     card.style.cssText = "background:var(--bg,#fff);border-radius:14px;padding:22px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)";
-    card.innerHTML = `<h3 style="margin:0 0 14px;font-size:17px">🔒 Сменить мой пароль</h3>`;
+    card.innerHTML = `<h3 style="margin:0 0 14px;font-size:17px">Сменить мой пароль</h3>`;
     const mk = (ph) => { const i = document.createElement("input"); i.type = "password"; i.placeholder = ph; i.className = "search-input"; i.style.cssText = "display:block;width:100%;box-sizing:border-box;margin-bottom:10px;padding:9px 12px"; return i; };
     const cur = mk("Текущий пароль"), np = mk("Новый пароль (мин. 6)"), np2 = mk("Повторите новый пароль");
     const err = mkEl("div"); err.style.cssText = "color:var(--err,#dc2626);font-size:13px;margin-bottom:8px;display:none";
@@ -211,7 +211,7 @@ export async function renderAdminPanel(container) {
           (c.origin === "warehouse"
             ? "background:#fef3c7;color:#92400e"
             : "background:#dbeafe;color:#1e40af");
-        origin.textContent = c.origin === "warehouse" ? "🏪 был в складе" : "🌐 с сайта";
+        origin.textContent = c.origin === "warehouse" ? "был в складе" : "с сайта";
         nameEl.append(origin);
 
         const metaEl = mkEl("div", "ap-client-meta");
@@ -224,7 +224,7 @@ export async function renderAdminPanel(container) {
           metaEl.append(ns);
         }
         if (c.tg_verified) {
-          const tg = mkEl("span", "ap-verified"); tg.textContent = " · Telegram ✓";
+          const tg = mkEl("span", "ap-verified"); tg.textContent = " · Telegram подтверждён";
           metaEl.append(tg);
         }
         info.append(nameEl, metaEl);
@@ -251,7 +251,7 @@ export async function renderAdminPanel(container) {
         // Кнопка «Кабинет клиента» (просмотр того, что видит клиент)
         const openBtn = mkEl("button", "btn-primary");
         openBtn.style.cssText = "padding:6px 12px;font-size:12px;font-weight:600";
-        openBtn.textContent = "👁 Кабинет клиента";
+        openBtn.textContent = "Кабинет клиента";
         openBtn.addEventListener("click", () => openClientDetail(c, row));
 
         // Кнопка «Заказы»
@@ -349,7 +349,7 @@ export async function renderAdminPanel(container) {
       if (o.status !== "final" && o.status !== "confirmed") {
         const okBtn = mkEl("button", "btn-primary");
         okBtn.style.cssText = "padding:6px 12px;font-size:12px;font-weight:600";
-        okBtn.textContent = "✅ Подтвердить";
+        okBtn.textContent = "Подтвердить";
         okBtn.addEventListener("click", async () => {
           okBtn.disabled = true;
           try {
@@ -397,7 +397,7 @@ export async function renderAdminPanel(container) {
     // Баннер: это «кабинет клиента» — то, что видит сам клиент
     const banner = mkEl("div");
     banner.style.cssText = "display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--navy);background:rgba(28,43,74,.06);border-radius:8px;padding:8px 12px;margin-bottom:12px";
-    banner.textContent = "👁 Кабинет клиента — то, что видит сам клиент (долг, заказы, оплаты, накладные)";
+    banner.textContent = "Кабинет клиента — то, что видит сам клиент (долг, заказы, оплаты, накладные)";
     box.append(banner);
 
     // Шапка карточки: имя + долг + ник-редактор + сброс пароля
@@ -405,7 +405,7 @@ export async function renderAdminPanel(container) {
     head.style.cssText = "display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px";
     const title = mkEl("div");
     title.innerHTML = `<div style="font-weight:700;font-size:16px">${esc(c.name || c.phone)}</div>
-      <div style="font-size:13px;color:var(--muted)">+998 ${esc(c.phone)} · ${c.origin === "warehouse" ? "🏪 был в складе" : "🌐 с сайта"}</div>`;
+      <div style="font-size:13px;color:var(--muted)">+998 ${esc(c.phone)} · ${c.origin === "warehouse" ? "был в складе" : "с сайта"}</div>`;
     const debtBig = mkEl("div");
     debtBig.style.cssText = "font-weight:700;" + (hasDebt(d.debt) ? "color:var(--err,#c0392b)" : "color:var(--ok,#27ae60)");
     debtBig.textContent = hasDebt(d.debt) ? "Долг: " + fmtDebt(d.debt) : "Нет долга";
@@ -457,7 +457,7 @@ export async function renderAdminPanel(container) {
     // Сброс пароля
     const pwRow = mkEl("div"); pwRow.style.cssText = "margin-bottom:16px";
     const pwBtn = mkEl("button", "btn-ghost"); pwBtn.style.cssText = "padding:6px 12px;font-size:12px";
-    pwBtn.textContent = "🔑 Сбросить пароль клиенту";
+    pwBtn.textContent = "Сбросить пароль клиенту";
     pwBtn.addEventListener("click", async () => {
       const np = prompt(`Новый пароль для «${c.name || c.phone}» (минимум 6 символов):`);
       if (np == null) return;
@@ -467,7 +467,7 @@ export async function renderAdminPanel(container) {
     });
     // Войти как этот клиент (тест клиентского опыта) — без пароля/кода
     const impBtn = mkEl("button", "btn-primary"); impBtn.style.cssText = "padding:6px 12px;font-size:12px;font-weight:600;margin-left:8px";
-    impBtn.textContent = "🔓 Войти как этот клиент (тест)";
+    impBtn.textContent = "Войти как этот клиент (тест)";
     impBtn.addEventListener("click", async () => {
       try {
         const r = await req("POST", "/admin-site/impersonate", { account_id: c.id });
@@ -566,7 +566,7 @@ export async function renderAdminPanel(container) {
 
     body.innerHTML = "";
     const grid = mkEl("div"); grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px";
-    grid.append(reportGroupCard("🌐 Клиенты с сайта", rep.site), reportGroupCard("🏪 Были в складе", rep.warehouse));
+    grid.append(reportGroupCard("Клиенты с сайта", rep.site), reportGroupCard("Были в складе", rep.warehouse));
     body.append(grid);
   }
 
