@@ -12,12 +12,12 @@
 //  раздела сайта есть анимация с filter, а при ней position: fixed внутри
 //  раздела перестаёт работать.
 // ========================================================================
-import { api } from "./api.js?v=20261113b";
-import { sToast, t, getLang } from "./app.js?v=20261113b";
-import { thumb, full } from "../img.js?v=20261113b";
-import { подходит } from "../productsearch.js?v=20261113b";
-import { компакт } from "../searchnorm.js?v=20261113b";
-import { т, задатьЯзык, кол, заЕд, единица, money, dt, dtm } from "./cabinet-i18n.js?v=20261113b";
+import { api } from "./api.js?v=20261113c";
+import { sToast, t, getLang } from "./app.js?v=20261113c";
+import { thumb, full } from "../img.js?v=20261113c";
+import { подходит } from "../productsearch.js?v=20261113c";
+import { компакт } from "../searchnorm.js?v=20261113c";
+import { т, задатьЯзык, кол, заЕд, единица, money, dt, dtm } from "./cabinet-i18n.js?v=20261113c";
 
 const CURS = ["som", "usd", "yuan"];
 const MOB = matchMedia("(max-width: 760px)");
@@ -916,7 +916,7 @@ async function скачатьExcel(id, btn) {
   const main = CURS.find(c => Math.abs(inv.totals[c] || 0) >= порог(c)) || "som";
   if (btn) btn.disabled = true;
   try {
-    const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20261113b");
+    const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20261113c");
     await exportClientInvoiceExcel({
       id: inv.id, date: inv.date, currency: main,
       items: inv.items.map(it => ({ product_name: имя(it), photo: it.photo, qty: it.qty, unit_price: it.unit_price, currency: it.currency })),
