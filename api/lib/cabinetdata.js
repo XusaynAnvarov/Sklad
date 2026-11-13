@@ -41,7 +41,7 @@ function позиция(it, s, товары) {
   const currency = it.currency || s.currency || "som";
   return {
     product_id: it.product_id || null,
-    name: (p && p.name) || it.name || "Товар удалён из каталога",
+    name: (p && p.name) || it.name || "",
     photo: (p && p.photo) || null,
     sku: (p && p.sku) || "",
     unit: (p && p.unit) || "шт",
