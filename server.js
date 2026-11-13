@@ -61,6 +61,8 @@ const routes = [
   [["GET"],   "/api/client/invoices",         "./api/client/invoices.js"],
   [["GET"],   "/api/client/payments",         "./api/client/payments.js"],
   [["GET"],   "/api/client/invoice-pdf",      "./api/client/invoice-pdf.js"],
+  [["GET"],   "/api/client/cabinet",          "./api/client/cabinet.js"],
+  [["POST"],  "/api/client/ask",              "./api/client/ask.js"],
   // заказ
   [["POST"],  "/api/site-order",              "./api/site-order.js"],
   // мини-приложение заказа: свои заказы, правка, отмена, ответ на цену

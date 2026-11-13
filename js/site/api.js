@@ -48,6 +48,8 @@ export const api = {
   login: (phone, code, password) => req("POST", "/client/login", { phone, code, password, device_id: getDeviceId() }),
 
   // кабинет
+  cabinet: () => req("GET", "/client/cabinet"),
+  ask: (text, product_id) => req("POST", "/client/ask", { text, product_id }),
   me: () => req("GET", "/client/me"),
   orders: () => req("GET", "/client/orders"),
   invoices: () => req("GET", "/client/invoices"),

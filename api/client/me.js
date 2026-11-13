@@ -5,7 +5,10 @@ import { sget , okId } from "../lib/supa.js";
 function debtAndTurnover(sales, payments, customer) {
   const debt = { som: 0, usd: 0, yuan: 0 };
   const turn = { som: 0, usd: 0, yuan: 0 };
-  (sales || []).forEach(s =>
+  // Только выданные накладные (как в акте сверки и в «Накладных»): заказ без
+  // цены, ожидающий подтверждения или отменённый клиент ещё не должен.
+  // Раньше сюда шли все строки, и долг в профиле расходился с накладными.
+  (sales || []).filter(s => !s.status || s.status === "final").forEach(s =>
     (s.items || []).forEach(it => {
       const c = it.currency || s.currency;
       if (turn[c] === undefined) return;
