@@ -5,7 +5,7 @@
 //  языка сайт перерисовывает раздел, и кабинет сразу говорит на новом.
 //  Чего нет в узбекском или английском, показывается по-русски.
 // ========================================================================
-import { подпись, заЕдиницу } from "../unit.js?v=20261113c";
+import { подпись, заЕдиницу } from "../unit.js?v=20261113d";
 
 let L = "ru";
 export const задатьЯзык = (l) => { L = ["ru", "uz", "en"].includes(l) ? l : "ru"; };
@@ -133,6 +133,8 @@ const СЛ = {
     payHistory: "История платежей", date: "Дата", amount: "Сумма", note: "Примечание",
     contacts: "Контакты", edit: "Изменить", cancel: "Отмена", namePh: "Имя или название фирмы", nameAria: "Имя",
     phonePh: "Телефон (+998…)", phoneAria: "Телефон", save: "Сохранить",
+    codePh: "Код из Telegram (6 цифр)", codeAria: "Код подтверждения", codeResend: "Отправить код ещё раз", codeNeed: "Введите 6 цифр кода из Telegram",
+    codeSent: "Мы отправили код в Telegram нового номера. Введите его и нажмите «Сохранить».", codeNeedBot: "Новый номер ещё не подтверждён в Telegram. С Telegram этого номера откройте бота, нажмите /start и «Поделиться номером», затем сохраните снова.", codeOpenBot: "Открыть бота",
     changePass: "Сменить пароль", curPass: "Текущий пароль", newPass: "Новый пароль (минимум 6 символов)", newPassAria: "Новый пароль", newPass2: "Повторите новый пароль",
     writeManager: "Написать менеджеру", msgPh: "Например: нужна шпулька BC-DB1, 50 пачек — есть в наличии?", msgAria: "Сообщение",
     msgNote: "Сообщение придёт менеджеру в Telegram вместе с вашим именем и телефоном", send: "Отправить",
@@ -229,6 +231,8 @@ const СЛ = {
     payHistory: "To‘lovlar tarixi", date: "Sana", amount: "Summa", note: "Izoh",
     contacts: "Kontaktlar", edit: "O‘zgartirish", cancel: "Bekor qilish", namePh: "Ism yoki firma nomi", nameAria: "Ism",
     phonePh: "Telefon (+998…)", phoneAria: "Telefon", save: "Saqlash",
+    codePh: "Telegram’dagi kod (6 raqam)", codeAria: "Tasdiqlash kodi", codeResend: "Kodni qayta yuborish", codeNeed: "Telegram’dagi 6 xonali kodni kiriting",
+    codeSent: "Kodni yangi raqamning Telegram’iga yubordik. Uni kiriting va «Saqlash»ni bosing.", codeNeedBot: "Yangi raqam hali Telegram’da tasdiqlanmagan. Shu raqamning Telegram’idan botni oching, /start va «Raqamni yuborish»ni bosing, so‘ng qayta saqlang.", codeOpenBot: "Botni ochish",
     changePass: "Parolni o‘zgartirish", curPass: "Joriy parol", newPass: "Yangi parol (kamida 6 belgi)", newPassAria: "Yangi parol", newPass2: "Yangi parolni takrorlang",
     writeManager: "Menejerga yozish", msgPh: "Masalan: BC-DB1 shpulkasi kerak, 50 pachka — bormi?", msgAria: "Xabar",
     msgNote: "Xabar menejerga Telegram orqali ismingiz va telefoningiz bilan boradi", send: "Yuborish",
@@ -325,6 +329,8 @@ const СЛ = {
     payHistory: "Payment history", date: "Date", amount: "Amount", note: "Note",
     contacts: "Contacts", edit: "Edit", cancel: "Cancel", namePh: "Name or company name", nameAria: "Name",
     phonePh: "Phone (+998…)", phoneAria: "Phone", save: "Save",
+    codePh: "Telegram code (6 digits)", codeAria: "Confirmation code", codeResend: "Send the code again", codeNeed: "Enter the 6-digit code from Telegram",
+    codeSent: "We sent a code to the new number’s Telegram. Enter it and tap “Save”.", codeNeedBot: "The new number isn’t confirmed in Telegram yet. From that number’s Telegram, open the bot, tap /start and “Share number”, then save again.", codeOpenBot: "Open the bot",
     changePass: "Change password", curPass: "Current password", newPass: "New password (at least 6 characters)", newPassAria: "New password", newPass2: "Repeat the new password",
     writeManager: "Message the manager", msgPh: "For example: I need BC-DB1 bobbins, 50 packs — are they in stock?", msgAria: "Message",
     msgNote: "The message goes to the manager on Telegram with your name and phone", send: "Send",

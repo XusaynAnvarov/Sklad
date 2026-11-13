@@ -785,6 +785,15 @@ export default async function handler(req, res) {
       const text = raw.toLowerCase();
       const existing = await findByChat(chatId);
       if (text === "/lang") { await askLang(chatId); return res.status(200).send("ok"); }
+      // /start phone — из кабинета на сайте: подтвердить новый номер. Нужна только
+      // кнопка «Поделиться номером»: свой контакт бот запишет в bot_sessions.phone,
+      // и сайт отправит код смены номера в этот чат (api/client/phone-code.js).
+      if (text === "/start phone") {
+        const Lp = T[await getLang(chatId, existing)] || T.ru;
+        const подсказка = { ru: "Чтобы подтвердить номер для кабинета на сайте, нажмите кнопку ниже.", uz: "Saytdagi kabinet uchun raqamni tasdiqlash — quyidagi tugmani bosing.", en: "To confirm the number for your account on the website, tap the button below." };
+        await tg("sendMessage", { chat_id: chatId, text: подсказка[Object.keys(T).find(k => T[k] === Lp)] || подсказка.ru, reply_markup: { keyboard: [[{ text: Lp.share, request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
+        return res.status(200).send("ok");
+      }
       // /start verify_TOKEN — верификация номера при регистрации на сайте
       const verifyMatch = raw.match(/^\/start verify_([a-f0-9]{48})$/i);
       if (verifyMatch) {

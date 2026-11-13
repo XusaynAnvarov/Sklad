@@ -55,7 +55,10 @@ export async function проверитьНомер(raw, client) {
 // Telegram-чат владельца номера: только из своего, проверенного ботом контакта.
 export async function чатНомера(phone) {
   if (!/^\d{9}$/.test(phone)) return null;
-  const rows = await sget(`bot_sessions?phone=like.*${phone}&select=chat_id,phone,updated_at&order=updated_at.desc&limit=5`).catch(() => []);
+  // Telegram отдаёт номер как «998901234567» или «+998901234567»; like в
+  // локальном режиме базы не поддержан, поэтому — точные варианты.
+  const варианты = [phone, "998" + phone, "+998" + phone].map(encodeURIComponent).join(",");
+  const rows = await sget(`bot_sessions?phone=in.(${варианты})&select=chat_id,phone,updated_at&order=updated_at.desc&limit=5`).catch(() => []);
   const r = rows.find(x => normPhone(x.phone) === phone && x.chat_id);
   return r ? String(r.chat_id) : null;
 }

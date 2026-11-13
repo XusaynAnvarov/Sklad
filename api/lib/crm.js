@@ -359,6 +359,7 @@ export function parseStartPayload(text) {
   if (!m) return null;
   const p = m[1];
   if (/^verify_/i.test(p)) return null;               // это регистрация на сайте, не реклама
+  if (/^phone$/i.test(p)) return null;                // смена номера из кабинета, не реклама
   if (/^ref_/i.test(p)) return { entry_point: "ref:" + p.slice(4), ref_code: p.slice(4) };
   if (/^c_/i.test(p)) return { entry_point: "campaign:" + p.slice(2) };
   if (/^utm_/i.test(p)) { const [source, ...rest] = p.slice(4).split("_"); return { entry_point: "campaign:" + p.slice(4), utm: { source, campaign: rest.join("_") || null } }; }

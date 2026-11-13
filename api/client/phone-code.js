@@ -33,8 +33,8 @@ export default async function handler(req, res) {
     const chat = await чатНомера(п.phone);
     if (!chat || !CLIENT_TOKEN) {
       return res.status(409).json({
-        need_bot: true, bot_url: `https://t.me/${BOT}`,
-        error: `С Telegram нового номера откройте бота @${BOT}, нажмите /start и «Поделиться номером». Потом запросите код снова.`,
+        need_bot: true, bot_url: `https://t.me/${BOT}?start=phone`,
+        error: `С Telegram нового номера откройте бота @${BOT}, нажмите «Поделиться номером». Потом запросите код снова.`,
       });
     }
 
