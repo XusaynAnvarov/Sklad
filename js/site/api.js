@@ -27,7 +27,7 @@ export async function req(method, path, body) {
   });
   if (r.status === 204) return null;
   const json = await r.json().catch(() => null);
-  if (!r.ok) throw new Error((json && json.error) || r.statusText);
+  if (!r.ok) { const e = new Error((json && json.error) || r.statusText); e.data = json; e.status = r.status; throw e; }
   return json;
 }
 
@@ -58,6 +58,7 @@ export const api = {
 
   // профиль
   updateProfile: (data) => req("POST", "/client/update-profile", data),
+  phoneCode: (phone) => req("POST", "/client/phone-code", { phone }),
   changePassword: (current, newPass) => req("POST", "/client/change-password", { current, new: newPass }),
 
   // заказ

@@ -12,7 +12,7 @@
 //  раздела сайта есть анимация с filter, а при ней position: fixed внутри
 //  раздела перестаёт работать.
 // ========================================================================
-import { api } from "./api.js?v=20261113c";
+import { api, saveToken } from "./api.js?v=20261113c";
 import { sToast, t, getLang } from "./app.js?v=20261113c";
 import { thumb, full } from "../img.js?v=20261113c";
 import { подходит } from "../productsearch.js?v=20261113c";
@@ -655,6 +655,11 @@ function vMe() {
       <form data-form="profile" hidden style="display:grid;gap:8px;margin-top:12px">
         <input class="gmc-in" name="name" autocomplete="name" maxlength="100" placeholder="${esc(т("namePh"))}" value="${esc(c.name || "")}" aria-label="${esc(т("nameAria"))}">
         <input class="gmc-in" name="phone" type="tel" autocomplete="tel" maxlength="20" placeholder="${esc(т("phonePh"))}" value="${esc(c.contact || "")}" aria-label="${esc(т("phoneAria"))}">
+        <div data-codebox hidden style="display:grid;gap:8px">
+          <p class="gmc-muted" data-codehint style="margin:0"></p>
+          <input class="gmc-in" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="${esc(т("codePh"))}" aria-label="${esc(т("codeAria"))}">
+          <button class="gmc-btn" type="button" data-act="resend">${esc(т("codeResend"))}</button>
+        </div>
         <p class="gmc-muted" data-err style="color:var(--c-bad);margin:0"></p>
         <button class="gmc-btn pri" type="submit">${esc(т("save"))}</button>
       </form>
@@ -686,7 +691,17 @@ async function отправитьФорму(form) {
   btn.disabled = true;
   try {
     if (kind === "profile") {
-      await api.updateProfile({ name: v("name").trim().slice(0, 100), phone: v("phone").trim() });
+      const код = form.querySelector("[data-codebox]");
+      const телефон = v("phone").trim();
+      // номер изменился — сначала код из Telegram нового номера
+      if (код.hidden && цифры(телефон) !== цифры(S.data.customer?.contact)) {
+        try { await api.updateProfile({ name: v("name").trim().slice(0, 100), phone: телефон }); }
+        catch (e) { if (!e.data?.need_code) throw e; await запроситьКод(form); return; }
+      } else {
+        if (!код.hidden && !/^\d{6}$/.test(v("code").trim())) return стоп(т("codeNeed"));
+        const r = await api.updateProfile({ name: v("name").trim().slice(0, 100), phone: телефон, code: код.hidden ? undefined : v("code").trim() });
+        if (r && r.token) saveToken(r.token);
+      }
       sToast(т("profileSaved"), "ok");
       S.data = await данные(true); подготовить(); кто(); нарисовать();
       return;
@@ -710,6 +725,27 @@ async function отправитьФорму(form) {
     стоп(e.message || т("error"));
   } finally {
     btn.disabled = false;
+  }
+}
+
+const цифры = (x) => String(x || "").replace(/\D/g, "").slice(-9);
+
+// Шаг 1 смены номера: код уходит в Telegram владельца нового номера.
+async function запроситьКод(form) {
+  const box = form.querySelector("[data-codebox]");
+  const hint = form.querySelector("[data-codehint]");
+  const err = form.querySelector("[data-err]");
+  try {
+    await api.phoneCode(form.elements.phone.value.trim());
+    box.hidden = false;
+    form.elements.phone.readOnly = true;
+    hint.textContent = т("codeSent");
+    form.elements.code.value = "";
+    form.elements.code.focus();
+  } catch (e) {
+    if (e.data?.need_bot) {
+      err.innerHTML = `${esc(т("codeNeedBot"))} <a href="${esc(e.data.bot_url || "https://t.me/generalmodernbot")}" target="_blank" rel="noopener">${esc(т("codeOpenBot"))}</a>`;
+    } else err.textContent = e.message || т("error");
   }
 }
 
@@ -1002,7 +1038,17 @@ function действие(e) {
     case "pdf": скачатьPDF(v, el); break;
     case "xls": скачатьExcel(v, el); break;
     case "csv": скачатьИсторию(); break;
-    case "edit": { const f = S.root.querySelector('[data-form="profile"]'); f.hidden = !f.hidden; el.textContent = f.hidden ? т("edit") : т("cancel"); break; }
+    case "edit": {
+      const f = S.root.querySelector('[data-form="profile"]'); f.hidden = !f.hidden; el.textContent = f.hidden ? т("edit") : т("cancel");
+      if (f.hidden) { f.reset(); f.querySelector("[data-codebox]").hidden = true; f.elements.phone.readOnly = false; f.querySelector("[data-err]").textContent = ""; }
+      break;
+    }
+    case "resend": {
+      const f = el.closest("form"); if (!f) break;
+      f.querySelector("[data-err]").textContent = "";
+      el.disabled = true; запроситьКод(f).finally(() => { el.disabled = false; });
+      break;
+    }
     case "dec": case "inc": {
       const p = повтор && повтор[+v];
       if (!p) break;

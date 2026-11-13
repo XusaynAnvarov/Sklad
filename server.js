@@ -57,6 +57,7 @@ const routes = [
   // кабинет
   [["GET"],   "/api/client/me",               "./api/client/me.js"],
   [["POST"],  "/api/client/update-profile",   "./api/client/update-profile.js"],
+  [["POST"],  "/api/client/phone-code",       "./api/client/phone-code.js"],
   [["GET"],   "/api/client/orders",           "./api/client/orders.js"],
   [["GET"],   "/api/client/invoices",         "./api/client/invoices.js"],
   [["GET"],   "/api/client/payments",         "./api/client/payments.js"],
