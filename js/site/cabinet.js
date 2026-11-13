@@ -11,12 +11,12 @@
 //  живут прямо в <body>: у раздела сайта есть анимация с filter, а при
 //  ней position: fixed внутри раздела перестаёт работать.
 // ========================================================================
-import { api } from "./api.js?v=20261111b";
-import { sToast, t } from "./app.js?v=20261111b";
-import { thumb, full } from "../img.js?v=20261111b";
-import { подходит } from "../productsearch.js?v=20261111b";
-import { компакт } from "../searchnorm.js?v=20261111b";
-import { подпись, заЕдиницу } from "../unit.js?v=20261111b";
+import { api } from "./api.js?v=20261113a";
+import { sToast, t } from "./app.js?v=20261113a";
+import { thumb, full } from "../img.js?v=20261113a";
+import { подходит } from "../productsearch.js?v=20261113a";
+import { компакт } from "../searchnorm.js?v=20261113a";
+import { подпись, заЕдиницу } from "../unit.js?v=20261113a";
 
 const CURS = ["som", "usd", "yuan"];
 const MOB = matchMedia("(max-width: 760px)");
@@ -529,7 +529,7 @@ function результаты(добавить) {
     ? `Найдено: ${list.length}${купленных ? ` · из них вы покупали ${купленных}` : ""}`
     : `${S.filter === "all" ? "Весь каталог" : "Показано"}: ${list.length} ${склон(list.length, "товар", "товара", "товаров")}${S.filter === "all" ? " · сначала то, что вы покупали" : ""}`;
   if (!list.length) {
-    box.innerHTML = `<div class="gmc-card gmc-empty" style="grid-column:1/-1">${S.filter === "fav" && !S.q ? "В избранном пока пусто. Нажмите на звёздочку у товара, чтобы добавить его сюда." : "Ничего не нашлось. Попробуйте артикул, часть названия или другое написание."}<br><br><button class="gmc-btn" data-act="go:me">Спросить менеджера</button></div>`;
+    box.innerHTML = `<div class="gmc-card gmc-empty" style="grid-column:1/-1">${S.filter === "fav" && !S.q ? "В избранном пока пусто. Нажмите на звёздочку у товара, чтобы добавить его сюда." : S.filter === "never" && !S.q ? "Вы уже покупали все товары из каталога." : "Ничего не нашлось. Попробуйте артикул, часть названия или другое написание."}<br><br><button class="gmc-btn" data-act="go:me">Спросить менеджера</button></div>`;
     ещё.hidden = true;
     return;
   }
@@ -554,8 +554,7 @@ function vBuys() {
   const заказы = открытые.length ? `<div class="gmc-card"><h2>Заказы в работе <small>ещё не накладные</small></h2><div class="gmc-list">${открытые.map(o => `
       <button class="gmc-row" data-act="ord:${esc(o.id)}">
         <div style="display:flex;gap:4px">${o.items.slice(0, 3).map(it => фото(it.photo, "sm", it.name, false)).join("")}</div>
-        <div class="t"><b>№ ${esc(o.no)} · ${dt(o.date)}</b><span>${позиций(o.items.length)} · ${o.totals ? esc(both(o.totals)) : esc(t("priceNote") || "Цены уточнит менеджер")}</span></div>
-        ${меткаЗаказа(o)}</button>`).join("")}</div></div>` : "";
+        <div class="t"><b>№ ${esc(o.no)} · ${dt(o.date)}</b><span>${позиций(o.items.length)} · ${o.totals ? esc(both(o.totals)) : esc(t("priceNote") || "Цены уточнит менеджер")}</span><div class="gmc-pills" style="margin-top:5px">${меткаЗаказа(o)}</div></div></button>`).join("")}</div></div>` : "";
   const кат = [...new Set((d.invoices || []).flatMap(i => i.items.map(it => it.category)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ru"));
   const f = S.inv;
   const opt = (v, txt, cur) => `<option value="${esc(v)}"${cur === v ? " selected" : ""}>${esc(txt)}</option>`;
@@ -652,7 +651,7 @@ function vFin() {
   const плитки = `<div class="gmc-kpis">
     <div class="gmc-card gmc-kpi main"><div class="l">Сумма покупок</div><div class="v">${esc(both(sm.turn))}</div><div class="s">все выданные накладные</div></div>
     <div class="gmc-card gmc-kpi"><div class="l">Оплачено</div><div class="v">${esc(both(sm.paid))}</div><div class="s">по записанным платежам</div></div>
-    <div class="gmc-card gmc-kpi ${долг ? "bad" : "good"}"><div class="l">Текущая задолженность</div><div class="v">${долг ? esc(both(sm.debt)) : "Нет"}</div><div class="s">${долг ? `${позиций(неопл.length).replace(/позици\S*/, склон(неопл.length, "накладная", "накладные", "накладных"))} к оплате` : "Задолженности нет"}</div></div>
+    <div class="gmc-card gmc-kpi ${долг ? "bad" : "good"}"><div class="l">Текущая задолженность</div><div class="v">${долг ? esc(both(sm.debt)) : "Нет"}</div><div class="s">${долг ? `${неопл.length} ${склон(неопл.length, "накладная", "накладные", "накладных")} к оплате` : "Задолженности нет"}</div></div>
     ${четвёртая}</div>`;
   const статус = долг ? "" : `<div class="gmc-okbox">✓ Задолженности нет. Спасибо, что платите вовремя!</div>`;
   const старый = has(sm.opening) ? `<div class="gmc-row"><div class="t"><b>Долг до начала учёта в системе</b><span>Гасится вашими оплатами в первую очередь</span></div><div class="n">${esc(both(sm.opening))}</div></div>` : "";
@@ -935,7 +934,7 @@ async function скачатьExcel(id, btn) {
   const main = CURS.find(c => Math.abs(inv.totals[c] || 0) >= порог(c)) || "som";
   if (btn) btn.disabled = true;
   try {
-    const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20261111b");
+    const { exportClientInvoiceExcel } = await import("../xlsx-export.js?v=20261113a");
     await exportClientInvoiceExcel({
       id: inv.id, date: inv.date, currency: main,
       items: inv.items.map(it => ({ product_name: it.name, photo: it.photo, qty: it.qty, unit_price: it.unit_price, currency: it.currency })),

@@ -9,7 +9,7 @@
    карточкой, анимации короче и только opacity/transform, а длинные
    списки пропускают отрисовку невидимого (content-visibility).
    =================================================================== */
-.gmc {
+.gmc, .gmc-ov, .gmc-dock {
   --c-r: 22px; --c-rs: 13px;
   --c-card: var(--white);
   --c-card: color-mix(in srgb, var(--white) 66%, transparent);
@@ -25,10 +25,12 @@
   --c-info: #1d4ed8; --c-info-bg: rgba(37, 99, 235, .11);
   --c-shadow: 0 10px 30px rgba(28, 43, 74, .07);
   --c-e: cubic-bezier(.2, .8, .2, 1);
+}
+.gmc {
   display: grid; grid-template-columns: 228px minmax(0, 1fr); gap: 22px; align-items: start;
   color: var(--text);
 }
-html[data-site-theme="dark"] .gmc {
+html[data-site-theme="dark"] .gmc, html[data-site-theme="dark"] .gmc-ov, html[data-site-theme="dark"] .gmc-dock {
   --c-card: color-mix(in srgb, var(--white) 78%, transparent);
   --c-edge: rgba(255, 255, 255, .06);
   --c-hover: rgba(255, 255, 255, .05);
@@ -74,6 +76,7 @@ html[data-site-theme="dark"] .gmc-ava { color: #17140c; }
 .gmc-sbox input:focus { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201, 168, 76, .2); }
 .gmc-sbox > svg { position: absolute; left: 16px; top: 50%; width: 19px; height: 19px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
 .gmc-sbox .gmc-clr { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; border: 0; background: var(--c-hover); display: grid; place-items: center; font-size: 17px; color: var(--muted); }
+.gmc [hidden], .gmc-ov [hidden] { display: none !important; }
 .gmc-sbox input::-webkit-search-cancel-button { display: none; }
 
 /* ---------- общие блоки ---------- */
@@ -214,7 +217,7 @@ button.gmc-row:hover, .gmc-row.click:hover { background: var(--c-hover); }
 /* ---------- окно подробностей ---------- */
 .gmc-ov { position: fixed; inset: 0; z-index: 9500; background: rgba(8, 12, 24, .42); display: flex; justify-content: flex-end; opacity: 0; transition: opacity .25s; color: var(--text); font-family: 'Inter', sans-serif; }
 .gmc-ov.show { opacity: 1; }
-.gmc-sheet { width: min(640px, 100%); height: 100%; overflow-y: auto; overscroll-behavior: contain; background: var(--white); padding: 22px 24px 30px; transform: translateX(46px); opacity: .5; transition: transform .38s cubic-bezier(.2, .8, .2, 1), opacity .3s; box-shadow: -20px 0 60px rgba(0, 0, 0, .18); display: grid; gap: 16px; align-content: start; }
+.gmc-sheet { width: min(640px, 100%); height: 100%; overflow-y: auto; overscroll-behavior: contain; background: var(--white); padding: 22px 24px 30px; transform: translateX(46px); opacity: .5; transition: transform .38s cubic-bezier(.2, .8, .2, 1), opacity .3s; box-shadow: -20px 0 60px rgba(0, 0, 0, .18); display: grid; gap: 16px; align-content: start; grid-auto-rows: max-content; }
 .gmc-ov.show .gmc-sheet { transform: none; opacity: 1; }
 .gmc-sheet .x { position: sticky; top: 0; justify-self: end; width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--bg2); font-size: 20px; line-height: 1; z-index: 2; margin-bottom: -40px; }
 .gmc-sheet h3 { font-size: 20px; font-weight: 800; letter-spacing: -.02em; margin: 0; padding-right: 46px; }
@@ -251,7 +254,7 @@ button.gmc-row:hover, .gmc-row.click:hover { background: var(--c-hover); }
 @media (max-width: 760px) {
   .gmc { display: block; padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   .gmc-side { display: none; }
-  .gmc, html[data-site-theme="dark"] .gmc { --c-card: var(--white); --c-shadow: none; --c-edge: transparent; --c-r: 18px; }
+  .gmc, .gmc-ov, html[data-site-theme="dark"] .gmc, html[data-site-theme="dark"] .gmc-ov { --c-card: var(--white); --c-shadow: none; --c-edge: transparent; --c-r: 18px; }
   .gmc-card { padding: 14px; }
   .gmc-top { gap: 12px; margin-bottom: 14px; }
   .gmc-hello h1 { font-size: 20px; }
@@ -272,6 +275,9 @@ button.gmc-row:hover, .gmc-row.click:hover { background: var(--c-hover); }
   .gmc-chips::-webkit-scrollbar { display: none; }
   .gmc-chip { flex: none; }
   .gmc-sel, .gmc-in { height: 44px; font-size: 16px; }
+  .gmc-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .gmc-filters .gmc-in, .gmc-filters .gmc-btn { grid-column: 1 / -1; }
+  .gmc-filters .gmc-sel { width: 100%; min-width: 0; }
   .gmc-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .gmc-tile { padding: 6px; border-radius: 13px; }
   .gmc-a { animation-duration: .26s; animation-delay: calc(min(var(--i, 0), 5) * 35ms); }
