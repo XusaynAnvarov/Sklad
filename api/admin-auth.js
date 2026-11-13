@@ -22,6 +22,7 @@
 //  Проверяет: data/admin-creds.json (PBKDF2) → .env ADMIN_LOGIN/ADMIN_PASSWORD (plain)
 import crypto from "crypto";
 import { readFileSync } from "fs";
+import { секретПодписи } from "./lib/jwtsecret.js";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { verifyPassword, genCode, hashCode, verifyCode } from "./lib/clientauth.js";
@@ -139,7 +140,7 @@ export default async function handler(req, res) {
 
   if (!ok) return res.status(401).json({ error: "Неверный логин или пароль" });
 
-  const secret = process.env.SITE_JWT_SECRET || "dev-secret-change-in-production";
+  const secret = секретПодписи();
 
   // Бот не настроен или проверку выключили — пускаем по паролю, как раньше.
   if (!кодомПроверяем()) {

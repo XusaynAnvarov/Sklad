@@ -7,6 +7,7 @@
 //  ENV: CLIENT_BOT_TOKEN, ADMIN_CHAT_ID, SITE_JWT_SECRET
 // ========================================================================
 import { verifyInitData, signAdminJWT } from "./lib/tg.js";
+import { секретПодписи } from "./lib/jwtsecret.js";
 
 const BOT_TOKEN = process.env.CLIENT_BOT_TOKEN;
 const ADMIN_CHAT = process.env.ADMIN_CHAT_ID;
@@ -30,6 +31,6 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: "Склад доступен только владельцу" });
   }
 
-  const secret = process.env.SITE_JWT_SECRET || "dev-secret-change-in-production";
+  const secret = секретПодписи();
   return res.status(200).json({ token: signAdminJWT(secret), name: user.first_name || "" });
 }

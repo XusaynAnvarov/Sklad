@@ -5,6 +5,7 @@
 //    2. Суpabase Auth JWT (legacy, если Supabase-аккаунт настроен)
 // ========================================================================
 import crypto from "crypto";
+import { секретПодписи } from "./jwtsecret.js";
 
 const SUPA_URL = process.env.SUPABASE_URL;
 const KEY      = process.env.SUPABASE_SERVICE_KEY;
@@ -15,7 +16,7 @@ function verifyOurJWT(token) {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
     const [header, payload, sig] = parts;
-    const secret = process.env.SITE_JWT_SECRET || "dev-secret-change-in-production";
+    const secret = секретПодписи();
     const expected = crypto.createHmac("sha256", secret).update(header + "." + payload).digest().toString("base64url");
     if (sig.length !== expected.length) return null;
     if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;

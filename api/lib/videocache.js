@@ -18,6 +18,7 @@
 //  они просто скачаются заново при следующем просмотре.
 // ========================================================================
 import { createHash } from "crypto";
+import { секретПодписи } from "./jwtsecret.js";
 import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from "fs";
 import { Readable } from "stream";
 import { join } from "path";
@@ -161,7 +162,7 @@ export function отдать(req, res, файл, тип = "video/mp4") {
 // ------------------------------------------------------------------
 import { createHmac, timingSafeEqual } from "crypto";
 
-const секрет = () => process.env.SITE_JWT_SECRET || "dev-secret-change-in-production";
+const секрет = () => секретПодписи();
 const подпись = (тело) => createHmac("sha256", секрет()).update(тело).digest("base64url");
 
 export function выписатьПропуск(videoId, секунд = 600) {

@@ -4,11 +4,12 @@
 // ====================================================================
 import crypto from "crypto";
 import { sget } from "./supa.js";
+import { секретПодписи } from "./jwtsecret.js";
 
 const JWT_EXPIRES_SEC = 30 * 24 * 3600; // 30 дней
 
 function secret() {
-  return process.env.SITE_JWT_SECRET || "dev-secret-change-in-production";
+  return секретПодписи();
 }
 
 function b64url(buf) {
@@ -114,8 +115,11 @@ export async function getValidClient(req) {
   const payload = getClient(req);
   if (!payload || !payload.sub) return null;
   try {
-    const rows = await sget(`site_accounts?id=eq.${encodeURIComponent(payload.sub)}&select=id`);
+    const rows = await sget(`site_accounts?id=eq.${encodeURIComponent(payload.sub)}&select=id,customer_id`);
     if (!rows[0]) return null;
-    return payload;
+    // Привязку к клиенту берём из базы, а не из токена: если владелец
+    // перепривязал аккаунт, старый токен (живёт 30 дней) не должен
+    // показывать данные прежнего клиента.
+    return { ...payload, customer_id: rows[0].customer_id || null };
   } catch { return payload; }
 }

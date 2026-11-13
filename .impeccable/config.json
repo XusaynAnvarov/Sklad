@@ -65,6 +65,15 @@
         ],
         "createdAt": "2026-11-03T12:19:42.060Z",
         "reason": "Claude: локальный стенд для проверки виджета фото (в .gitignore по правилу *-test.html). radial-gradient в файле отсутствует; 12 вхождений в css/theme.css есть и в HEAD до этой работы — правило срабатывает на существующем стиле проекта."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "css/cabinet.css"
+        ],
+        "createdAt": "2026-11-13T16:54:06.530Z",
+        "reason": "Claude: L198 .gmc-tl is a neutral 2px timeline rail with status dots (order history), not a colored card accent"
       }
     ]
   }

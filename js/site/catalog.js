@@ -8,9 +8,9 @@ import { подходит } from "../productsearch.js?v=20261111b";
 import { подписьКода } from "../catalogcode.js?v=20261111b";
 // Главное фото товара выбирает владелец (звезда в карточке товара на
 // складе), и это не обязательно первый снимок: см. js/photo.js.
-import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261111b";
+import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261113b";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261111b";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261113b";
 
 const ЗНАЧОК_ФОТО = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
 
