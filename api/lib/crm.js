@@ -10,6 +10,7 @@
 //  как раньше. Ошибку отсутствия таблиц печатаем в журнал один раз.
 // ========================================================================
 import crypto from "node:crypto";
+import { секретПодписи } from "./jwtsecret.js";
 import { sget, sinsert, spatch, supsert, okId } from "./supa.js";
 
 const ADMIN_TOKEN = () => process.env.TELEGRAM_BOT_TOKEN;
@@ -104,7 +105,7 @@ export function clientIp(req) {
 }
 export function ipHash(ip) {
   if (!ip) return null;
-  const secret = process.env.SITE_JWT_SECRET || "dev-secret-change-in-production";
+  const secret = секретПодписи();
   return crypto.createHmac("sha256", secret).update("ip:" + ip).digest("hex").slice(0, 32);
 }
 
