@@ -11,8 +11,8 @@
 //  Остатки, суммы и оплата накладной здесь не меняются.
 //  Расчёты — в js/fulfillment-core.js, сервер — api/admin/fulfillment.js.
 // ========================================================================
-import { el, toast, modal, inputList } from "../ui.js?v=20261114c";
-import { icon as значокИзСтроки } from "../icons.js?v=20261114c";
+import { el, toast, modal, inputList } from "../ui.js?v=20261114d";
+import { icon as значокИзСтроки } from "../icons.js?v=20261114d";
 
 // Значок разбирается из SVG-строки один раз, дальше — клон узла. На доске
 // по десятку значков на карточку: разбор строки каждый раз был главной
@@ -24,14 +24,14 @@ function icon(name, opts = {}) {
   if (!узел) { узел = значокИзСтроки(name, opts); кэшЗначков.set(k, узел); }
   return узел.cloneNode(true);
 }
-import { authHeaders } from "../db.js?v=20261114c";
-import { fmt, toUSD } from "../fx.js?v=20261114c";
-import { включитьПеретаскивание } from "../board-dnd.js?v=20261114c";
-import { thumb } from "../img.js?v=20261114c";
+import { authHeaders } from "../db.js?v=20261114d";
+import { fmt, toUSD } from "../fx.js?v=20261114d";
+import { включитьПеретаскивание } from "../board-dnd.js?v=20261114d";
+import { thumb } from "../img.js?v=20261114d";
 import {
   ЭТАПЫ, ЭТАП, ДАЛЬШЕ, собратьЗаказы, счётчики, отфильтровать, история, шкала, вУчёте, номерЗаказа, итогНакладной,
   упорядочить, вставитьВПорядок, переход, СОРТИРОВКИ,
-} from "../fulfillment-core.js?v=20261114c";
+} from "../fulfillment-core.js?v=20261114d";
 
 const API = "/api/admin/fulfillment";
 const ПЕРЕВОЗЧИКИ = ["BTS Express", "Fargo", "Yandex Доставка", "Узбекистон почтаси", "Автобус / попутка", "Своя доставка", "Самовывоз"];

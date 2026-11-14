@@ -1,18 +1,18 @@
 // SPA-роутер публичного сайта: шапка, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, saveToken as _saveToken, api } from "./api.js?v=20261114c";
-import { renderCatalog } from "./catalog.js?v=20261114c";
-import { renderVideos } from "./videos.js?v=20261114c";
-import { renderCabinet } from "./cabinet.js?v=20261114c";
-import { renderAdminPanel } from "./admin-panel.js?v=20261114c";
-import { renderOrder } from "./order.js?v=20261114c";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261114c";
-import { сменитьТемуВолной } from "../temavolna.js?v=20261114c";
-import { обновитьЕслиУстарело } from "../version.js?v=20261114c";
-import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261114c";
+import { isLoggedIn, clearToken as _clearToken, saveToken as _saveToken, api } from "./api.js?v=20261114d";
+import { renderCatalog } from "./catalog.js?v=20261114d";
+import { renderVideos } from "./videos.js?v=20261114d";
+import { renderCabinet } from "./cabinet.js?v=20261114d";
+import { renderAdminPanel } from "./admin-panel.js?v=20261114d";
+import { renderOrder } from "./order.js?v=20261114d";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261114d";
+import { сменитьТемуВолной } from "../temavolna.js?v=20261114d";
+import { обновитьЕслиУстарело } from "../version.js?v=20261114d";
+import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261114d";
 // Экскурсия по сайту: приглашение новым посетителям и кнопка «▶ Как заказать»
-import { maybeInviteTour, openTour } from "./tour.js?v=20261114c";
+import { maybeInviteTour, openTour } from "./tour.js?v=20261114d";
 // Короткий ролик при входе (js/site/intro.js) — новым посетителям
-import { maybeShowIntro } from "./intro.js?v=20261114c";
+import { maybeShowIntro } from "./intro.js?v=20261114d";
 // Кнопка «▶ Как заказать» видна, пока владелец не выключил её в складе
 export function кнопкаКакЗаказать() { try { const c = JSON.parse(localStorage.getItem("gm_intro_cfg") || "null"); return !c || c.howto_button !== false; } catch { return true; } }
 
@@ -784,7 +784,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=270", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=271", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом.
   // Только при ОБНОВЛЕНИИ: на самом первом визите работника ещё не было, и
   // clients.claim() тоже вызывает controllerchange — страница и так свежая,
