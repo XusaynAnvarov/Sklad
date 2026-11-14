@@ -15,6 +15,19 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Защитные заголовки на всё, что отдаёт Node (API, страницы /p/ /c/, запасная
+// раздача файлов). Те же — в nginx: deploy/nginx-security-headers.conf.
+// frame-ancestors: встраивать сайт можно только себе и Telegram (мини-приложение).
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org");
+  if (process.env.DB_MODE !== "local" && !/^(localhost|127\.)/.test(String(req.headers.host || "")))
+    res.setHeader("Strict-Transport-Security", "max-age=15552000");
+  next();
+});
+
 app.use(express.json({ limit: "12mb" }));
 app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 
