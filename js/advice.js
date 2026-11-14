@@ -5,9 +5,9 @@
 //  Три группы: сезон · деньги · склад.
 //  Используют и Отчёты (полный список), и Дашборд (топ-3).
 // ========================================================================
-import { seasonOf, nextSeason, SEASON_LABEL, SEASON_ICON } from "./period.js?v=20261114b";
-import { itemRevenueUSD, itemProfitUSD, ruleFor } from "./profit.js?v=20261114b";
-import { ensureBatches } from "./inventory.js?v=20261114b";
+import { seasonOf, nextSeason, SEASON_LABEL } from "./period.js?v=20261114a";
+import { itemRevenueUSD, itemProfitUSD, ruleFor } from "./profit.js?v=20261114a";
+import { ensureBatches } from "./inventory.js?v=20261114a";
 
 const DAY = 86400000;
 export const LOW_STOCK = 5;   // «заканчивается» — общий порог для советов и полоски на карточке
@@ -67,7 +67,7 @@ export function buildAdvice(products, sales, rules, pct) {
     out.push({
       id: "season_" + sea + "_" + idx,
       kind: "season", ic: "truck", level: "warn",
-      title: `${SEASON_ICON[sea]} ${idx === 0 ? "Сейчас" : "Скоро"} ${SEASON_LABEL[sea].toLowerCase()} — закажите сезонные товары (${items.length})`,
+      title: `${idx === 0 ? "Сейчас" : "Скоро"} ${SEASON_LABEL[sea].toLowerCase()} — закажите сезонные товары (${items.length})`,
       text: `Эти товары в ${SEASON_LABEL[sea].toLowerCase()} продаются заметно лучше, а на складе их почти нет.`,
       items: items.slice(0, 40).map(x => ({
         p: x.p,

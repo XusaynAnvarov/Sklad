@@ -41,7 +41,7 @@ function productListModal(title, list, onPick, onZero, badgeText) {
       const snapshot = [...list];
       for (const p of snapshot) { try { await onZero(p); } catch {} }
       list.length = 0; draw(""); toast("Остатки обнулены", "ok");
-    }) }, ["🧹 Обнулить все показанные"]),
+    }) }, ["Обнулить все показанные"]),
   ]) : null;
   m = modal({ title: `${title} (${list.length})`, wide: true, body: el("div", {}, [head, search, box].filter(Boolean)), actions: [{ label: "Закрыть", kind: "btn-outline", onClick: c => c() }] });
 }
@@ -63,7 +63,7 @@ function costWarnModal(list, onPick, ctx) {
     title: `Проверьте себестоимость (${list.length})`, wide: true,
     body: el("div", {}, [el("div.hint", { text: "Нажмите на товар, чтобы открыть и поправить. Или «Я всё проверил» — скрыть предупреждение." }), box]),
     actions: [
-      { label: "✓ Я всё проверил — скрыть", kind: "btn-primary", onClick: async (c) => { ackAllCost(list); try { for (const p of list) await ctx.db.products.upsert({ id: p.id, cost_ack_yuan: Number(p.cost_yuan) || 0 }); } catch (e) { /* колонки cost_ack_yuan ещё нет — останется локальная отметка */ } c(); ctx && ctx.refresh && ctx.refresh(); } },
+      { label: "Я всё проверил — скрыть", kind: "btn-primary", onClick: async (c) => { ackAllCost(list); try { for (const p of list) await ctx.db.products.upsert({ id: p.id, cost_ack_yuan: Number(p.cost_yuan) || 0 }); } catch (e) { /* колонки cost_ack_yuan ещё нет — останется локальная отметка */ } c(); ctx && ctx.refresh && ctx.refresh(); } },
       { label: "Закрыть", kind: "btn-outline", onClick: c => c() },
     ],
   });
@@ -392,7 +392,7 @@ export default async function render(page, ctx) {
       () => { location.hash = "#stock_check"; }));
     // нет на складе, но товар уже в пути
     if (transitOOS.length) внимание.push(вним("truck", `В пути (нет на складе): ${сколько(transitOOS.length, "товар", "товара", "товаров")}`, "Этих товаров нет на складе, но они уже едут. Нажмите — список с количеством и поставщиком.", "rgba(59,130,246,.5)", "rgba(59,130,246,.08)",
-      () => productListModal("В пути — нет на складе", transitOOS.slice(), editProduct, null, (p) => "🚚 " + подписьДороги(вДороге(дорога, p)))));
+      () => productListModal("В пути — нет на складе", transitOOS.slice(), editProduct, null, (p) => подписьДороги(вДороге(дорога, p)))));
     // остаток не сходится с партиями — пересчитать
     if (mismatch.length) внимание.push(вним("box", `Остаток не сходится с партиями: ${mismatch.length}`, "Возможны «фантомные» остатки (напр. «1», но товара нет). Нажмите — пересчитать остаток по партиям.", "rgba(245,158,11,.6)", "rgba(245,158,11,.08)",
       () => confirmDialog(`Пересчитать остаток по партиям у ${сколько(mismatch.length, "товара", "товаров", "товаров")}? (фантомные станут 0)`, async () => {
@@ -534,7 +534,7 @@ export default async function render(page, ctx) {
       miniCard("Единиц на складе", stockUnits, "hash"),
       miniCard("Есть в наличии", inStock, "check", () => productListModal("Товары в наличии", products.filter(p => statusOf(p) === "in_stock"), editProduct)),
       miniCard("Под заказ", onOrder, "clock", () => productListModal("Товары под заказ", products.filter(p => statusOf(p) === "on_order" && !едетВместоНет(дорога, p)), editProduct)),
-      miniCard("В дороге", вПути.length, "truck", () => productListModal("Товары в дороге", вПути.slice(), editProduct, null, (p) => "🚚 " + подписьДороги(вДороге(дорога, p)))),
+      miniCard("В дороге", вПути.length, "truck", () => productListModal("Товары в дороге", вПути.slice(), editProduct, null, (p) => подписьДороги(вДороге(дорога, p)))),
     ]));
 
     // пошаговое появление карточек
@@ -575,7 +575,7 @@ export default async function render(page, ctx) {
 
     const карточки = [
       {
-        ic: "wallet", вид: "", label: "Оборот",
+        ic: "wallet", вид: "gm-k-lead", label: "Оборот",
         есть: естьПродажи, знач: money(оборот), дельта: дельтаПоказателя("оборот"),
         tip: "Сумма всех продаж за выбранный период. Каждая позиция пересчитана в доллары по курсу накладной, затем в валюту показа по курсу из Настроек.",
       },
@@ -700,7 +700,12 @@ export default async function render(page, ctx) {
     const проц = ((сейчас - было) / Math.abs(было)) * 100;
     if (!isFinite(проц)) return null;
     const вверх = проц >= 0;
-    return { сторона: вверх ? "up" : "down", текст: (вверх ? "▲ " : "▼ ") + Math.abs(проц).toFixed(0) + "%" };
+    const скем = period === "today" ? "ко вчера"
+      : period === "this_month" ? "к прошлому месяцу"
+      : period === "this_year" ? "к прошлому году"
+      : (period === "last_month" || String(period).startsWith("m:")) ? "к месяцу раньше"
+      : "к прошлому периоду";
+    return { сторона: вверх ? "up" : "down", текст: (вверх ? "+" : "−") + Math.abs(проц).toFixed(0) + "% " + скем };
   }
 
   function значениеЗа(пер, что) {
@@ -733,7 +738,7 @@ export default async function render(page, ctx) {
     }
     const итог = (подпись, usd, цвет) => el("div", { style: { minWidth: "0" } }, [
       el("div.gm-k-lab", { text: подпись }),
-      el("div", { style: { fontWeight: "800", fontSize: "1rem", color: цвет || "inherit", whiteSpace: "nowrap" }, text: money(usd) }),
+      el("div", { style: { fontWeight: "600", fontSize: "1rem", color: цвет || "inherit", whiteSpace: "nowrap" }, text: money(usd) }),
     ]);
     boardHost.append(панель("Продажи и прибыль " + д.perLabel, "chart", [
       el("div", { style: { display: "flex", gap: "14px", flexWrap: "wrap", marginBottom: "6px" } }, [
@@ -828,13 +833,13 @@ export default async function render(page, ctx) {
   function итог2(подпись, число) {
     return el("div", {}, [
       el("div.gm-k-lab", { text: подпись }),
-      el("div", { style: { fontWeight: "800", fontSize: "1rem" }, text: Math.round(Number(число) || 0).toLocaleString("ru-RU") }),
+      el("div", { style: { fontWeight: "600", fontSize: "1rem" }, text: Math.round(Number(число) || 0).toLocaleString("ru-RU") }),
     ]);
   }
 
   function строкаДенег(подпись, usd, жирно) {
     return el("div.gm-li", { style: { cursor: "default" } }, [
-      el("span.gm-li-t", { text: подпись, style: жирно ? { fontWeight: "700" } : null }),
+      el("span.gm-li-t", { text: подпись, style: жирно ? { fontWeight: "600" } : null }),
       el("span.gm-li-s", { text: "$" + Math.round(usd).toLocaleString("ru-RU") }),
       el("span.gm-li-v", { text: fmt(convert(usd, "usd", curView), curView) }),
     ]);
@@ -877,7 +882,7 @@ export default async function render(page, ctx) {
   // в карточке, чтобы было видно, что их суммы отсюда убраны.
   function profitCard(cur, turn, profit, excluded) {
     const v = el("div.st-value");
-    const pv = el("div", { style: { marginTop: "8px", fontWeight: "700", color: "var(--ok)" }, text: "Прибыль: " + fmt(profit, cur) });
+    const pv = el("div", { style: { marginTop: "8px", fontWeight: "600", color: "var(--ok)" }, text: "Прибыль: " + fmt(profit, cur) });
     const inp = input({ type: "number", step: "0.1", value: pct[cur] || "", placeholder: "0", style: { width: "92px", padding: "8px 10px", textAlign: "center" } });
     inp.addEventListener("change", async () => { pct[cur] = +inp.value || 0; await savePct(ctx, pct); compute(); });
     const c = el("div.stat-card.reveal", {}, [
@@ -896,7 +901,7 @@ export default async function render(page, ctx) {
     const d = data || { rev: 0, profit: 0, qty: 0 };
     const isFixed = g.mode === "fixed_usd";
     const v = el("div.st-value");
-    const pv = el("div", { style: { marginTop: "8px", fontWeight: "700", color: "var(--ok)" }, text: "Прибыль: " + money(d.profit) });
+    const pv = el("div", { style: { marginTop: "8px", fontWeight: "600", color: "var(--ok)" }, text: "Прибыль: " + money(d.profit) });
     const inp = input({
       type: "number", step: isFixed ? "0.5" : "0.1", min: "0", value: g.value,
       style: { width: "92px", padding: "8px 10px", textAlign: "center" },

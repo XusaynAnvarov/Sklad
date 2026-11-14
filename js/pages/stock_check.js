@@ -73,7 +73,7 @@ export default async function render(page, ctx) {
       el("div", { style: { display: "flex", alignItems: "center", gap: "10px" } }, [
         el("span", { style: { color: "var(--ok)", display: "flex" } }, [icon("check", { size: 22 })]),
         el("div", {}, [
-          el("div", { style: { fontWeight: "700" }, text: "Со складом всё в порядке" }),
+          el("div", { style: { fontWeight: "600" }, text: "Со складом всё в порядке" }),
           el("div.muted", { style: { fontSize: "13px" }, text: "Расхождений не найдено: накладные списаны, остатки сходятся с партиями, минусов нет." }),
         ]),
       ]),
@@ -141,7 +141,7 @@ export default async function render(page, ctx) {
         el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 40) : placeholder(p.name), loading: "lazy", decoding: "async", style: { width: "40px", height: "40px" }, onerror: function () { this.src = placeholder(p.name); } }),
         el("div", { style: { flex: "1", minWidth: "140px" } }, [
           el("div", { style: { fontWeight: "600" }, text: p.name }),
-          el("div", { style: { fontSize: "12px", color: "var(--danger,#f87171)", fontWeight: "700" }, text: "не хватает: " + need }),
+          el("div", { style: { fontSize: "12px", color: "var(--danger,#f87171)", fontWeight: "600" }, text: "не хватает: " + need }),
         ]),
         inp, btn,
       ]));
@@ -218,7 +218,7 @@ function block(page, { ic, title, text, danger, actions = [], list = [], body = 
     el("div", { style: { display: "flex", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" } }, [
       el("span", { style: { color: danger ? "var(--warn)" : "var(--muted)", display: "flex", marginTop: "2px" } }, [icon(ic, { size: 22 })]),
       el("div", { style: { flex: "1", minWidth: "200px" } }, [
-        el("div", { style: { fontWeight: "700", fontSize: "15px" }, text: title }),
+        el("div", { style: { fontWeight: "600", fontSize: "15px" }, text: title }),
         el("div.muted", { style: { fontSize: "13px", marginTop: "2px" }, text }),
       ]),
       ...(actions.length ? [el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } },

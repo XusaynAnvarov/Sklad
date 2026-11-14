@@ -429,8 +429,8 @@ export default async function render(box, ctx) {
       el("div.info", {}, [
         el("div.nm", { text: p.name }),
         el("div.sku", { text: sub + (out && out.next ? ` · дальше ${костСтрока(out.next.cost_yuan, out.next.cost_usd, вал)}` : "") }),
-        едет ? el("div", { style: { fontSize: "11px", fontWeight: "700", color: "#b45309" }, text: "🚚 " + подписьДороги(едет) }) : null,
-        дороже ? el("div", { style: { fontSize: "11px", fontWeight: "700", color: "var(--danger,#f87171)" },
+        едет ? el("div", { style: { fontSize: "11px", fontWeight: "600", color: "#b45309" }, text: подписьДороги(едет) }) : null,
+        дороже ? el("div", { style: { fontSize: "11px", fontWeight: "600", color: "var(--danger,#f87171)" },
           text: "↑ в дороге дороже: " + костСтрока(дороже.было.yuan, дороже.было.usd, вал) + " → " + костСтрока(дороже.станет.yuan, дороже.станет.usd, вал) }) : null,
       ].filter(Boolean)),
       el("div.qty" + cls, { text: единица(p) === "шт" ? String(q) : подписьКол(q, p) }),

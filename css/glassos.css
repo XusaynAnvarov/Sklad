@@ -224,9 +224,9 @@ html[data-theme="light"] {
     position: relative; z-index: 40;
   }
   .gm-head .brand {
-    font-size: 1.0625rem; font-weight: 800; white-space: nowrap;
+    font-size: 1.0625rem; font-weight: 600; white-space: nowrap;
     display: flex; align-items: center; gap: 8px;
-    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+    color: var(--text);
   }
   .gm-head .brand .ic-svg { color: var(--accent); }
   .gm-head-spacer { flex: 1 1 auto; min-width: 0; }
@@ -412,7 +412,7 @@ html[data-theme="light"] {
     position: absolute; top: 2px; right: 2px;
     min-width: 17px; height: 17px; padding: 0 4px;
     display: grid; place-items: center;
-    font-size: 0.625rem; font-weight: 800; line-height: 1;
+    font-size: 0.625rem; font-weight: 600; line-height: 1;
     border-radius: var(--r-pill);
     background: var(--danger); color: #fff;
     box-shadow: 0 2px 6px rgba(0, 0, 0, .35);
@@ -606,9 +606,11 @@ html[data-theme="light"] .gm-search-field input { background: rgba(255, 255, 255
    под ними, растянутая на остаток. Прокрутка остаётся ВНУТРИ блоков —
    поэтому на рабочем разрешении страница целиком помещается в экран.
    =================================================================== */
+/* Первая карточка — главная цифра экрана (оборот): шире и крупнее.
+   Остальные пять — компактная строка рядом с ней. */
 .gm-kpi {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.7fr) repeat(5, minmax(0, 1fr));
   gap: 10px;
   margin: 0 0 12px;
 }
@@ -635,9 +637,8 @@ html[data-theme="light"] .gm-kpi .gm-k::after {
 }
 @media (hover: hover) and (pointer: fine) {
   .gm-kpi .gm-k:hover {
-    transform: translateY(-3px);
     box-shadow: var(--glass-drop-hi), var(--glass-edge);
-    border-color: rgba(217, 180, 90, .50);
+    border-color: rgba(140, 140, 160, .40);
   }
 }
 .gm-k-top { display: flex; align-items: center; gap: 7px; min-width: 0; }
@@ -645,24 +646,28 @@ html[data-theme="light"] .gm-kpi .gm-k::after {
   width: 26px; height: 26px; flex: 0 0 auto;
   display: grid; place-items: center;
   border-radius: var(--r-xs);
-  background: rgba(217, 180, 90, .16); color: var(--accent);
+  background: rgba(140, 140, 160, .12); color: var(--muted);
 }
 .gm-k-lab {
-  font-size: 0.6875rem; font-weight: 600; letter-spacing: .02em;
-  color: var(--muted); text-transform: uppercase;
+  font-size: 0.75rem; font-weight: 500;
+  color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .gm-k-val {
-  font-size: clamp(0.95rem, 1.35vw, 1.3rem); font-weight: 800; line-height: 1.15;
+  font-size: clamp(0.95rem, 1.35vw, 1.3rem); font-weight: 600; line-height: 1.15;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   letter-spacing: -0.02em;
 }
 .gm-k-sub { font-size: 0.6875rem; color: var(--muted); display: flex; align-items: center; gap: 5px; }
-.gm-k-val.gm-нет { color: var(--muted); font-weight: 700; font-size: 0.9375rem; }
-.gm-k.gm-k-ok .gm-k-ic { background: rgba(52, 211, 153, .16); color: var(--ok); }
-.gm-k.gm-k-warn .gm-k-ic { background: rgba(251, 191, 36, .18); color: var(--warn); }
-.gm-k.gm-k-danger .gm-k-ic { background: rgba(248, 113, 113, .16); color: var(--danger); }
-.gm-k-delta { font-weight: 700; }
+.gm-k-val.gm-нет { color: var(--muted); font-weight: 600; font-size: 0.9375rem; }
+.gm-k.gm-k-danger .gm-k-val { color: var(--danger); }
+
+/* Главная карточка */
+.gm-kpi .gm-k.gm-k-lead { padding: 14px 18px; gap: 4px; justify-content: center; }
+.gm-k-lead .gm-k-val { font-size: clamp(1.5rem, 2.2vw, 2rem); font-variant-numeric: tabular-nums; }
+.gm-k-lead .gm-k-sub { font-size: 0.75rem; }
+.gm-k-val { font-variant-numeric: tabular-nums; }
+.gm-k-delta { font-weight: 600; }
 .gm-k-delta.up { color: var(--ok); }
 .gm-k-delta.down { color: var(--danger); }
 
@@ -684,7 +689,7 @@ html[data-theme="light"] .gm-kpi .gm-k::after {
 }
 .gm-panel-h {
   display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
-  font-size: 0.8125rem; font-weight: 700; letter-spacing: -0.01em;
+  font-size: 0.8125rem; font-weight: 600; letter-spacing: -0.01em;
 }
 /* Вкладки валюты внутри панели — мельче, чем на отдельной странице:
    здесь это подпись к блоку, а не главный переключатель экрана. */
@@ -733,7 +738,7 @@ html[data-theme="light"] .gm-kpi .gm-k::after {
 }
 .gm-li:hover { background: rgba(217, 180, 90, .12); }
 .gm-li .gm-li-t { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gm-li .gm-li-v { font-weight: 700; white-space: nowrap; }
+.gm-li .gm-li-v { font-weight: 600; white-space: nowrap; }
 .gm-li .gm-li-s { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
 
 /* Быстрые действия — таблетки. */
@@ -777,6 +782,10 @@ html[data-theme="light"] .gm-quick button { background: rgba(255, 255, 255, .78)
 /* Экран ниже — полосы складываются и прокрутка возвращается: читаемость
    важнее обещания «один экран». */
 @media (max-width: 1340px) {
+  .gm-kpi { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .gm-kpi .gm-k-lead { grid-column: 1 / -1; }
+}
+@media (max-width: 1100px) {
   .gm-kpi { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 1100px) {
@@ -830,6 +839,8 @@ html[data-theme="light"] .gm-quick button { background: rgba(255, 255, 255, .78)
   .gm-экран { display: block; height: auto; }
   .gm-экран .gm-kpi { margin-bottom: 16px; }
   .gm-kpi { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .gm-kpi .gm-k-lead { grid-column: 1 / -1; }
+  .gm-kpi .gm-k-lead .gm-k-val { font-size: 1.75rem; }
   .gm-kpi .gm-k { border-radius: var(--radius); box-shadow: none; }
   .gm-kpi .gm-k::after { content: none; }
   .gm-board { display: block; }

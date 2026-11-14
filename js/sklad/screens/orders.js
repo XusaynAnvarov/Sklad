@@ -84,7 +84,7 @@ export default async function render(box, ctx) {
     подставитьЦены(ownMapFor(клиент));
 
     const строки = el("div.mini-list");
-    const итог = el("div", { style: { textAlign: "right", fontWeight: "800", fontSize: "16px", margin: "12px 0 4px" } });
+    const итог = el("div", { style: { textAlign: "right", fontWeight: "600", fontSize: "16px", margin: "12px 0 4px" } });
 
     function итогТекст() {
       const parts = Object.entries(totalsByCur(позиции)).filter(([, v]) => v > 0.001).map(([c, v]) => fmt(v, c));

@@ -63,7 +63,7 @@ function стиль() {
 @media (prefers-reduced-motion:reduce){.crm-bar .f{animation:none}}
 .crm-ev{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.8125rem}
 .crm-ev:last-child{border-bottom:none}
-.crm-risk{flex:0 0 auto;min-width:38px;text-align:center;border-radius:6px;padding:2px 6px;font-weight:700;font-variant-numeric:tabular-nums}
+.crm-risk{flex:0 0 auto;min-width:38px;text-align:center;border-radius:6px;padding:2px 6px;font-weight:600;font-variant-numeric:tabular-nums}
 .crm-risk.hi{background:rgba(248,113,113,.16);color:var(--danger)}
 .crm-risk.md{background:rgba(251,191,36,.16);color:var(--warn)}
 .crm-risk.lo{background:rgba(140,140,160,.14);color:var(--muted)}
@@ -71,7 +71,7 @@ function стиль() {
 .crm-filters .inp{min-width:0}
 .crm-unk{color:var(--muted);border-bottom:1px dotted currentColor;cursor:help}
 .crm-geo-src{display:block;font-size:.6875rem;color:var(--muted)}
-.crm-card h4{margin:18px 0 8px;font-size:.8125rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.crm-card h4{margin:18px 0 8px;font-size:.875rem;font-weight:600;color:var(--muted)}
 .crm-kv{display:grid;grid-template-columns:minmax(120px,34%) 1fr;gap:6px 12px;font-size:.875rem}
 .crm-kv>div:nth-child(odd){color:var(--muted)}
 .crm-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
@@ -309,7 +309,7 @@ export default async function render(page, ctx) {
       const кандидаты = данные.duplicates.find(x => x.crm_id === crm.id)?.customers || [];
       const кнопки = [];
       if (!crm.customer_id) {
-        кнопки.push(el("button.btn.btn-ok.btn-sm", { text: "➕ Перенести в склад", onclick: () => действие({ action: "promote", crm_id: crm.id }, "Клиент создан в складе", true) }));
+        кнопки.push(el("button.btn.btn-ok.btn-sm", { text: "Перенести в склад", onclick: () => действие({ action: "promote", crm_id: crm.id }, "Клиент создан в складе", true) }));
         const все = данные.people.filter(x => x.kind === "customer");
         const выбор = select([{ value: "", label: кандидаты.length ? "Привязать к… (совпадение по номеру)" : "Привязать к клиенту склада…" },
           ...кандидаты.map(c => ({ value: c.id, label: "★ " + c.name })), ...все.filter(x => !кандидаты.some(c => c.id === x.customer_id)).map(x => ({ value: x.customer_id, label: x.name + (x.phone ? " · " + x.phone : "") }))], "");
@@ -324,8 +324,8 @@ export default async function render(page, ctx) {
       const статус = select(["new", "active", "blocked", "archived"].map(v => ({ value: v, label: { new: "Статус: новый", active: "Статус: активный", blocked: "Статус: заблокирован", archived: "Статус: архив" }[v] })), crm.status || "new");
       статус.addEventListener("change", () => действие({ action: "status", crm_id: crm.id, status: статус.value }, "Статус изменён"));
       кнопки.push(статус);
-      кнопки.push(el("button.btn.btn-outline.btn-sm", { text: "✏️ Исправить данные", onclick: () => исправить(crm) }));
-      кнопки.push(el("button.btn.btn-outline.btn-sm", { text: "⬇ Выгрузить данные", onclick: () => выгрузить(crm) }));
+      кнопки.push(el("button.btn.btn-outline.btn-sm", { text: "Исправить данные", onclick: () => исправить(crm) }));
+      кнопки.push(el("button.btn.btn-outline.btn-sm", { text: "Выгрузить данные", onclick: () => выгрузить(crm) }));
       кнопки.push(el("button.btn.btn-danger.btn-sm", { text: "Удалить по запросу клиента", onclick: () => забыть(crm) }));
       секции.push(el("div.crm-actions", {}, кнопки));
     } else секции.push(el("div.muted", { text: "Примечания и действия появятся, когда клиент подключится к боту (нужна CRM-карточка). Заметки склада — в разделе «Клиенты»." }));

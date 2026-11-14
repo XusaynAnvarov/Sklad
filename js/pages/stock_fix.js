@@ -100,7 +100,7 @@ export function openStockFix(ctx, products, sales) {
     box.innerHTML = "";
     summary.textContent = list.length
       ? `Найдено накладных без списания: ${list.length}. Отметьте нужные и нажмите «Списать выбранные».`
-      : "Непроведённых накладных нет 👍";
+      : "Непроведённых накладных нет";
     if (!list.length) return;
 
     // сводка «сколько всего спишется» по товарам
@@ -120,14 +120,14 @@ export function openStockFix(ctx, products, sales) {
         const will = was - (Number(it.qty) || 0);
         return el("div", { style: { fontSize: "12px", color: "var(--muted)", marginTop: "2px" } }, [
           el("span", { text: `• ${p?.name || "?"} × ${it.qty}  ` }),
-          el("span", { text: `${was} → ${will}`, style: { fontWeight: "700", color: will < 0 ? "var(--danger,#f87171)" : "var(--ok,#34d399)" } }),
+          el("span", { text: `${was} → ${will}`, style: { fontWeight: "600", color: will < 0 ? "var(--danger,#f87171)" : "var(--ok,#34d399)" } }),
         ]);
       });
       box.append(el("div.card", { style: { padding: "10px 12px", marginBottom: "8px" } }, [
         el("label", { style: { display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" } }, [
           cb,
           el("div", { style: { flex: "1" } }, [
-            el("div", { style: { fontWeight: "700" }, text: new Date(s.date).toLocaleDateString("ru-RU") + " · " + ((s.items || []).length + " поз.") }),
+            el("div", { style: { fontWeight: "600" }, text: new Date(s.date).toLocaleDateString("ru-RU") + " · " + ((s.items || []).length + " поз.") }),
             el("div", { style: { fontSize: "12px", color: "var(--muted)" }, text: "накладная " + String(s.id).slice(-6).toUpperCase() }),
           ]),
         ]),
@@ -141,7 +141,7 @@ export function openStockFix(ctx, products, sales) {
     title: "Накладные без списания со склада",
     wide: true,
     body: el("div", {}, [
-      el("div.hint", { style: { borderColor: "rgba(245,158,11,.5)" }, text: "⚠ ВАЖНО: у накладных, оформленных ДО этого обновления, отметки о списании нет — они тоже попадают в список, хотя товар мог уже уйти со склада. Отмечайте только те, где остаток точно НЕ уменьшился (смотрите «было → станет»). После списания накладная помечается — повторно списать нельзя." }),
+      el("div.hint", { style: { borderColor: "rgba(245,158,11,.5)" }, text: "Важно: у накладных, оформленных ДО этого обновления, отметки о списании нет — они тоже попадают в список, хотя товар мог уже уйти со склада. Отмечайте только те, где остаток точно НЕ уменьшился (смотрите «было → станет»). После списания накладная помечается — повторно списать нельзя." }),
       el("div", { style: { display: "flex", gap: "10px", alignItems: "center", margin: "10px 0" } }, [
         el("span", { text: "За последние" }), fDays, el("span", { text: "дней (0 — все)" }),
         el("button.btn.btn-outline.btn-sm", { text: "Отметить все", style: { marginLeft: "auto" }, onclick: () => { unappliedSales(sales, days).forEach(s => checked.add(s.id)); draw(); } }),
@@ -151,7 +151,7 @@ export function openStockFix(ctx, products, sales) {
     ]),
     actions: [
       { label: "Закрыть", kind: "btn-outline", onClick: c => c() },
-      { label: "✓ Я проверил — остальные правильные", kind: "btn-outline", onClick: (close) => {
+      { label: "Я проверил — остальные правильные", kind: "btn-outline", onClick: (close) => {
         // помечаем ВСЕ показанные накладные как проверенные, склад не трогаем:
         // они уйдут с дашборда, а новые проблемные появятся снова.
         const list = unappliedSales(sales, days);
@@ -166,7 +166,7 @@ export function openStockFix(ctx, products, sales) {
           finally { hideLoader(); }
         });
       } },
-      { label: "✅ Списать выбранные", kind: "btn-primary", onClick: (close) => {
+      { label: "Списать выбранные", kind: "btn-primary", onClick: (close) => {
         const list = unappliedSales(sales, days).filter(s => checked.has(s.id));
         if (!list.length) { toast("Отметьте накладные", "err"); return; }
         confirmDialog(`Списать товар со склада по ${list.length} накладным? Действие изменит остатки.`, async () => {

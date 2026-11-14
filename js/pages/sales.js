@@ -45,7 +45,7 @@ export default async function render(page, ctx) {
       el("td", { text: new Date(s.date).toLocaleDateString("ru-RU") }),
       el("td", {}, [
         el("strong", { text: cmap[s.customer_id]?.name || "—" }),
-        этоВозврат(s) ? el("div", { style: { fontSize: "11px", fontWeight: "700", color: "var(--warn,#b45309)" }, text: "↩ возврат" }) : null,
+        этоВозврат(s) ? el("div", { style: { fontSize: "11px", fontWeight: "600", color: "var(--warn,#b45309)" }, text: "↩ возврат" }) : null,
       ].filter(Boolean)),
       el("td", {}, [el("span.badge.cur", { text: curs || "—" })]),
       el("td", { text: (s.items || []).length + " поз." }),
@@ -55,7 +55,7 @@ export default async function render(page, ctx) {
         : el("span.badge.order", {}, [icon("dot", { size: 12 }), "В долг"])]),
       el("td", {}, [s.telegram_sent ? el("span.badge.ok", {}, [icon("send", { size: 13 }), "Отправлена"]) : el("span.muted", { text: "—" })]),
       el("td.right", {}, [el("div.row-actions", {}, [
-        el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Скачать в Excel", text: "📊", onclick: async () => { showLoader("Готовим Excel…"); try { await exportInvoice(s, cmap[s.customer_id], products); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } } }),
+        el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Скачать в Excel", "aria-label": "Скачать в Excel", onclick: async () => { showLoader("Готовим Excel…"); try { await exportInvoice(s, cmap[s.customer_id], products); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } } }, [icon("download", { size: 16 })]),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать", onclick: () => openEditor(ctx, s, customers, products) }, [icon("edit", { size: 16 })]),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить в Telegram", onclick: () => resend(ctx, s, cmap, products) }, [icon("send", { size: 16 })]),
         el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить накладную? Товары вернутся на склад.", () => deleteSale(ctx, s, products, cmap[s.customer_id]?.name)) }, [icon("trash", { size: 16 })]),
@@ -143,10 +143,10 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
   const preview = el("img.thumb", { style: { width: "76px", height: "76px", cursor: "zoom-in", display: "none" }, title: "Увеличить" });
   const lastHint = el("div", { style: { fontSize: "13px", margin: "8px 0", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" } });
   const substBtn = el("button.btn.btn-outline.btn-sm", { text: "Подставить", style: { display: "none" } });
-  const costBtn = el("button.btn.btn-outline.btn-sm", { text: "👁 Показать себестоимость (только для меня)" });
+  const costBtn = el("button.btn.btn-outline.btn-sm", { text: "Показать себестоимость (только для меня)" });
   const costLine = el("div.card", { style: { display: "none", padding: "10px 14px", margin: "10px 0", color: "var(--warn)", borderColor: "rgba(245,158,11,.4)" } });
   let costShown = false;
-  costBtn.addEventListener("click", () => { costShown = !costShown; costLine.style.display = costShown ? "" : "none"; costBtn.textContent = costShown ? "🙈 Скрыть себестоимость" : "👁 Показать себестоимость (только для меня)"; });
+  costBtn.addEventListener("click", () => { costShown = !costShown; costLine.style.display = costShown ? "" : "none"; costBtn.textContent = costShown ? "Скрыть себестоимость" : "Показать себестоимость (только для меня)"; });
 
   const selId = () => nameToId[(fProduct.value || "").trim().toLowerCase()] || "";
   fProduct.addEventListener("input", refreshAdd);
@@ -229,7 +229,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
 
   // ----- чек -----
   const itemsBox = el("div");
-  const totalBox = el("div", { style: { textAlign: "right", fontSize: "20px", fontWeight: "800", marginTop: "10px" } });
+  const totalBox = el("div", { style: { textAlign: "right", fontSize: "20px", fontWeight: "600", marginTop: "10px" } });
   function drawCart() {
     itemsBox.innerHTML = "";
     if (!state.items.length) { itemsBox.append(el("div.empty", { style: { padding: "20px" } }, [el("p", { text: "Чек пуст — добавьте товары" })])); recalc(); return; }
@@ -247,7 +247,7 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       const avail = stock + (consumedByProduct[it.product_id] || 0);
       const paintStock = () => {
         stockEl.innerHTML = "";
-        if ((+it.qty || 0) > avail) stockEl.append(el("span", { text: `⚠ на складе ${avail}, заказано ${+it.qty || 0}`, style: { color: "var(--danger,#f87171)", fontWeight: "700" } }));
+        if ((+it.qty || 0) > avail) stockEl.append(el("span", { text: `На складе ${avail}, заказано ${+it.qty || 0}`, style: { color: "var(--danger,#f87171)", fontWeight: "600" } }));
         else stockEl.append(el("span", { text: `на складе: ${avail}`, style: { color: "var(--muted)" } }));
       };
       paintStock();
@@ -282,15 +282,15 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
 
   const body = el("div", {}, [
     el("div.sale-head", {}, [
-      el("div", { style: { fontWeight: "800", fontSize: "16px", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" } }, [el("span", { style: { color: "var(--warn)" }, text: "●" }), "Оформить продажу"]),
+      el("div", { style: { fontWeight: "600", fontSize: "16px", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" } }, [el("span", { style: { color: "var(--warn)" }, text: "●" }), "Оформить продажу"]),
       el("div.row3", {}, [field("Клиент (поиск)", fCustomer), field("Оплата", fPaid), field("Валюта по умолч.", fCurrency)]),
       el("div.row2", {}, [field("Дата", fDate), field("Коробок отправлено", fBoxes)]),
       noStockRow,
     ]),
     el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", marginTop: "4px" } }, [
       el("div.section-h", { text: "Добавьте товары в чек", style: { margin: "0", flex: "1" } }),
-      el("button.btn.btn-outline.btn-sm", { text: "📄 Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("sale") }),
-      el("button.btn.btn-outline.btn-sm", { text: "📥 Из Excel", title: "Импорт списка из Excel", onclick: () => pickFile(importFromExcel) }),
+      el("button.btn.btn-outline.btn-sm", { text: "Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("sale") }),
+      el("button.btn.btn-outline.btn-sm", { text: "Из Excel", title: "Импорт списка из Excel", onclick: () => pickFile(importFromExcel) }),
     ]),
     el("div", { style: { display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap" } }, [
       preview,
@@ -320,11 +320,11 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
     wide: true, body,
     actions: isBotOrder ? [
       { label: "Отмена", kind: "btn-outline", onClick: c => c() },
-      { label: "📤 На подтверждение клиенту", kind: "btn-outline", onClick: (close) => sendForConfirm(ctx, sale, state, close, customers) },
-      { label: "✅ Оформить и отправить PDF клиенту", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, true) },
+      { label: "На подтверждение клиенту", kind: "btn-outline", onClick: (close) => sendForConfirm(ctx, sale, state, close, customers) },
+      { label: "Оформить и отправить PDF клиенту", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, true) },
     ] : [
       { label: "Отмена", kind: "btn-outline", onClick: c => c() },
-      { label: "💾 Сохранить", kind: "btn-outline", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, false, chkNoStock.checked) },
+      { label: "Сохранить", kind: "btn-outline", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, false, false, chkNoStock.checked) },
       { label: "Сохранить + Telegram", kind: "btn-primary", onClick: (close) => save(ctx, sale, state, "final", close, customers, products, true, false, chkNoStock.checked) },
     ],
   });
@@ -343,7 +343,7 @@ async function sendForConfirm(ctx, sale, state, close, customers) {
       currency: state.currency, items: state.items, date: state.date,
     });
     toast(отправлено
-      ? "Отправлено клиенту на подтверждение ✅"
+      ? "Отправлено клиенту на подтверждение"
       : "Цены сохранены. У клиента нет Telegram — спросите его сами", отправлено ? "ok" : "err");
     close(); ctx.refresh();
   } catch (e) { toast(e.message || String(e), "err"); }
@@ -473,7 +473,7 @@ async function save(ctx, sale, state, status, close, customers, products, doSend
       // Тоже одним запросом; расходящиеся дописываем вторым пакетом и перечитываем.
       const bad = await verifyStock(ctx, expected, P, записано);
       if (notFound.length) toast("Товар не найден в базе (остаток не изменён): " + notFound.length + " поз.", "err");
-      if (bad.length) toast("⚠ Остаток НЕ записался: " + bad.slice(0, 3).join(", ") + (bad.length > 3 ? " и ещё " + (bad.length - 3) : "") + ". Проверьте связь и повторите.", "err");
+      if (bad.length) toast("Остаток не записался: " + bad.slice(0, 3).join(", ") + (bad.length > 3 ? " и ещё " + (bad.length - 3) : "") + ". Проверьте связь и повторите.", "err");
     }
     let saved;
     try { saved = await ctx.db.sales.upsert(obj); }

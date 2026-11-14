@@ -150,8 +150,8 @@ async function renderCard(page, ctx, id) {
     ]),
     el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
       el("button.btn.btn-outline", { onclick: () => openForm(ctx, c, customers) }, [icon("edit", { size: 16 }), "Изменить"]),
-      el("button.btn.btn-outline", { title: "Привязать Telegram клиента (если он написал боту, но не подвязался)", onclick: () => linkTelegram(ctx, c) }, ["🔗 Telegram"]),
-      el("button.btn.btn-outline", { title: "Акт сверки: оплаты и отгрузки по датам, с PDF", onclick: () => openActSverki(ctx, c, sales, payments) }, ["📋 Акт сверки"]),
+      el("button.btn.btn-outline", { title: "Привязать Telegram клиента (если он написал боту, но не подвязался)", onclick: () => linkTelegram(ctx, c) }, [icon("send", { size: 16 }), "Telegram"]),
+      el("button.btn.btn-outline", { title: "Акт сверки: оплаты и отгрузки по датам, с PDF", onclick: () => openActSverki(ctx, c, sales, payments) }, [icon("clipboard", { size: 16 }), "Акт сверки"]),
       el("button.btn.btn-ok", { onclick: () => openPayment(ctx, c) }, [icon("plus", { size: 16 }), "Оплата"]),
       el("button.btn.btn-outline", { title: "Клиент вернул товар: склад пополнится, долг уменьшится", onclick: () => openRefund(ctx, c, sales, products) }, [icon("undo", { size: 16 }), "Возврат"]),
       el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, customers, products, c.id) }, [icon("plus", { size: 16 }), "Накладная"]),
@@ -249,7 +249,7 @@ async function renderCard(page, ctx, id) {
         el("td", {}, [payBadge]),
         el("td", { text: (s.items || []).length + " поз." }),
         el("td.right", {}, [el("div.row-actions", {}, [
-          el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Скачать накладную в Excel", text: "📊", onclick: async () => { showLoader("Готовим Excel…"); try { await exportCustomerInvoice(s, c, products, { debt, advance, lastPay }); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } } }),
+          el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Скачать накладную в Excel", "aria-label": "Скачать накладную в Excel", onclick: async () => { showLoader("Готовим Excel…"); try { await exportCustomerInvoice(s, c, products, { debt, advance, lastPay }); } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); } } }, [icon("download", { size: 16 })]),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: isPaid(s) ? "Отметить «в долг»" : "Отметить «оплачено»", onclick: () => togglePaid(ctx, s) }, [icon(isPaid(s) ? "dot" : "check", { size: 16 })]),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать (цена/кол-во/товары)", onclick: () => openEditor(ctx, s, customers, products, c.id) }, [icon("edit", { size: 16 })]),
           el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Отправить клиенту", onclick: () => sendInvToClient(ctx, s, c, products) }, [icon("send", { size: 16 })]),
@@ -374,7 +374,7 @@ function pickRecipient(c, onPick) {
     body: el("div", {}, [
       el("div.hint", { text: "Выберите номер телефона получателя — отправим в его Telegram." }),
       ...rec.map(r => el("button.btn.btn-outline", { style: { display: "block", width: "100%", textAlign: "left", marginBottom: "8px" }, onclick: () => { m.close(); onPick(r.chat_id); } },
-        [icon("send", { size: 15 }), "  📱 " + (r.phone || ("chat " + r.chat_id)) + (r.name ? "  ·  " + r.name : "")])),
+        [icon("send", { size: 15 }), "  " + (r.phone || ("chat " + r.chat_id)) + (r.name ? "  ·  " + r.name : "")])),
     ]),
     actions: [{ label: "Отмена", kind: "btn-outline", onClick: x => x() }],
   });
@@ -397,7 +397,7 @@ async function linkTelegram(ctx, c) {
     const fl = contacts.filter(x => !qt || (q && String(x.phone || "").replace(/\D/g, "").includes(q)) || (x.tg_name || "").toLowerCase().includes(qt) || (x.tg_username || "").toLowerCase().includes(qt));
     if (!fl.length) { listBox.append(el("div.muted", { text: "Ничего не найдено", style: { padding: "10px" } })); return; }
     fl.forEach(x => listBox.append(el("button.btn.btn-outline", { style: { display: "block", width: "100%", textAlign: "left", marginBottom: "6px" }, onclick: () => doLink(x) },
-      ["📱 " + (x.phone || x.chat_id) + (x.tg_name ? "  ·  " + x.tg_name : "") + (x.tg_username ? "  ·  @" + x.tg_username : "")])));
+      [(x.phone || x.chat_id) + (x.tg_name ? "  ·  " + x.tg_name : "") + (x.tg_username ? "  ·  @" + x.tg_username : "")])));
   };
   search.addEventListener("input", render);
   const m = modal({
@@ -501,7 +501,7 @@ function openActSverki(ctx, c, sales, payments) {
       style: { background: "var(--navy,#16233b)", color: "#fff", borderRadius: "14px", padding: "14px 18px", marginTop: "4px" },
     }, [
       el("div", { text: "Общий долг клиента", style: { fontSize: "12px", opacity: ".75", marginBottom: "4px" } }),
-      el("div", { text: debtStr, style: { fontSize: "18px", fontWeight: "800", color: "var(--gold,#e3c163)" } }),
+      el("div", { text: debtStr, style: { fontSize: "18px", fontWeight: "600", color: "var(--gold,#e3c163)" } }),
     ]));
   }
 
@@ -510,7 +510,7 @@ function openActSverki(ctx, c, sales, payments) {
     body,
     actions: [
       { label: "Закрыть", kind: "btn-outline", onClick: x => x() },
-      { label: "📄 Скачать PDF", kind: "btn-outline", onClick: async () => {
+      { label: "Скачать PDF", kind: "btn-outline", onClick: async () => {
         showLoader("Готовим PDF…");
         try {
           const r = await fetch("/api/admin/act-pdf?customer_id=" + encodeURIComponent(c.id), { headers: await authHeaders() });
@@ -521,7 +521,7 @@ function openActSverki(ctx, c, sales, payments) {
           setTimeout(() => URL.revokeObjectURL(a.href), 1500);
         } catch (e) { toast("Ошибка: " + (e.message || e), "err"); } finally { hideLoader(); }
       } },
-      { label: "📤 Клиенту", kind: "btn-ok", onClick: async (close) => {
+      { label: "Клиенту", kind: "btn-ok", onClick: async (close) => {
         // выбор получателя по номеру телефона → сразу отправляем акт в его Telegram
         pickRecipient(c, async (chatId) => {
           showLoader("Отправляем клиенту…");
@@ -529,7 +529,7 @@ function openActSverki(ctx, c, sales, payments) {
           catch (e) { toast("Не отправлено: " + (e.message || e), "err"); } finally { hideLoader(); }
         });
       } },
-      { label: "📢 В канал", kind: "btn-primary", onClick: async (close) => {
+      { label: "В канал", kind: "btn-primary", onClick: async (close) => {
         showLoader("Отправляем в канал…");
         try {
           await sendActToChannel(c.id); toast("Акт отправлен в канал", "ok"); close();

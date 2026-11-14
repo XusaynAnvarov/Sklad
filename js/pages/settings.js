@@ -1,10 +1,11 @@
 // ========================================================================
 //  НАСТРОЙКИ — курсы валют, Telegram, доступ, демо-данные
 // ========================================================================
-import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261114b";
-import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20261114b";
-import { authHeaders } from "../db.js?v=20261114b";
-import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20261114b";
+import { el, toast, field, input, select, inputList, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261114a";
+import { fetchLiveRates, setRates, getRates } from "../fx.js?v=20261114a";
+import { authHeaders } from "../db.js?v=20261114a";
+import { icon } from "../icons.js?v=20261114a";
+import { loadRules, saveRules, DEFAULT_RULES, KIND_LABEL, MODE_LABEL } from "../profit.js?v=20261114a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -124,7 +125,7 @@ export default async function render(page, ctx) {
     el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", margin: "10px 0" } }, [
       guideLang, guideTest,
       el("button.btn.btn-outline", { text: "Отправить себе (тест)", onclick: () => sendGuide(false) }),
-      el("button.btn.btn-primary", { text: "📢 Отправить всем клиентам", onclick: () => sendGuide(true) }),
+      el("button.btn.btn-primary", { text: "Отправить всем клиентам", onclick: () => sendGuide(true) }),
     ]),
     el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
       el("a.btn.btn-outline.btn-sm", { text: "Посмотреть (ru)", href: guideUrl("ru"), target: "_blank" }),
@@ -249,7 +250,7 @@ export default async function render(page, ctx) {
         fKind, fKey, fMode, fVal,
         el("span.muted", { style: { fontSize: "12px" }, text: r.mode === "fixed_usd" ? "$ с каждой штуки" : "% от суммы продажи" }),
         fGroup,
-        el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить правило", onclick: () => { rules.splice(i, 1); drawRules(); } }, ["🗑"]),
+        el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить правило", "aria-label": "Удалить правило", onclick: () => { rules.splice(i, 1); drawRules(); } }, [icon("trash", { size: 16 })]),
       ]));
     });
   }
@@ -280,8 +281,8 @@ export default async function render(page, ctx) {
     el("div.section-h", { text: "Резервная копия данных", style: { marginTop: 0 } }),
     el("p.muted", { text: "Сохраните копию всех данных (товары, клиенты, продажи, приходы, оплаты, настройки) в файл и храните в надёжном месте (флешка / облако).", style: { lineHeight: "1.55", marginBottom: "16px" } }),
     el("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap" } }, [
-      el("button.btn.btn-primary", { text: "📥 Скачать копию", onclick: exportData }),
-      el("button.btn.btn-outline", { text: "📤 Восстановить из файла", onclick: () => restoreInput.click() }),
+      el("button.btn.btn-primary", { text: "Скачать копию", onclick: exportData }),
+      el("button.btn.btn-outline", { text: "Восстановить из файла", onclick: () => restoreInput.click() }),
     ]),
     restoreInput,
     el("div.hint", { text: "Восстановление перезаписывает записи с тем же id данными из файла (удалённые — возвращает). Делайте свежую копию перед восстановлением.", style: { marginTop: "14px", marginBottom: 0, lineHeight: "1.5" } }),
@@ -296,7 +297,7 @@ export default async function render(page, ctx) {
   // остаётся на месте, это и есть откат.
   const ходПрогона = el("div.hint", { text: "", style: { marginTop: "14px", marginBottom: 0, lineHeight: "1.5", display: "none" } });
   let прерван = false;
-  const кнПережать = el("button.btn.btn-primary", { text: "🗜 Пережать фото товаров" });
+  const кнПережать = el("button.btn.btn-primary", { text: "Пережать фото товаров" });
   const кнСтоп = el("button.btn.btn-outline", { text: "Остановить", style: { display: "none" } });
   const кб = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " МБ" : Math.round(b / 1024) + " КБ");
 

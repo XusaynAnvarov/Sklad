@@ -191,7 +191,7 @@ export function hBars(rows, opts = {}) {
 //  bySeason: { winter:{rev,profit}, spring:{...}, summer:{...}, autumn:{...} }
 // ========================================================================
 export function seasonChart(bySeason, opts = {}) {
-  const S = [["winter", "❄ Зима", "#60a5fa"], ["spring", "🌱 Весна", "#4ade80"], ["summer", "☀ Лето", "#fbbf24"], ["autumn", "🍂 Осень", "#fb923c"]];
+  const S = [["winter", "Зима", "#60a5fa"], ["spring", "Весна", "#4ade80"], ["summer", "Лето", "#fbbf24"], ["autumn", "Осень", "#fb923c"]];
   const data = S.map(([k, label, col]) => ({ k, label, col, rev: Number(bySeason?.[k]?.rev) || 0, profit: Number(bySeason?.[k]?.profit) || 0 }));
   if (!data.some(d => d.rev > 0)) return noData("Продаж за период нет");
   const max = Math.max(1, ...data.map(d => d.rev));

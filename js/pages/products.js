@@ -151,8 +151,8 @@ export default async function render(page, ctx) {
     el("div.topbar", {}, [
       el("div", {}, [el("h1", { text: "Товары" }), el("div.sub", { text: `Всего позиций: ${all.length}` })]),
       el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
-        el("button.btn.btn-outline.btn-sm", { text: "📄 Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("products") }),
-        el("button.btn.btn-outline.btn-sm", { text: "📥 Импорт Excel", title: "Загрузить список из Excel", onclick: () => pickFile(importProducts) }),
+        el("button.btn.btn-outline.btn-sm", { text: "Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("products") }),
+        el("button.btn.btn-outline.btn-sm", { text: "Импорт Excel", title: "Загрузить список из Excel", onclick: () => pickFile(importProducts) }),
         el("button.btn.btn-primary", { onclick: () => openForm(ctx, null, cats) }, [icon("plus", { size: 16 }), "Добавить товар"]),
       ]),
     ]),
@@ -223,8 +223,8 @@ export default async function render(page, ctx) {
       // владельцу надо видеть, что докупать уже не нужно.
       const transitNote = tr ? el("div", {
         title: tr.поставщики.length ? "Поставщик: " + tr.поставщики.join(", ") : "",
-        style: { fontSize: "11px", fontWeight: "700", color: "#b45309", background: "rgba(245,158,11,.13)", border: "1px solid rgba(245,158,11,.35)", borderRadius: "6px", padding: "3px 7px", margin: "4px 0 2px", lineHeight: "1.3" },
-        text: "🚚 " + подписьДороги(tr),
+        style: { fontSize: "11px", fontWeight: "600", color: "#b45309", background: "rgba(245,158,11,.13)", border: "1px solid rgba(245,158,11,.35)", borderRadius: "6px", padding: "3px 7px", margin: "4px 0 2px", lineHeight: "1.3" },
+        text: подписьДороги(tr),
       }) : null;
       // Едущая партия дороже той, что продаётся сейчас: после прихода
       // себестоимость вырастет — цену продажи лучше поднять заранее.
@@ -235,7 +235,7 @@ export default async function render(page, ctx) {
       const transitPrice = дороже ? el("div", {
         title: "Сейчас продаётся партия по " + ценаБыло + ", а едущая обойдётся в " + ценаСтанет
           + ". Когда старый товар кончится, себестоимость вырастет — цену продажи стоит поднять заранее.",
-        style: { fontSize: "11px", fontWeight: "700", color: "var(--danger,#f87171)", background: "rgba(239,68,68,.10)", border: "1px solid rgba(239,68,68,.35)", borderRadius: "6px", padding: "3px 7px", margin: "0 0 2px", lineHeight: "1.3" },
+        style: { fontSize: "11px", fontWeight: "600", color: "var(--danger,#f87171)", background: "rgba(239,68,68,.10)", border: "1px solid rgba(239,68,68,.35)", borderRadius: "6px", padding: "3px 7px", margin: "0 0 2px", lineHeight: "1.3" },
         text: "↑ В дороге дороже: " + ценаБыло + " → " + ценаСтанет + " (+" + дороже.процент + "%)",
       }) : null;
       // Полоска состояния слева: видно на просмотр, не читая цифру остатка.
@@ -266,7 +266,7 @@ export default async function render(page, ctx) {
             el("span" + ((Number(p.stock_qty) || 0) < 0 ? "" : ".muted"), {
               text: "ост: " + подписьКол(Number(p.stock_qty) || 0, p),
               title: (Number(p.stock_qty) || 0) < 0 ? "Продано больше, чем было на складе — долг по товару" : "",
-              style: (Number(p.stock_qty) || 0) < 0 ? { color: "var(--danger,#f87171)", fontWeight: "700" } : {},
+              style: (Number(p.stock_qty) || 0) < 0 ? { color: "var(--danger,#f87171)", fontWeight: "600" } : {},
             }),
           ]),
           // себестоимость = цена партии, которая продаётся сейчас; если следом лежит
@@ -841,7 +841,7 @@ async function loadProductHistory(ctx, p, box) {
     const продано = rows.filter(r => r.оформлена).reduce((s, r) => s + r.qty, 0);
     const вЗаказах = rows.filter(r => !r.оформлена).reduce((s, r) => s + r.qty, 0);
     box.append(el("div.card", { style: { padding: "10px 14px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" } }, [
-      el("span", { text: "📦" }),
+      el("span", { style: { display: "flex", color: "var(--muted)" } }, [icon("box", { size: 16 })]),
       el("strong", { text: "Осталось в остатке: " + left + " шт." }),
       rows.length ? el("span", { style: { fontWeight: "600" }, text: "· продано за всё время: " + продано + " шт." }) : null,
       вЗаказах ? el("span.muted", { style: { fontSize: "12px" }, text: "· в заказах ещё " + вЗаказах }) : null,

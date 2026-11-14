@@ -98,7 +98,7 @@ export default async function render(page, ctx) {
   // владелец настроит пятьдесят товаров и ничего не сохранит.
   if (!естьКолонки(products)) {
     page.append(el("div.card", { style: { padding: "14px", marginBottom: "12px", borderColor: "var(--warn)" } }, [
-      el("div", { style: { fontWeight: "700", color: "var(--warn)", marginBottom: "4px" }, text: "В базе ещё нет колонок упаковки" }),
+      el("div", { style: { fontWeight: "600", color: "var(--warn)", marginBottom: "4px" }, text: "В базе ещё нет колонок упаковки" }),
       el("div", { style: { fontSize: "14px" }, text: "Выполните db/packing-migration.sql — она добавляет семь колонок и НЕ трогает ни остатки, ни себестоимость, ни старые приходы. До этого настройки упаковки сохранить некуда." }),
     ]));
   }
@@ -131,7 +131,7 @@ export default async function render(page, ctx) {
   };
 
   const плашки = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", margin: "0 0 12px" } });
-  const счётВыбора = el("div", { style: { fontWeight: "700" } });
+  const счётВыбора = el("div", { style: { fontWeight: "600" } });
   const кнопкаПравки = el("button.btn.btn-primary", { onclick: () => открытьПравку() }, [icon("edit", { size: 16 }), "Настроить выбранные"]);
   const галкаВсе = el("input", { type: "checkbox", style: { width: "18px", height: "18px", accentColor: "var(--accent)" } });
   const tbody = el("tbody");
@@ -379,7 +379,7 @@ export default async function render(page, ctx) {
       ].filter(Boolean)),
     ]);
 
-    const итогБокс = el("div", { style: { textAlign: "right", fontSize: "16px", fontWeight: "800", marginTop: "8px" } });
+    const итогБокс = el("div", { style: { textAlign: "right", fontSize: "16px", fontWeight: "600", marginTop: "8px" } });
     const тело = el("div", {}, [
       el("div.hint", { text: "Это предпросмотр. Пока вы не нажали «Применить», в базе ничего не изменилось." }),
       el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", margin: "0 0 10px" } }, [

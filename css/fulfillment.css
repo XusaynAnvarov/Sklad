@@ -89,8 +89,8 @@ html[data-theme="light"] .ff-card::after {
   animation: ff-rise 420ms var(--e-out) both; animation-delay: calc(var(--i, 0) * 60ms);
 }
 .ff-kpi .ff-orb { grid-row: 1 / 3; width: 46px; height: 46px; }
-.ff-kpi-lab { font-size: 0.75rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
-.ff-kpi-num { font-size: 2rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; display: inline-block; }
+.ff-kpi-lab { font-size: 0.8125rem; font-weight: 500; color: var(--muted); }
+.ff-kpi-num { font-size: 2rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; display: inline-block; }
 .ff-kpi-hint { grid-column: 2; font-size: 0.75rem; color: var(--muted); }
 .ff-kpi.active { border-color: var(--tone-g); box-shadow: var(--glass-drop-hi), 0 0 0 1px var(--tone-g), 0 0 28px var(--tone-s), var(--glass-edge); }
 .ff-kpi:focus-visible { outline: 2px solid var(--tone); outline-offset: 3px; }
@@ -133,11 +133,11 @@ html[data-theme="light"] .ff-seg button.active { color: #fff; }
   content: ""; position: absolute; left: 18px; right: 18px; top: -1px; height: 2px; border-radius: 2px;
   background: linear-gradient(90deg, transparent, var(--tone), transparent); opacity: .8;
 }
-.ff-col-h { display: flex; align-items: center; gap: 8px; padding: 4px 6px 12px; font-size: 0.875rem; font-weight: 700; }
+.ff-col-h { display: flex; align-items: center; gap: 8px; padding: 4px 6px 12px; font-size: 0.875rem; font-weight: 600; }
 .ff-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 0 4px var(--tone-s), 0 0 12px var(--tone-g); }
 .ff-col-count {
   margin-left: auto; min-width: 28px; text-align: center; padding: 2px 9px; border-radius: var(--r-pill);
-  background: var(--tone-s); color: var(--tone); font-size: 0.75rem; font-weight: 800; font-variant-numeric: tabular-nums;
+  background: var(--tone-s); color: var(--tone); font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums;
 }
 .ff-list { display: flex; flex-direction: column; gap: 10px; }
 .ff-empty {
@@ -165,17 +165,17 @@ html[data-theme="light"] .ff-seg button.active { color: #fff; }
 
 .ff-card-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .ff-card-title { min-width: 0; flex: 1; }
-.ff-num { font-size: 0.75rem; font-weight: 700; letter-spacing: .04em; color: var(--muted); font-variant-numeric: tabular-nums; }
-.ff-client { font-size: 1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ff-num { font-size: 0.75rem; font-weight: 600; letter-spacing: .04em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ff-client { font-size: 1rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ff-chip {
   flex: 0 0 auto; padding: 4px 10px; border-radius: var(--r-pill);
-  font-size: 0.6875rem; font-weight: 700; letter-spacing: .02em;
+  font-size: 0.6875rem; font-weight: 600; letter-spacing: .02em;
   color: var(--tone); background: var(--tone-s); border: 1px solid var(--tone-g);
   transition: color var(--t-micro), background var(--t-micro), border-color var(--t-micro);
 }
 .ff-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0 2px; font-size: 0.8125rem; color: var(--muted); }
 .ff-meta span { display: inline-flex; align-items: center; gap: 5px; }
-.ff-meta .ff-sum { margin-left: auto; color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ff-meta .ff-sum { margin-left: auto; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* ---------- шкала Оформлен → Собран → Отправлен ---------- */
 .ff-track { display: flex; align-items: flex-start; margin: 14px 2px 12px; }
@@ -205,14 +205,7 @@ html[data-theme="light"] .ff-node.ff-done .ff-node-ic { color: #fff; }
   box-shadow: 0 0 0 2px var(--n-s), 0 0 22px var(--n-g);
   opacity: .55;
 }
-/* «Дышит» только карточка под курсором или в фокусе: бесконечная анимация
-   на каждой из сотни карточек держала страницу занятой даже в покое
-   (замер на 1000 заказах: 95% времени кадра против 12% у «Товаров»). */
-@media (hover: hover) and (pointer: fine) {
-  .ff-card:hover .ff-node.ff-current .ff-node-ic::after { animation: ff-breathe 2.8s ease-in-out infinite; }
-}
-.ff-card:focus-visible .ff-node.ff-current .ff-node-ic::after { animation: ff-breathe 2.8s ease-in-out infinite; }
-.ff-node.ff-current .ff-node-lab { color: var(--n); font-weight: 700; }
+.ff-node.ff-current .ff-node-lab { color: var(--n); font-weight: 600; }
 .ff-node.ff-todo { opacity: .55; }
 .ff-line { position: relative; flex: 1 1 auto; height: 3px; margin-top: 15px; border-radius: 3px; background: rgba(127, 127, 140, .18); overflow: hidden; }
 .ff-line i {
@@ -250,7 +243,7 @@ html:not([data-theme="light"]) .ff-next { color: #101014 !important; }
 .ff-details-in { min-height: 0; overflow: hidden; }
 .ff-card.open .ff-details { grid-template-rows: 1fr; }
 .ff-card.open .ff-details-in { padding-top: 14px; margin-top: 12px; border-top: 1px solid var(--border); }
-.ff-h { display: flex; align-items: center; gap: 7px; margin: 4px 0 10px; font-size: 0.8125rem; font-weight: 700; color: var(--text); }
+.ff-h { display: flex; align-items: center; gap: 7px; margin: 4px 0 10px; font-size: 0.8125rem; font-weight: 600; color: var(--text); }
 .ff-h svg { color: var(--tone); }
 .ff-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .ff-item { display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: var(--r-sm); background: rgba(127, 127, 140, .06); }
@@ -404,13 +397,13 @@ html[data-theme="light"] .ff-ghost { box-shadow: 0 26px 54px rgba(16, 24, 40, .2
 @keyframes ff-ph-in { from { opacity: 0; transform: scaleY(.92); } to { opacity: 1; transform: none; } }
 
 /* колонка назначения: можно — светится бегущая рамка; нельзя — гаснет */
-.ff-col.ff-drop-ok { border-color: var(--tone); box-shadow: var(--glass-drop-hi), 0 0 0 1px var(--tone-g), 0 0 30px var(--tone-s), var(--glass-edge); }
+.ff-col.ff-drop-ok { border-color: var(--tone); box-shadow: var(--glass-drop-hi), 0 0 0 1px var(--tone), var(--glass-edge); }
 .ff-col.ff-drop-ok::after {
   content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
   background: conic-gradient(from var(--ff-a, 0deg), transparent 0 70%, var(--tone) 85%, transparent 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
-  padding: 2px; opacity: .9; animation: ff-spin 2.2s linear infinite;
+  padding: 2px; opacity: .9; display: none;
 }
 @property --ff-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 @keyframes ff-spin { to { --ff-a: 360deg; } }
@@ -449,7 +442,7 @@ html[data-theme="light"] .ff-ghost { box-shadow: 0 26px 54px rgba(16, 24, 40, .2
 }
 .ff-urgent-chip {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 8px; border-radius: var(--r-pill); font-size: 0.6875rem; font-weight: 700;
+  padding: 3px 8px; border-radius: var(--r-pill); font-size: 0.6875rem; font-weight: 600;
   color: #f0743c; background: rgba(240, 116, 60, .12); border: 1px solid rgba(240, 116, 60, .35);
 }
 .ff-card-top { gap: 8px; }

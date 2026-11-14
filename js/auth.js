@@ -112,7 +112,7 @@ function renderCode(root, resolve, доступ) {
   // iPhone), вместо этого появляется кнопка: по нажатию буфер читается
   // уже законно. Подробности — js/kodizbufera.js.
   const вставить = el("button.btn.btn-outline", {
-    text: "📋 Вставить код", style: { width: "100%", justifyContent: "center", marginTop: "8px", display: "none" },
+    text: "Вставить код", style: { width: "100%", justifyContent: "center", marginTop: "8px", display: "none" },
   });
   const буфер = следитьЗаБуфером({
     длина: 6,

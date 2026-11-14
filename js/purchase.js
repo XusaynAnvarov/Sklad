@@ -10,8 +10,8 @@ export const KIND_SUPPLIER = "supplier";
 export const KIND_SHOP = "shop";
 
 export const KINDS = [
-  { value: KIND_SUPPLIER, label: "От поставщика", icon: "🚚", who: "Поставщик" },
-  { value: KIND_SHOP, label: "Из магазина", icon: "🏪", who: "Магазин" },
+  { value: KIND_SUPPLIER, label: "От поставщика", who: "Поставщик" },
+  { value: KIND_SHOP, label: "Из магазина", who: "Магазин" },
 ];
 
 const BY_VALUE = Object.fromEntries(KINDS.map(k => [k.value, k]));
@@ -24,7 +24,7 @@ export function purchaseKind(p) {
 export const isShop = (p) => purchaseKind(p) === KIND_SHOP;
 
 export function kindLabel(v) { return (BY_VALUE[String(v || "").trim()] || BY_VALUE[KIND_SUPPLIER]).label; }
-export function kindText(v) { const k = BY_VALUE[String(v || "").trim()] || BY_VALUE[KIND_SUPPLIER]; return `${k.icon} ${k.label}`; }
+export function kindText(v) { const k = BY_VALUE[String(v || "").trim()] || BY_VALUE[KIND_SUPPLIER]; return k.label; }
 // Как подписать поле с названием: «Поставщик» или «Магазин»
 export function kindWho(v) { return (BY_VALUE[String(v || "").trim()] || BY_VALUE[KIND_SUPPLIER]).who; }
-export function kindOptions() { return KINDS.map(k => ({ value: k.value, label: `${k.icon} ${k.label}` })); }
+export function kindOptions() { return KINDS.map(k => ({ value: k.value, label: k.label })); }

@@ -84,7 +84,7 @@ export default async function render(page, ctx) {
       }, [
         el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" } }, [
           el("div", {}, [
-            el("div", { style: { fontWeight: "800", fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" } }, [
+            el("div", { style: { fontWeight: "600", fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" } }, [
               icon("user", { size: 17 }), " " + fromName + "  ",
               linked ? el("span.badge.ok", { text: "клиент" }) : el("span.badge.order", { text: "не привязан" }),
               srcBadge,

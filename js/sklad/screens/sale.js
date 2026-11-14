@@ -251,7 +251,7 @@ export default async function render(box, ctx) {
 
   // ---------- список к продаже ----------
   const cartBox = el("div.mini-list");
-  const totalBox = el("div", { style: { textAlign: "right", fontWeight: "800", fontSize: "17px", margin: "12px 0 4px" } });
+  const totalBox = el("div", { style: { textAlign: "right", fontWeight: "600", fontSize: "17px", margin: "12px 0 4px" } });
 
   function totals() {
     const t2 = { som: 0, usd: 0, yuan: 0 };
@@ -341,7 +341,7 @@ export default async function render(box, ctx) {
           title: "Накладная оформлена",
           body: el("div", {}, [
             el("div.hint", { text: pdfOk ? "PDF уже в вашем боте — оттуда перешлёте покупателю." : "PDF в бот не ушёл, но накладная сохранена. Её можно напечатать." }),
-            el("div", { style: { fontWeight: "700", marginTop: "8px" }, text: "Итого: " + totalStr() }),
+            el("div", { style: { fontWeight: "600", marginTop: "8px" }, text: "Итого: " + totalStr() }),
           ]),
           actions: [
             { label: "Печать", kind: "btn-outline", onClick: (close) => { openPrint(invoiceHtml({ who, date: sale.date, items: printItems, totals: printTotals })); close(); } },

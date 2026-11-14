@@ -10,8 +10,8 @@ import { db, rawClient } from "./db.js?v=20261114b";
 import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261114b";
 import { setRates } from "./fx.js?v=20261114b";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, initCursorGlow, initStarfield, makeThemeToggle } from "./effects.js?v=20261114b";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261114b";
+import { initTheme, makeThemeToggle } from "./effects.js?v=20261114a";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261114a";
 // GlassOS: подсказки правого рейла, поиск в стиле Apple, последовательные переходы
 import { initПодсказкиРейла, создатьПоиск, уйти, прийти, запомнитьЗапрос, применитьЗапрос } from "./glassos.js?v=20261114b";
 
@@ -81,8 +81,6 @@ async function boot() {
   })) return;
 
   initTheme();
-  initCursorGlow();
-  initStarfield();
   await неЖдатьДольше(db.ready, 5000, "Клиент базы");
   // Кастомный admin JWT (вход через /api/admin-auth) — сессии Supabase нет и не нужна
   const hasAdminToken = !!localStorage.getItem("sklad_admin_token");
@@ -123,9 +121,6 @@ async function boot() {
 // ========================================================================
 function buildShell() {
   root.innerHTML = "";
-  // Тёплое свечение за стеклом (css/theme.css, .gm-glow). Без него матовые
-  // поверхности нечего размывать и они выглядят просто серыми.
-  if (!document.querySelector(".gm-glow")) document.body.prepend(el("div.gm-glow", { "aria-hidden": "true" }));
 
   // ---------- Правый рейл: только значки ----------
   const sidebar = el("aside.sidebar.gm-rail");
@@ -218,9 +213,9 @@ function buildShell() {
   // теперь рождается вместе с каркасом — иначе её нет на страницах,
   // которые строит сам склад.
   const кнопкаМеню = el("button.btn.btn-outline.btn-icon.menu-btn", {
-    id: "menuBtn", text: "☰", "aria-label": "Меню",
+    id: "menuBtn", "aria-label": "Меню",
     onclick: () => sidebar.classList.toggle("open"),
-  });
+  }, [icon("menu", { size: 18 })]);
   root.append(кнопкаМеню);
   // Выбрал раздел — ящик закрывается сам.
   navrow.addEventListener("click", () => sidebar.classList.remove("open"));
@@ -482,7 +477,7 @@ function showBootError(err) {
   const msg = (err && err.message) ? err.message : String(err || "неизвестная ошибка");
   root.textContent = "";
   const wrap = el("div.login-wrap", {}, [el("div.login-card", { style: { maxWidth: "460px", textAlign: "center" } }, [
-    el("p", { text: "Не удалось загрузить", style: { fontWeight: "800", fontSize: "16px", color: "#b42318", margin: "0 0 8px" } }),
+    el("p", { text: "Не удалось загрузить", style: { fontWeight: "600", fontSize: "16px", color: "#b42318", margin: "0 0 8px" } }),
     el("p", { text: msg, style: { fontSize: "13px", color: "#667085", margin: "0 0 14px", wordBreak: "break-word" } }),
     el("button.btn.btn-primary", { text: "Обновить", style: { marginRight: "8px" }, onclick: () => location.reload() }),
     el("button.btn.btn-outline", { text: "Сбросить кэш", onclick: async () => {

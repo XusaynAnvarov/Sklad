@@ -25,7 +25,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 @keyframes mspin { to { transform: rotate(360deg); } }
 .mini-boot-t { color: var(--muted); font-size: 0.875rem; }
 .mini-deny { min-height: 100dvh; display: grid; place-items: center; align-content: center; gap: 12px; padding: 24px; text-align: center; }
-.mini-deny .t { font-size: 1.125rem; font-weight: 700; }
+.mini-deny .t { font-size: 1.125rem; font-weight: 600; }
 .mini-deny .s { color: var(--muted); font-size: 0.875rem; max-width: 34ch; line-height: 1.5; }
 
 /* ---------- шапка экрана ---------- */
@@ -35,7 +35,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
   padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
   display: flex; align-items: center; gap: 10px;
 }
-.mini-head h1 { font-size: 1.125rem; font-weight: 700; flex: 1; min-width: 0; }
+.mini-head h1 { font-size: 1.125rem; font-weight: 600; flex: 1; min-width: 0; }
 .mini-back {
   width: 38px; height: 38px; flex: none; border-radius: 10px; border: 1px solid var(--border);
   background: var(--panel); color: var(--text); display: grid; place-items: center; cursor: pointer;
@@ -46,10 +46,10 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 .mini-num {
   background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 11px 10px;
 }
-.mini-num .l { font-size: 0.6563rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.mini-num .l { font-size: 0.75rem; color: var(--muted); }
 .mini-num .v {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 0.9375rem; margin-top: 3px;
+  font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.9375rem; margin-top: 3px;
 }
 .mini-num.good .v { color: var(--ok); }
 .mini-num.warn .v { color: var(--warn); }
@@ -89,7 +89,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 }
 .mini-row .qty {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 0.9375rem; white-space: nowrap;
+  font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.9375rem; white-space: nowrap;
 }
 .mini-row .qty.low { color: var(--warn); }
 .mini-row .qty.neg { color: var(--danger); }
@@ -130,7 +130,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 .mini-cta .btn { width: 100%; justify-content: center; min-height: 3rem; font-size: 0.9375rem; }
 
 .mini-empty { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 0.875rem; }
-.mini-sec { font-size: 0.75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 8px; }
+.mini-sec { font-size: 0.8125rem; font-weight: 500; color: var(--muted); margin: 18px 0 8px; }
 
 /* ================================================================
    КОМПЬЮТЕР — от 900px. То же приложение, но шире: меню слева

@@ -161,7 +161,7 @@ export default async function renderIntroAdmin(page, ctx) {
       });
       return el("div", { style: { border: "1px solid var(--border)", borderRadius: "10px", padding: "10px 12px", minWidth: "190px" } }, [
         файл, el("div", { style: { fontWeight: "600", marginBottom: "6px" }, text: n }),
-        el("div", { style: { fontSize: "12px", color: "var(--muted)", marginBottom: "6px", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, text: путь ? "✓ " + путь.split("/").pop() : "не загружено" }),
+        el("div", { style: { fontSize: "12px", color: "var(--muted)", marginBottom: "6px", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, text: путь ? путь.split("/").pop() : "не загружено" }),
         el("div", { style: { display: "flex", gap: "6px" } }, [
           el("button.btn.btn-outline", { type: "button", style: { padding: "6px 10px", fontSize: "12px" }, text: путь ? "Заменить" : "Загрузить", onclick: () => файл.click() }),
           путь ? el("button.btn.btn-outline", { type: "button", style: { padding: "6px 10px", fontSize: "12px" }, text: "Убрать", onclick: () => { d.audio[l] = ""; нарисоватьЗвук(); } }) : null,
@@ -199,7 +199,7 @@ export default async function renderIntroAdmin(page, ctx) {
   const т = st.stats.total || {};
   const плитка = (подпись, значение, sub) => el("div", { style: { padding: "12px 14px", borderRadius: "12px", border: "1px solid var(--border)", minWidth: "130px", flex: "1 1 130px" } }, [
     el("div", { style: { color: "var(--muted)", fontSize: "12px" }, text: подпись }),
-    el("div", { style: { fontSize: "22px", fontWeight: "800", marginTop: "2px" }, text: значение }),
+    el("div", { style: { fontSize: "22px", fontWeight: "600", marginTop: "2px" }, text: значение }),
     sub ? el("div", { style: { color: "var(--muted)", fontSize: "12px" }, text: sub }) : null,
   ]);
   const открыли = т.tour_open || 0;
@@ -221,7 +221,7 @@ export default async function renderIntroAdmin(page, ctx) {
       плитка("«Начать покупки»", число(т.start_shopping), "переход в магазин"),
       плитка("Языки", `${число(т["tour_open:ru"])} / ${число(т["tour_open:uz"])} / ${число(т["tour_open:en"])}`, "ru / uz / en"),
     ]),
-    el("div", { style: { marginTop: "16px", fontWeight: "700" }, text: "До какой сцены доходят" }), воронка,
+    el("div", { style: { marginTop: "16px", fontWeight: "600" }, text: "До какой сцены доходят" }), воронка,
   ], "Только счётчики по дням: без IP, телефонов и идентификаторов посетителей."));
 
   // ---------------- история ----------------

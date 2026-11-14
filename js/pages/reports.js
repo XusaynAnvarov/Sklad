@@ -2,18 +2,18 @@
 //  ОТЧЁТЫ: итоги, диаграммы (месяцы · категории · сезоны · топ-полосы),
 //  сезонность товаров, советы, топ товаров/клиентов, долги и оборот.
 // ========================================================================
-import { el, modal, select } from "../ui.js?v=20261114b";
-import { curStr, toUSD } from "../fx.js?v=20261114b";
-import { SEASON_LABEL, SEASON_ICON, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20261114b";
-import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20261114b";
-import { debtByCur, onlyPositive } from "../debt.js?v=20261114b";
-import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20261114b";
-import { buildAdvice } from "../advice.js?v=20261114b";
-import { placeholder } from "./products.js?v=20261114b";
-import { icon } from "../icons.js?v=20261114b";
-import { thumb } from "../img.js?v=20261114b";
-import { byMethod, methodText } from "../payment.js?v=20261114b";
-import { isShop } from "../purchase.js?v=20261114b";
+import { el, modal, select } from "../ui.js?v=20261114a";
+import { curStr, toUSD } from "../fx.js?v=20261114a";
+import { SEASON_LABEL, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20261114a";
+import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20261114a";
+import { debtByCur, onlyPositive } from "../debt.js?v=20261114a";
+import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20261114a";
+import { buildAdvice } from "../advice.js?v=20261114a";
+import { placeholder } from "./products.js?v=20261114a";
+import { icon } from "../icons.js?v=20261114a";
+import { thumb } from "../img.js?v=20261114a";
+import { byMethod, methodText } from "../payment.js?v=20261114a";
+import { isShop } from "../purchase.js?v=20261114a";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 
@@ -197,7 +197,7 @@ export default async function render(page, ctx) {
         const cell = el("td"); cell.innerHTML = miniSeason(x.a);
         return el("tr", {}, [
           el("td", {}, [el("strong", { text: p.name })]),
-          el("td", {}, [el("span.badge.transit", { text: SEASON_ICON[x.best] + " " + SEASON_LABEL[x.best] })]),
+          el("td", {}, [el("span.badge.transit", { text: SEASON_LABEL[x.best] })]),
           el("td", {}, [el("strong", { text: Math.round(x.share * 100) + "%" })]),
           el("td", { text: x.a.total }),
           el("td", {}, [el("span" + (st > 0 ? ".badge.ok" : ".badge.order"), { text: String(st) })]),

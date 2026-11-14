@@ -34,7 +34,7 @@ export function историяОстатков(page, ctx, products) {
     title: "Показать или скрыть историю",
   }, [
     el("span", { style: { display: "flex", color: "var(--accent)" } }, [icon("clock", { size: 18 })]),
-    el("div", { style: { fontWeight: "700", fontSize: "16px" }, text: "История изменений остатков" }),
+    el("div", { style: { fontWeight: "600", fontSize: "16px" }, text: "История изменений остатков" }),
     стрелка,
   ]);
   const пояснение = el("div.muted", { style: { fontSize: "13px", marginBottom: "10px" },
@@ -104,7 +104,7 @@ export function историяОстатков(page, ctx, products) {
       if (!r.ok) throw new Error(d.error || "Ошибка " + r.status);
       if (!d.ведётся) {
         тело.replaceChildren(el("div.card", { style: { padding: "12px", borderColor: "rgba(245,158,11,.4)" } }, [
-          el("div", { style: { fontWeight: "700", marginBottom: "4px" }, text: "История пока не ведётся" }),
+          el("div", { style: { fontWeight: "600", marginBottom: "4px" }, text: "История пока не ведётся" }),
           el("div.muted", { style: { fontSize: "13px" }, text: d.подсказка || "Выполните db/stock-log-migration.sql в Supabase — после этого каждое изменение остатка будет записываться: было, стало, когда и почему." }),
           el("div.muted", { style: { fontSize: "13px", marginTop: "6px" }, text: "Прошлые изменения восстановить неоткуда: раньше склад хранил только нынешний остаток." }),
         ]));

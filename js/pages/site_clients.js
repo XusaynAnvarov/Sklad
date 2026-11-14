@@ -78,8 +78,8 @@ export default async function render(page, ctx) {
         });
         const info = el("div", { style: { flex: "1", minWidth: "200px" } });
         info.append(
-          el("div", { style: { fontWeight: "700", fontSize: "15px" }, text: c.customer_name }),
-          el("div.muted", { style: { fontSize: "13px", marginTop: "2px" }, text: "+" + c.phone + (c.tg_verified ? " · Telegram ✓" : " · Telegram ?") }),
+          el("div", { style: { fontWeight: "600", fontSize: "15px" }, text: c.customer_name }),
+          el("div.muted", { style: { fontSize: "13px", marginTop: "2px" }, text: "+" + c.phone + (c.tg_verified ? " · Telegram подтверждён" : " · Telegram не подтверждён") }),
           el("div.muted", { style: { fontSize: "12px" }, text: "Рег: " + (c.created_at ? new Date(c.created_at).toLocaleDateString("ru-RU") : "—") + (c.last_login ? " · Вход: " + new Date(c.last_login).toLocaleDateString("ru-RU") : "") }),
         );
         if (c.blocked) info.append(el("span.badge.order", { text: "Номер в блоке", style: { marginTop: "4px", display: "inline-block" } }));
@@ -117,7 +117,7 @@ export default async function render(page, ctx) {
         });
         const info = el("div", { style: { flex: "1" } });
         info.append(
-          el("div", { style: { fontWeight: "700", fontSize: "15px" }, text: "+" + b.phone }),
+          el("div", { style: { fontWeight: "600", fontSize: "15px" }, text: "+" + b.phone }),
           el("div.muted", { style: { fontSize: "12px", marginTop: "2px" }, text: "Заблокирован: " + (b.blocked_at ? new Date(b.blocked_at).toLocaleDateString("ru-RU") : "—") + (b.blocked_by ? " · " + b.blocked_by : "") }),
         );
         const unblockBtn = el("button.btn.btn-outline.btn-sm", {}, [icon("undo", { size: 14 }), " Разблокировать"]);

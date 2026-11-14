@@ -33,7 +33,7 @@ export function openRefund(ctx, клиент, sales, products) {
   let режим = список.length ? "покупки" : "сумма";
   const вкладки = el("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" } });
   const тело = el("div");
-  const итогСтрока = el("div", { style: { fontWeight: "700", fontSize: "15px", marginTop: "10px" } });
+  const итогСтрока = el("div", { style: { fontWeight: "600", fontSize: "15px", marginTop: "10px" } });
 
   // Чем рассчитались с клиентом. По умолчанию — в счёт долга: так возврат
   // уменьшает его долг, а если долга нет, мы остаёмся должны ему. Если
@@ -121,7 +121,7 @@ export function openRefund(ctx, клиент, sales, products) {
           ]),
           el("div", { style: { textAlign: "right", minWidth: "86px" } }, [
             el("div.muted", { style: { fontSize: "11px" }, text: "можно вернуть" }),
-            el("div", { style: { fontWeight: "700" }, text: String(п.осталось) }),
+            el("div", { style: { fontWeight: "600" }, text: String(п.осталось) }),
           ]),
           поле,
         ]));

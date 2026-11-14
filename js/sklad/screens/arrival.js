@@ -108,7 +108,7 @@ export default async function render(box, ctx) {
 
   // ---------- список принятого ----------
   const cartBox = el("div.mini-list");
-  const totalBox = el("div", { style: { textAlign: "right", fontWeight: "800", fontSize: "16px", margin: "12px 0 4px" } });
+  const totalBox = el("div", { style: { textAlign: "right", fontWeight: "600", fontSize: "16px", margin: "12px 0 4px" } });
   const saveBtn = el("button.btn.btn-primary", { text: "Принять на склад" });
   box.append(cartBox, totalBox, el("div", { style: { height: "8px" } }), el("div.mini-cta", {}, [saveBtn]));
 

@@ -53,13 +53,13 @@ const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "�
 // Показать все товары накладной поставщика (фото + название + кол-во) — что в дороге / что пришло
 function showPurchaseItems(s, products) {
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
-  const statusTxt = s.status === "arrived" ? "✅ Уже пришёл" : s.status === "ordered" ? "📝 Заказан" : "🚚 В дороге";
+  const statusTxt = s.status === "arrived" ? "Уже пришёл" : s.status === "ordered" ? "Заказан" : "В дороге";
   const rows = (s.items || []).map(it => {
     const p = pmap[it.product_id] || { name: "?" };
     return el("div.card", { style: { padding: "8px 10px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center" } }, [
       el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", style: { width: "60px", height: "60px", cursor: "zoom-in" }, title: "Увеличить", onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
       el("div", { style: { flex: "1", minWidth: "0", fontWeight: "600" }, text: p.name }),
-      el("div", { style: { fontWeight: "700", whiteSpace: "nowrap", fontSize: "15px" }, text: "× " + it.qty }),
+      el("div", { style: { fontWeight: "600", whiteSpace: "nowrap", fontSize: "15px" }, text: "× " + it.qty }),
     ]);
   });
   modal({
@@ -81,7 +81,7 @@ export default async function render(page, ctx) {
     el("div.topbar", {}, [
       el("div", {}, [el("h1", { text: "Приход товара" }), el("div.sub", { text: `Поступлений: ${purchases.length}` })]),
       el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, [
-        el("button.btn.btn-outline", { title: "Отправить всем клиентам в Telegram: «пришли новые товары» + ссылки", onclick: () => confirmDialog("Отправить всем клиентам в Telegram уведомление о новых товарах?", () => notifyClientsNewProducts([])) }, ["📢 Оповестить клиентов"]),
+        el("button.btn.btn-outline", { title: "Отправить всем клиентам в Telegram: «пришли новые товары» + ссылки", onclick: () => confirmDialog("Отправить всем клиентам в Telegram уведомление о новых товарах?", () => notifyClientsNewProducts([])) }, [icon("broadcast", { size: 16 }), "Оповестить клиентов"]),
         el("button.btn.btn-primary", { onclick: () => openEditor(ctx, null, products, suppliers) }, [icon("plus", { size: 16 }), "Новый приход"]),
       ]),
     ]),
@@ -118,7 +118,7 @@ export default async function render(page, ctx) {
       el("td.right", {}, [el("div.row-actions", {}, [
         s.status !== "arrived" && el("button.btn.btn-ok.btn-sm", { text: "Оприходовать", title: "Отметить «пришёл» и добавить на склад", onclick: function () { arrive(ctx, s, products, this); } }),
         s.status === "arrived" && el("button.btn.btn-outline.btn-sm", { title: "Если оприходовали дважды — списать товары этого прихода один раз", onclick: () => unarriveOnce(ctx, s, products) }, ["↩️ −1 оприх."]),
-        el("button.btn.btn-outline.btn-sm", { title: "Показать товары этого поставщика (фото + кол-во)", text: "👁 Товары", onclick: () => showPurchaseItems(s, products) }),
+        el("button.btn.btn-outline.btn-sm", { title: "Показать товары этого поставщика (фото + кол-во)", text: "Товары", onclick: () => showPurchaseItems(s, products) }),
         el("button.btn.btn-outline.btn-sm.btn-icon", { title: "Редактировать", onclick: () => openEditor(ctx, s, products, suppliers) }, [icon("edit", { size: 16 })]),
         el("button.btn.btn-danger.btn-sm.btn-icon", { title: "Удалить", onclick: () => confirmDialog("Удалить приход?" + (s.status === "arrived" ? " Оприходованные товары спишутся со склада." : ""), async () => {
           // Списываем ТЕМ ЖЕ откатом, что и кнопка «−1 оприх.».
@@ -237,7 +237,7 @@ function предпросмотрПрихода(s, products) {
         text: разбор.every(({ решение }) => решение.изЗаписи)
           ? `Расходы ${fmt(разложено, расх.валюта || s.currency)} уже разложены по позициям — так записано в документе`
           : `Расходы ${fmt(разложено, расх.валюта || s.currency)} разложены по позициям — ${правилоТекст.toLowerCase()}` }) : null,
-      el("div", { style: { textAlign: "right", fontSize: "17px", fontWeight: "800", marginTop: "8px" } },
+      el("div", { style: { textAlign: "right", fontSize: "17px", fontWeight: "600", marginTop: "8px" } },
         ["Закуплено на ", el("span.gradtext", { text: fmt(итого, s.currency) }),
           ...(разложено ? [" + расходы ", el("span.gradtext", { text: fmt(разложено, расх.валюта || s.currency) })] : [])]),
     ].filter(Boolean));
@@ -354,7 +354,7 @@ function openEditor(ctx, purchase, products, suppliers = []) {
   ]);
 
   const itemsBox = el("div");
-  const totalBox = el("div", { style: { textAlign: "right", fontSize: "20px", fontWeight: "800", marginTop: "10px" } });
+  const totalBox = el("div", { style: { textAlign: "right", fontSize: "20px", fontWeight: "600", marginTop: "10px" } });
   const nameToId = {}; products.forEach(p => { nameToId[(p.name || "").toLowerCase()] = p.id; });
 
   // ----- панель добавления (как в продажах): товар + кол-во + себестоимость -----
@@ -469,8 +469,8 @@ function openEditor(ctx, purchase, products, suppliers = []) {
     el("div.hint", { text: "При статусе «Уже пришёл» товары автоматически добавятся на склад." }),
     el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", marginTop: "8px" } }, [
       el("div.section-h", { text: "Добавьте товары", style: { margin: "0", flex: "1" } }),
-      el("button.btn.btn-outline.btn-sm", { text: "📄 Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("purchase") }),
-      el("button.btn.btn-outline.btn-sm", { text: "📥 Из Excel", title: "Импорт списка из Excel", onclick: () => pickFile(importFromExcel) }),
+      el("button.btn.btn-outline.btn-sm", { text: "Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("purchase") }),
+      el("button.btn.btn-outline.btn-sm", { text: "Из Excel", title: "Импорт списка из Excel", onclick: () => pickFile(importFromExcel) }),
     ]),
     el("div", { style: { display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "10px" } }, [
       preview,

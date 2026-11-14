@@ -62,7 +62,7 @@ function плитка(подпись, значение, вид = "") {
   const цвет = вид === "warn" ? "var(--danger)" : (вид === "ok" ? "var(--ok)" : "");
   return el("div.card", { style: { padding: "10px 14px", minWidth: "118px" } }, [
     el("div.muted", { style: { fontSize: "12px" }, text: подпись }),
-    el("div", { style: { fontWeight: "800", fontSize: "20px", color: цвет || "inherit" }, text: String(значение) }),
+    el("div", { style: { fontWeight: "600", fontSize: "20px", color: цвет || "inherit" }, text: String(значение) }),
   ]);
 }
 
@@ -76,7 +76,7 @@ export function пересчётПоExcel(page, ctx, products) {
   карточка.append(
     el("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", flexWrap: "wrap" } }, [
       el("span", { style: { display: "flex", color: "var(--accent)" } }, [icon("box", { size: 18 })]),
-      el("div", { style: { fontWeight: "700", fontSize: "16px" }, text: "Пересчёт склада" }),
+      el("div", { style: { fontWeight: "600", fontSize: "16px" }, text: "Пересчёт склада" }),
     ]),
     el("div.muted", { style: { fontSize: "13px", marginBottom: "12px" },
       text: "Выберите раздел — и считайте прямо на экране или выгрузите его в Excel. Пустое поле склад не тронет: считать можно частями." }),
@@ -223,7 +223,7 @@ export function пересчётПоExcel(page, ctx, products) {
         ].filter(Boolean)),
         el("div", { style: { textAlign: "right", minWidth: "92px" } }, [
           el("div.muted", { style: { fontSize: "11px" }, text: "в складе" }),
-          el("div", { style: { fontWeight: "700" }, text: String(было) }),
+          el("div", { style: { fontWeight: "600" }, text: String(было) }),
         ]),
         поле,
       ]);

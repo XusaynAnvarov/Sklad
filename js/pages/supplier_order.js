@@ -91,7 +91,7 @@ export default async function render(page, ctx) {
 
   // ----- список -----
   const itemsBox = el("div");
-  const totalBox = el("div", { style: { textAlign: "right", fontSize: "20px", fontWeight: "800", marginTop: "10px" } });
+  const totalBox = el("div", { style: { textAlign: "right", fontSize: "20px", fontWeight: "600", marginTop: "10px" } });
   function drawItems() {
     itemsBox.innerHTML = "";
     if (!state.items.length) { itemsBox.append(el("div.empty", { style: { padding: "24px" } }, [el("p", { text: "Добавьте товары в заказ" })])); recalc(); return; }
@@ -131,19 +131,19 @@ export default async function render(page, ctx) {
     const sold = sold30[p.id] || 0;
     const info = [
       sold > 0 ? "продано за 30 дн: " + sold : null,
-      едет ? "🚚 " + подписьДороги(едет) : null,
+      едет ? подписьДороги(едет) : null,
     ].filter(Boolean).join(" · ") || "нет продаж за 30 дн";
     return el("div.card", { style: { padding: "8px 10px", marginBottom: "8px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", ...(едет ? { opacity: ".75" } : {}) } }, [
       el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", style: { width: "42px", height: "42px", cursor: "zoom-in" }, onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
       el("div", { style: { flex: "1", minWidth: "140px" } }, [el("div", { style: { fontWeight: "600" }, text: p.name }), el("div.muted", { style: { fontSize: "11px" }, text: info })]),
-      el("button" + (inCart ? ".btn.btn-outline.btn-sm" : ".btn.btn-ok.btn-sm"), { disabled: inCart, onclick: () => { addProduct(p); drawOOS(); } }, [inCart ? "✓ в заказе" : "＋ в заказ"]),
+      el("button" + (inCart ? ".btn.btn-outline.btn-sm" : ".btn.btn-ok.btn-sm"), { disabled: inCart, onclick: () => { addProduct(p); drawOOS(); } }, [inCart ? "В заказе" : "В заказ"]),
     ]);
   }
   function drawOOS() {
     oosBox.innerHTML = "";
     if (!outOfStock.length) {
       oosBox.append(el("div.muted", { style: { padding: "10px" },
-        text: ужеЕдут.length ? "Всё, чего нет на складе, уже заказано и едет 👍" : "Все товары есть на складе 👍" }));
+        text: ужеЕдут.length ? "Всё, чего нет на складе, уже заказано и едет" : "Все товары есть на складе" }));
     }
     outOfStock.forEach(p => oosBox.append(строкаТовара(p, null)));
 
@@ -240,8 +240,8 @@ export default async function render(page, ctx) {
     el("div", { style: { marginTop: "12px" } }, [oosToggle, oosBox]),
     el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", marginTop: "10px" } }, [
       el("div.section-h", { text: "Добавьте товары", style: { margin: "0", flex: "1" } }),
-      el("button.btn.btn-outline.btn-sm", { text: "📄 Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("purchase") }),
-      el("button.btn.btn-outline.btn-sm", { text: "📥 Из Excel", title: "Импорт списка из Excel", onclick: () => pickFile(importFromExcel) }),
+      el("button.btn.btn-outline.btn-sm", { text: "Шаблон", title: "Скачать шаблон Excel", onclick: () => downloadTemplate("purchase") }),
+      el("button.btn.btn-outline.btn-sm", { text: "Из Excel", title: "Импорт списка из Excel", onclick: () => pickFile(importFromExcel) }),
     ]),
     el("div", { style: { display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "10px" } }, [
       preview,
@@ -258,9 +258,9 @@ export default async function render(page, ctx) {
     el("div.section-h", { text: "Список заказа" }),
     itemsBox, totalBox,
     el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "16px" } }, [
-      el("button.btn.btn-primary", { onclick: downloadPDF }, ["📄 PDF поставщику"]),
-      el("button.btn.btn-outline", { onclick: downloadExcel }, ["📊 Excel"]),
-      el("button.btn.btn-outline", { onclick: saveAsPurchase, title: "Появится в разделе «Приход» как «в дороге»" }, ["💾 Сохранить как приход"]),
+      el("button.btn.btn-primary", { onclick: downloadPDF }, [icon("download", { size: 16 }), "PDF поставщику"]),
+      el("button.btn.btn-outline", { onclick: downloadExcel }, [icon("download", { size: 16 }), "Excel"]),
+      el("button.btn.btn-outline", { onclick: saveAsPurchase, title: "Появится в разделе «Приход» как «в дороге»" }, ["Сохранить как приход"]),
     ]),
   ]));
 

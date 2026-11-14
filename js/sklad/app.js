@@ -185,7 +185,7 @@ function открытьМеню() {
     },
   }, [
     el("div", { style: { display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px 4px" } }, [
-      el("div", { style: { fontWeight: "700", fontSize: "16px", flex: "1" }, text: "Разделы" }),
+      el("div", { style: { fontWeight: "600", fontSize: "16px", flex: "1" }, text: "Разделы" }),
       el("button.mini-icon-btn", { title: "Закрыть", onclick: () => закрыть() }, [icon("x", { size: 18 })]),
     ]),
     список,
@@ -205,9 +205,6 @@ function открытьМеню() {
 
 function shell() {
   root().innerHTML = "";
-  // Тёплое свечение за стеклом (css/theme.css, .gm-glow): без него матовым
-  // поверхностям нечего размывать и они выглядят просто серыми.
-  if (!document.querySelector(".gm-glow")) document.body.prepend(el("div.gm-glow", { "aria-hidden": "true" }));
   const head = el("div.mini-head");
   const body = el("div.mini-wrap", { id: "mini-body" });
   const bar = el("div.mini-bar");

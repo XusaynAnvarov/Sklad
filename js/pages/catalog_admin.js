@@ -61,7 +61,7 @@ export default async function render(page, ctx) {
         el("div.nm", { text: p.name }),
         el("div.cat", { text: [p.code, p.category].filter(Boolean).join(" · ") }),
         el("div", { style: { marginTop: "auto" } }, [
-          s === "in_stock" ? el("span.badge.ok", { text: "✓ Есть" }) : el("span.badge.order", { text: "⏳ Под заказ" }),
+          s === "in_stock" ? el("span.badge.ok", { text: "Есть" }) : el("span.badge.order", { text: "Под заказ" }),
         ]),
       ]),
     ]));

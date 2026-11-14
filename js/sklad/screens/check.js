@@ -81,7 +81,7 @@ export default async function render(box, ctx) {
     const list = el("div.mini-list");
     items.slice(0, 40).forEach(x => list.append(render(x)));
     тело.append(
-      el("div", { style: { fontWeight: "700", fontSize: "15px", margin: "16px 0 6px" }, text: title + " · " + items.length }),
+      el("div", { style: { fontWeight: "600", fontSize: "15px", margin: "16px 0 6px" }, text: title + " · " + items.length }),
       el("div.hint", { style: { marginBottom: "8px" }, text: hint }),
       list,
       items.length > 40 ? el("div.hint", { style: { marginTop: "6px" }, text: "Показаны первые 40." }) : null,

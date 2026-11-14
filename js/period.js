@@ -7,7 +7,6 @@
 export const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 export const MONTHS_SHORT = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 export const SEASONS = [["winter", "Зима"], ["spring", "Весна"], ["summer", "Лето"], ["autumn", "Осень"]];
-export const SEASON_ICON = { winter: "❄", spring: "🌱", summer: "☀", autumn: "🍂" };
 export const SEASON_LABEL = { winter: "Зима", spring: "Весна", summer: "Лето", autumn: "Осень" };
 
 // какому сезону принадлежит дата
