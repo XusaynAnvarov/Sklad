@@ -210,3 +210,12 @@ create index if not exists trash_created_idx     on trash (created_at desc);
 -- Один код товара — один товар (как в Supabase).
 create unique index if not exists products_code_unique
   on products (code) where code is not null and code <> '';
+
+-- Избранное клиента (db/client-favorites-migration.sql)
+create table if not exists client_favorites (
+  id          text primary key,
+  customer_id uuid not null,
+  product_id  uuid not null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists client_favorites_customer_idx on client_favorites (customer_id);
