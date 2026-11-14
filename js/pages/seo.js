@@ -9,9 +9,9 @@
 //  Все правки — в файле SEO-уточнений на сервере, не в складе. Перед
 //  каждой правкой сохраняется снимок, внизу страницы — откат.
 // ========================================================================
-import { el, toast, modal, confirmDialog, input, showLoader, hideLoader } from "../ui.js?v=20261113d";
-import { icon } from "../icons.js?v=20261113d";
-import { authHeaders } from "../db.js?v=20261113d";
+import { el, toast, modal, confirmDialog, input, showLoader, hideLoader } from "../ui.js?v=20261114a";
+import { icon } from "../icons.js?v=20261114a";
+import { authHeaders } from "../db.js?v=20261114a";
 
 async function api(method, query = "", body) {
   const r = await fetch("/api/admin/seo" + query, {
