@@ -25,9 +25,13 @@ app.use((req, res, next) => {
   res.setHeader("Content-Security-Policy", "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org");
   if (process.env.DB_MODE !== "local" && !/^(localhost|127\.)/.test(String(req.headers.host || "")))
     res.setHeader("Strict-Transport-Security", "max-age=15552000");
+  // CSP в режиме наблюдения: ничего не блокирует, только присылает отчёты (api/lib/csp.js)
+  res.setHeader("Content-Security-Policy-Report-Only", CSP_НАБЛЮДЕНИЕ);
   next();
 });
 
+// отчёты CSP приходят с типом application/csp-report — разбираем их отдельно и маленькими
+app.use("/api/csp-report", express.json({ type: ["application/csp-report", "application/reports+json", "application/json"], limit: "16kb" }));
 app.use(express.json({ limit: "12mb" }));
 app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 
@@ -71,6 +75,7 @@ const routes = [
   [["GET"],   "/api/client/me",               "./api/client/me.js"],
   [["POST"],  "/api/client/update-profile",   "./api/client/update-profile.js"],
   [["POST"],  "/api/client/phone-code",       "./api/client/phone-code.js"],
+  [["GET","POST"], "/api/client/favorites",   "./api/client/favorites.js"],
   [["GET"],   "/api/client/orders",           "./api/client/orders.js"],
   [["GET"],   "/api/client/invoices",         "./api/client/invoices.js"],
   [["GET"],   "/api/client/payments",         "./api/client/payments.js"],

@@ -77,6 +77,28 @@ function ключКлиента() {
 }
 function избранное() { try { return new Set(JSON.parse(localStorage.getItem("gm_fav_" + ключКлиента()) || "[]")); } catch { return new Set(); } }
 function сохранитьИзбранное() { try { localStorage.setItem("gm_fav_" + ключКлиента(), JSON.stringify([...S.fav])); } catch {} }
+// Общее избранное: если на сервере есть таблица — объединяем с базой (то, что
+// отмечено на этом устройстве, переносится туда один раз). Нет таблицы —
+// остаётся как было, только в браузере. Ошибки сети не мешают кабинету.
+let избранноеСервер = false;
+async function синхронизироватьИзбранное() {
+  try {
+    const r = await api.favorites();
+    if (!r || r.unavailable || !Array.isArray(r.ids)) return;
+    избранноеСервер = true;
+    const сервер = new Set(r.ids.map(String));
+    const перенести = [...S.fav].filter(id => !сервер.has(id));
+    let итог = сервер;
+    if (перенести.length) {
+      const m = await api.favoritesMerge(перенести).catch(() => null);
+      итог = new Set(((m && m.ids) || [...сервер, ...перенести]).map(String));
+    }
+    const было = [...S.fav].sort().join();
+    S.fav = итог;
+    сохранитьИзбранное();
+    if ([...итог].sort().join() !== было && S.tab === "search") { S.list = null; результаты(); }
+  } catch {}
+}
 
 const NAV = [["home", "home"], ["search", "search"], ["buys", "bag"], ["fin", "wallet"], ["me", "user"]];
 const ЗАГОЛОВОК = {
@@ -149,6 +171,7 @@ export async function renderCabinet(container) {
     return;
   }
   подготовить();
+  синхронизироватьИзбранное();
   кто();
   отметитьМеню();
   шапка();
@@ -1023,6 +1046,7 @@ function действие(e) {
       S.fav.has(v) ? S.fav.delete(v) : S.fav.add(v);
       сохранитьИзбранное();
       const on = S.fav.has(v);
+      if (избранноеСервер) api.favorite(v, on).catch(() => {});
       el.setAttribute("aria-pressed", on); el.setAttribute("aria-label", on ? т("favDel") : т("favAdd"));
       el.innerHTML = svg("star", on);
       if (S.filter === "fav") { S.list = null; результаты(); }

@@ -59,6 +59,9 @@ export const api = {
   // профиль
   updateProfile: (data) => req("POST", "/client/update-profile", data),
   phoneCode: (phone) => req("POST", "/client/phone-code", { phone }),
+  favorites: () => req("GET", "/client/favorites"),
+  favorite: (product_id, on) => req("POST", "/client/favorites", { product_id, on: !!on }),
+  favoritesMerge: (ids) => req("POST", "/client/favorites", { merge: ids }),
   changePassword: (current, newPass) => req("POST", "/client/change-password", { current, new: newPass }),
 
   // заказ
