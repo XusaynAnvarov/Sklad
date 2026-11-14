@@ -223,7 +223,7 @@ export default async function render(page, ctx) {
       // владельцу надо видеть, что докупать уже не нужно.
       const transitNote = tr ? el("div", {
         title: tr.поставщики.length ? "Поставщик: " + tr.поставщики.join(", ") : "",
-        style: { fontSize: "11px", fontWeight: "600", color: "#b45309", background: "rgba(245,158,11,.13)", border: "1px solid rgba(245,158,11,.35)", borderRadius: "6px", padding: "3px 7px", margin: "4px 0 2px", lineHeight: "1.3" },
+        style: { fontSize: "11px", fontWeight: "600", color: "#b45309", background: "rgba(245,158,11,.13)", border: "1px solid rgba(245,158,11,.35)", borderRadius: "8px", padding: "3px 7px", margin: "4px 0 2px", lineHeight: "1.3" },
         text: подписьДороги(tr),
       }) : null;
       // Едущая партия дороже той, что продаётся сейчас: после прихода
@@ -235,7 +235,7 @@ export default async function render(page, ctx) {
       const transitPrice = дороже ? el("div", {
         title: "Сейчас продаётся партия по " + ценаБыло + ", а едущая обойдётся в " + ценаСтанет
           + ". Когда старый товар кончится, себестоимость вырастет — цену продажи стоит поднять заранее.",
-        style: { fontSize: "11px", fontWeight: "600", color: "var(--danger,#f87171)", background: "rgba(239,68,68,.10)", border: "1px solid rgba(239,68,68,.35)", borderRadius: "6px", padding: "3px 7px", margin: "0 0 2px", lineHeight: "1.3" },
+        style: { fontSize: "11px", fontWeight: "600", color: "var(--danger,#f87171)", background: "rgba(239,68,68,.10)", border: "1px solid rgba(239,68,68,.35)", borderRadius: "8px", padding: "3px 7px", margin: "0 0 2px", lineHeight: "1.3" },
         text: "↑ В дороге дороже: " + ценаБыло + " → " + ценаСтанет + " (+" + дороже.процент + "%)",
       }) : null;
       // Полоска состояния слева: видно на просмотр, не читая цифру остатка.
@@ -309,9 +309,14 @@ export default async function render(page, ctx) {
   }
 }
 
-export function placeholder(name = "?") {
-  const ch = encodeURIComponent((name[0] || "?").toUpperCase());
-  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23f1ebdc'/%3E%3Ctext x='50%25' y='54%25' font-size='90' fill='%23c9c0a8' text-anchor='middle' font-family='sans-serif'%3E${ch}%3C/text%3E%3C/svg%3E`;
+export function placeholder() {
+  // Товар без фото: значок коробки по центру, без цветной подложки —
+  // фон даёт тема (.prod .ph, .thumb). Серый читается и в светлой, и в тёмной.
+  return "data:image/svg+xml," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">'
+    + '<g transform="translate(76 76)" fill="none" stroke="#8b8b96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".7">'
+    + '<g transform="scale(2)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></g>'
+    + '</g></svg>');
 }
 
 export function openForm(ctx, p, cats = []) {

@@ -220,7 +220,7 @@ function shell() {
   if (isGuest()) {
     root().append(head, el("div", {
       style: {
-        margin: "0 14px 10px", padding: "9px 12px", borderRadius: "10px",
+        margin: "0 14px 10px", padding: "9px 12px", borderRadius: "12px",
         background: "var(--bg2)", border: "1px solid var(--border)",
         color: "var(--muted)", fontSize: "12.5px", textAlign: "center",
       },

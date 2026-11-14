@@ -187,7 +187,7 @@ function buildShell() {
     el("div.avatar", {}, [icon("user", { size: 18 })]),
     el("div", { style: { minWidth: "0" } }, [
       el("div.pname", { text: "Владелец" }),
-      el("div.ptag", {}, [el("span.dot"), "Online · PRO"]),
+      el("div.ptag", {}, [el("span.dot"), "В сети"]),
     ]),
   ]);
   const режим = el("div.mode-tag", {}, [

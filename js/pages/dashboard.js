@@ -840,8 +840,7 @@ export default async function render(page, ctx) {
   function строкаДенег(подпись, usd, жирно) {
     return el("div.gm-li", { style: { cursor: "default" } }, [
       el("span.gm-li-t", { text: подпись, style: жирно ? { fontWeight: "600" } : null }),
-      el("span.gm-li-s", { text: "$" + Math.round(usd).toLocaleString("ru-RU") }),
-      el("span.gm-li-v", { text: fmt(convert(usd, "usd", curView), curView) }),
+      el("span.gm-li-v", { text: fmt(convert(usd, "usd", curView), curView), style: { fontVariantNumeric: "tabular-nums" } }),
     ]);
   }
 

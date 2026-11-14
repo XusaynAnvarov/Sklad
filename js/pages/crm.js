@@ -63,7 +63,7 @@ function стиль() {
 @media (prefers-reduced-motion:reduce){.crm-bar .f{animation:none}}
 .crm-ev{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.8125rem}
 .crm-ev:last-child{border-bottom:none}
-.crm-risk{flex:0 0 auto;min-width:38px;text-align:center;border-radius:6px;padding:2px 6px;font-weight:600;font-variant-numeric:tabular-nums}
+.crm-risk{flex:0 0 auto;min-width:38px;text-align:center;border-radius:8px;padding:2px 6px;font-weight:600;font-variant-numeric:tabular-nums}
 .crm-risk.hi{background:rgba(248,113,113,.16);color:var(--danger)}
 .crm-risk.md{background:rgba(251,191,36,.16);color:var(--warn)}
 .crm-risk.lo{background:rgba(140,140,160,.14);color:var(--muted)}

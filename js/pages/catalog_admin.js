@@ -119,7 +119,7 @@ function блокКодов(products) {
       if (!поРазделам.has(x.category)) поРазделам.set(x.category, []);
       поРазделам.get(x.category).push(x);
     }
-    const таблица = el("div", { style: { maxHeight: "420px", overflow: "auto", border: "1px solid var(--line, #e5e7eb)", borderRadius: "10px", margin: "10px 0" } });
+    const таблица = el("div", { style: { maxHeight: "420px", overflow: "auto", border: "1px solid var(--line, #e5e7eb)", borderRadius: "12px", margin: "10px 0" } });
     for (const [раздел, товары] of поРазделам) {
       таблица.append(el("div", { style: { padding: "8px 12px", fontWeight: "600", background: "var(--bg-soft, #f3f4f6)", position: "sticky", top: "0" },
         text: `${раздел} — ${товары.length} шт. · ${товары[0].code} … ${товары[товары.length - 1].code}` }));

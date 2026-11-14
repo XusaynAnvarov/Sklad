@@ -37,7 +37,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 }
 .mini-head h1 { font-size: 1.125rem; font-weight: 600; flex: 1; min-width: 0; }
 .mini-back {
-  width: 38px; height: 38px; flex: none; border-radius: 10px; border: 1px solid var(--border);
+  width: 38px; height: 38px; flex: none; border-radius: 12px; border: 1px solid var(--border);
   background: var(--panel); color: var(--text); display: grid; place-items: center; cursor: pointer;
 }
 
@@ -58,7 +58,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 .mini-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .mini-act {
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
   padding: 15px 14px; min-height: 5.25rem; cursor: pointer; text-align: left;
   color: var(--text); font-size: 0.9375rem; font-weight: 600;
   transition: border-color .15s, transform .12s;
@@ -94,7 +94,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 .mini-row .qty.low { color: var(--warn); }
 .mini-row .qty.neg { color: var(--danger); }
 .mini-row .ph {
-  width: 64px; height: 64px; flex: none; border-radius: 10px; object-fit: contain;
+  width: 64px; height: 64px; flex: none; border-radius: 12px; object-fit: contain;
   background: #fff; border: 1px solid var(--border);
 }
 
@@ -102,7 +102,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 .mini-search { display: flex; gap: 8px; margin-bottom: 12px; }
 .mini-search .inp { flex: 1; min-height: 2.75rem; font-size: 1rem; }
 .mini-icon-btn {
-  width: 44px; height: 44px; flex: none; border-radius: 10px; border: 1px solid var(--border);
+  width: 44px; height: 44px; flex: none; border-radius: 12px; border: 1px solid var(--border);
   background: var(--panel); color: var(--text); display: grid; place-items: center; cursor: pointer;
 }
 
@@ -149,7 +149,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
   }
   .mini-tab {
     flex-direction: row; justify-content: flex-start; gap: 11px;
-    padding: 12px 14px; border-radius: 9px; font-size: 0.9063rem; min-height: 2.875rem;
+    padding: 12px 14px; border-radius: 8px; font-size: 0.9063rem; min-height: 2.875rem;
   }
   .mini-tab.on { background: var(--brass-wash, rgba(143,103,32,.09)); }
 
@@ -175,7 +175,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 /* кнопка «Развернуть» — только там, где Telegram это умеет */
 .mini-full {
   margin-left: auto; flex: none;
-  width: 38px; height: 38px; border-radius: 10px;
+  width: 38px; height: 38px; border-radius: 12px;
   border: 1px solid var(--border); background: var(--panel); color: var(--muted);
   display: grid; place-items: center; cursor: pointer;
 }
@@ -222,7 +222,7 @@ body.mini::before, body.mini::after { display: none; }   /* без плаваю�
 /* «Развернуть» — только на компьютере: на телефоне приложение и так во весь экран */
 .mini-full {
   margin-left: auto; flex: none; display: none;
-  width: 38px; height: 38px; border-radius: 10px;
+  width: 38px; height: 38px; border-radius: 12px;
   border: 1px solid var(--border); background: var(--panel); color: var(--muted);
   place-items: center; cursor: pointer;
 }

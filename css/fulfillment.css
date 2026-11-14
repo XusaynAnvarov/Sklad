@@ -130,7 +130,7 @@ html[data-theme="light"] .ff-seg button.active { color: #fff; }
 .ff-col { border-radius: var(--r-xl); padding: 12px; min-width: 0; }
 .ff-col[hidden] { display: none; }
 .ff-col::before {   /* цветная кромка раздела */
-  content: ""; position: absolute; left: 18px; right: 18px; top: -1px; height: 2px; border-radius: 2px;
+  content: ""; position: absolute; left: 18px; right: 18px; top: -1px; height: 2px; border-radius: 4px;
   background: linear-gradient(90deg, transparent, var(--tone), transparent); opacity: .8;
 }
 .ff-col-h { display: flex; align-items: center; gap: 8px; padding: 4px 6px 12px; font-size: 0.875rem; font-weight: 600; }
@@ -207,7 +207,7 @@ html[data-theme="light"] .ff-node.ff-done .ff-node-ic { color: #fff; }
 }
 .ff-node.ff-current .ff-node-lab { color: var(--n); font-weight: 600; }
 .ff-node.ff-todo { opacity: .55; }
-.ff-line { position: relative; flex: 1 1 auto; height: 3px; margin-top: 15px; border-radius: 3px; background: rgba(127, 127, 140, .18); overflow: hidden; }
+.ff-line { position: relative; flex: 1 1 auto; height: 3px; margin-top: 15px; border-radius: 4px; background: rgba(127, 127, 140, .18); overflow: hidden; }
 .ff-line i {
   position: absolute; inset: 0; border-radius: inherit;
   background: linear-gradient(90deg, var(--ff-amber), var(--ff-blue) 60%, var(--ff-green));
@@ -261,7 +261,7 @@ html:not([data-theme="light"]) .ff-next { color: #101014 !important; }
 
 /* ---------- история: вертикальная стеклянная шкала ---------- */
 .ff-history { list-style: none; margin: 0 0 12px; padding: 0 0 0 6px; position: relative; }
-.ff-history::before { content: ""; position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: linear-gradient(var(--ff-amber-g), var(--ff-blue-g), var(--ff-green-g)); }
+.ff-history::before { content: ""; position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; border-radius: 4px; background: linear-gradient(var(--ff-amber-g), var(--ff-blue-g), var(--ff-green-g)); }
 .ff-ev { position: relative; display: flex; gap: 12px; padding: 4px 0 10px; animation: ff-rise 360ms var(--e-out) both; animation-delay: calc(var(--i, 0) * 70ms); }
 .ff-ev-dot { position: relative; z-index: 1; flex: 0 0 auto; width: 12px; height: 12px; margin-top: 4px; border-radius: 50%; background: var(--panel); border: 2px solid var(--ff-amber); }
 .ff-ev-pack .ff-ev-dot { border-color: var(--ff-blue); }
@@ -437,7 +437,7 @@ html[data-theme="light"] .ff-ghost { box-shadow: 0 26px 54px rgba(16, 24, 40, .2
 .ff-grip:focus-visible, .ff-flag:focus-visible { outline: 2px solid var(--tone); outline-offset: 2px; }
 .ff-card.ff-urgent { border-color: rgba(240, 116, 60, .45); }
 .ff-card.ff-urgent::before {
-  content: ""; position: absolute; left: -1px; top: 14px; bottom: 14px; width: 3px; border-radius: 3px;
+  content: ""; position: absolute; left: -1px; top: 14px; bottom: 14px; width: 3px; border-radius: 4px;
   background: linear-gradient(#f0743c, #f2b64c);
 }
 .ff-urgent-chip {

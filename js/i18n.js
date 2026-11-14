@@ -25,6 +25,7 @@ const D = {
   "Тёмная": { uz: "Tungi", en: "Dark" },
   "Светлая": { uz: "Yorug‘", en: "Light" },
   "Выход": { uz: "Chiqish", en: "Log out" },
+  "В сети": { uz: "Onlayn", en: "Online" },
 
   // --- вход ---
   "Склад": { uz: "Ombor", en: "Warehouse" },

@@ -159,7 +159,7 @@ export default async function renderIntroAdmin(page, ctx) {
         try { d.audio[l] = await db.uploadVideo(f); toast("Загружено — не забудьте опубликовать", "ok"); нарисоватьЗвук(); }
         catch (e) { toast(e.message, "err"); } finally { hideLoader(); }
       });
-      return el("div", { style: { border: "1px solid var(--border)", borderRadius: "10px", padding: "10px 12px", minWidth: "190px" } }, [
+      return el("div", { style: { border: "1px solid var(--border)", borderRadius: "12px", padding: "10px 12px", minWidth: "190px" } }, [
         файл, el("div", { style: { fontWeight: "600", marginBottom: "6px" }, text: n }),
         el("div", { style: { fontSize: "12px", color: "var(--muted)", marginBottom: "6px", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, text: путь ? путь.split("/").pop() : "не загружено" }),
         el("div", { style: { display: "flex", gap: "6px" } }, [

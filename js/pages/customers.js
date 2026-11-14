@@ -498,7 +498,7 @@ function openActSverki(ctx, c, sales, payments) {
     const parts = ["som", "usd", "yuan"].filter(cu => Math.abs(closing[cu] || 0) >= (cu === "som" ? 1 : 0.01)).map(cu => fmt(closing[cu], cu));
     const debtStr = parts.length ? parts.join("   +   ") : fmt(0, "som");
     body.append(el("div", {
-      style: { background: "var(--navy,#16233b)", color: "#fff", borderRadius: "14px", padding: "14px 18px", marginTop: "4px" },
+      style: { background: "var(--navy,#16233b)", color: "#fff", borderRadius: "16px", padding: "14px 18px", marginTop: "4px" },
     }, [
       el("div", { text: "Общий долг клиента", style: { fontSize: "12px", opacity: ".75", marginBottom: "4px" } }),
       el("div", { text: debtStr, style: { fontSize: "18px", fontWeight: "600", color: "var(--gold,#e3c163)" } }),
