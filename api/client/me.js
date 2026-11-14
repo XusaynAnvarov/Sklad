@@ -1,5 +1,5 @@
 // GET /api/client/me — профиль клиента + долг по валютам
-import { getValidClient } from "../lib/clientauth.js";
+import { getValidClient, обновитьТокен } from "../lib/clientauth.js";
 import { sget , okId } from "../lib/supa.js";
 
 function debtAndTurnover(sales, payments, customer) {
@@ -40,7 +40,9 @@ export default async function handler(req, res) {
     ]);
     const customer = customers[0] || null;
     const { debt, turn, advance } = debtAndTurnover(sales, payments, customer);
-    return res.status(200).json({ customer, debt, turn, advance });
+    // токен старого образца (без отпечатка пароля) тихо меняем на новый
+    const token = client.legacy && client._pv ? обновитьТокен(client) : undefined;
+    return res.status(200).json({ customer, debt, turn, advance, ...(token ? { token } : {}) });
   } catch (e) {
     console.error("client/me error", e);
     return res.status(500).json({ error: "Ошибка сервера" });

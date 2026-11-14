@@ -1,7 +1,7 @@
 // POST /api/client/register — завершить регистрацию после Telegram-верификации
 // Body: { verif_token, password }
 // Returns: { token } (JWT для входа)
-import { normPhone, hashPassword, signToken, genSessionId } from "../lib/clientauth.js";
+import { normPhone, hashPassword, signToken, genSessionId, отпечатокПароля } from "../lib/clientauth.js";
 import { sget, supsert, spatch } from "../lib/supa.js";
 import { sinsert, sdelete } from "../lib/supa.js";
 import { recordEvent, linkSiteAccount } from "../lib/crm.js";
@@ -91,7 +91,7 @@ export default async function handler(req, res) {
     // в Telegram (site_verifications), поэтому склейка по нему надёжна.
     recordEvent(req, { channel: "site", kind: "register", ok: true, phone9: phone, site_account_id: acc.id, customer_id: acc.customer_id }).catch(() => {});
     linkSiteAccount({ phone, site_account_id: acc.id, customer_id: acc.customer_id, tg_chat_id: v.chat_id, tg_username: v.tg_username, req }).catch(() => {});
-    const jwt = signToken({ sub: acc.id, customer_id: acc.customer_id, phone, sid });
+    const jwt = signToken({ sub: acc.id, customer_id: acc.customer_id, phone, sid, pv: отпечатокПароля(password_hash) });
     return res.status(200).json({ token: jwt, customer_id: acc.customer_id });
   } catch (e) {
     console.error("register error", e);

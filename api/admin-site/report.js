@@ -6,7 +6,7 @@ const CURS = ["som", "usd", "yuan"];
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
-  if (!getSiteAdmin(req)) return res.status(401).json({ error: "Только для администратора" });
+  if (!(await getSiteAdmin(req))) return res.status(401).json({ error: "Только для администратора" });
 
   const period = (req.query?.period || "all").toLowerCase();
   const now = new Date();

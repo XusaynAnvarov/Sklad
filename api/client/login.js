@@ -1,7 +1,7 @@
 // POST /api/client/login — шаг 2 входа: код из Telegram + пароль
 // Body: { phone, code, password }  → Returns { token, customer_id }
 // Каждый успешный вход выдаёт новый session_id → прежнее устройство «выкидывает».
-import { normPhone, verifyPassword, verifyCode, signToken, genSessionId, hashDevice } from "../lib/clientauth.js";
+import { normPhone, verifyPassword, verifyCode, signToken, genSessionId, hashDevice, отпечатокПароля } from "../lib/clientauth.js";
 import { sget, spatch } from "../lib/supa.js";
 import { isAdminPhone } from "../lib/siteadmin.js";
 import { recordEvent, linkSiteAccount, refreshIpGeo } from "../lib/crm.js";
@@ -71,7 +71,9 @@ export default async function handler(req, res) {
     if (deviceId && !isKnownDevice) known_devices = [...new Set([...known, hashDevice(deviceId)])].slice(-10);
     try {
       await spatch(`site_accounts?id=eq.${acc.id}`, {
-        last_login: new Date().toISOString(), session_id: sid,
+        last_login: new Date().toISOString(),
+        // метку отзыва старых токенов «rev:…» вход не затирает (clientauth.js)
+        session_id: /^rev:/.test(String(acc.session_id || "")) ? acc.session_id : sid,
         login_code: null, login_code_exp: null, login_attempts: 0,
         known_devices,
       });
@@ -82,7 +84,7 @@ export default async function handler(req, res) {
     журнал(req, { kind: "login_ok", ok: true, phone9: phone, site_account_id: acc.id, customer_id: acc.customer_id, device_hash: deviceId ? hashDevice(deviceId) : null });
     linkSiteAccount({ phone, site_account_id: acc.id, customer_id: acc.customer_id, tg_chat_id: acc.chat_id, tg_username: acc.tg_username })
       .then(crm => refreshIpGeo(crm, req)).catch(() => {});
-    const jwt = signToken({ sub: acc.id, customer_id: acc.customer_id, phone, sid });
+    const jwt = signToken({ sub: acc.id, customer_id: acc.customer_id, phone, sid, pv: отпечатокПароля(acc.password_hash) });
     return res.status(200).json({ token: jwt, customer_id: acc.customer_id });
   } catch (e) {
     console.error("login error", e);

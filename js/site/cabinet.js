@@ -53,6 +53,7 @@ let каталог = null, каталогЖдём = null;
 async function данные(свежие) {
   if (!свежие && кэш && Date.now() - кэшКогда < 60e3) return кэш;
   кэш = await api.cabinet();
+  if (кэш && кэш.token) { saveToken(кэш.token); delete кэш.token; }
   кэшКогда = Date.now();
   return кэш;
 }
@@ -710,7 +711,8 @@ async function отправитьФорму(form) {
       if (!v("cur") || !v("new")) return стоп(т("fillAll"));
       if (v("new").length < 6) return стоп(т("passShort"));
       if (v("new") !== v("new2")) return стоп(т("passMismatch"));
-      await api.changePassword(v("cur"), v("new"));
+      const r = await api.changePassword(v("cur"), v("new"));
+      if (r && r.token) saveToken(r.token);   // остальные входы закрыты, этот остаётся
       form.reset();
       sToast(т("passChanged"), "ok");
       return;

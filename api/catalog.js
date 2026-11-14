@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   // Ответ владельцу НЕ кэшируем: в нём есть остаток и продажи за неделю,
   // которые клиентам видеть нельзя (артикул теперь общий — его показываем всем).
-  const isOwner = !!getSiteAdmin(req);
+  const isOwner = !!(await getSiteAdmin(req));
   if (isOwner) { res.setHeader("Cache-Control", "private, no-store"); res.setHeader("Vary", "Authorization"); }
   else res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
 

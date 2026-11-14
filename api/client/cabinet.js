@@ -5,7 +5,7 @@
 // Параметров у запроса нет — подменить чужой id негде. Каждая выборка ниже
 // отфильтрована по этому customer_id, поэтому чужие цены и накладные сюда
 // попасть не могут. Закупочные цены и себестоимость не читаются вовсе.
-import { getValidClient } from "../lib/clientauth.js";
+import { getValidClient, обновитьТокен } from "../lib/clientauth.js";
 import { sget, okId } from "../lib/supa.js";
 import { этапыДляНакладных } from "../lib/fulfillment.js";
 import { собратьКабинет } from "../lib/cabinetdata.js";
@@ -63,7 +63,10 @@ export default async function handler(req, res) {
       ids.length ? товарыПоId(ids) : [],
       этапыДляНакладных(sales || []),
     ]);
-    return res.status(200).json(собратьКабинет({ customer: customers[0] || null, sales, payments, products, этапы }));
+    const ответ = собратьКабинет({ customer: customers[0] || null, sales, payments, products, этапы });
+    // токен старого образца (без отпечатка пароля) тихо меняем на новый
+    if (client.legacy && client._pv) ответ.token = обновитьТокен(client);
+    return res.status(200).json(ответ);
   } catch (e) {
     console.error("client/cabinet error", e);
     return res.status(500).json({ error: "Ошибка сервера" });

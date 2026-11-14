@@ -1,5 +1,5 @@
 // SPA-роутер публичного сайта: шапка, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, api } from "./api.js?v=20261113d";
+import { isLoggedIn, clearToken as _clearToken, saveToken as _saveToken, api } from "./api.js?v=20261113d";
 import { renderCatalog } from "./catalog.js?v=20261113d";
 import { renderVideos } from "./videos.js?v=20261113d";
 import { renderCabinet } from "./cabinet.js?v=20261113d";
@@ -765,7 +765,7 @@ function startSessionWatch() {
   async function check() {
     if (checking || !isLoggedIn()) return;
     checking = true;
-    try { await api.me(); }
+    try { const r = await api.me(); if (r && r.token) _saveToken(r.token); }
     catch (e) {
       // 401 от /me = токен недействителен (истёк или аккаунт удалён)
       if (/автор/i.test(e.message || "")) {

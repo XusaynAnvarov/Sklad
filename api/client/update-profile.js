@@ -6,7 +6,7 @@
 // номера (шаг 1 — /api/client/phone-code). Без кода чужой свободный номер
 // себе не поставить: служебные, заблокированные и занятые отклоняются ещё
 // до выдачи кода и проверяются здесь повторно.
-import { getValidClient, normPhone, signToken } from "../lib/clientauth.js";
+import { getValidClient, normPhone, обновитьТокен } from "../lib/clientauth.js";
 import { sget, spatch, okId } from "../lib/supa.js";
 import { проверитьНомер, проверитьКод } from "../lib/phonechange.js";
 
@@ -49,8 +49,7 @@ export default async function handler(req, res) {
 
         // логин переезжает на новый номер, коды входа — в его Telegram
         await spatch(`site_accounts?id=eq.${encodeURIComponent(acc.id)}`, { phone: newPhone, ...(к.chat_id ? { chat_id: String(к.chat_id) } : {}) });
-        const { iat, exp, ...прежний } = client;
-        новыйТокен = signToken({ ...прежний, phone: newPhone });
+        новыйТокен = обновитьТокен(client, { phone: newPhone });
 
         // предупредить прежний Telegram: если менял не владелец — он узнает
         if (CLIENT_TOKEN && acc.chat_id && String(acc.chat_id) !== String(к.chat_id)) {

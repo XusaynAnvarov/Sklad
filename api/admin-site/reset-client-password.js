@@ -1,14 +1,14 @@
 // POST /api/admin-site/reset-client-password — владелец задаёт новый пароль клиенту
 // Body: { account_id, new }  (требуется getSiteAdmin)
 import { getSiteAdmin } from "../lib/siteadmin.js";
-import { hashPassword } from "../lib/clientauth.js";
+import { hashPassword, меткаОтзыва } from "../lib/clientauth.js";
 import { sget, spatch } from "../lib/supa.js";
 
 const MIN_PASS = 6;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  if (!getSiteAdmin(req)) return res.status(401).json({ error: "Только для администратора" });
+  if (!(await getSiteAdmin(req))) return res.status(401).json({ error: "Только для администратора" });
 
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     if (!accs[0]) return res.status(404).json({ error: "Клиент не найден" });
 
     const password_hash = await hashPassword(newPass);
-    await spatch(`site_accounts?id=eq.${encodeURIComponent(account_id)}`, { password_hash });
+    await spatch(`site_accounts?id=eq.${encodeURIComponent(account_id)}`, { password_hash, session_id: меткаОтзыва(), known_devices: [] });   // все прежние входы клиента закрываются
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error("reset-client-password error", e);

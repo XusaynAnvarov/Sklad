@@ -1,10 +1,10 @@
 // GET /api/client/payments — история оплат клиента
-import { getClient } from "../lib/clientauth.js";
+import { getValidClient } from "../lib/clientauth.js";
 import { sget , okId } from "../lib/supa.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
-  const client = getClient(req);
+  const client = await getValidClient(req);
   if (!client) return res.status(401).json({ error: "Не авторизован" });
   if (client.customer_id && !okId(client.customer_id)) return res.status(400).json({ error: "Неверный клиент" });
   if (!client.customer_id) return res.status(200).json({ payments: [] });

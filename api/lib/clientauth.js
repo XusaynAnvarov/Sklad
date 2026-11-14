@@ -109,17 +109,46 @@ export function hashDevice(deviceId) {
   return crypto.createHash("sha256").update(String(deviceId || "")).digest("hex");
 }
 
-// Валидность клиента: проверяем только что аккаунт существует (удалённый — разлогинить).
+// ---------- Отзыв входов при смене пароля ----------
+// В токен кладётся «отпечаток» пароля (pv) — 12 знаков хэша от хэша. Пароль
+// сменился → отпечаток другой → все прежние токены, на всех устройствах,
+// перестают работать. Сам пароль из отпечатка не восстановить.
+export function отпечатокПароля(password_hash) {
+  return crypto.createHash("sha256").update("pv:" + String(password_hash || "")).digest("hex").slice(0, 12);
+}
+// Токены, выданные ДО появления отпечатка, его не несут. Для них при смене
+// пароля в site_accounts.session_id пишется метка «rev:<время>» (колонка
+// нигде больше не проверяется): такой старый токен, выданный раньше метки,
+// отклоняется. Вход эту метку не затирает (см. login.js).
+export const меткаОтзыва = () => "rev:" + Date.now();
+function отозванСтарый(payload, session_id) {
+  const m = /^rev:(\d+)$/.exec(String(session_id || ""));
+  return !!m && (Number(payload.iat || 0) * 1000) < Number(m[1]);
+}
+
+// Валидность клиента: аккаунт существует и пароль с момента выдачи токена не менялся.
 // НЕ выкидываем при входе с другого устройства — на своём устройстве пользователь остаётся в системе.
+// Возвращает payload + customer_id и phone_db из базы; legacy:true — токен без отпечатка
+// (такой токен кабинет тихо меняет на новый, см. api/client/cabinet.js).
 export async function getValidClient(req) {
   const payload = getClient(req);
   if (!payload || !payload.sub) return null;
+  let rows;
   try {
-    const rows = await sget(`site_accounts?id=eq.${encodeURIComponent(payload.sub)}&select=id,customer_id`);
-    if (!rows[0]) return null;
-    // Привязку к клиенту берём из базы, а не из токена: если владелец
-    // перепривязал аккаунт, старый токен (живёт 30 дней) не должен
-    // показывать данные прежнего клиента.
-    return { ...payload, customer_id: rows[0].customer_id || null };
-  } catch { return payload; }
+    rows = await sget(`site_accounts?id=eq.${encodeURIComponent(payload.sub)}&select=id,customer_id,phone,password_hash,session_id`);
+  } catch { return payload; }   // база недоступна — не выкидываем (как и раньше)
+  const acc = rows[0];
+  if (!acc) return null;
+  if (payload.pv) { if (payload.pv !== отпечатокПароля(acc.password_hash)) return null; }
+  else if (отозванСтарый(payload, acc.session_id)) return null;
+  // Привязку к клиенту берём из базы, а не из токена: если владелец
+  // перепривязал аккаунт, старый токен (живёт 30 дней) не должен
+  // показывать данные прежнего клиента.
+  return { ...payload, customer_id: acc.customer_id || null, phone_db: acc.phone || null, legacy: !payload.pv, _pv: отпечатокПароля(acc.password_hash) };
+}
+
+// Свежий токен для того же входа (после смены пароля/номера или вместо старого без отпечатка).
+export function обновитьТокен(client, extra = {}) {
+  const { iat, exp, legacy, _pv, phone_db, ...p } = client;
+  return signToken({ ...p, ...extra, pv: extra.pv || _pv });
 }

@@ -5,7 +5,7 @@ import { sdelete } from "../lib/supa.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  if (!getSiteAdmin(req)) return res.status(401).json({ error: "Только для администратора" });
+  if (!(await getSiteAdmin(req))) return res.status(401).json({ error: "Только для администратора" });
 
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
