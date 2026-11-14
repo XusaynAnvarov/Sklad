@@ -1,24 +1,24 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261114d";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261114d";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261114d";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261114d";
-import { suggestPrice, priceNote } from "../prices.js?v=20261114d";
-import { списанные } from "../stockcheck.js?v=20261114d";
-import { этоВозврат } from "../refund.js?v=20261114d";
-import { пересчитатьСклад } from "../saleedit.js?v=20261114d";
-import { placeholder } from "./products.js?v=20261114d";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261114d";
-import { icon } from "../icons.js?v=20261114d";
-import { showLoader, hideLoader } from "../ui.js?v=20261114d";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261114d";
-import { exportInvoice } from "../xlsx-export.js?v=20261114d";
-import { showNotFound } from "./purchases.js?v=20261114d";
-import { thumb, поставитьСнимок } from "../img.js?v=20261114d";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261114e";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261114e";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261114e";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261114e";
+import { suggestPrice, priceNote } from "../prices.js?v=20261114e";
+import { списанные } from "../stockcheck.js?v=20261114e";
+import { этоВозврат } from "../refund.js?v=20261114e";
+import { пересчитатьСклад } from "../saleedit.js?v=20261114e";
+import { placeholder } from "./products.js?v=20261114e";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261114e";
+import { icon } from "../icons.js?v=20261114e";
+import { showLoader, hideLoader } from "../ui.js?v=20261114e";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261114e";
+import { exportInvoice } from "../xlsx-export.js?v=20261114e";
+import { showNotFound } from "./purchases.js?v=20261114e";
+import { thumb, поставитьСнимок } from "../img.js?v=20261114e";
 // причина изменения остатка — её записывает журнал на сервере
-import { изменениеСклада } from "../db.js?v=20261114d";
+import { изменениеСклада } from "../db.js?v=20261114e";
 
 const cfg = window.APP_CONFIG || {};
 
