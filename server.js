@@ -3,7 +3,7 @@ import express from "express";
 import { readFileSync } from "fs";
 import { fileURLToPath, pathToFileURL } from "url";
 import { dirname, join } from "path";
-import { CSP_НАБЛЮДЕНИЕ } from "./api/lib/csp.js?v=20261114e";
+import { CSP_НАБЛЮДЕНИЕ } from "./api/lib/csp.js?v=20261122a";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -103,6 +103,9 @@ const routes = [
   [["GET"],   "/api/admin/stock-log",         "./api/admin/stock-log.js"],
   // Сборка и отправка заказов: этапы, журнал, проверка целостности
   [["GET","POST"], "/api/admin/fulfillment",  "./api/admin/fulfillment.js"],
+  // ИИ-агенты: состояние, запуск, расписания, уведомления, согласования
+  [["GET","POST"], "/api/admin/agents",       "./api/admin/agents.js"],
+  [["GET"],   "/api/admin/agents-report",     "./api/admin/agents-report.js"],
   // печатный каталог: сборка в отдельном потоке и скачивание по пропуску
   [["GET","POST"], "/api/admin/catalog-book",  "./api/admin/catalog-book.js"],
   [["GET","HEAD"], "/api/catalog-book-file",   "./api/catalog-book-file.js"],
@@ -203,7 +206,7 @@ app.use((req, res, next) => {
 // ------------------------------------------------------------------
 app.get("/api/img", async (req, res) => {
   try {
-    const { default: img } = await import("./api/lib/imgproxy.js?v=20261114e");
+    const { default: img } = await import("./api/lib/imgproxy.js?v=20261122a");
     return await img(req, res);
   } catch (e) {
     console.error("[/img]", e);
@@ -217,7 +220,7 @@ app.get("/api/img", async (req, res) => {
 //  раньше, просто без этих страниц: ошибка не роняет сервер.
 // ------------------------------------------------------------------
 try {
-  const { default: seoRouter } = await import("./api/seo/router.js?v=20261114e");
+  const { default: seoRouter } = await import("./api/seo/router.js?v=20261122a");
   app.use(seoRouter);
 } catch (e) {
   console.error("[GM] SEO-модуль не загрузился:", e);
@@ -262,10 +265,10 @@ app.get("*", (req, res) => {
 // владелец включил IndexNow, отправка адресов новых товаров в Bing/Яндекс.
 async function seoПроверка() {
   try {
-    const { запуститьАудит } = await import("./api/seo/audit.js?v=20261114e");
-    const { забратьНовые, каталог } = await import("./api/seo/data.js?v=20261114e");
-    const { отправитьIndexNow } = await import("./api/seo/services.js?v=20261114e");
-    const { abs, uProduct } = await import("./api/seo/render.js?v=20261114e");
+    const { запуститьАудит } = await import("./api/seo/audit.js?v=20261122a");
+    const { забратьНовые, каталог } = await import("./api/seo/data.js?v=20261122a");
+    const { отправитьIndexNow } = await import("./api/seo/services.js?v=20261122a");
+    const { abs, uProduct } = await import("./api/seo/render.js?v=20261122a");
     await запуститьАудит();
     const новые = забратьНовые();
     if (новые.length) {
@@ -291,8 +294,8 @@ setInterval(async () => {
   if (lastDayReport === day) return;
   lastDayReport = day;
   try {
-    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261114e");
-    const { sget } = await import("./api/lib/supa.js?v=20261114e");
+    const { dayRange, buildSummary, formatMessage } = await import("./api/admin/day-report.js?v=20261122a");
+    const { sget } = await import("./api/lib/supa.js?v=20261122a");
     const { from, to, label } = dayRange();
     const [sales, products] = await Promise.all([
       sget("sales?status=eq.final&date=gte." + encodeURIComponent(from.toISOString()) +
@@ -312,11 +315,33 @@ setInterval(async () => {
   } catch (e) { console.error("[GM] Итоги дня не ушли:", e.message); }
 }, 60000);
 
+// ---------- ИИ-агенты ----------
+// Один таймер на всех агентов. Раз в минуту ядро смотрит, кому пришёл
+// срок, забирает задачу условным обновлением строки в базе и выполняет.
+//
+// Почему срок и захват хранятся в базе, а не в памяти, как у итогов дня
+// выше: перезапуск процесса не должен ни пропустить прогон, ни сделать
+// его дважды. Побочно это защищает и от второго экземпляра сервера,
+// если pm2 когда-нибудь поднимут в кластерном режиме.
+//
+// Отложенный старт: при запуске сервер и так занят, а пропущенные за
+// минуту-другую задачи никуда не денутся — их срок остался в базе.
+//
+// Пока db/agents-migration.sql не применён, ядро молча ничего не делает
+// (api/lib/agents/core.js), и склад работает как раньше.
+async function тикАгентов() {
+  try {
+    const { тик } = await import("./api/lib/agents/core.js?v=20261122a");
+    await тик();
+  } catch (e) { console.error("[GM] Агенты: тик не прошёл:", e.message); }
+}
+setTimeout(() => { тикАгентов(); setInterval(тикАгентов, 60e3); }, 90e3);
+
 // ---------- хранение персональных данных ----------
 // Раз в сутки: IP старше 30 дней стираем, визиты старше 180 и прочие
 // события старше 365 дней удаляем (политика — privacy.html).
 async function очисткаДанных() {
-  try { const { purgeOld } = await import("./api/lib/crm.js?v=20261114e"); await purgeOld(); }
+  try { const { purgeOld } = await import("./api/lib/crm.js?v=20261122a"); await purgeOld(); }
   catch (e) { console.error("[GM] Очистка старых данных не прошла:", e.message); }
 }
 setTimeout(очисткаДанных, 5 * 60e3);
@@ -329,7 +354,7 @@ app.listen(PORT, async () => {
   // продаже: сообщение будет крупным и с подсказкой, как откатиться.
   if (String(process.env.DB_MODE || "").toLowerCase() === "local") {
     try {
-      const { проверитьСвязь } = await import("./api/lib/pg.js?v=20261114e");
+      const { проверитьСвязь } = await import("./api/lib/pg.js?v=20261122a");
       const товаров = await проверитьСвязь();
       console.log(`[GM] База: СВОЯ (PostgreSQL здесь же), товаров в ней: ${товаров}`);
     } catch (e) {
@@ -341,5 +366,5 @@ app.listen(PORT, async () => {
   }
   // Греем короткую память сервера: иначе первый заход в склад после
   // выкладки ждёт базу несколько секунд на каждую таблицу.
-  import("./api/admin/db.js?v=20261114e").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
+  import("./api/admin/db.js?v=20261122a").then(m => m.прогретьПриСтарте && m.прогретьПриСтарте()).catch(() => {});
 });

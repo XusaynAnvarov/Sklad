@@ -1,0 +1,622 @@
+// ========================================================================
+//  ЯДРО ИИ-АГЕНТОВ. Оно же координатор.
+//
+//  Отдельного процесса у координатора нет и не нужно: его работа — это
+//  планировщик, захват задачи, журнал, уведомления и согласования.
+//  Всё это здесь, в одном файле, и запускается одним таймером из
+//  server.js. Процесс держит pm2, поэтому агенты работают при закрытом
+//  браузере — это свойство уже существующей установки.
+//
+//  Три правила, на которых всё держится:
+//
+//  1. АГЕНТ НИЧЕГО НЕ МЕНЯЕТ САМ. Любое действие наружу — закупка,
+//     публикация, замена фото, смена настройки — ложится в
+//     agent_approvals и ждёт вашего слова. Это не вежливость, это
+//     проверяется кодом: права на запись выданы поимённо
+//     (api/lib/agents/права.js).
+//
+//  2. РАБОТА НЕ ДЕЛАЕТСЯ ДВАЖДЫ. Срок следующего запуска и захват
+//     задачи живут в базе, а не в памяти. Перезапуск сервера не
+//     пропускает прогон и не повторяет его. У существующих итогов дня
+//     (server.js) эта защита в памяти — и перезапуск в 20:00 может
+//     прислать отчёт второй раз. Здесь так не будет.
+//
+//  3. СЕКРЕТЫ НЕ ПОПАДАЮТ В ОТЧЁТ. Всё, что пишется в журнал или
+//     уходит в Telegram, проходит через безопасныйТекст()
+//     (api/lib/agents/чисто.js).
+//
+//  Если db/agents-migration.sql ещё не применён, ядро это замечает и
+//  молча замолкает: склад работает как раньше, а раздел «ИИ-Агенты»
+//  прямо пишет, какой файл нужно выполнить. Образец такого поведения
+//  в проекте уже есть — api/lib/stocklog.js.
+// ========================================================================
+import { randomUUID } from "crypto";
+import { sget, sinsert, spatch, supsert } from "../supa.js";
+import { sendAdmin, esc, audit } from "../crm.js";
+import { безопасныйТекст, безопасныйОбъект } from "./чисто.js";
+import { пропуск, ОтказДоступа, описаниеПрав } from "./права.js";
+import { следующийЗапуск, тихийЧас, человеку, суткиКлюч, месяцКлюч } from "./time.js";
+
+const iso = (t) => new Date(t).toISOString();
+const q = (v) => encodeURIComponent(String(v));
+const НАЧАЛО_ВРЕМЁН = "1970-01-01T00:00:00Z";
+
+// Сколько времени задача считается занятой. Больше ожидаемого прогона с
+// запасом: если процесс умер, аренда протухнет сама и работу подберут.
+const АРЕНДА_МС = 10 * 60e3;
+// Повторы после неудачи. После третьей — сообщение владельцу и возврат
+// к обычному расписанию: долбиться бесконечно смысла нет.
+const ВЫДЕРЖКИ_МИН = [5, 15, 60];
+
+// ======================================================================
+//  ОПИСАНИЯ АГЕНТОВ. Карточки в разделе строятся отсюда, даже если
+//  сама работа агента ещё не подключена — так видно, что впереди.
+// ======================================================================
+export const ОПИСАНИЯ = [
+  { id: "warehouse", имя: "Агент склада", этап: 2,
+    описание: "Аналитика продаж, прогноз закупки, светофор остатков",
+    расписание: { вид: "daily", время: "08:30" } },
+  { id: "orders", имя: "Агент заказов", этап: 3,
+    описание: "Что не собрано, что не отправлено, что просрочено",
+    расписание: { вид: "daily", время: ["09:00", "18:00"] } },
+  { id: "security", имя: "Агент безопасности", этап: 4,
+    описание: "Сертификат, доступы, вебхук бота, подозрительная активность",
+    расписание: { вид: "interval", минут: 360 } },
+  { id: "telegram", имя: "Агент Telegram", этап: 5,
+    описание: "Черновики постов из склада и план публикаций",
+    расписание: { вид: "weekly", день: 5, время: "10:00" } },
+  { id: "images", имя: "Агент фото товаров", этап: 6,
+    описание: "Оценка снимков, слабые карточки, предложения на замену",
+    расписание: { вид: "weekly", день: 2, время: "09:00" } },
+  { id: "design", имя: "Агент дизайна", этап: 7,
+    описание: "Измеримые сигналы о неудобствах интерфейса",
+    расписание: { вид: "weekly", день: 1, время: "11:00" } },
+];
+const ОПИСАНИЕ = new Map(ОПИСАНИЯ.map((о) => [о.id, о]));
+
+// Настоящие задачи агентов подключаются на своих этапах вызовом
+// подключить(). Пока задачи нет, прогон честно отмечается как
+// пропущенный — выдумывать результат нельзя.
+const работы = new Map();
+export function подключить(id, выполнить) {
+  if (!ОПИСАНИЕ.has(id)) throw new Error("Неизвестный агент: " + id);
+  работы.set(id, выполнить);
+}
+
+// ======================================================================
+//  ТЕРПИМОСТЬ К НЕПРИМЕНЁННОЙ МИГРАЦИИ
+// ======================================================================
+let естьТаблицы = null;                       // null — ещё не проверяли
+export const таблицыГотовы = () => естьТаблицы !== false;
+
+const этоНетТаблицы = (e) => {
+  const t = String(e?.message || "");
+  return /agent_(state|runs|subruns|notices|approvals|budget)/.test(t) &&
+         /(does not exist|schema cache|PGRST205|relation)/i.test(t);
+};
+
+async function мягко(fn, иначе = null) {
+  if (естьТаблицы === false) return иначе;
+  try {
+    const r = await fn();
+    естьТаблицы = true;
+    return r;
+  } catch (e) {
+    if (этоНетТаблицы(e)) {
+      if (естьТаблицы !== false) console.warn("[агенты] db/agents-migration.sql ещё не применён — агенты молчат");
+      естьТаблицы = false;
+      return иначе;
+    }
+    throw e;
+  }
+}
+
+// ======================================================================
+//  СОСТОЯНИЕ АГЕНТОВ
+// ======================================================================
+
+// Строки состояния для всех известных агентов; недостающие заводим.
+export async function строкиСостояния() {
+  const есть = await мягко(() => sget("agent_state?select=*"), []);
+  if (естьТаблицы === false) return [];
+  const поId = new Map((есть || []).map((r) => [r.id, r]));
+  const новые = [];
+  for (const о of ОПИСАНИЯ) {
+    if (поId.has(о.id)) continue;
+    новые.push({
+      id: о.id, enabled: true, schedule: о.расписание, config: {},
+      next_run_at: iso(следующийЗапуск(о.расписание) || Date.now() + 3600e3),
+      running_until: НАЧАЛО_ВРЕМЁН, fails: 0, last_status: "новый",
+      updated_at: iso(Date.now()),
+    });
+  }
+  if (новые.length) {
+    await мягко(() => supsert("agent_state", новые));
+    for (const н of новые) поId.set(н.id, н);
+  }
+  return ОПИСАНИЯ.map((о) => поId.get(о.id)).filter(Boolean);
+}
+
+// Человеческий статус карточки. Выводится из данных, а не хранится
+// отдельным полем: два источника правды разошлись бы на первой же ошибке.
+export function статус(строка, ждётСогласования = 0) {
+  const сейчас = Date.now();
+  if (!строка) return { код: "нет", текст: "Нет данных" };
+  if (!строка.enabled) return { код: "off", текст: "Приостановлен" };
+  if (Date.parse(строка.running_until || 0) > сейчас) return { код: "busy", текст: "Выполняет задачу" };
+  if (ждётСогласования > 0) return { код: "wait", текст: "Ожидает подтверждения" };
+  if (строка.last_status === "error") return { код: "err", текст: "Ошибка" };
+  if (!строка.next_run_at) return { код: "off", текст: "Расписание не задано" };
+  return { код: "ok", текст: "Активен" };
+}
+
+// Всё, что нужно разделу «ИИ-Агенты» одним ответом.
+export async function состояние({ прогонов = 20, уведомлений = 40 } = {}) {
+  const строки = await строкиСостояния();
+  if (естьТаблицы === false) {
+    return {
+      готово: false,
+      причина: "Не применён db/agents-migration.sql — выполните его в SQL-редакторе Supabase",
+      агенты: ОПИСАНИЯ.map((о) => ({ ...о, статус: { код: "нет", текст: "Ждёт миграции" }, права: описаниеПрав(о.id) })),
+      прогоны: [], уведомления: [], согласования: [],
+    };
+  }
+
+  const [прогоны, уведомления, согласования] = await Promise.all([
+    мягко(() => sget(`agent_runs?select=*&order=started_at.desc&limit=${Number(прогонов) || 20}`), []),
+    мягко(() => sget(`agent_notices?select=*&order=created_at.desc&limit=${Number(уведомлений) || 40}`), []),
+    мягко(() => sget("agent_approvals?status=eq.pending&select=*&order=created_at.desc&limit=50"), []),
+  ]);
+
+  const поАгенту = new Map();
+  for (const с of согласования || []) поАгенту.set(с.agent_id, (поАгенту.get(с.agent_id) || 0) + 1);
+
+  return {
+    готово: true,
+    агенты: строки.map((с) => {
+      const о = ОПИСАНИЕ.get(с.id) || {};
+      const ждёт = поАгенту.get(с.id) || 0;
+      return {
+        ...о, ...с,
+        подключён: работы.has(с.id),
+        ждётСогласования: ждёт,
+        непрочитано: (уведомления || []).filter((у) => у.agent_id === с.id && !у.seen_at).length,
+        статус: статус(с, ждёт),
+        права: описаниеПрав(с.id),
+      };
+    }),
+    прогоны: прогоны || [],
+    уведомления: уведомления || [],
+    согласования: согласования || [],
+  };
+}
+
+// ======================================================================
+//  ЗАХВАТ ЗАДАЧИ
+//
+//  Условное обновление: строка достанется тому, кто успел первым.
+//  running_until не бывает пустым (в миграции стоит 1970 год) — поэтому
+//  условие пишется одним сравнением и не требует «или пусто».
+// ======================================================================
+async function захватить(id, сейчас, { вручную = false } = {}) {
+  const t = q(iso(сейчас));
+  let путь = `agent_state?id=eq.${q(id)}&running_until=lt.${t}`;
+  if (!вручную) путь += `&enabled=is.true&next_run_at=lte.${t}`;
+  const runId = randomUUID();
+  const строки = await мягко(() => spatch(путь, {
+    running_until: iso(сейчас + АРЕНДА_МС),
+    run_id: runId,
+    last_run_at: iso(сейчас),
+    last_status: "running",
+    updated_at: iso(сейчас),
+  }), []);
+  if (!Array.isArray(строки) || !строки.length) return null;   // взял кто-то другой
+  return { строка: строки[0], runId };
+}
+
+async function отпустить(id, поля) {
+  await мягко(() => spatch(`agent_state?id=eq.${q(id)}`, {
+    running_until: НАЧАЛО_ВРЕМЁН,
+    run_id: null,
+    updated_at: iso(Date.now()),
+    ...поля,
+  }));
+}
+
+// ======================================================================
+//  УВЕДОМЛЕНИЯ
+//
+//  dedup_key — защита от повторов. Одинаковое уведомление за тот же
+//  период пишется один раз: вставка со вторым таким ключом упирается в
+//  уникальный индекс, и это нормальный ход событий, а не ошибка.
+// ======================================================================
+export async function уведомить({ agent_id, kind = "info", level = "info", title, body = "", dedup_key = null, payload = null, вТелеграм = null }) {
+  if (!title) return null;
+  const строка = {
+    agent_id: String(agent_id || "core"),
+    kind: String(kind), level: ["info", "warn", "danger"].includes(level) ? level : "info",
+    title: безопасныйТекст(String(title)).slice(0, 300),
+    body: безопасныйТекст(String(body || "")).slice(0, 4000),
+    dedup_key: dedup_key ? String(dedup_key).slice(0, 200) : null,
+    payload: payload ? безопасныйОбъект(payload) : null,
+    created_at: iso(Date.now()),
+  };
+
+  let записано = null;
+  try {
+    const r = await мягко(() => sinsert("agent_notices", [строка]), null);
+    записано = Array.isArray(r) ? r[0] : r;
+  } catch (e) {
+    // 23505 / duplicate key — такое уведомление уже есть. Это и есть
+    // работа защиты от повторов, молчим.
+    if (/duplicate key|23505|conflict/i.test(String(e.message))) return null;
+    throw e;
+  }
+  if (!записано) return null;
+
+  // В Telegram уходят только тревожные, и только не в тихие часы.
+  const слать = вТелеграм === null ? строка.level !== "info" : !!вТелеграм;
+  if (слать && !тихийЧас(await настройки(строка.agent_id))) {
+    const значок = строка.level === "danger" ? "🔴" : "🟠";
+    const имя = ОПИСАНИЕ.get(строка.agent_id)?.имя || строка.agent_id;
+    await sendAdmin(
+      `${значок} <b>${esc(строка.title)}</b>\n<i>${esc(имя)}</i>\n\n${esc(строка.body)}`,
+      { html: true },
+    ).catch(() => {});
+  }
+  return записано;
+}
+
+async function настройки(id) {
+  const r = await мягко(() => sget(`agent_state?id=eq.${q(id)}&select=config`), []);
+  return (Array.isArray(r) && r[0]?.config) || {};
+}
+
+// ======================================================================
+//  СОГЛАСОВАНИЯ — единственная дверь наружу
+// ======================================================================
+export async function согласовать({ agent_id, kind, title, payload = null, idem_key = null }) {
+  const строка = {
+    agent_id: String(agent_id), kind: String(kind),
+    title: безопасныйТекст(String(title || "")).slice(0, 300),
+    payload: payload ? безопасныйОбъект(payload) : null,
+    status: "pending",
+    idem_key: idem_key ? String(idem_key).slice(0, 200) : null,
+    created_at: iso(Date.now()),
+  };
+  try {
+    const r = await мягко(() => sinsert("agent_approvals", [строка]), null);
+    return Array.isArray(r) ? r[0] : r;
+  } catch (e) {
+    if (/duplicate key|23505|conflict/i.test(String(e.message))) {
+      // Такое предложение уже ждёт решения — второго не создаём.
+      const есть = await мягко(() => sget(`agent_approvals?idem_key=eq.${q(строка.idem_key)}&select=*`), []);
+      return (есть || [])[0] || null;
+    }
+    throw e;
+  }
+}
+
+// Решение владельца. Применяется, только если запись ещё ждёт: двойное
+// нажатие кнопки в Telegram безопасно и второй раз ничего не делает.
+export async function решить(id, решение, { кто = "admin", через = "admin", когда = null, результат = null } = {}) {
+  const допустимо = { approved: "approved", rejected: "rejected", scheduled: "scheduled" };
+  const статусНовый = допустимо[String(решение)];
+  if (!статусНовый) throw new Error("Непонятное решение: " + решение);
+
+  const поля = {
+    status: статусНовый,
+    decided_at: iso(Date.now()),
+    decided_by: String(кто).slice(0, 100),
+    decided_via: через === "telegram" ? "telegram" : "admin",
+    result: результат ? безопасныйОбъект(результат) : null,
+  };
+  if (статусНовый === "scheduled" && когда) поля.scheduled_for = iso(когда);
+
+  const строки = await мягко(() => spatch(`agent_approvals?id=eq.${q(id)}&status=eq.pending`, поля), []);
+  // Пусто — значит запись уже решена: условие status=pending не совпало.
+  // Повторное нажатие кнопки в Telegram сюда и приходит.
+  const строка = (Array.isArray(строки) ? строки[0] : null) ?? null;
+  if (строка) {
+    await audit(кто, "agent_approval_" + статусНовый, строка.agent_id + ":" + строка.kind, { id: строка.id, title: строка.title })
+      .catch(() => {});
+  }
+  return строка;   // null — уже решено кем-то раньше
+}
+
+// ======================================================================
+//  ПОТОЛОК РАСХОДОВ
+//
+//  Пока ни один платный сервис не подключён, таблица пустая. Но потолок
+//  должен существовать раньше первого платного вызова, а не после
+//  первого счёта. Лимиты — в config агента:
+//     config.потолок = { задача: 1, день: 5, месяц: 50 }   (доллары)
+// ======================================================================
+export class ПревышенПотолок extends Error {
+  constructor(сообщение) { super(сообщение); this.name = "ПревышенПотолок"; this.код = "потолок"; }
+}
+
+export async function потрачено(agent_id) {
+  const день = суткиКлюч(), месяц = месяцКлюч();
+  const строки = await мягко(() => sget(
+    `agent_budget?agent_id=eq.${q(agent_id)}&bucket=in.(${q(день)},${q(месяц)})&select=period,bucket,spent_usd,calls`,
+  ), []);
+  const взять = (p, b) => Number((строки || []).find((r) => r.period === p && r.bucket === b)?.spent_usd || 0);
+  return { день: взять("day", день), месяц: взять("month", месяц) };
+}
+
+// Проверить ПЕРЕД тратой. Бросает ПревышенПотолок — вызывающий обязан
+// остановиться и спросить владельца, а не «немножко превысить».
+export async function проверитьПотолок(agent_id, сумма, config = {}) {
+  const п = config?.потолок || {};
+  const цена = Number(сумма) || 0;
+  if (п.задача && цена > Number(п.задача))
+    throw new ПревышенПотолок(`Задача стоит ${цена.toFixed(2)} $ при потолке ${Number(п.задача).toFixed(2)} $ за задачу`);
+  if (!п.день && !п.месяц) return true;
+  const уже = await потрачено(agent_id);
+  if (п.день && уже.день + цена > Number(п.день))
+    throw new ПревышенПотолок(`Дневной потолок ${Number(п.день).toFixed(2)} $ исчерпан (потрачено ${уже.день.toFixed(2)} $)`);
+  if (п.месяц && уже.месяц + цена > Number(п.месяц))
+    throw new ПревышенПотолок(`Месячный потолок ${Number(п.месяц).toFixed(2)} $ исчерпан (потрачено ${уже.месяц.toFixed(2)} $)`);
+  return true;
+}
+
+export async function записатьРасход(agent_id, сумма) {
+  const цена = Number(сумма) || 0;
+  if (!цена) return;
+  const было = await потрачено(agent_id);
+  await мягко(() => supsert("agent_budget", [
+    { agent_id, period: "day", bucket: суткиКлюч(), spent_usd: было.день + цена, updated_at: iso(Date.now()) },
+    { agent_id, period: "month", bucket: месяцКлюч(), spent_usd: было.месяц + цена, updated_at: iso(Date.now()) },
+  ]));
+}
+
+// ======================================================================
+//  СУБАГЕНТЫ — шаги внутри прогона
+//
+//  Права субагента равны правам родителя или уже; шире — никогда
+//  (права.js, метод сузить). Согласования субагент не обходит: он
+//  пользуется тем же ctx.согласовать, который кладёт запись в очередь.
+// ======================================================================
+async function выполнитьСубагента(родитель, имя, задача, { права = null } = {}) {
+  const начало = Date.now();
+  const id = randomUUID();
+  await мягко(() => sinsert("agent_subruns", [{
+    id, run_id: родитель.runId, agent_id: родитель.agentId,
+    name: String(имя).slice(0, 200), status: "running", started_at: iso(начало),
+  }]));
+
+  const детский = { ...родитель, пропуск: права ? родитель.пропуск.сузить(права) : родитель.пропуск, субагентИмя: имя };
+  try {
+    const итог = await задача(детский);
+    const сводка = typeof итог === "string" ? итог : итог?.сводка || "";
+    await мягко(() => spatch(`agent_subruns?id=eq.${q(id)}`, {
+      status: "ok", finished_at: iso(Date.now()), duration_ms: Date.now() - начало,
+      summary: безопасныйТекст(сводка).slice(0, 1000),
+      details: итог && typeof итог === "object" ? безопасныйОбъект(итог.детали ?? null) : null,
+    }));
+    return итог;
+  } catch (e) {
+    await мягко(() => spatch(`agent_subruns?id=eq.${q(id)}`, {
+      status: "error", finished_at: iso(Date.now()), duration_ms: Date.now() - начало,
+      error: безопасныйТекст(e?.message || String(e)).slice(0, 1000),
+    }));
+    throw e;
+  }
+}
+
+// Несколько субагентов разом, но не бесконечно: больше нескольких
+// параллельных обращений к базе на одном маленьком сервере только
+// замедляют всё остальное.
+async function пачкой(родитель, список, сразу = 3) {
+  const итоги = new Array(список.length);
+  let следующий = 0;
+  const поток = async () => {
+    while (следующий < список.length) {
+      const i = следующий++;
+      const { имя, задача, права } = список[i];
+      try { итоги[i] = { ok: true, итог: await выполнитьСубагента(родитель, имя, задача, { права }) }; }
+      catch (e) { итоги[i] = { ok: false, ошибка: e?.message || String(e) }; }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, сразу), список.length || 1) }, поток));
+  return итоги;
+}
+
+// ======================================================================
+//  ПРОГОН
+// ======================================================================
+function собратьКонтекст(agentId, runId, строка) {
+  const доступ = пропуск(agentId);
+  const config = строка?.config || {};
+  const ctx = {
+    agentId, runId, config, пропуск: доступ,
+    сейчас: Date.now(),
+
+    // Чтение склада — через проверку прав, чтобы агент не читал того,
+    // чего ему не положено даже по недосмотру.
+    async читать(путь) { return sget(доступ.проверитьЧтение(путь)); },
+    // Запись — только в разрешённые агенту таблицы.
+    async писать(таблица, строки) { return sinsert(доступ.проверитьЗапись(таблица), строки); },
+    async править(путь, поля) { return spatch(доступ.проверитьЗапись(путь), поля); },
+
+    уведомить: (о) => уведомить({ ...о, agent_id: agentId }),
+    согласовать: (о) => согласовать({ ...о, agent_id: agentId }),
+    проверитьПотолок: (сумма) => проверитьПотолок(agentId, сумма, config),
+    записатьРасход: (сумма) => записатьРасход(agentId, сумма),
+  };
+  ctx.субагент = (имя, задача, опции) => выполнитьСубагента(ctx, имя, задача, опции || {});
+  ctx.субагенты = (список, сразу) => пачкой(ctx, список, сразу);
+  return ctx;
+}
+
+export async function запустить(id, { trigger = "manual", сейчас = Date.now() } = {}) {
+  if (!ОПИСАНИЕ.has(id)) throw new Error("Неизвестный агент: " + id);
+  const взято = await захватить(id, сейчас, { вручную: trigger !== "schedule" });
+  if (!взято) return { взято: false, причина: "Агент занят, выключен или ещё не время" };
+
+  const { строка, runId } = взято;
+  const начало = Date.now();
+  await мягко(() => sinsert("agent_runs", [{
+    id: runId, agent_id: id, trigger, status: "running", started_at: iso(начало),
+  }]));
+
+  const работа = работы.get(id);
+  try {
+    let итог;
+    if (!работа) {
+      const этап = ОПИСАНИЕ.get(id).этап;
+      итог = { статус: "skipped", сводка: `Задачи агента подключаются на этапе ${этап}. Ядро работает, расписание идёт.` };
+    } else {
+      итог = await работа(собратьКонтекст(id, runId, строка));
+      итог = итог && typeof итог === "object" ? итог : { сводка: String(итог ?? "") };
+    }
+
+    const статусПрогона = итог.статус === "skipped" ? "skipped" : "ok";
+    const сводка = безопасныйТекст(итог.сводка || "Готово").slice(0, 1000);
+    await завершитьПрогон(runId, {
+      status: статусПрогона, finished_at: iso(Date.now()), duration_ms: Date.now() - начало,
+      summary: сводка, details: безопасныйОбъект(итог.детали ?? null),
+    });
+    await отпустить(id, {
+      last_status: статусПрогона, last_summary: сводка, last_ok_at: iso(Date.now()), fails: 0,
+      next_run_at: следующийЗапускСтрока(строка),
+    });
+    return { взято: true, runId, статус: статусПрогона, сводка };
+  } catch (e) {
+    const текст = безопасныйТекст(e?.message || String(e)).slice(0, 1000);
+    const неудач = (Number(строка.fails) || 0) + 1;
+    await завершитьПрогон(runId, {
+      status: "error", finished_at: iso(Date.now()), duration_ms: Date.now() - начало, error: текст,
+    });
+
+    // Первые три неудачи — повтор с нарастающей паузой. Дальше агент
+    // возвращается к обычному расписанию, а владелец получает письмо.
+    const повтор = неудач <= ВЫДЕРЖКИ_МИН.length
+      ? iso(Date.now() + ВЫДЕРЖКИ_МИН[неудач - 1] * 60e3)
+      : следующийЗапускСтрока(строка);
+    await отпустить(id, { last_status: "error", last_summary: текст, fails: неудач, next_run_at: повтор });
+
+    if (неудач >= ВЫДЕРЖКИ_МИН.length) {
+      await уведомить({
+        agent_id: id, kind: "agent_fail", level: "danger",
+        title: `${ОПИСАНИЕ.get(id).имя}: ${неудач} неудачи подряд`,
+        body: `Последняя ошибка: ${текст}\nРасписание не сброшено, следующая попытка — ${человеку(Date.parse(повтор))}.`,
+        dedup_key: `fail:${id}:${суткиКлюч()}`,
+      }).catch(() => {});
+    }
+    console.error(`[агент ${id}]`, текст);
+    return { взято: true, runId, статус: "error", ошибка: текст };
+  }
+}
+
+const завершитьПрогон = (runId, поля) => мягко(() => spatch(`agent_runs?id=eq.${q(runId)}`, поля));
+
+function следующийЗапускСтрока(строка) {
+  const когда = следующийЗапуск(строка?.schedule, Date.now());
+  return когда ? iso(когда) : null;
+}
+
+// ======================================================================
+//  ТИК. Раз в минуту из server.js.
+// ======================================================================
+let идётТик = false;
+
+export async function тик(сейчас = Date.now()) {
+  if (идётТик) return { занято: true };
+  идётТик = true;
+  try {
+    if (естьТаблицы === false) return { готово: false };
+    const t = q(iso(сейчас));
+    const должны = await мягко(
+      () => sget(`agent_state?enabled=is.true&next_run_at=lte.${t}&running_until=lt.${t}&select=id`),
+      [],
+    );
+    if (естьТаблицы === false) return { готово: false };
+
+    const запущено = [];
+    for (const { id } of должны || []) {
+      if (!ОПИСАНИЕ.has(id)) continue;
+      const r = await запустить(id, { trigger: "schedule", сейчас: Date.now() });
+      if (r.взято) запущено.push({ id, статус: r.статус });
+    }
+    return { готово: true, запущено };
+  } catch (e) {
+    console.error("[агенты] тик:", e?.message || e);
+    return { готово: true, ошибка: String(e?.message || e) };
+  } finally {
+    идётТик = false;
+  }
+}
+
+// ======================================================================
+//  УПРАВЛЕНИЕ ИЗ РАЗДЕЛА
+// ======================================================================
+export async function включить(id, вкл) {
+  if (!ОПИСАНИЕ.has(id)) throw new Error("Неизвестный агент: " + id);
+  const строки = await мягко(() => sget(`agent_state?id=eq.${q(id)}&select=schedule`), []);
+  const расписание = (строки || [])[0]?.schedule || ОПИСАНИЕ.get(id).расписание;
+  const когда = следующийЗапуск(расписание, Date.now());
+  return мягко(() => spatch(`agent_state?id=eq.${q(id)}`, {
+    enabled: !!вкл,
+    next_run_at: вкл && когда ? iso(когда) : null,
+    updated_at: iso(Date.now()),
+  }));
+}
+
+export async function сменитьРасписание(id, расписание) {
+  if (!ОПИСАНИЕ.has(id)) throw new Error("Неизвестный агент: " + id);
+  const когда = следующийЗапуск(расписание, Date.now());
+  if (!когда) throw new Error("Такое расписание не получится выполнить — проверьте вид и время");
+  return мягко(() => spatch(`agent_state?id=eq.${q(id)}`, {
+    schedule: расписание, next_run_at: iso(когда), updated_at: iso(Date.now()),
+  }));
+}
+
+export async function сменитьНастройки(id, config) {
+  if (!ОПИСАНИЕ.has(id)) throw new Error("Неизвестный агент: " + id);
+  return мягко(() => spatch(`agent_state?id=eq.${q(id)}`, {
+    config: безопасныйОбъект(config || {}), updated_at: iso(Date.now()),
+  }));
+}
+
+export async function отметитьПрочитанным(ids) {
+  const список = (Array.isArray(ids) ? ids : [ids]).filter(Boolean).map(String);
+  if (!список.length) return 0;
+  await мягко(() => spatch(`agent_notices?id=in.(${список.map(q).join(",")})`, { seen_at: iso(Date.now()) }));
+  return список.length;
+}
+
+// История одного агента: прогоны, его уведомления и решения по его
+// предложениям. Это и есть «Отчёт» на карточке.
+export async function историяАгента(id, { прогонов = 50, уведомлений = 100 } = {}) {
+  if (!ОПИСАНИЕ.has(id)) throw new Error("Неизвестный агент: " + id);
+  const л1 = Math.min(200, Math.max(1, Number(прогонов) || 50));
+  const л2 = Math.min(300, Math.max(1, Number(уведомлений) || 100));
+  const [прогоны, уведомления, согласования, состояния] = await Promise.all([
+    мягко(() => sget(`agent_runs?agent_id=eq.${q(id)}&select=*&order=started_at.desc&limit=${л1}`), []),
+    мягко(() => sget(`agent_notices?agent_id=eq.${q(id)}&select=*&order=created_at.desc&limit=${л2}`), []),
+    мягко(() => sget(`agent_approvals?agent_id=eq.${q(id)}&select=*&order=created_at.desc&limit=100`), []),
+    мягко(() => sget(`agent_state?id=eq.${q(id)}&select=*`), []),
+  ]);
+  const строка = (состояния || [])[0] || null;
+  const ждёт = (согласования || []).filter((с) => с.status === "pending").length;
+  return {
+    готово: таблицыГотовы(),
+    агент: { ...(ОПИСАНИЕ.get(id) || {}), ...(строка || {}), подключён: работы.has(id), права: описаниеПрав(id), статус: статус(строка, ждёт) },
+    прогоны: прогоны || [], уведомления: уведомления || [], согласования: согласования || [],
+  };
+}
+
+// Подробности одного прогона вместе с его субагентами — для «Отчёта».
+export async function отчётПрогона(runId) {
+  const [прогоны, шаги] = await Promise.all([
+    мягко(() => sget(`agent_runs?id=eq.${q(runId)}&select=*`), []),
+    мягко(() => sget(`agent_subruns?run_id=eq.${q(runId)}&select=*&order=started_at`), []),
+  ]);
+  const прогон = (прогоны || [])[0] || null;
+  if (!прогон) return null;
+  return { прогон, субагенты: шаги || [] };
+}
+
+export { ОтказДоступа };

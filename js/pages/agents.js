@@ -1,0 +1,472 @@
+// ========================================================================
+//  РАЗДЕЛ «ИИ-АГЕНТЫ».
+//
+//  Шесть карточек — по одной на агента, — и под ними общий центр:
+//  согласования, уведомления, история прогонов.
+//
+//  Главное, что должно читаться с экрана за секунду: агент сам ничего
+//  не поменял. Всё, что он предлагает, лежит во вкладке «Согласования»
+//  и ждёт нажатия. Поэтому вкладка идёт первой и её счётчик виден
+//  прямо на карточке.
+//
+//  Сервер — api/admin/agents.js и api/admin/agents-report.js.
+//  Оформление — css/agents.css, только существующие токены темы.
+// ========================================================================
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261122a";
+import { icon } from "../icons.js?v=20261122a";
+import { authHeaders } from "../db.js?v=20261122a";
+
+const API = "/api/admin/agents";
+const ОПРОС_МС = 45000;
+
+const ЗНАЧКИ = { ok: "ok", busy: "cur", wait: "order", err: "danger", off: "muted", нет: "muted" };
+// Уровень уведомления по-русски: в базе он хранится английским словом,
+// но на экране «danger» ничего не объясняет.
+const УРОВНИ = { info: ["muted", "к сведению"], warn: ["order", "внимание"], danger: ["danger", "срочно"] };
+const значокУровня = (у) => {
+  const [класс, текст] = УРОВНИ[у] || ["muted", String(у ?? "—")];
+  return { класс, текст };
+};
+
+const ВИДЫ = [
+  { value: "daily", label: "Каждый день" },
+  { value: "weekly", label: "Раз в неделю" },
+  { value: "monthly", label: "Раз в месяц" },
+  { value: "interval", label: "Через промежуток" },
+];
+const ДНИ = [
+  { value: "1", label: "Понедельник" }, { value: "2", label: "Вторник" }, { value: "3", label: "Среда" },
+  { value: "4", label: "Четверг" }, { value: "5", label: "Пятница" }, { value: "6", label: "Суббота" },
+  { value: "7", label: "Воскресенье" },
+];
+const ИМЯ_ДНЯ = (n) => (ДНИ.find((д) => д.value === String(n)) || {}).label || "понедельник";
+// «по понедельникам», а не «по понедельникм»: приставить букву к
+// названию дня нельзя, у каждого своё окончание.
+const ПО_ДНЯМ = { 1: "понедельникам", 2: "вторникам", 3: "средам", 4: "четвергам", 5: "пятницам", 6: "субботам", 7: "воскресеньям" };
+
+// ---------------------------------------------------------------- связь
+async function запрос(method, body, query = "") {
+  let r;
+  try {
+    r = await fetch(API + query, {
+      method, cache: "no-store",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    const e = new Error("Нет связи с сервером. Ничего не изменилось.");
+    e.код = "сеть"; throw e;
+  }
+  let j = {};
+  try { j = await r.json(); } catch {}
+  if (!r.ok) {
+    const e = new Error(j.error || (r.status === 401 ? "Нужен вход администратора" : "Ошибка сервера " + r.status));
+    e.status = r.status; e.код = j.code; throw e;
+  }
+  return j;
+}
+
+// ------------------------------------------------------------- время
+// Сервер отдаёт метки в UTC, живём мы по Ташкенту. Приводим здесь, а не
+// полагаемся на часы телефона: телефон может стоять в другом поясе, и
+// «следующий запуск в 03:30» сбивал бы с толку.
+const СДВИГ = 5 * 3600e3;
+const МЕСЯЦЫ = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+
+function когда(метка) {
+  if (!метка) return "—";
+  const ms = Date.parse(метка);
+  if (!Number.isFinite(ms)) return "—";
+  const d = new Date(ms + СДВИГ);
+  const время = String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0");
+  const сегодня = new Date(Date.now() + СДВИГ);
+  const тотЖеДень = d.getUTCFullYear() === сегодня.getUTCFullYear() && d.getUTCMonth() === сегодня.getUTCMonth() && d.getUTCDate() === сегодня.getUTCDate();
+  return тотЖеДень ? `сегодня, ${время}` : `${d.getUTCDate()} ${МЕСЯЦЫ[d.getUTCMonth()]}, ${время}`;
+}
+
+function расписаниеСловами(s) {
+  if (!s || !s.вид) return "не задано";
+  const времена = [].concat(s.время || []).filter(Boolean).join(" и ");
+  if (s.вид === "interval") {
+    const м = Number(s.минут) || 0;
+    return м % 60 === 0 && м >= 60 ? `каждые ${м / 60} ч` : `каждые ${м} мин`;
+  }
+  if (s.вид === "daily") return `каждый день в ${времена || "—"}`;
+  if (s.вид === "weekly") return `по ${ПО_ДНЯМ[s.день] || ПО_ДНЯМ[1]} в ${времена || "—"}`;
+  if (s.вид === "monthly") return `${s.число || 1}-го числа в ${времена || "—"}`;
+  return "не задано";
+}
+
+// =====================================================================
+//  РАЗДЕЛ
+// =====================================================================
+export default async function render(page, ctx) {
+  let данные = null;
+  let вкладка = "appr";
+  let таймер = null;
+
+  page.append(el("div.topbar", {}, [
+    el("div", {}, [
+      el("h1", { text: "ИИ-Агенты" }),
+      el("div.sub", { text: "Агенты считают и предлагают. Меняете всё вы — вот этими кнопками" }),
+    ]),
+    el("button.btn.btn-outline", { onclick: () => обновить(true) }, [icon("refresh", { size: 16 }), "Обновить"]),
+  ]));
+
+  const тело = el("div.agents-wrap");
+  page.append(тело);
+
+  // Опрос останавливаем, когда раздел ушёл с экрана: иначе он продолжал
+  // бы дёргать сервер, пока открыт склад.
+  const наблюдатель = new MutationObserver(() => {
+    if (!document.body.contains(тело)) { clearInterval(таймер); наблюдатель.disconnect(); }
+  });
+  наблюдатель.observe(document.body, { childList: true, subtree: true });
+
+  await обновить(false);
+  таймер = setInterval(() => обновить(false), ОПРОС_МС);
+
+  async function обновить(шумно) {
+    try {
+      данные = await запрос("GET");
+    } catch (e) {
+      if (шумно) toast(e.message, "err");
+      if (!данные) тело.replaceChildren(el("div.empty", { text: e.message }));
+      return;
+    }
+    // Отрисовка — отдельно от запроса. Раньше обе были в одном try, и
+    // ошибка в отрисовке оставляла пустой экран без единого слова:
+    // данные есть, показать нечего, причина неизвестна. Так нельзя.
+    try {
+      нарисовать();
+      if (шумно) toast("Обновлено");
+    } catch (e) {
+      console.error("[ИИ-Агенты] отрисовка:", e);
+      тело.replaceChildren(el("div.empty", { text: "Раздел не отрисовался: " + e.message }));
+    }
+  }
+
+  // ------------------------------------------------------------------
+  function нарисовать() {
+    const кусок = el("div.enter");
+
+    if (!данные.готово) {
+      кусок.append(el("div.card.agents-setup", {}, [
+        el("h3", { text: "Таблицы агентов ещё не созданы" }),
+        el("p", { text: данные.причина || "Выполните db/agents-migration.sql в SQL-редакторе Supabase." }),
+        el("p.muted", { text: "Склад работает как раньше. Пока файл не выполнен, агенты молчат и ничего не меняют." }),
+      ]));
+    }
+
+    кусок.append(el("div.agent-grid", {}, (данные.агенты || []).map(карточка)));
+
+    const ждут = (данные.согласования || []).length;
+    const непрочитано = (данные.уведомления || []).filter((у) => !у.seen_at).length;
+
+    const табы = el("div.pill-tabs.agents-tabs", {}, [
+      кнопкаВкладки("appr", `Согласования${ждут ? " · " + ждут : ""}`),
+      кнопкаВкладки("note", `Уведомления${непрочитано ? " · " + непрочитано : ""}`),
+      кнопкаВкладки("hist", "История"),
+    ]);
+    кусок.append(табы, el("div.card.agents-panel", {}, [телоВкладки()]));
+
+    тело.replaceChildren(кусок);
+  }
+
+  function кнопкаВкладки(id, текст) {
+    return el("button" + (вкладка === id ? ".active" : ""), {
+      text: текст,
+      onclick: () => { вкладка = id; нарисовать(); },
+    });
+  }
+
+  // ------------------------------------------------------------- карточка
+  function карточка(а) {
+    const с = а.статус || { код: "нет", текст: "—" };
+    const строки = [
+      ["Последний запуск", когда(а.last_run_at)],
+      ["Последний успех", когда(а.last_ok_at)],
+      ["Следующий запуск", а.enabled ? когда(а.next_run_at) : "приостановлен"],
+      ["Расписание", расписаниеСловами(а.schedule)],
+    ];
+
+    return el("div.card.agent-card" + (а.enabled ? "" : ".off"), {}, [
+      el("div.agent-head", {}, [
+        el("div.agent-ic", { html: "" }, [icon("sparkle", { size: 18 })]),
+        el("div.agent-ttl", {}, [
+          el("h3", { text: а.имя || а.id }),
+          el("div.sub", { text: а.описание || "" }),
+        ]),
+        el("span.badge." + (ЗНАЧКИ[с.код] || "muted"), { text: с.текст }),
+      ]),
+
+      !а.подключён ? el("div.agent-soon", { text: `Задачи подключаются на этапе ${а.этап}. Ядро уже работает: расписание идёт, прогоны пишутся в журнал.` }) : null,
+
+      el("dl.agent-facts", {}, строки.flatMap(([k, v]) => [el("dt", { text: k }), el("dd", { text: v })])),
+
+      // У неподключённого агента сводка прогона повторяет слово в слово
+      // пояснение выше — второй раз её не показываем.
+      а.last_summary && !(!а.подключён && а.last_status === "skipped")
+        ? el("div.agent-sum" + (а.last_status === "error" ? ".err" : ""), { text: а.last_summary })
+        : null,
+
+      el("div.agent-rights", { text: а.права || "" }),
+
+      el("div.agent-acts", {}, [
+        а.ждётСогласования
+          ? el("button.btn.btn-primary", { text: `Решить · ${а.ждётСогласования}`, onclick: () => { вкладка = "appr"; нарисовать(); } })
+          : null,
+        el("button.btn.btn-outline", { onclick: () => отчёт(а) }, [icon("chart", { size: 15 }), "Отчёт"]),
+        el("button.btn.btn-outline", { onclick: (e) => запустить(а, e.currentTarget) }, [icon("refresh", { size: 15 }), "Запустить"]),
+        el("button.btn.btn-outline", { onclick: () => расписание(а) }, [icon("settings", { size: 15 }), "Расписание"]),
+        el("button.btn.btn-outline", {
+          text: а.enabled ? "Приостановить" : "Включить",
+          onclick: () => переключить(а),
+        }),
+      ]),
+    ]);
+  }
+
+  // ------------------------------------------------------------- действия
+  async function запустить(а, кнопка) {
+    кнопка.disabled = true;
+    const было = кнопка.textContent;
+    кнопка.textContent = "Выполняю…";
+    try {
+      const r = await запрос("POST", { action: "run", id: а.id });
+      if (!r.взято) toast(r.причина || "Агент сейчас занят", "err");
+      else if (r.статус === "error") toast("Прогон упал: " + r.ошибка, "err");
+      else toast(r.сводка || "Готово");
+      await обновить(false);
+    } catch (e) {
+      toast(e.message, "err");
+      кнопка.disabled = false; кнопка.textContent = было;
+    }
+  }
+
+  async function переключить(а) {
+    const вкл = !а.enabled;
+    const сделать = async () => {
+      try { await запрос("POST", { action: вкл ? "enable" : "disable", id: а.id }); await обновить(false); toast(вкл ? "Агент включён" : "Агент приостановлен"); }
+      catch (e) { toast(e.message, "err"); }
+    };
+    if (вкл) return сделать();
+    confirmDialog(`Приостановить «${а.имя}»? Он перестанет запускаться по расписанию. Уже сделанные предложения останутся.`, сделать);
+  }
+
+  // Расписание правится прямо отсюда: лезть в базу ради смены времени
+  // отчёта — это гарантия, что время никогда не поменяют.
+  function расписание(а) {
+    const s = а.schedule || {};
+    const видПоле = select(ВИДЫ, s.вид || "daily");
+    const времяПоле = input({ value: [].concat(s.время || []).filter(Boolean).join(", "), placeholder: "09:00 или 09:00, 18:00" });
+    const деньПоле = select(ДНИ, String(s.день || 1));
+    const числоПоле = input({ type: "number", min: "1", max: "28", value: String(s.число || 1) });
+    const минутыПоле = input({ type: "number", min: "1", max: "10080", value: String(s.минут || 60) });
+
+    const строки = {
+      время: field("Время по Ташкенту", времяПоле),
+      день: field("День недели", деньПоле),
+      число: field("Число месяца (1–28)", числоПоле),
+      минуты: field("Промежуток, минут", минутыПоле),
+    };
+    const форма = el("div.agent-form", {}, [field("Как часто", видПоле), строки.время, строки.день, строки.число, строки.минуты]);
+
+    const показать = () => {
+      const v = видПоле.value;
+      строки.время.style.display = v === "interval" ? "none" : "";
+      строки.день.style.display = v === "weekly" ? "" : "none";
+      строки.число.style.display = v === "monthly" ? "" : "none";
+      строки.минуты.style.display = v === "interval" ? "" : "none";
+    };
+    видПоле.addEventListener("change", показать);
+    показать();
+
+    modal({
+      title: "Расписание · " + (а.имя || а.id),
+      body: форма,
+      actions: [
+        { label: "Отмена", onClick: (c) => c() },
+        {
+          label: "Сохранить", kind: "btn-primary", onClick: async (c) => {
+            const вид = видПоле.value;
+            const времена = String(времяПоле.value || "").split(/[,;]+/).map((t) => t.trim()).filter(Boolean);
+            const новое = { вид };
+            if (вид === "interval") новое.минут = Number(минутыПоле.value) || 60;
+            else {
+              if (!времена.length) return toast("Укажите время в виде 09:00", "err");
+              if (времена.some((t) => !/^\d{1,2}:\d{2}$/.test(t))) return toast("Время пишется как 09:00", "err");
+              новое.время = времена.length === 1 ? времена[0] : времена;
+              if (вид === "weekly") новое.день = Number(деньПоле.value) || 1;
+              if (вид === "monthly") новое.число = Number(числоПоле.value) || 1;
+            }
+            try { await запрос("POST", { action: "schedule", id: а.id, schedule: новое }); c(); await обновить(false); toast("Расписание сохранено"); }
+            catch (e) { toast(e.message, "err"); }
+          },
+        },
+      ],
+    });
+  }
+
+  async function отчёт(а) {
+    const окно = modal({ title: "Отчёт · " + (а.имя || а.id), body: el("div.empty", { text: "Загружаю…" }), wide: true, actions: [{ label: "Закрыть", onClick: (c) => c() }] });
+    try {
+      const r = await fetch(`/api/admin/agents-report?agent=${encodeURIComponent(а.id)}`, {
+        cache: "no-store", headers: await authHeaders(),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Ошибка сервера");
+      окно.content.replaceChildren(телоОтчёта(j));
+    } catch (e) {
+      окно.content.replaceChildren(el("div.empty", { text: e.message }));
+    }
+  }
+
+  function телоОтчёта(j) {
+    const блок = el("div.agent-report");
+    блок.append(el("div.agent-rights", { text: j.агент?.права || "" }));
+
+    блок.append(el("h4", { text: "Прогоны" }));
+    блок.append((j.прогоны || []).length
+      ? таблица(["Когда", "Повод", "Итог", "Длительность", "Что сделано"],
+          j.прогоны.map((п) => [
+            когда(п.started_at),
+            { schedule: "по расписанию", manual: "вручную", chain: "по цепочке" }[п.trigger] || п.trigger,
+            значокИтога(п),
+            п.duration_ms ? Math.round(п.duration_ms / 100) / 10 + " с" : "—",
+            п.summary || п.error || "—",
+          ]))
+      : el("div.empty", { text: "Агент ещё не запускался" }));
+
+    блок.append(el("h4", { text: "Уведомления" }));
+    блок.append((j.уведомления || []).length
+      ? таблица(["Когда", "Уровень", "Что", "Подробности"],
+          j.уведомления.map((у) => {
+            const ур = значокУровня(у.level);
+            return [когда(у.created_at), el("span.badge." + ур.класс, { text: ур.текст }), у.title, у.body || "—"];
+          }))
+      : el("div.empty", { text: "Уведомлений нет" }));
+
+    return блок;
+  }
+
+  // ------------------------------------------------------------- вкладки
+  function телоВкладки() {
+    if (вкладка === "appr") return вкладкаСогласований();
+    if (вкладка === "note") return вкладкаУведомлений();
+    return вкладкаИстории();
+  }
+
+  function вкладкаСогласований() {
+    const список = данные.согласования || [];
+    if (!список.length) {
+      return el("div.empty", {}, [
+        el("div", { text: "Ничего не ждёт вашего решения." }),
+        el("div.muted", { text: "Когда агент что-то предложит — закупку, пост, замену фото — предложение появится здесь и будет ждать. Само оно не выполнится." }),
+      ]);
+    }
+    return el("div.agent-appr", {}, список.map((с) => el("div.appr-row", {}, [
+      el("div.appr-txt", {}, [
+        el("div.appr-ttl", { text: с.title }),
+        el("div.muted", { text: `${имяАгента(с.agent_id)} · ${когда(с.created_at)}` }),
+      ]),
+      el("div.appr-acts", {}, [
+        el("button.btn.btn-outline", { text: "Посмотреть", onclick: () => показатьПредложение(с) }),
+        el("button.btn.btn-primary", { text: "Одобрить", onclick: () => решить(с, "approve") }),
+        el("button.btn.btn-outline", { text: "Отклонить", onclick: () => решить(с, "reject") }),
+      ]),
+    ])));
+  }
+
+  function показатьПредложение(с) {
+    modal({
+      title: с.title,
+      wide: true,
+      body: el("div", {}, [
+        el("div.muted", { text: `${имяАгента(с.agent_id)} · ${когда(с.created_at)}` }),
+        el("pre.agent-json", { text: JSON.stringify(с.payload ?? {}, null, 2) }),
+      ]),
+      actions: [
+        { label: "Отклонить", onClick: (c) => { c(); решить(с, "reject"); } },
+        { label: "Одобрить", kind: "btn-primary", onClick: (c) => { c(); решить(с, "approve"); } },
+      ],
+    });
+  }
+
+  function решить(с, действие) {
+    const вопрос = действие === "approve"
+      ? `Одобрить: «${с.title}»? После одобрения агент выполнит ровно это предложение.`
+      : `Отклонить: «${с.title}»?`;
+    confirmDialog(вопрос, async () => {
+      try {
+        await запрос("POST", { action: действие, id: с.id });
+        await обновить(false);
+        toast(действие === "approve" ? "Одобрено" : "Отклонено");
+      } catch (e) { toast(e.message, "err"); }
+    });
+  }
+
+  function вкладкаУведомлений() {
+    const список = данные.уведомления || [];
+    if (!список.length) return el("div.empty", { text: "Уведомлений пока нет" });
+    const непрочитанные = список.filter((у) => !у.seen_at).map((у) => у.id);
+    const шапка = непрочитанные.length
+      ? el("div.agent-panel-h", {}, [
+          el("button.btn.btn-outline", {
+            text: `Отметить прочитанными · ${непрочитанные.length}`,
+            onclick: async () => {
+              try { await запрос("POST", { action: "seen", ids: непрочитанные }); await обновить(false); }
+              catch (e) { toast(e.message, "err"); }
+            },
+          }),
+        ])
+      : null;
+    return el("div", {}, [
+      шапка,
+      таблица(["Когда", "Агент", "Уровень", "Что", "Подробности"], список.map((у) => {
+        const ур = значокУровня(у.level);
+        return [
+          когда(у.created_at),
+          имяАгента(у.agent_id),
+          el("span.badge." + ур.класс, { text: ур.текст }),
+          el("span" + (у.seen_at ? "" : ".agent-new"), { text: у.title }),
+          у.body || "—",
+        ];
+      })),
+    ]);
+  }
+
+  function вкладкаИстории() {
+    const список = данные.прогоны || [];
+    if (!список.length) return el("div.empty", { text: "Агенты ещё не запускались" });
+    return таблица(["Когда", "Агент", "Повод", "Итог", "Длительность", "Что сделано"], список.map((п) => [
+      когда(п.started_at),
+      имяАгента(п.agent_id),
+      { schedule: "по расписанию", manual: "вручную", chain: "по цепочке" }[п.trigger] || п.trigger,
+      значокИтога(п),
+      п.duration_ms ? Math.round(п.duration_ms / 100) / 10 + " с" : "—",
+      п.summary || п.error || "—",
+    ]));
+  }
+
+  // ------------------------------------------------------------- мелочи
+  // Объявление, а не const-стрелка: вкладки рисуются выше по файлу, и
+  // стрелка в этом месте просто не существует к моменту вызова.
+  function имяАгента(id) {
+    return (данные.агенты || []).find((а) => а.id === id)?.имя || id;
+  }
+
+  function значокИтога(п) {
+    const вид = { ok: ["ok", "успех"], error: ["danger", "ошибка"], skipped: ["muted", "пропущен"], running: ["cur", "идёт"] }[п.status] || ["muted", п.status];
+    return el("span.badge." + вид[0], { text: вид[1] });
+  }
+
+  function таблица(заголовки, строки) {
+    return el("div.tbl-wrap", { style: { overflowX: "auto" } }, [
+      el("table.tbl", {}, [
+        el("thead", {}, [el("tr", {}, заголовки.map((з) => el("th", { text: з })))]),
+        el("tbody", {}, строки.map((р) => el("tr", {}, р.map((к) => el("td", {}, [к?.nodeType ? к : String(к ?? "—")]))))),
+      ]),
+    ]);
+  }
+}

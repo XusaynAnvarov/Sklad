@@ -1,0 +1,112 @@
+/* ===================================================================
+   РАЗДЕЛ «ИИ-АГЕНТЫ»
+
+   Только существующие токены темы (css/theme.css) и радиусы GlassOS.
+   Размытия (backdrop-filter) здесь нет сознательно: в css/glassos.css
+   оно снято с .card/.stat-card/.tbl ради скорости на телефоне, и
+   заводить его заново на шести карточках сразу — значит вернуть ту же
+   задержку, от которой избавлялись.
+   =================================================================== */
+
+.agents-wrap { display: flex; flex-direction: column; gap: 16px; }
+
+/* Карточки агентов. На узком экране — одна колонка: шесть карточек
+   в два столбца по 160 пикселей читать невозможно. */
+.agent-grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+
+.agent-card { display: flex; flex-direction: column; gap: 12px; }
+.agent-card.off { opacity: .62; }
+
+/* Переносится по месту, а не по ширине экрана: карточек в ряду бывает
+   три, а бывает одна, и решает ширина самой карточки. Когда названию
+   с описанием остаётся меньше 180 пикселей, плашка статуса уходит на
+   свою строку — иначе описание сжималось в столбик по два слова. */
+.agent-head { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.agent-ic {
+  flex: 0 0 auto; width: 34px; height: 34px; display: grid; place-items: center;
+  border-radius: 10px; border: 1px solid var(--border);
+  background: rgba(217, 180, 90, .10); color: var(--accent);
+}
+.agent-ttl { flex: 1 1 180px; min-width: 0; }
+.agent-ttl h3 { font-size: 1rem; font-weight: 600; }
+.agent-ttl .sub { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+.agent-head .badge { flex: 0 0 auto; align-self: flex-start; }
+
+/* Пояснение для ещё не подключённого агента. Это не украшение: без
+   него карточка выглядит сломанной, хотя она работает как задумано. */
+.agent-soon {
+  font-size: .75rem; line-height: 1.45; color: var(--muted);
+  border: 1px dashed var(--border); border-radius: 10px; padding: 8px 10px;
+}
+
+.agent-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: .8125rem; }
+.agent-facts dt { color: var(--muted); }
+.agent-facts dd { text-align: right; }
+
+.agent-sum {
+  font-size: .8125rem; line-height: 1.45; padding: 8px 10px; border-radius: 10px;
+  background: rgba(255, 255, 255, .035); border: 1px solid var(--border);
+}
+.agent-sum.err { border-color: rgba(248, 113, 113, .45); color: var(--danger); background: rgba(248, 113, 113, .07); }
+
+/* Что агенту вообще разрешено делать с данными — написано на карточке,
+   а не спрятано в коде. Это главный ответ на вопрос «а он не сломает
+   мне склад». */
+.agent-rights { font-size: .6875rem; color: var(--muted); line-height: 1.45; }
+
+.agent-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.agent-acts .btn { font-size: .75rem; padding: 6px 11px; }
+
+/* Центр согласований и уведомлений */
+.agents-tabs { align-self: flex-start; }
+.agents-panel { padding: 14px; }
+.agent-panel-h { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+
+.agent-appr { display: flex; flex-direction: column; gap: 10px; }
+.appr-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px;
+  background: rgba(255, 255, 255, .025);
+}
+.appr-txt { flex: 1 1 260px; min-width: 0; }
+.appr-ttl { font-weight: 600; font-size: .875rem; }
+.appr-row .muted { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+.appr-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.appr-acts .btn { font-size: .75rem; padding: 6px 11px; }
+
+/* Непрочитанное уведомление помечается точкой, а не цветом строки:
+   цветных строк в таблице и так достаточно. */
+.agent-new { font-weight: 600; }
+.agent-new::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px;
+  border-radius: 50%; background: var(--accent); vertical-align: middle;
+}
+
+.agent-report h4 { margin: 16px 0 8px; font-size: .875rem; font-weight: 600; }
+.agent-report h4:first-of-type { margin-top: 10px; }
+
+.agent-json {
+  max-height: 46vh; overflow: auto; margin-top: 10px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(0, 0, 0, .25); color: var(--text);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: .75rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+}
+html[data-theme="light"] .agent-json { background: rgba(0, 0, 0, .04); }
+
+.agent-form { display: flex; flex-direction: column; gap: 10px; min-width: 260px; }
+
+.agents-setup { border-color: rgba(251, 191, 36, .45); background: rgba(251, 191, 36, .06); }
+.agents-setup h3 { font-size: .9375rem; font-weight: 600; margin-bottom: 6px; }
+.agents-setup p { font-size: .8125rem; line-height: 1.5; }
+.agents-setup p.muted { color: var(--muted); margin-top: 6px; }
+
+@media (max-width: 720px) {
+  .agent-grid { grid-template-columns: 1fr; }
+  .agent-ttl { flex: 1 1 calc(100% - 44px); }
+  .agent-acts .btn { flex: 1 1 calc(50% - 4px); justify-content: center; }
+  .agents-tabs { align-self: stretch; }
+}
