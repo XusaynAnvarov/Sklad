@@ -2,10 +2,10 @@
 //  Экспорт накладных в Excel (.xlsx) — скачивание на компьютер с сайта.
 //  SheetJS через CDN. Без сервера и без Telegram (всё на клиенте).
 // ========================================================================
-import { CUR } from "./fx.js?v=20261123a";
-import { thumb } from "./img.js?v=20261123a";
+import { CUR } from "./fx.js?v=20261123b";
+import { thumb } from "./img.js?v=20261123b";
 // В выгрузках показываем ГЛАВНОЕ фото товара — то же, что в списках.
-import { главноеФото } from "./photo.js?v=20261123a";
+import { главноеФото } from "./photo.js?v=20261123b";
 
 let _xlsx = null;
 async function lib() { if (!_xlsx) _xlsx = await import("https://esm.sh/xlsx@0.18.5"); return _xlsx; }
@@ -258,6 +258,231 @@ export async function exportSupplierOrderExcel(items, supplier, currency, produc
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = `zakaz-postavshiku-${safe(supplier)}-${new Date().toISOString().slice(0, 10)}.xlsx`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+// ======================================================================
+//  ПЛАН ЗАКУПКИ ОТ АГЕНТА СКЛАДА → .xlsx на шесть листов.
+//
+//  Считает агент (api/lib/agents/warehouse.js), здесь только вёрстка
+//  книги. Нарочно: иначе браузер повторял бы логику агента, и числа в
+//  разделе однажды разошлись бы с числами в файле.
+//
+//  Листы: срочная закупка · скоро закончатся · сезонная закупка ·
+//  постоянно продающиеся · медленные · общая аналитика.
+//
+//  На каждом товарном листе: автофильтр, закреплённая шапка, итоговая
+//  строка формулой (а не числом — чтобы правка количества пересчитала
+//  сумму прямо в Excel) и цвет строки по светофору.
+// ======================================================================
+const ЗАКУПКА_ЦВЕТА = {
+  "🔴": "FFFDE1E1", "🟠": "FFFDEBD6", "🟡": "FFFEF6D5", "🟢": "FFE6F4E9", "⚪": "FFF0F0F2",
+};
+// Экспортируется ради теста: он сверяет, что каждая колонка имеет пару
+// в строках, которые присылает агент. Иначе колонка молча пустеет.
+export const ЗАКУПКА_КОЛОНКИ = [
+  { ключ: "код", имя: "Код", ширина: 12 },
+  { ключ: "имя", имя: "Наименование", ширина: 42 },
+  { ключ: "цвет", имя: "Светофор", ширина: 10, центр: true },
+  { ключ: "остаток", имя: "Остаток", ширина: 10, центр: true },
+  { ключ: "резерв", имя: "Обещано", ширина: 10, центр: true },
+  { ключ: "вПути", имя: "В пути", ширина: 9, центр: true },
+  { ключ: "продаж30", имя: "Продано за 30 дн.", ширина: 16, центр: true },
+  { ключ: "рекомендовано", имя: "Заказать", ширина: 11, центр: true, жирный: true },
+  { ключ: "себестUSD", имя: "Закуп. цена, $", ширина: 14, деньги: true },
+  { ключ: "сумма", имя: "Сумма, $", ширина: 13, деньги: true, формула: true },
+  { ключ: "поставщик", имя: "Поставщик", ширина: 18 },
+  { ключ: "срокДней", имя: "Срок, дн.", ширина: 10, центр: true },
+  { ключ: "срокОткуда", имя: "Срок откуда", ширина: 14 },
+  { ключ: "приоритет", имя: "Приоритет", ширина: 13, центр: true },
+  { ключ: "кончится", имя: "Кончится", ширина: 12, центр: true },
+  { ключ: "причина", имя: "Причина", ширина: 46 },
+];
+
+export async function exportPurchasePlanExcel(листы, { когда = new Date() } = {}) {
+  if (!листы) throw new Error("Агент ещё не прогонялся — выгружать нечего");
+  const ExcelJS = await libExcel();
+  const NAVY = "FF16233B", HEADBLUE = "FF2F5597", GOLD = "FFD9B45A", BD = "FFBFC7D5";
+  const wb = new ExcelJS.Workbook();
+  const thin = { style: "thin", color: { argb: BD } };
+  const box = { top: thin, left: thin, bottom: thin, right: thin };
+  const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+
+  const лист = (имя, строки, подпись) => {
+    const ws = wb.addWorksheet(имя.slice(0, 28));
+    ws.columns = ЗАКУПКА_КОЛОНКИ.map((к) => ({ width: к.ширина }));
+    const последняя = String.fromCharCode(64 + ЗАКУПКА_КОЛОНКИ.length);
+
+    ws.mergeCells(`A1:${последняя}1`);
+    Object.assign(ws.getCell("A1"), {
+      value: "GENERAL MODERN — " + имя,
+      font: { bold: true, size: 16, color: { argb: GOLD } },
+      alignment: { horizontal: "center", vertical: "middle" }, fill: fill(NAVY),
+    });
+    ws.getRow(1).height = 30;
+
+    const п = ws.addRow([подпись || ""]);
+    ws.mergeCells(`A${п.number}:${последняя}${п.number}`);
+    п.getCell(1).font = { italic: true, color: { argb: "FF6B6B76" } };
+    п.getCell(1).alignment = { wrapText: true, vertical: "middle" };
+    if ((подпись || "").length > 110) п.height = 30;
+    ws.addRow([]);
+
+    const шапка = ws.addRow(ЗАКУПКА_КОЛОНКИ.map((к) => к.имя));
+    шапка.height = 30;
+    шапка.eachCell((c) => {
+      c.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      c.fill = fill(HEADBLUE);
+      c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      c.border = box;
+    });
+    // Шапка остаётся на экране при прокрутке, и по ней же фильтры.
+    ws.views = [{ state: "frozen", ySplit: шапка.number }];
+    ws.autoFilter = { from: { row: шапка.number, column: 1 }, to: { row: шапка.number, column: ЗАКУПКА_КОЛОНКИ.length } };
+
+    if (!строки.length) {
+      const пусто = ws.addRow(["Пусто — и это хорошо: по этому листу ничего делать не нужно"]);
+      ws.mergeCells(`A${пусто.number}:${последняя}${пусто.number}`);
+      пусто.getCell(1).font = { italic: true, color: { argb: "FF6B6B76" } };
+      return ws;
+    }
+
+    const первая = шапка.number + 1;
+    for (const с of строки) {
+      const r = ws.addRow(ЗАКУПКА_КОЛОНКИ.map((к) => {
+        if (к.ключ === "сумма") return null;                   // ниже поставим формулу
+        const v = с[к.ключ];
+        return v === null || v === undefined ? "" : v;
+      }));
+      const фон = ЗАКУПКА_ЦВЕТА[с.цвет] || "FFFFFFFF";
+      r.eachCell((c) => { c.border = box; c.fill = fill(фон); c.alignment = { vertical: "middle" }; });
+      ЗАКУПКА_КОЛОНКИ.forEach((к, i) => {
+        const c = r.getCell(i + 1);
+        if (к.центр) c.alignment = { horizontal: "center", vertical: "middle" };
+        if (к.жирный) c.font = { bold: true };
+        if (к.деньги) { c.numFmt = '"$ "#,##0.00'; c.alignment = { horizontal: "right", vertical: "middle" }; }
+      });
+      r.getCell(2).alignment = { vertical: "middle", wrapText: true };
+      r.getCell(16).alignment = { vertical: "middle", wrapText: true };
+      // Сумма — формула: поправили «Заказать» прямо в Excel, сумма
+      // и итог пересчитались сами.
+      r.getCell(10).value = { formula: `H${r.number}*I${r.number}` };
+    }
+
+    const итог = ws.addRow([]);
+    итог.getCell(9).value = "ИТОГО";
+    итог.getCell(10).value = { formula: `SUM(J${первая}:J${итог.number - 1})` };
+    [9, 10].forEach((n) => {
+      const c = итог.getCell(n);
+      c.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
+      c.fill = fill("FF8F6720");
+      c.border = box;
+      c.alignment = { horizontal: "right" };
+    });
+    итог.getCell(10).numFmt = '"$ "#,##0.00';
+    return ws;
+  };
+
+  const л = листы;
+  лист("Срочная закупка", л.срочная || [],
+    "Кончились ходовые товары и те, что кончатся раньше, чем приедет новое. Это первое, что стоит заказать.");
+  лист("Скоро закончатся", л.скоро || [],
+    "Остаток подошёл к точке заказа или запаса меньше чем на месяц.");
+  лист("Сезонная закупка", л.сезонная || [],
+    л.сезоннаяПричина
+      ? "Сезонность не считается: " + л.сезоннаяПричина + ". Лист оставлен пустым намеренно — выдумывать сезонный коэффициент агент не станет."
+      : "Товары с учётом сезонного коэффициента.");
+  лист("Постоянно продающиеся", л.постоянные || [],
+    "Что продавалось за последние 30 дней, по убыванию количества. Эти товары не должны кончаться.");
+  лист("Медленные", л.медленные || [],
+    "Лежат на складе, но за 90 дней ни одной выдачи. Отсортированы по сумме замороженных денег.");
+
+  // ---------------- шестой лист: общая аналитика ----------------
+  {
+    const a = л.аналитика || {};
+    const ws = wb.addWorksheet("Общая аналитика");
+    ws.columns = [{ width: 38 }, { width: 22 }, { width: 46 }];
+    ws.mergeCells("A1:C1");
+    Object.assign(ws.getCell("A1"), {
+      value: "GENERAL MODERN — Общая аналитика склада",
+      font: { bold: true, size: 16, color: { argb: GOLD } },
+      alignment: { horizontal: "center", vertical: "middle" }, fill: fill(NAVY),
+    });
+    ws.getRow(1).height = 30;
+    ws.addRow([]);
+
+    const раздел = (имя) => {
+      const r = ws.addRow([имя]);
+      ws.mergeCells(`A${r.number}:C${r.number}`);
+      r.getCell(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      r.getCell(1).fill = fill(HEADBLUE);
+      r.getCell(1).alignment = { vertical: "middle" };
+      r.height = 22;
+    };
+    const пара = (имя, значение, примечание = "") => {
+      const r = ws.addRow([имя, значение, примечание]);
+      r.getCell(2).font = { bold: true };
+      r.getCell(3).font = { italic: true, color: { argb: "FF6B6B76" } };
+      r.getCell(3).alignment = { wrapText: true, vertical: "middle" };
+      r.eachCell((c) => { c.border = box; });
+    };
+
+    раздел("Светофор остатков");
+    const св = a.светофор || {};
+    пара("🔴 кончились", св["🔴"] || 0, "Ходовые на нуле — прямая потеря выручки");
+    пара("🟠 кончатся раньше поставки", св["🟠"] || 0, "Заказывать сегодня");
+    пара("🟡 пора заказывать", св["🟡"] || 0, "Остаток дошёл до точки заказа");
+    пара("🟢 хватает", св["🟢"] || 0, "");
+    пара("⚪ без движения", св["⚪"] || 0, "Деньги стоят на полке");
+    пара("Всего товаров", a.товаров || 0, "");
+    ws.addRow([]);
+
+    раздел("Деньги");
+    пара("Заморожено в медленных, $", a.деньгиНаПолке || 0, "Закупочная стоимость того, что не продаётся");
+    ws.addRow([]);
+
+    раздел("История продаж");
+    пара("Глубина истории, дней", a.историяДней || 0,
+      (a.историяДней || 0) < 400
+        ? "Для сезонности и сравнения с прошлым годом нужно от 400 дней. Пока их нет, агент эти цифры не считает."
+        : "Хватает на сезонность и сравнение с прошлым годом");
+    пара("Первая накладная", a.историяОт || "—", "");
+    ws.addRow([]);
+
+    раздел("Классы товаров");
+    const кл = a.классы || {};
+    пара("Постоянно продающихся", кл.постоянных || 0, "Три и больше выдач за квартал");
+    пара("Самых частых", кл.частых || 0, "Шесть и больше выдач за квартал");
+    пара("Не продавались полгода", кл.мёртвых || 0, "");
+    пара("Просевших", кл.просевших || 0, "Продавались, и спрос упал больше чем вдвое");
+    пара("Новых в спросе", кл.новых || 0, "В прошлом месяце не брали, в этом пошли");
+    ws.addRow([]);
+
+    раздел("Сроки поставки — посчитаны по вашим приходам");
+    const ш = ws.addRow(["Поставщик", "Дней", "По скольким поставкам"]);
+    ш.eachCell((c) => { c.font = { bold: true }; c.border = box; c.fill = fill("FFEFF3F9"); });
+    for (const с of a.сроки || []) {
+      const r = ws.addRow([с.поставщик, с.дней, с.поставок + (с.надёжно ? "" : " — мало, срок приблизительный")]);
+      r.eachCell((c) => { c.border = box; });
+      r.getCell(2).alignment = { horizontal: "center" };
+    }
+    if (!(a.сроки || []).length) ws.addRow(["Сроков нет: ни в одном приходе не отмечено, когда товар оприходован"]);
+    ws.addRow([]);
+
+    раздел("Чего не хватило для расчёта");
+    const пр = a.пробелы || {};
+    const ключи = Object.keys(пр);
+    if (!ключи.length) пара("Всё посчитано", "—", "");
+    for (const к of ключи) пара(к, пр[к], "товаров с этой нехваткой");
+  }
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `plan-zakupki-${когда.toISOString().slice(0, 10)}.xlsx`;
+  a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 

@@ -1,12 +1,12 @@
 // Главная: три числа, ради которых чаще всего заходят, и крупные действия.
-import { el, go } from "../app.js?v=20261123a";
-import { icon } from "../../icons.js?v=20261123a";
-import { matchPeriod } from "../../period.js?v=20261123a";
-import { loadRules, aggregate } from "../../profit.js?v=20261123a";
-import { curStr } from "../../fx.js?v=20261123a";
-import { toast } from "../../ui.js?v=20261123a";
-import { debtByCur, onlyPositive } from "../../debt.js?v=20261123a";
-import { findProblems } from "../../stockcheck.js?v=20261123a";
+import { el, go } from "../app.js?v=20261123b";
+import { icon } from "../../icons.js?v=20261123b";
+import { matchPeriod } from "../../period.js?v=20261123b";
+import { loadRules, aggregate } from "../../profit.js?v=20261123b";
+import { curStr } from "../../fx.js?v=20261123b";
+import { toast } from "../../ui.js?v=20261123b";
+import { debtByCur, onlyPositive } from "../../debt.js?v=20261123b";
+import { findProblems } from "../../stockcheck.js?v=20261123b";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 

@@ -12,9 +12,9 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261123a";
-import { icon } from "../icons.js?v=20261123a";
-import { authHeaders } from "../db.js?v=20261123a";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261123b";
+import { icon } from "../icons.js?v=20261123b";
+import { authHeaders } from "../db.js?v=20261123b";
 
 const API = "/api/admin/agents";
 const ОПРОС_МС = 45000;
@@ -325,6 +325,31 @@ export default async function render(page, ctx) {
   function телоОтчёта(j) {
     const блок = el("div.agent-report");
     блок.append(el("div.agent-rights", { text: j.агент?.права || "" }));
+
+    // План закупки на шесть листов. Кнопка появляется, только если
+    // агент и правда что-то посчитал: выгружать нечего — не обещаем.
+    const сЛистами = (j.прогоны || []).find((п) => п.details?.листы);
+    if (сЛистами) {
+      блок.append(el("div.agent-panel-h", { style: { justifyContent: "flex-start", marginBottom: "10px" } }, [
+        el("button.btn.btn-primary", {
+          onclick: async (e) => {
+            const к = e.currentTarget;
+            к.disabled = true; к.textContent = "Собираю…";
+            try {
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261123b");
+              await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
+              toast("Файл собран");
+            } catch (err) {
+              console.error("[ИИ-Агенты] Excel:", err);
+              toast("Не удалось собрать файл: " + err.message, "err");
+            }
+            к.disabled = false; к.textContent = "Скачать план закупки (Excel)";
+          },
+        }, [icon("download", { size: 15 }), "Скачать план закупки (Excel)"]),
+        el("span.tbl-wrap", { style: { alignSelf: "center", fontSize: ".75rem", color: "var(--muted)" } },
+          ["Шесть листов: срочная закупка, скоро закончатся, сезонная, постоянные, медленные, аналитика"]),
+      ]));
+    }
 
     блок.append(el("h4", { text: "Прогоны" }));
     блок.append((j.прогоны || []).length
