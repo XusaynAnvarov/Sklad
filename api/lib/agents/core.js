@@ -91,6 +91,7 @@ export function подключить(id, выполнить) {
 const РЕАЛИЗАЦИИ = {
   warehouse: () => import("./warehouse.js"),
   orders: () => import("./orders.js"),
+  security: () => import("./security.js"),
 };
 
 // Подключён ли агент: либо работа уже загружена, либо известно, откуда
