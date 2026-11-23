@@ -3,38 +3,38 @@
 // ========================================================================
 // показатьПоявление больше не зовём: лесенку раздела ведёт js/glassos.js
 // (прийти) — она знает порядок слоёв и умеет отменять незаконченный переход.
-import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261123d";
-import { обновитьЕслиУстарело } from "./version.js?v=20261123d";
-import { icon } from "./icons.js?v=20261123d";
-import { db, rawClient } from "./db.js?v=20261123d";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261123d";
-import { setRates } from "./fx.js?v=20261123d";
+import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261123e";
+import { обновитьЕслиУстарело } from "./version.js?v=20261123e";
+import { icon } from "./icons.js?v=20261123e";
+import { db, rawClient } from "./db.js?v=20261123e";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261123e";
+import { setRates } from "./fx.js?v=20261123e";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, makeThemeToggle } from "./effects.js?v=20261123d";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261123d";
+import { initTheme, makeThemeToggle } from "./effects.js?v=20261123e";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261123e";
 // GlassOS: подсказки правого рейла, поиск в стиле Apple, последовательные переходы
-import { initПодсказкиРейла, создатьПоиск, уйти, прийти, запомнитьЗапрос, применитьЗапрос } from "./glassos.js?v=20261123d";
+import { initПодсказкиРейла, создатьПоиск, уйти, прийти, запомнитьЗапрос, применитьЗапрос } from "./glassos.js?v=20261123e";
 
-import dashboard from "./pages/dashboard.js?v=20261123d";
-import products from "./pages/products.js?v=20261123d";
-import sales from "./pages/sales.js?v=20261123d";
-import purchases from "./pages/purchases.js?v=20261123d";
-import customers from "./pages/customers.js?v=20261123d";
-import orders from "./pages/orders.js?v=20261123d";
-import fulfillment from "./pages/fulfillment.js?v=20261123d";
-import reports from "./pages/reports.js?v=20261123d";
-import catalogPage from "./pages/catalog_admin.js?v=20261123d";
-import settings from "./pages/settings.js?v=20261123d";
-import siteClients from "./pages/site_clients.js?v=20261123d";
-import crmPage from "./pages/crm.js?v=20261123d";
-import trash from "./pages/trash.js?v=20261123d";
-import videosAdmin from "./pages/videos_admin.js?v=20261123d";
-import supplierOrder from "./pages/supplier_order.js?v=20261123d";
-import stockCheck from "./pages/stock_check.js?v=20261123d";
-import packingSetup from "./pages/packing_setup.js?v=20261123d";
-import seoPage from "./pages/seo.js?v=20261123d";
-import introAdmin from "./pages/intro_admin.js?v=20261123d";
-import agentsPage from "./pages/agents.js?v=20261123d";
+import dashboard from "./pages/dashboard.js?v=20261123e";
+import products from "./pages/products.js?v=20261123e";
+import sales from "./pages/sales.js?v=20261123e";
+import purchases from "./pages/purchases.js?v=20261123e";
+import customers from "./pages/customers.js?v=20261123e";
+import orders from "./pages/orders.js?v=20261123e";
+import fulfillment from "./pages/fulfillment.js?v=20261123e";
+import reports from "./pages/reports.js?v=20261123e";
+import catalogPage from "./pages/catalog_admin.js?v=20261123e";
+import settings from "./pages/settings.js?v=20261123e";
+import siteClients from "./pages/site_clients.js?v=20261123e";
+import crmPage from "./pages/crm.js?v=20261123e";
+import trash from "./pages/trash.js?v=20261123e";
+import videosAdmin from "./pages/videos_admin.js?v=20261123e";
+import supplierOrder from "./pages/supplier_order.js?v=20261123e";
+import stockCheck from "./pages/stock_check.js?v=20261123e";
+import packingSetup from "./pages/packing_setup.js?v=20261123e";
+import seoPage from "./pages/seo.js?v=20261123e";
+import introAdmin from "./pages/intro_admin.js?v=20261123e";
+import agentsPage from "./pages/agents.js?v=20261123e";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -507,7 +507,7 @@ setTimeout(() => {
 
 // PWA: регистрация service worker (оффлайн-оболочка, установка на телефон)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=277", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=278", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом (без DevTools)
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {

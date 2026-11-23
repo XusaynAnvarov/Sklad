@@ -99,6 +99,21 @@ html[data-theme="light"] .agent-json { background: rgba(0, 0, 0, .04); }
 
 .agent-form { display: flex; flex-direction: column; gap: 10px; min-width: 260px; }
 
+/* Форма настроек: заголовок группы, пояснение под ним, два поля в ряд.
+   Пояснение обязательно — «папка копий» без слов «полный путь на
+   сервере» никто правильно не заполнит. */
+.agent-form-h { font-size: .875rem; font-weight: 600; margin-top: 6px; }
+.agent-form-h:first-child { margin-top: 0; }
+.agent-hint { font-size: .75rem; line-height: 1.45; color: var(--muted); margin-top: -4px; }
+.agent-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.agent-check {
+  display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  font-size: .8125rem; line-height: 1.45;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px;
+}
+.agent-check input { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 2px; accent-color: var(--accent); }
+.agent-facts dd { overflow-wrap: anywhere; }
+
 .agents-setup { border-color: rgba(251, 191, 36, .45); background: rgba(251, 191, 36, .06); }
 .agents-setup h3 { font-size: .9375rem; font-weight: 600; margin-bottom: 6px; }
 .agents-setup p { font-size: .8125rem; line-height: 1.5; }
@@ -109,4 +124,6 @@ html[data-theme="light"] .agent-json { background: rgba(0, 0, 0, .04); }
   .agent-ttl { flex: 1 1 calc(100% - 44px); }
   .agent-acts .btn { flex: 1 1 calc(50% - 4px); justify-content: center; }
   .agents-tabs { align-self: stretch; }
+  .agent-row2 { grid-template-columns: 1fr; }
+  .agent-form { min-width: 0; }
 }

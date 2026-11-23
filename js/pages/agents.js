@@ -12,9 +12,9 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261123d";
-import { icon } from "../icons.js?v=20261123d";
-import { authHeaders } from "../db.js?v=20261123d";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261123e";
+import { icon } from "../icons.js?v=20261123e";
+import { authHeaders } from "../db.js?v=20261123e";
 
 const API = "/api/admin/agents";
 const ОПРОС_МС = 45000;
@@ -95,6 +95,27 @@ function расписаниеСловами(s) {
   if (s.вид === "weekly") return `по ${ПО_ДНЯМ[s.день] || ПО_ДНЯМ[1]} в ${времена || "—"}`;
   if (s.вид === "monthly") return `${s.число || 1}-го числа в ${времена || "—"}`;
   return "не задано";
+}
+
+// Одна строка на карточке: что у агента настроено, а чего не хватает.
+// Показываем именно недостающее («канал не задан»), чтобы было видно,
+// почему агент пока не делает свою работу.
+const ДНЕЙ = (n) => n + " дн.";
+function сводкаНастроек(а) {
+  const c = а.config || {};
+  const части = [];
+  if (а.id === "orders") {
+    const п = c.просрочка || {};
+    части.push(`норма: оформлен ${ДНЕЙ(п.placed ?? 2)}, собран ${ДНЕЙ(п.packed ?? 1)}`);
+  }
+  if (а.id === "security") части.push(c.копии ? "копии: " + c.копии : "папка копий не задана");
+  if (а.id === "telegram") {
+    части.push(c.канал ? "канал " + c.канал : "канал не задан");
+    части.push(c.тест === false ? "публикует в канал" : "тестовый режим");
+    if (c.цены === true) части.push("с ценами");
+  }
+  if (c.тихо?.с && c.тихо?.до) части.push(`тихо ${c.тихо.с}–${c.тихо.до}`);
+  return части.length ? части.join(" · ") : "по умолчанию";
 }
 
 // =====================================================================
@@ -188,6 +209,7 @@ export default async function render(page, ctx) {
       ["Последний успех", когда(а.last_ok_at)],
       ["Следующий запуск", а.enabled ? когда(а.next_run_at) : "приостановлен"],
       ["Расписание", расписаниеСловами(а.schedule)],
+      ["Настройки", сводкаНастроек(а)],
     ];
 
     return el("div.card.agent-card" + (а.enabled ? "" : ".off"), {}, [
@@ -218,7 +240,8 @@ export default async function render(page, ctx) {
           : null,
         el("button.btn.btn-outline", { onclick: () => отчёт(а) }, [icon("chart", { size: 15 }), "Отчёт"]),
         el("button.btn.btn-outline", { onclick: (e) => запустить(а, e.currentTarget) }, [icon("refresh", { size: 15 }), "Запустить"]),
-        el("button.btn.btn-outline", { onclick: () => расписание(а) }, [icon("settings", { size: 15 }), "Расписание"]),
+        el("button.btn.btn-outline", { onclick: () => расписание(а) }, [icon("clock", { size: 15 }), "Расписание"]),
+        el("button.btn.btn-outline", { onclick: () => настройкиАгента(а) }, [icon("settings", { size: 15 }), "Настройки"]),
         el("button.btn.btn-outline", {
           text: а.enabled ? "Приостановить" : "Включить",
           onclick: () => переключить(а),
@@ -256,6 +279,98 @@ export default async function render(page, ctx) {
 
   // Расписание правится прямо отсюда: лезть в базу ради смены времени
   // отчёта — это гарантия, что время никогда не поменяют.
+  // ------------------------------------------------------------------
+  //  НАСТРОЙКИ АГЕНТА
+  //
+  //  Форма показывает только то, что конкретный агент понимает. Проверка
+  //  — на сервере (api/lib/agents/настройки.js): браузеру не верим, и
+  //  ошибка возвращается человеческой фразой, которую мы и показываем.
+  //  Пустое поле значит «убрать настройку».
+  // ------------------------------------------------------------------
+  function настройкиАгента(а) {
+    const c = а.config || {};
+    const части = [];
+    const собрать = [];                         // функции, каждая дописывает своё в итог
+
+    // Тихие часы — у всех агентов.
+    const тихоС = input({ type: "time", value: c.тихо?.с || "" });
+    const тихоДо = input({ type: "time", value: c.тихо?.до || "" });
+    части.push(
+      el("div.agent-form-h", { text: "Тихие часы" }),
+      el("div.agent-hint", { text: "В это время агент работает, но в Telegram не пишет — сообщения дождутся утра. Оставьте пустым, чтобы писать в любое время." }),
+      el("div.agent-row2", {}, [field("С", тихоС), field("До", тихоДо)]),
+    );
+    собрать.push((и) => { и.тихо = { с: тихоС.value, до: тихоДо.value }; });
+
+    if (а.id === "orders") {
+      const п = c.просрочка || {};
+      const нормаP = input({ type: "number", min: "0", max: "30", value: п.placed ?? "", placeholder: "2" });
+      const нормаK = input({ type: "number", min: "0", max: "30", value: п.packed ?? "", placeholder: "1" });
+      части.push(
+        el("div.agent-form-h", { text: "Когда заказ считается просроченным" }),
+        el("div.agent-hint", { text: "Сколько дней заказу можно стоять на этапе, прежде чем агент назовёт его просроченным в отчёте. Пусто — 2 дня на сборку и 1 на отправку. Доска «Сборка и отправка» пока считает по этим нормам по умолчанию." }),
+        el("div.agent-row2", {}, [field("Оформлен, не собран — дней", нормаP), field("Собран, не отправлен — дней", нормаK)]),
+      );
+      собрать.push((и) => { и.просрочка = { placed: нормаP.value, packed: нормаK.value }; });
+    }
+
+    if (а.id === "security") {
+      const копии = input({ value: c.копии || "", placeholder: "/var/backups/sklad" });
+      части.push(
+        el("div.agent-form-h", { text: "Резервные копии" }),
+        el("div.agent-hint", { text: "Полный путь к папке с копиями базы на сервере. Агент смотрит, когда была сделана последняя копия, и предупредит, если ей больше двух суток. Пусто — проверка копий не делается." }),
+        field("Папка копий на сервере", копии),
+      );
+      собрать.push((и) => { и.копии = копии.value; });
+    }
+
+    if (а.id === "telegram") {
+      const канал = input({ value: c.канал || "", placeholder: "@generalmodern" });
+      const тест = el("input", { type: "checkbox", checked: c.тест !== false });
+      const цены = el("input", { type: "checkbox", checked: c.цены === true });
+      части.push(
+        el("div.agent-form-h", { text: "Канал-витрина" }),
+        el("div.agent-hint", { text: "Новый канал для товаров. Служебный канал накладных сюда вписать нельзя — сервер не примет. Бот магазина должен быть администратором канала." }),
+        field("Адрес канала", канал),
+        el("label.agent-check", {}, [тест, el("span", {}, [
+          el("b", { text: "Тестовый режим. " }),
+          "Одобренные посты приходят вам в личные сообщения, а не в канал. Выключите, когда убедитесь, что посты выглядят как надо.",
+        ])]),
+        el("label.agent-check", {}, [цены, el("span", {}, [
+          el("b", { text: "Показывать цены. " }),
+          "В канале цена устаревает быстрее, чем в складе, поэтому по умолчанию выключено.",
+        ])]),
+      );
+      собрать.push((и) => { и.канал = канал.value; и.тест = тест.checked; и.цены = цены.checked; });
+    }
+
+    if (а.id === "warehouse" || а.id === "design") {
+      части.push(el("div.agent-hint", { text: а.id === "warehouse"
+        ? "Сроки поставки агент считает сам — по датам оприходования в приходах. Отдельные пороги по товару задаются таблицей product_policy."
+        : "Агент только собирает сигналы, настраивать в нём больше нечего." }));
+    }
+
+    modal({
+      title: "Настройки · " + (а.имя || а.id),
+      body: el("div.agent-form", {}, части),
+      actions: [
+        { label: "Отмена", onClick: (закрыть) => закрыть() },
+        {
+          label: "Сохранить", kind: "btn-primary", onClick: async (закрыть) => {
+            const итог = {};
+            собрать.forEach((ф) => ф(итог));
+            try {
+              await запрос("POST", { action: "config", id: а.id, config: итог });
+              закрыть();
+              await обновить(false);
+              toast("Настройки сохранены");
+            } catch (e) { toast(e.message, "err"); }
+          },
+        },
+      ],
+    });
+  }
+
   function расписание(а) {
     const s = а.schedule || {};
     const видПоле = select(ВИДЫ, s.вид || "daily");
@@ -336,7 +451,7 @@ export default async function render(page, ctx) {
             const к = e.currentTarget;
             к.disabled = true; к.textContent = "Собираю…";
             try {
-              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261123d");
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261123e");
               await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
               toast("Файл собран");
             } catch (err) {

@@ -22,7 +22,10 @@ import { getUser } from "../lib/auth.js";
 import {
   состояние, отчётПрогона, запустить, включить, сменитьРасписание,
   сменитьНастройки, отметитьПрочитанным, решить, таблицыГотовы, записатьРезультат,
+  текущиеНастройки,
 } from "../lib/agents/core.js";
+import { проверитьНастройки } from "../lib/agents/настройки.js";
+import { sget } from "../lib/supa.js";
 import { исполнить } from "../lib/agents/исполнение.js";
 
 const okId = (v) => /^[a-z_]{2,32}$/.test(String(v || ""));
@@ -85,7 +88,15 @@ export default async function handler(req, res) {
       }
       case "config": {
         if (!okId(body.id)) return res.status(400).json({ error: "Не указан агент" });
-        await сменитьНастройки(body.id, body.config || {});
+        // Настройки проверяются здесь, а не в браузере: в базу попадает
+        // только то, что прошло проверку (api/lib/agents/настройки.js).
+        const [было, служебный] = await Promise.all([
+          текущиеНастройки(body.id),
+          sget("settings?select=telegram_channel").then((r) => r?.[0]?.telegram_channel || "").catch(() => ""),
+        ]);
+        const п = проверитьНастройки(body.id, body.config || {}, { было, каналНакладных: служебный });
+        if (!п.ok) return res.status(400).json({ error: п.ошибки.join(". "), code: "плохие_настройки" });
+        await сменитьНастройки(body.id, п.config);
         return res.status(200).json(await состояние());
       }
       case "seen": {

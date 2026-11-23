@@ -318,6 +318,8 @@ export async function уведомить({ agent_id, kind = "info", level = "inf
   return записано;
 }
 
+export const текущиеНастройки = (id) => настройки(id);
+
 async function настройки(id) {
   const r = await мягко(() => sget(`agent_state?id=eq.${q(id)}&select=config`), []);
   return (Array.isArray(r) && r[0]?.config) || {};
