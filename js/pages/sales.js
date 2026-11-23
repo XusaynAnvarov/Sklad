@@ -1,24 +1,25 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261123e";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261123e";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261123e";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261123e";
-import { suggestPrice, priceNote } from "../prices.js?v=20261123e";
-import { списанные } from "../stockcheck.js?v=20261123e";
-import { этоВозврат } from "../refund.js?v=20261123e";
-import { пересчитатьСклад } from "../saleedit.js?v=20261123e";
-import { placeholder } from "./products.js?v=20261123e";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261123e";
-import { icon } from "../icons.js?v=20261123e";
-import { showLoader, hideLoader } from "../ui.js?v=20261123e";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261123e";
-import { exportInvoice } from "../xlsx-export.js?v=20261123e";
-import { showNotFound } from "./purchases.js?v=20261123e";
-import { thumb, поставитьСнимок } from "../img.js?v=20261123e";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261123f";
+import { поКоробкам, видКоробки, местВсего } from "../boxes.js?v=20261123f";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261123f";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261123f";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261123f";
+import { suggestPrice, priceNote } from "../prices.js?v=20261123f";
+import { списанные } from "../stockcheck.js?v=20261123f";
+import { этоВозврат } from "../refund.js?v=20261123f";
+import { пересчитатьСклад } from "../saleedit.js?v=20261123f";
+import { placeholder } from "./products.js?v=20261123f";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261123f";
+import { icon } from "../icons.js?v=20261123f";
+import { showLoader, hideLoader } from "../ui.js?v=20261123f";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261123f";
+import { exportInvoice } from "../xlsx-export.js?v=20261123f";
+import { showNotFound } from "./purchases.js?v=20261123f";
+import { thumb, поставитьСнимок } from "../img.js?v=20261123f";
 // причина изменения остатка — её записывает журнал на сервере
-import { изменениеСклада } from "../db.js?v=20261123e";
+import { изменениеСклада } from "../db.js?v=20261123f";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -239,8 +240,9 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       const stock = Number(p.stock_qty) || 0;
       // Номер коробки, в которую уложили эту позицию. Не обязателен:
       // пока его нигде не проставили, в накладной колонки не будет.
-      // Поле текстовое, а не числовое, — коробки подписывают и буквами.
-      const bx = input({ value: it.box ?? "", placeholder: "—", maxlength: "6", style: { width: "58px", textAlign: "center" } });
+      // Поле текстовое, а не числовое, — коробки подписывают и буквами,
+      // а позиция на несколько мешков пишется промежутком: «4-11».
+      const bx = input({ value: it.box ?? "", placeholder: "—", maxlength: "12", title: "Номер коробки: 2. Несколько мешков подряд: 4-11", style: { width: "64px", textAlign: "center" } });
       const q = input({ type: "number", value: it.qty, style: { width: "70px" } });
       const pr = input({ type: "number", step: "0.01", value: it.unit_price, style: { width: "100px" } });
       const fCur = select(Object.values(CUR).map(c => ({ value: c.code, label: c.sign })), it.currency, { style: { width: "76px" } });
@@ -270,7 +272,8 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
         if (v) it.box = v; else delete it.box;
         // Число мест поднимаем до числа разных коробок, но не опускаем:
         // владелец мог посчитать места сам, и затирать его цифру нельзя.
-        const разных = new Set(state.items.map(i => String(i.box ?? "").trim()).filter(Boolean)).size;
+        // «4-11» — это восемь мест, а не одно.
+        const разных = местВсего(state.items);
         if (разных > (+state.boxes || 0)) { state.boxes = разных; fBoxes.value = разных; }
       });
       q.addEventListener("input", () => { it.qty = +q.value || 0; upd(); });
@@ -575,12 +578,13 @@ async function resend(ctx, s, cmap, products) {
 
 export function buildText(s, cust, products) {
   const pmap = Object.fromEntries(products.map(p => [p.id, p]));
-  const lines = (s.items || []).map((i, n) => {
+  // Тот же порядок, что в PDF: по коробкам, без коробки — в конце.
+  const lines = поКоробкам(s.items || []).map((i, n) => {
     const c = i.currency || s.currency;
     // У возврата деньгами товара нет вовсе — название лежит в самой позиции
     const имя = pmap[i.product_id]?.name || i.name || "?";
     // Номер коробки ставим перед названием: по нему клиент разбирает груз.
-    const кор = String(i.box ?? "").trim();
+    const кор = видКоробки(i.box);
     return `${n + 1}. ${кор ? `[кор. ${кор}] ` : ""}${имя} — ${i.qty} × ${fmt(i.unit_price, c)} = ${fmt(i.qty * i.unit_price, c)}`;
   });
   return [
