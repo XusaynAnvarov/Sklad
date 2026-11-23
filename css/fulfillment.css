@@ -445,6 +445,20 @@ html[data-theme="light"] .ff-ghost { box-shadow: 0 26px 54px rgba(16, 24, 40, .2
   padding: 3px 8px; border-radius: var(--r-pill); font-size: 0.6875rem; font-weight: 600;
   color: #f0743c; background: rgba(240, 116, 60, .12); border: 1px solid rgba(240, 116, 60, .35);
 }
+/* Просрочка — срез, а не этап: карточка остаётся в своей колонке,
+   просто получает метку и красную черту слева. */
+.ff-overdue-chip {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: var(--r-pill); font-size: 0.6875rem; font-weight: 600;
+  color: var(--danger); background: rgba(248, 113, 113, .12); border: 1px solid rgba(248, 113, 113, .38);
+}
+.ff-card.ff-overdue-card { box-shadow: inset 3px 0 0 var(--danger); }
+
+/* Кнопка среза над доской */
+.ff-overdue.has-overdue { border-color: rgba(248, 113, 113, .45); color: var(--danger); }
+.ff-overdue.active { background: var(--danger); border-color: var(--danger); color: #fff; }
+.ff-overdue:disabled { opacity: .45; cursor: default; }
+
 .ff-card-top { gap: 8px; }
 
 /* краткий состав и время этапа на карточке */

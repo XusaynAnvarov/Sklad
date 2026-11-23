@@ -11,8 +11,8 @@
 //  Остатки, суммы и оплата накладной здесь не меняются.
 //  Расчёты — в js/fulfillment-core.js, сервер — api/admin/fulfillment.js.
 // ========================================================================
-import { el, toast, modal, inputList } from "../ui.js?v=20261123b";
-import { icon as значокИзСтроки } from "../icons.js?v=20261123b";
+import { el, toast, modal, inputList } from "../ui.js?v=20261123c";
+import { icon as значокИзСтроки } from "../icons.js?v=20261123c";
 
 // Значок разбирается из SVG-строки один раз, дальше — клон узла. На доске
 // по десятку значков на карточку: разбор строки каждый раз был главной
@@ -24,14 +24,14 @@ function icon(name, opts = {}) {
   if (!узел) { узел = значокИзСтроки(name, opts); кэшЗначков.set(k, узел); }
   return узел.cloneNode(true);
 }
-import { authHeaders } from "../db.js?v=20261123b";
-import { fmt, toUSD } from "../fx.js?v=20261123b";
-import { включитьПеретаскивание } from "../board-dnd.js?v=20261123b";
-import { thumb } from "../img.js?v=20261123b";
+import { authHeaders } from "../db.js?v=20261123c";
+import { fmt, toUSD } from "../fx.js?v=20261123c";
+import { включитьПеретаскивание } from "../board-dnd.js?v=20261123c";
+import { thumb } from "../img.js?v=20261123c";
 import {
   ЭТАПЫ, ЭТАП, ДАЛЬШЕ, собратьЗаказы, счётчики, отфильтровать, история, шкала, вУчёте, номерЗаказа, итогНакладной,
-  упорядочить, вставитьВПорядок, переход, СОРТИРОВКИ,
-} from "../fulfillment-core.js?v=20261123b";
+  упорядочить, вставитьВПорядок, переход, СОРТИРОВКИ, просрочен, считатьПросрочки,
+} from "../fulfillment-core.js?v=20261123c";
 
 const API = "/api/admin/fulfillment";
 const ПЕРЕВОЗЧИКИ = ["BTS Express", "Fargo", "Yandex Доставка", "Узбекистон почтаси", "Автобус / попутка", "Своя доставка", "Самовывоз"];
@@ -112,7 +112,7 @@ export default async function render(page, ctx) {
   let ошибкаЗагрузки = null;
   try { state = await запрос("GET"); } catch (e) { ошибкаЗагрузки = e; }
 
-  const ф = Object.assign({ q: "", stage: "all", from: "", to: "", customer: "", sort: "manual" }, хранилище.json(КЛЮЧ_ФИЛЬТРОВ, {}));
+  const ф = Object.assign({ q: "", stage: "all", from: "", to: "", customer: "", sort: "manual", overdue: false }, хранилище.json(КЛЮЧ_ФИЛЬТРОВ, {}));
   if (!ЭТАПЫ.includes(ф.stage) && ф.stage !== "all") ф.stage = "all";
   if (!СОРТИРОВКИ[ф.sort]) ф.sort = "manual";
   // На телефоне колонки листаются вбок (так между ними можно перетаскивать),
@@ -201,9 +201,19 @@ export default async function render(page, ctx) {
   сортСел.value = ф.sort;
   сортСел.addEventListener("change", () => { ф.sort = сортСел.value; сохранитьФильтры(); рисовать({ перенос: true }); });
   const подсказка = el("div.ff-hint");
+  // Срез «Просрочены»: взгляд на те же колонки, этап не меняется и
+  // карточка никуда не переезжает. Кнопка прячется, когда просрочек нет.
+  const кнопкаПросрочек = el("button.btn.btn-outline.btn-sm.ff-overdue", {
+    type: "button", "aria-pressed": String(!!ф.overdue),
+    onclick: () => {
+      ф.overdue = !ф.overdue;
+      кнопкаПросрочек.setAttribute("aria-pressed", String(!!ф.overdue));
+      сохранитьФильтры(); рисовать();
+    },
+  }, [icon("clock", { size: 14 }), el("span", { text: "Просрочены" })]);
   const сброс = el("button.btn.btn-outline.btn-sm.ff-reset", {
     type: "button",
-    onclick: () => { Object.assign(ф, { q: "", from: "", to: "", customer: "", stage: "all", sort: "manual" }); поиск.value = ""; отДаты.value = ""; доДаты.value = ""; клиентСел.value = ""; сортСел.value = "manual"; сохранитьФильтры(); рисовать(); },
+    onclick: () => { Object.assign(ф, { q: "", from: "", to: "", customer: "", stage: "all", sort: "manual", overdue: false }); поиск.value = ""; отДаты.value = ""; доДаты.value = ""; клиентСел.value = ""; сортСел.value = "manual"; кнопкаПросрочек.setAttribute("aria-pressed", "false"); сохранитьФильтры(); рисовать(); },
   }, [icon("x", { size: 14 }), "Сбросить"]);
   // На телефоне фильтры свёрнуты под кнопку — иначе занимают пол-экрана.
   const кнопкаФильтров = el("button.btn.btn-outline.btn-sm.ff-filters-btn", {
@@ -215,7 +225,7 @@ export default async function render(page, ctx) {
   инструменты.append(...[
     el("div.ff-search-wrap", {}, [icon("search", { size: 16 }), поиск]), кнопкаФильтров,
     вкладки,
-    el("div.ff-tools-row", {}, [отДаты, el("span.ff-dash", { text: "—" }), доДаты, клиентСел, сортСел, сброс]),
+    el("div.ff-tools-row", {}, [отДаты, el("span.ff-dash", { text: "—" }), доДаты, клиентСел, сортСел, кнопкаПросрочек, сброс]),
     подсказка,
   ]);
   page.append(объявить);
@@ -270,6 +280,10 @@ export default async function render(page, ctx) {
     });
     if (открыты.has(z.id)) card.classList.add("open");
     if (z.срочно) card.classList.add("ff-urgent");
+    // Просрочку видно и без включённого среза: иначе о ней узнаёшь,
+    // только если догадался нажать кнопку.
+    const стоитДольше = просрочен(z);
+    if (стоитДольше) card.classList.add("ff-overdue-card");
 
     const кнопкаДальше = дальше
       ? el("button.btn.btn-primary.btn-sm.ff-next", { type: "button", onclick: (e) => { e.stopPropagation(); подтвердить(z, дальше.action); } },
@@ -284,7 +298,11 @@ export default async function render(page, ctx) {
       el("div.ff-card-top", {}, [
         el("span.ff-orb", {}, [icon(ЭТАП[z.stage].ic, { size: 19 })]),
         el("div.ff-card-title", {}, [
-          el("div.ff-num", {}, ["№ " + z.номер, z.срочно ? el("span.ff-urgent-chip", {}, [icon("flame", { size: 11 }), "Срочно"]) : null]),
+          el("div.ff-num", {}, [
+            "№ " + z.номер,
+            z.срочно ? el("span.ff-urgent-chip", {}, [icon("flame", { size: 11 }), "Срочно"]) : null,
+            стоитДольше ? el("span.ff-overdue-chip", { title: "Стоит на этапе дольше нормы" }, [icon("clock", { size: 11 }), "Просрочен"]) : null,
+          ]),
           el("div.ff-client", { text: z.клиент, title: z.клиент }),
         ]),
         el("span.ff-chip", { text: ЭТАП[z.stage].step }),
@@ -396,6 +414,17 @@ export default async function render(page, ctx) {
       kpi[s].card.setAttribute("aria-pressed", String(ф.stage === s));
     });
     if (ctx.setNavBadge) ctx.setNavBadge("fulfillment", n.placed);
+
+    // Просрочки считаем по всем заказам раздела, а не по отфильтрованным:
+    // иначе, включив срез, счётчик показывал бы сам себя.
+    const просрочек = считатьПросрочки(заказы);
+    кнопкаПросрочек.querySelector("span").textContent = просрочек ? `Просрочены · ${просрочек}` : "Просрочены";
+    кнопкаПросрочек.classList.toggle("active", !!ф.overdue);
+    кнопкаПросрочек.classList.toggle("has-overdue", просрочек > 0);
+    // Прятать кнопку нельзя: срез может быть включён, а просрочек уже
+    // нет — тогда исчезнувшая кнопка оставила бы пустую доску без
+    // объяснения. Вместо этого гасим её.
+    кнопкаПросрочек.disabled = !просрочек && !ф.overdue;
 
     вкладки.innerHTML = "";
     const варианты = узко() ? ЭТАПЫ : ["all", ...ЭТАПЫ];

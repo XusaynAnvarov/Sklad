@@ -12,9 +12,9 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261123b";
-import { icon } from "../icons.js?v=20261123b";
-import { authHeaders } from "../db.js?v=20261123b";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261123c";
+import { icon } from "../icons.js?v=20261123c";
+import { authHeaders } from "../db.js?v=20261123c";
 
 const API = "/api/admin/agents";
 const ОПРОС_МС = 45000;
@@ -336,7 +336,7 @@ export default async function render(page, ctx) {
             const к = e.currentTarget;
             к.disabled = true; к.textContent = "Собираю…";
             try {
-              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261123b");
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261123c");
               await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
               toast("Файл собран");
             } catch (err) {
