@@ -30,9 +30,24 @@ const НАКЛАДНЫЕ = "-1002034021343";
   const р4 = проверитьНастройки("telegram", { канал: "-1001234567890" }, { каналНакладных: НАКЛАДНЫЕ });
   ok("новый канал по номеру принимается", р4.ok);
 
-  for (const плохой of ["generalmodern", "@ab", "https://t.me/x", "@имя_канала", "-12345"]) {
+  for (const плохой of ["@ab", "https://t.me/x", "@имя_канала", "-12345", "https://example.com/GeneralModernuz"]) {
     ok(`плохой адрес «${плохой}» не принят`, !проверитьНастройки("telegram", { канал: плохой }).ok);
   }
+
+  // Владелец 23.11 вставил ссылку из Telegram — её надо понять.
+  for (const [ввод, ждём] of [
+    ["https://t.me/GeneralModernuz", "@GeneralModernuz"],
+    ["t.me/GeneralModernuz/", "@GeneralModernuz"],
+    ["http://telegram.me/GeneralModernuz?start=1", "@GeneralModernuz"],
+    ["https://t.me/s/GeneralModernuz", "@GeneralModernuz"],
+    ["GeneralModernuz", "@GeneralModernuz"],
+    [" @GeneralModernuz ", "@GeneralModernuz"],
+  ]) {
+    const р = проверитьНастройки("telegram", { канал: ввод });
+    ok(`«${ввод}» → ${ждём}`, р.ok && р.config.канал === ждём);
+  }
+  const приглашение = проверитьНастройки("telegram", { канал: "https://t.me/+AbCdEf123" });
+  ok("ссылка-приглашение закрытого канала — понятная ошибка", !приглашение.ok && /приглашение/.test(приглашение.ошибки.join(" ")));
 
   const р5 = проверитьНастройки("telegram", { тест: false, цены: true });
   ok("флажки сохраняются как true/false", р5.ok && р5.config.тест === false && р5.config.цены === true);
