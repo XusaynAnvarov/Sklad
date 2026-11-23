@@ -249,6 +249,22 @@ const ctx = (config) => ({
   ok("без тестового режима — в канал",
     телеграм.filter((x) => /send/.test(x.метод)).every((x) => String(x.тело.chat_id) === "@generalmodern_test"));
 
+  // Черновик собран в тестовом режиме, а владелец потом тестовый режим
+  // выключил. Одобренный ПОСЛЕ этого пост должен уйти в канал.
+  телеграм.length = 0;
+  база.agent_state.push({ id: "telegram", config: { канал: "@generalmodern_live", тест: false } });
+  await И.исполнить(пост);                             // в payload поста тест: true
+  const ушло = телеграм.filter((x) => /send/.test(x.метод)).map((x) => String(x.тело.chat_id));
+  ok("куда слать решают настройки на момент одобрения, а не черновик",
+    ушло.length > 0 && ушло.every((ч) => ч === "@generalmodern_live"));
+
+  телеграм.length = 0;
+  база.agent_state[база.agent_state.length - 1].config = { канал: "@generalmodern_live", тест: true };
+  await И.исполнить({ ...пост, payload: { ...пост.payload, тест: false } });
+  ok("и наоборот: тестовый режим включён — в личку, даже если черновик был боевым",
+    телеграм.filter((x) => /send/.test(x.метод)).every((x) => String(x.тело.chat_id) === "837138321"));
+  база.agent_state.pop();
+
   телеграм.length = 0;
   const закупка = await И.исполнить({ kind: "purchase", payload: { товары: [{ код: "X" }] } });
   ok("одобренная закупка не совершается автоматически",
