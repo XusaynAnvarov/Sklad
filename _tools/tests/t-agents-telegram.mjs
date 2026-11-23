@@ -204,14 +204,24 @@ const ctx = (config) => ({
   ok("черновики созданы", посты.length > 0 && р.детали.черновиков === посты.length);
   ok("все черновики ждут решения", посты.every((a) => a.status === "pending"));
   ok("по умолчанию — тестовый режим", посты.every((a) => a.payload.тест === true));
+  // Карточка на одобрение теперь тоже с фото (sendPhoto), поэтому
+  // «опубликовано» = ушло куда-то, кроме лички владельца, или ушло без
+  // кнопок одобрения.
+  const сКнопками = (x) => x.тело?.reply_markup?.inline_keyboard?.flat().some((к) => /^ag:ok:/.test(к.callback_data));
+  const отправки = телеграм.filter((x) => /^send/.test(x.метод));
   ok("ни одного поста не опубликовано до одобрения",
-    !телеграм.some((x) => x.метод === "sendPhoto"));
+    отправки.length > 0 && отправки.every((x) => String(x.тело.chat_id) === "837138321" && сКнопками(x)));
   ok("на каждый черновик — карточка с кнопками",
-    телеграм.filter((x) => x.тело?.reply_markup?.inline_keyboard?.flat().some((к) => /^ag:ok:/.test(к.callback_data))).length === посты.length);
+    телеграм.filter(сКнопками).length === посты.length);
+  ok("карточка черновика — с фото товара",
+    телеграм.filter(сКнопками).every((x) => x.метод === "sendPhoto" && !!x.тело.photo && x.тело.caption));
+  ok("фото из хранилища узнаётся по ссылке (его шлём файлом из кэша)",
+    А.путьВХранилище("https://juhnnhwjnmxnamqekwjy.supabase.co/storage/v1/object/public/product-photos/19e8877c74e61.jpg") === "product-photos/19e8877c74e61.jpg"
+    && А.путьВХранилище("https://example.com/x.jpg") === "");
 
-  // Считаем именно карточки (sendMessage): кроме них агент обращается к
-  // Telegram, чтобы проверить права бота в канале, — это не сообщения.
-  const карточки = () => телеграм.filter((x) => x.метод === "sendMessage").length;
+  // Считаем именно карточки: кроме них агент обращается к Telegram,
+  // чтобы проверить права бота в канале, — это не сообщения.
+  const карточки = () => телеграм.filter(сКнопками).length;
   const было = база.agent_approvals.length, карточекДо = карточки();
   await А.прогон(ctx({ канал: "@generalmodern_test" }));
   ok("повторный прогон той же недели не плодит черновиков", база.agent_approvals.length === было);
@@ -230,6 +240,8 @@ const ctx = (config) => ({
   ok("в тестовом режиме — владельцу в личку, а не в канал",
     куда.every((ч) => ч === "837138321") && !куда.includes("@generalmodern_test"));
   ok("публикует бот магазина", телеграм.every((x) => x.токен === process.env.CLIENT_BOT_TOKEN));
+  ok("каждый товар уходит со своим фото",
+    телеграм.filter((x) => x.метод === "sendPhoto").length === пост.payload.товары.filter((т) => т.фото).length);
 
   телеграм.length = 0;
   const боевой = { ...пост, payload: { ...пост.payload, тест: false, канал: "@generalmodern_test" } };

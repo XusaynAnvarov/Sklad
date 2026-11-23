@@ -193,9 +193,11 @@ export async function прогон(ctx) {
   if (!доступ.ок) {
     await ctx.уведомить({
       kind: "channel_access", level: "warn",
-      title: "Бот не может публиковать в канале",
-      body: `${доступ.причина}\nПока это не исправлено, одобренные посты никуда не уйдут.`,
-      dedup_key: `tg:access:${суткиКлюч(сейчас)}`,
+      // Название канала — в заголовке: иначе за ним в Telegram сразу шло
+      // имя агента, и читалось «в канале Агент Telegram».
+      title: `Канал ${канал}: бот пока не может публиковать`,
+      body: `${доступ.причина}\nПосле этого нажмите «Запустить» у агента Telegram — он проверит ещё раз. Пока не исправлено, одобренные посты в канал не уйдут (в тестовом режиме они идут вам в личку).`,
+      dedup_key: `tg:access2:${канал}:${суткиКлюч(сейчас)}`,
     });
   }
 
@@ -244,28 +246,101 @@ export const кнопкиОдобрения = (id) => [
 ];
 
 // Карточка черновика владельцу: как будет выглядеть пост + кнопки.
+// С фотографией первого товара — так же, как пост выйдет в канале.
 export async function отправитьНаОдобрение(заявка, { токен = ботМагазина(), чат = process.env.ADMIN_CHAT_ID } = {}) {
   if (!токен || !чат || !заявка?.id) return false;
   const п = заявка.payload || {};
-  const первый = (п.товары || [])[0];
+  const товары = п.товары || [];
+  const первый = товары[0];
+  const остальные = товары.slice(1).map((т) => т.name).filter(Boolean);
   const шапка = `📝 <b>Черновик: ${escHtml(п.рубрика || заявка.title || "пост")}</b>\n`
     + `Куда: ${escHtml(п.канал || "—")}\n`
-    + `Товаров: ${(п.товары || []).length}`
+    + `Товаров: ${товары.length}`
+    + (остальные.length ? ` (ещё: ${escHtml(остальные.join(", ").slice(0, 160))})` : "")
     + (Object.keys(п.пропуски || {}).length ? `\nНе хватает в карточках: ${escHtml(Object.keys(п.пропуски).join(", "))}` : "")
     + `\n\n— первый пост —\n`;
-  const текст = (шапка + (первый?.текст || "")).slice(0, 1000);
-  try {
-    const r = await fetch(`https://api.telegram.org/bot${токен}/sendMessage`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: String(чат), text: текст, parse_mode: "HTML", disable_web_page_preview: true,
-        reply_markup: { inline_keyboard: кнопкиОдобрения(заявка.id) },
-      }),
-    });
-    return r.ok;
-  } catch { return false; }
+  const текст = шапка + (первый?.текст || "");
+  const р = await послатьПост(токен, {
+    chat_id: String(чат), текст, фото: первый?.фото || "",
+    reply_markup: { inline_keyboard: кнопкиОдобрения(заявка.id) },
+  });
+  return р.ok;
 }
 const escHtml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// ======================================================================
+//  ОТПРАВКА ПОСТА С ФОТО
+//
+//  Снимок отдаём Telegram самим файлом, а не ссылкой: файл уже лежит в
+//  кэше нашего сервера (api/lib/imgproxy.js), а по ссылке Telegram
+//  ходил бы в Supabase — это лишний платный трафик, и чужой сервер
+//  иногда просто не отвечает. Не нашли файл — отдаём ссылку.
+//
+//  Подпись к фото в Telegram — до 1024 знаков, текст — до 4096. Если
+//  пост длиннее подписи, шлём фото отдельно, а текст с кнопками — сразу
+//  под ним. Если фото не прошло вовсе — пост уходит текстом, а не теряется.
+// ======================================================================
+const ПОДПИСЬ = 1024;
+
+export function путьВХранилище(url) {
+  const м = String(url || "").match(/\/storage\/v1\/object\/public\/(product-photos\/[^?#]+)/);
+  if (!м) return "";
+  try { return decodeURIComponent(м[1]); } catch { return м[1]; }
+}
+
+async function файлФото(url) {
+  const путь = путьВХранилище(url);
+  if (!путь) return null;
+  try {
+    const { оригинал, типПоИмени } = await import("../imgproxy.js");
+    const ф = await оригинал(путь);
+    if (!ф?.байты?.length) return null;
+    return { байты: ф.байты, тип: типПоИмени(путь), имя: путь.split("/").pop() || "photo.jpg" };
+  } catch { return null; }
+}
+
+async function вызвать(токен, метод, тело, файл) {
+  try {
+    let r;
+    if (файл) {
+      const форма = new FormData();
+      for (const [к, з] of Object.entries(тело)) {
+        if (з === undefined || з === null) continue;
+        форма.append(к, typeof з === "object" ? JSON.stringify(з) : String(з));
+      }
+      форма.append("photo", new Blob([файл.байты], { type: файл.тип }), файл.имя);
+      r = await fetch(`https://api.telegram.org/bot${токен}/${метод}`, { method: "POST", body: форма });
+    } else {
+      r = await fetch(`https://api.telegram.org/bot${токен}/${метод}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(тело),
+      });
+    }
+    return await r.json();
+  } catch (e) { return { ok: false, description: "сеть" }; }
+}
+
+// Один пост: фото + текст + кнопки. Возвращает ответ Telegram.
+export async function послатьПост(токен, { chat_id, текст, фото, reply_markup }) {
+  const текстом = () => вызвать(токен, "sendMessage", {
+    chat_id, text: текст, parse_mode: "HTML", disable_web_page_preview: true, reply_markup,
+  });
+  if (!фото) return текстом();
+
+  const файл = await файлФото(фото);
+  const снимок = (подпись) => вызвать(токен, "sendPhoto", {
+    chat_id, ...(файл ? {} : { photo: фото }),
+    ...(подпись ? { caption: текст, parse_mode: "HTML", reply_markup } : {}),
+  }, файл);
+
+  if (текст.length <= ПОДПИСЬ) {
+    const р = await снимок(true);
+    if (р?.ok) return р;
+    return текстом();                         // фото не прошло — хотя бы текст
+  }
+  // Длинный пост: фото без подписи, под ним текст с кнопками.
+  await снимок(false);
+  return текстом();
+}
 
 function сводкаПропусков(посты) {
   const счёт = {};
@@ -280,23 +355,31 @@ export async function проверитьКанал(канал, токен = бо
   if (!токен) return { ок: false, причина: "токен бота не задан" };
   if (!канал) return { ок: false, причина: "канал не задан в настройках агента" };
   try {
+    // Имя бота нужно в самом сообщении: владелец должен знать, КОГО
+    // добавлять в администраторы, — ботов в проекте два.
+    const me = await (await fetch(`https://api.telegram.org/bot${токен}/getMe`)).json();
+    const бот = me?.result?.username ? "@" + me.result.username : "бот магазина";
+    const как = `Добавьте ${бот} в канал администратором с правом «Публикация сообщений»: канал → Управление каналом → Администраторы → Добавить администратора.`;
+
     const r = await fetch(`https://api.telegram.org/bot${токен}/getChat?chat_id=${encodeURIComponent(канал)}`);
     const j = await r.json();
-    if (!j?.ok) return { ок: false, причина: "канал не найден или бот в него не добавлен" };
+    if (!j?.ok) return { ок: false, бот, причина: `Канал ${канал} не найден. Проверьте адрес в настройках агента. ${как}` };
 
-    const me = await (await fetch(`https://api.telegram.org/bot${токен}/getMe`)).json();
+    // Список администраторов канала Telegram показывает только самим
+    // администраторам. Отказ здесь почти всегда значит одно: бота в
+    // администраторы ещё не добавили.
     const a = await (await fetch(`https://api.telegram.org/bot${токен}/getChatAdministrators?chat_id=${encodeURIComponent(канал)}`)).json();
-    if (!a?.ok) return { ок: false, причина: "не удалось прочитать список администраторов" };
+    if (!a?.ok) return { ок: false, бот, причина: `${бот} пока не администратор канала ${канал}. ${как}`, ответTelegram: String(a?.description || "").slice(0, 160) };
 
     const свой = (a.result || []).find((ад) => String(ад.user?.id) === String(me?.result?.id));
-    if (!свой) return { ок: false, причина: "бот не администратор канала" };
-    if (свой.can_post_messages === false) return { ок: false, причина: "у бота нет права публиковать" };
+    if (!свой) return { ок: false, бот, причина: `${бот} пока не администратор канала ${канал}. ${как}` };
+    if (свой.can_post_messages === false) return { ок: false, бот, причина: `${бот} администратор канала, но без права публиковать. Включите ему «Публикация сообщений».` };
 
     // Чужие администраторы — повод присмотреться.
     const чужие = (a.result || [])
       .filter((ад) => !ад.user?.is_bot)
       .map((ад) => String(ад.user?.id));
-    return { ок: true, название: j.result?.title || "", администраторов: чужие.length };
+    return { ок: true, бот, название: j.result?.title || "", администраторов: чужие.length };
   } catch {
     return { ок: false, причина: "Telegram не ответил" };
   }
@@ -317,23 +400,12 @@ export async function опубликовать(заявка, { токен = бо
 
   const послано = [];
   for (const т of п.товары || []) {
-    const тело = {
-      chat_id: куда,
-      caption: т.текст,
-      parse_mode: "HTML",
+    // Каждый товар — отдельным постом с его фото.
+    const j = await послатьПост(токен, {
+      chat_id: куда, текст: т.текст || "", фото: т.фото || "",
       reply_markup: т.кнопки?.length ? { inline_keyboard: т.кнопки } : undefined,
-    };
-    try {
-      const метод = т.фото ? "sendPhoto" : "sendMessage";
-      if (т.фото) тело.photo = т.фото; else { тело.text = т.текст; delete тело.caption; }
-      const r = await fetch(`https://api.telegram.org/bot${токен}/${метод}`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(тело),
-      });
-      const j = await r.json();
-      послано.push({ код: т.код, ок: !!j?.ok, ошибка: j?.ok ? null : String(j?.description || "").slice(0, 160) });
-    } catch (e) {
-      послано.push({ код: т.код, ок: false, ошибка: "сеть" });
-    }
+    });
+    послано.push({ код: т.код, ок: !!j?.ok, ошибка: j?.ok ? null : String(j?.description || "").slice(0, 160) });
   }
   const успешно = послано.filter((x) => x.ок).length;
   return { ок: успешно > 0, послано, успешно, всего: послано.length, тест: !!п.тест };
