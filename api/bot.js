@@ -832,6 +832,54 @@ export default async function handler(req, res) {
       const cq = u.callback_query, chatId = cq.message.chat.id, data = cq.data || "";
       await tg("answerCallbackQuery", { callback_query_id: cq.id });
 
+      // ---------- кнопки ИИ-агентов: ✅ ✏️ ❌ 📅 ----------
+      // Разбираются ТОЛЬКО у владельца. Карточки приходят лишь в его чат,
+      // но callback можно подделать — поэтому проверяем и чат, и того,
+      // кто нажал. Сам вебхук уже защищён секретом (выше по файлу).
+      // Одобрение применяется, только если предложение ещё ждёт:
+      // двойное нажатие безопасно и второй раз ничего не делает.
+      if (data.startsWith("ag:")) {
+        if (!isAdmin(chatId) || !isAdmin(cq.from?.id)) return res.status(200).send("ok");
+        const [, действие, id] = data.split(":");
+        if (!/^[0-9a-f-]{36}$/i.test(id || "")) return res.status(200).send("ok");
+
+        const { решить, записатьРезультат } = await import("./lib/agents/core.js");
+        const { исполнить, итогСловами } = await import("./lib/agents/исполнение.js");
+        const уже = "Это предложение уже решено — повторно ничего не сделано.";
+        let ответ = null;
+
+        if (действие === "ok") {
+          const строка = await решить(id, "approved", { кто: "владелец (Telegram)", через: "telegram" });
+          if (!строка) ответ = уже;
+          else {
+            const итог = await исполнить(строка).catch((e) => ({ ок: false, причина: e.message }));
+            await записатьРезультат(id, итог).catch(() => {});
+            ответ = "✅ Одобрено. " + итогСловами(итог);
+          }
+        } else if (действие === "no") {
+          const строка = await решить(id, "rejected", { кто: "владелец (Telegram)", через: "telegram" });
+          ответ = строка ? "❌ Отклонено. Ничего не опубликовано." : уже;
+        } else if (действие === "later") {
+          // Завтра в 10:00 по Ташкенту (UTC+5, перехода на летнее время нет).
+          const т = new Date(Date.now() + 5 * 3600e3);
+          const когда = Date.UTC(т.getUTCFullYear(), т.getUTCMonth(), т.getUTCDate() + 1, 10, 0) - 5 * 3600e3;
+          const строка = await решить(id, "scheduled", { кто: "владелец (Telegram)", через: "telegram", когда });
+          ответ = строка ? "📅 Запланировано на завтра, 10:00 по Ташкенту." : уже;
+        } else if (действие === "ed") {
+          // Править текст в переписке с ботом неудобно и ненадёжно — для
+          // этого есть раздел в складе, где виден весь черновик.
+          ответ = "✏️ Поправить черновик можно в складе: «ИИ-Агенты» → Согласования.\n" + PUBLIC_URL + "/admin#/agents";
+        }
+        if (!ответ) return res.status(200).send("ok");
+
+        // Кнопки убираем после решения — чтобы не нажать второй раз.
+        if (действие !== "ed") {
+          try { await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [] } }); } catch {}
+        }
+        await tg("sendMessage", { chat_id: chatId, text: ответ, disable_web_page_preview: true });
+        return res.status(200).send("ok");
+      }
+
       // город (необязательный вопрос после регистрации)
       if (data.startsWith("city:")) {
         const v = data.slice(5);

@@ -92,6 +92,7 @@ const РЕАЛИЗАЦИИ = {
   warehouse: () => import("./warehouse.js"),
   orders: () => import("./orders.js"),
   security: () => import("./security.js"),
+  telegram: () => import("./telegram.js"),
 };
 
 // Подключён ли агент: либо работа уже загружена, либо известно, откуда
@@ -315,7 +316,11 @@ export async function согласовать({ agent_id, kind, title, payload = 
   };
   try {
     const r = await мягко(() => sinsert("agent_approvals", [строка]), null);
-    return Array.isArray(r) ? r[0] : r;
+    const записано = Array.isArray(r) ? r[0] : r;
+    // «новое» — только у только что созданного. По нему агент решает,
+    // слать ли карточку в Telegram: повторный прогон той же недели не
+    // должен засыпать владельца одинаковыми сообщениями.
+    return записано ? { ...записано, новое: true } : записано;
   } catch (e) {
     if (/duplicate key|23505|conflict/i.test(String(e.message))) {
       // Такое предложение уже ждёт решения — второго не создаём.
@@ -569,7 +574,12 @@ export async function тик(сейчас = Date.now()) {
       const r = await запустить(id, { trigger: "schedule", сейчас: Date.now() });
       if (r.взято) запущено.push({ id, статус: r.статус });
     }
-    return { готово: true, запущено };
+    // Отложенные посты и прочее запланированное — на каждом тике.
+    // Ошибка здесь не должна мешать прогонам агентов, поэтому отдельно.
+    let запланированных = 0;
+    try { запланированных = await исполнитьЗапланированное(Date.now()); }
+    catch (e) { console.error("[агенты] запланированное:", e?.message || e); }
+    return { готово: true, запущено, запланированных };
   } catch (e) {
     console.error("[агенты] тик:", e?.message || e);
     return { готово: true, ошибка: String(e?.message || e) };
@@ -614,6 +624,50 @@ export async function отметитьПрочитанным(ids) {
   if (!список.length) return 0;
   await мягко(() => spatch(`agent_notices?id=in.(${список.map(q).join(",")})`, { seen_at: iso(Date.now()) }));
   return список.length;
+}
+
+// ======================================================================
+//  ЗАПЛАНИРОВАННОЕ
+//
+//  «📅 Запланировать» ставит предложению срок. Когда он наступает,
+//  ядро исполняет его так же, как если бы владелец нажал «Одобрить»
+//  в эту минуту. Проверяется на каждом тике — раз в минуту.
+//
+//  Захват условный (status=scheduled → approved одним запросом): два
+//  процесса не опубликуют один пост дважды.
+// ======================================================================
+export async function исполнитьЗапланированное(сейчас = Date.now()) {
+  if (естьТаблицы === false) return 0;
+  const пора = await мягко(() => sget(
+    `agent_approvals?status=eq.scheduled&scheduled_for=lte.${q(iso(сейчас))}&select=*&order=scheduled_for&limit=10`,
+  ), []);
+  let сделано = 0;
+  for (const з of пора || []) {
+    const взяли = await мягко(() => spatch(
+      `agent_approvals?id=eq.${q(з.id)}&status=eq.scheduled`,
+      { status: "approved", decided_at: iso(сейчас) },
+    ), []);
+    if (!Array.isArray(взяли) || !взяли.length) continue;          // взял кто-то другой
+    try {
+      const { исполнить } = await import("./исполнение.js");
+      const итог = await исполнить(взяли[0]);
+      await записатьРезультат(з.id, итог);
+    } catch (e) {
+      await записатьРезультат(з.id, { ок: false, причина: безопасныйТекст(e?.message || String(e)) });
+    }
+    сделано++;
+  }
+  return сделано;
+}
+
+// Что получилось после одобрения: публикация, закупка, замена фото.
+// Пишется отдельно от решения, потому что решение принимается сразу, а
+// исполнение занимает время и может не удаться.
+export async function записатьРезультат(id, результат) {
+  const строки = await мягко(() => spatch(`agent_approvals?id=eq.${q(id)}`, {
+    result: безопасныйОбъект(результат || null),
+  }), []);
+  return (Array.isArray(строки) ? строки[0] : null) ?? null;
 }
 
 // История одного агента: прогоны, его уведомления и решения по его

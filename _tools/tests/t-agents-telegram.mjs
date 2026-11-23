@@ -1,0 +1,306 @@
+// ========================================================================
+//  АГЕНТ TELEGRAM.   node _tools/tests/t-agents-telegram.mjs
+//
+//  Что проверяем:
+//   1. Пост собирается только из того, что есть в карточке. Недостающее
+//      перечисляется, а не выдумывается. Название с разметкой не ломает
+//      HTML поста.
+//   2. Подбор: в канал идёт только то, что есть на складе и с фото, и
+//      не то, что уже предлагали в этом месяце.
+//   3. Без адреса канала агент готовит заготовку канала, а постов не
+//      делает. С адресом — черновики, по одному на рубрику в неделю;
+//      повторный прогон не шлёт карточки второй раз.
+//   4. Публикация случается только после одобрения; в тестовом режиме
+//      уходит владельцу в личку, а не в канал; закупка «одобрением» не
+//      совершается вовсе.
+//   5. Кнопки в боте работают только у владельца: чужое нажатие ничего
+//      не меняет.
+// ========================================================================
+const корень = new URL("../../", import.meta.url);
+process.env.SUPABASE_URL = "http://db.test";
+process.env.SUPABASE_SERVICE_KEY = "k";
+process.env.CLIENT_BOT_TOKEN = "1111111111:CLIENT-bot-token-for-tests-only-xx";
+process.env.TELEGRAM_BOT_TOKEN = "2222222222:ADMIN-bot-token-for-tests-only-yyy";
+process.env.ADMIN_CHAT_ID = "837138321";
+process.env.PUBLIC_URL = "https://generalmodern.uz";
+process.env.TELEGRAM_WEBHOOK_SECRET = "test-webhook-secret-123456";
+process.env.DB_MODE = "supabase";
+
+const Т = await import(new URL("api/lib/agents/texts.js", корень));
+const А = await import(new URL("api/lib/agents/telegram.js", корень));
+const И = await import(new URL("api/lib/agents/исполнение.js", корень));
+
+let плохо = 0;
+const ok = (имя, условие) => { if (условие) console.log("✅", имя); else { console.log("❌", имя); плохо++; } };
+
+const СУТКИ = 86400e3;
+const СЕЙЧАС = Date.parse("2026-11-23T06:00:00Z");
+const назад = (д) => new Date(СЕЙЧАС - д * СУТКИ).toISOString();
+
+// ======================================================================
+//  1. ПОСТ ИЗ КАРТОЧКИ
+// ======================================================================
+{
+  const т = { id: "p1", code: "LP-125", name: "Лапка сборка P50", category: "Лапки", sku: "P50",
+    stock_qty: 380, price_som: 2800, photo_url: "https://x/1.jpg" };
+  const п = Т.постТовара(т, { ссылка: "https://generalmodern.uz/p/lp-125" });
+
+  ok("в посте есть название, артикул и наличие",
+    /Лапка сборка P50/.test(п.текст) && /LP-125/.test(п.текст) && /в наличии/i.test(п.текст));
+  ok("цена не показывается, пока не разрешена", !/2[\s ]?800/.test(п.текст) && !/Цена/.test(п.текст));
+  ok("кнопка заказа ведёт на страницу товара", п.кнопки[0][0].url === "https://generalmodern.uz/p/lp-125");
+
+  const сЦеной = Т.постТовара(т, { показыватьЦену: true });
+  ok("с разрешением цена появляется", /Цена/.test(сЦеной.текст) && /сум/.test(сЦеной.текст));
+
+  const пустой = Т.постТовара({ id: "p2", name: "Нож", stock_qty: 0 }, { показыватьЦену: true });
+  ok("недостающее перечислено, а не выдумано",
+    ["фотография", "категория", "артикул", "цена"].every((к) => пустой.пропуски.includes(к)));
+  ok("товар без остатка помечен «под заказ»", /под заказ/i.test(пустой.текст));
+
+  // Характеристик в складе нет — их нет и в посте.
+  ok("в посте нет выдуманных характеристик",
+    !/(мм|Вт|об\/мин|Мощность|Размер:)/.test(п.текст));
+
+  // Разметка в названии не должна ломать HTML поста.
+  const злой = Т.постТовара({ id: "p3", name: "<b>Нож</b> <script>x</script>", code: "N<1>", stock_qty: 1 });
+  ok("разметка из карточки экранируется",
+    злой.текст.includes("&lt;script&gt;") && !злой.текст.includes("<script>") && злой.текст.includes("N&lt;1&gt;"));
+}
+
+// ======================================================================
+//  2. ПОДБОР ТОВАРОВ
+// ======================================================================
+const товары = [
+  { id: "n1", code: "N-1", name: "Новинка с фото", category: "Лапки", stock_qty: 10, photo_url: "u", last_arrival_at: назад(3) },
+  { id: "n2", code: "N-2", name: "Новинка без фото", category: "Лапки", stock_qty: 10, photo_url: "", last_arrival_at: назад(2) },
+  { id: "n3", code: "N-3", name: "Новинка без остатка", category: "Лапки", stock_qty: 0, photo_url: "u", last_arrival_at: назад(1) },
+  { id: "o1", code: "O-1", name: "Старый ходовой", category: "Ножи", stock_qty: 50, photo_url: "u", last_arrival_at: назад(120) },
+  { id: "o2", code: "O-2", name: "Уже был в канале", category: "Ножи", stock_qty: 50, photo_url: "u", last_arrival_at: назад(120) },
+  { id: "v1", code: "V-1", name: "С видео", category: "Аппараты", stock_qty: 2, photo_url: "u", last_arrival_at: назад(200) },
+];
+const продажи = [
+  { date: назад(5), status: "final", items: [{ product_id: "o1", qty: 30 }, { product_id: "o2", qty: 50 }] },
+  { date: назад(200), status: "final", items: [{ product_id: "v1", qty: 99 }] },   // за кварталом
+];
+const видео = [{ id: 1, title: "обзор", path: "/video/1", product_id: "v1" }];
+
+{
+  const к = А.подобрать({ товары, продажи, видео, сейчас: СЕЙЧАС, ужеБыли: new Set(["o2"]) });
+  ok("в новинки не попадает товар без фото", !к.новинки.some((т) => т.id === "n2"));
+  ok("в новинки не попадает товар без остатка", !к.новинки.some((т) => т.id === "n3"));
+  ok("новинка с фото и остатком попадает", к.новинки.some((т) => т.id === "n1"));
+  ok("ходовое считается по продажам за квартал", к.популярные[0]?.id === "o1");
+  ok("уже предлагавшийся товар не берётся повторно", !Object.values(к).flat().some((т) => т?.id === "o2"));
+  ok("продажи старше квартала ходовым не делают", !к.популярные.some((т) => т.id === "v1"));
+  ok("товар со своим видео попадает в рубрику видео", к.видео.some((т) => т.id === "v1"));
+}
+
+// ======================================================================
+//  3. КНОПКИ
+// ======================================================================
+{
+  const id = "a0000000-0000-4000-8000-000000000001";
+  const к = А.кнопкиОдобрения(id).flat();
+  ok("четыре кнопки: одобрить, изменить, отклонить, запланировать",
+    ["ok", "ed", "no", "later"].every((д) => к.some((x) => x.callback_data === `ag:${д}:${id}`)));
+  ok("callback_data укладывается в 64 байта Telegram",
+    к.every((x) => Buffer.byteLength(x.callback_data, "utf8") <= 64));
+}
+
+// ======================================================================
+//  Поддельная база и поддельный Telegram для прогонов
+// ======================================================================
+const база = { agent_approvals: [], agent_notices: [], agent_state: [], crm_audit: [] };
+const телеграм = [];
+
+function подходит(с, фильтры) {
+  for (const [поле, выр] of фильтры) {
+    const [оп, ...х] = String(выр).split("."); const з = х.join(".");
+    if (оп === "eq" && String(с[поле]) !== з) return false;
+    if (оп === "lte" && !(new Date(с[поле] ?? 0) <= new Date(з))) return false;
+  }
+  return true;
+}
+let id_ = 0;
+globalThis.fetch = async (адрес, опции = {}) => {
+  const u = new URL(String(адрес));
+  if (u.hostname === "api.telegram.org") {
+    const метод = u.pathname.split("/").pop();
+    const тело = опции.body ? JSON.parse(опции.body) : {};
+    const токен = u.pathname.split("/")[1].replace(/^bot/, "");
+    телеграм.push({ метод, тело, токен });
+    return { ok: true, status: 200, json: async () => ({ ok: true, result: метод === "getMe" ? { id: 999 } : [] }) };
+  }
+  const таблица = u.pathname.replace("/rest/v1/", "");
+  база[таблица] ||= [];
+  const фильтры = [...u.searchParams.entries()].filter(([к]) => !["select", "order", "limit"].includes(к));
+  const метод = (опции.method || "GET").toUpperCase();
+  const тело = опции.body ? JSON.parse(опции.body) : null;
+  const ответ = (d, s = 200) => ({ ok: s < 400, status: s, json: async () => d, text: async () => JSON.stringify(d) });
+  if (метод === "GET") return ответ(база[таблица].filter((r) => подходит(r, фильтры)));
+  if (метод === "POST") {
+    const из = [];
+    for (const с of [].concat(тело)) {
+      if (с.idem_key && база[таблица].some((r) => r.idem_key === с.idem_key))
+        return ответ("duplicate key value violates unique constraint", 409);
+      const r = { id: с.id || `00000000-0000-4000-8000-${String(++id_).padStart(12, "0")}`, ...с };
+      база[таблица].push(r); из.push(r);
+    }
+    return ответ(из);
+  }
+  if (метод === "PATCH") {
+    const н = база[таблица].filter((r) => подходит(r, фильтры));
+    н.forEach((r) => Object.assign(r, тело));
+    return ответ(н);
+  }
+  return ответ([]);
+};
+
+const C = await import(new URL("api/lib/agents/core.js", корень));
+const ctx = (config) => ({
+  agentId: "telegram", config,
+  читать: async (путь) => {
+    if (путь.startsWith("products")) return товары;
+    if (путь.startsWith("sales")) return продажи;
+    if (путь.startsWith("videos")) return видео;
+    if (путь.startsWith("agent_approvals")) return база.agent_approvals.filter((a) => a.kind === "post");
+    return [];
+  },
+  уведомить: async (у) => у,
+  согласовать: (о) => C.согласовать({ ...о, agent_id: "telegram" }),
+});
+
+// ======================================================================
+//  4. БЕЗ КАНАЛА — ЗАГОТОВКА, А НЕ ПОСТЫ
+// ======================================================================
+{
+  const р = await А.прогон(ctx({}));
+  ok("без канала агент просит создать канал", р.детали.нуженКанал === true);
+  const заявки = база.agent_approvals.filter((a) => a.kind === "channel_setup");
+  ok("заготовка канала одна", заявки.length === 1);
+  ok("в заготовке три названия, описание и шаги",
+    заявки[0].payload.названия.length === 3 && !!заявки[0].payload.описание && заявки[0].payload.шаги.length >= 4);
+  ok("постов без канала не готовится", !база.agent_approvals.some((a) => a.kind === "post"));
+
+  const карточка = телеграм.find((x) => x.метод === "sendMessage");
+  ok("карточка ушла владельцу через бота магазина",
+    карточка && String(карточка.тело.chat_id) === "837138321" && карточка.токен === process.env.CLIENT_BOT_TOKEN);
+
+  const до = телеграм.length;
+  await А.прогон(ctx({}));
+  ok("повторный прогон не создаёт вторую заготовку",
+    база.agent_approvals.filter((a) => a.kind === "channel_setup").length === 1);
+  ok("и не шлёт карточку второй раз", телеграм.length === до);
+}
+
+// ======================================================================
+//  5. С КАНАЛОМ — ЧЕРНОВИКИ ПО РУБРИКАМ
+// ======================================================================
+{
+  телеграм.length = 0;
+  const р = await А.прогон(ctx({ канал: "@generalmodern_test" }));
+  const посты = база.agent_approvals.filter((a) => a.kind === "post");
+  ok("черновики созданы", посты.length > 0 && р.детали.черновиков === посты.length);
+  ok("все черновики ждут решения", посты.every((a) => a.status === "pending"));
+  ok("по умолчанию — тестовый режим", посты.every((a) => a.payload.тест === true));
+  ok("ни одного поста не опубликовано до одобрения",
+    !телеграм.some((x) => x.метод === "sendPhoto"));
+  ok("на каждый черновик — карточка с кнопками",
+    телеграм.filter((x) => x.тело?.reply_markup?.inline_keyboard?.flat().some((к) => /^ag:ok:/.test(к.callback_data))).length === посты.length);
+
+  // Считаем именно карточки (sendMessage): кроме них агент обращается к
+  // Telegram, чтобы проверить права бота в канале, — это не сообщения.
+  const карточки = () => телеграм.filter((x) => x.метод === "sendMessage").length;
+  const было = база.agent_approvals.length, карточекДо = карточки();
+  await А.прогон(ctx({ канал: "@generalmodern_test" }));
+  ok("повторный прогон той же недели не плодит черновиков", база.agent_approvals.length === было);
+  ok("и не шлёт карточки второй раз", карточки() === карточекДо);
+}
+
+// ======================================================================
+//  6. ИСПОЛНЕНИЕ ОДОБРЕННОГО
+// ======================================================================
+{
+  телеграм.length = 0;
+  const пост = база.agent_approvals.find((a) => a.kind === "post");
+  const р = await И.исполнить(пост);
+  ok("одобренный пост публикуется", р.ок && р.успешно > 0);
+  const куда = телеграм.filter((x) => /send(Photo|Message)/.test(x.метод)).map((x) => String(x.тело.chat_id));
+  ok("в тестовом режиме — владельцу в личку, а не в канал",
+    куда.every((ч) => ч === "837138321") && !куда.includes("@generalmodern_test"));
+  ok("публикует бот магазина", телеграм.every((x) => x.токен === process.env.CLIENT_BOT_TOKEN));
+
+  телеграм.length = 0;
+  const боевой = { ...пост, payload: { ...пост.payload, тест: false, канал: "@generalmodern_test" } };
+  await И.исполнить(боевой);
+  ok("без тестового режима — в канал",
+    телеграм.filter((x) => /send/.test(x.метод)).every((x) => String(x.тело.chat_id) === "@generalmodern_test"));
+
+  телеграм.length = 0;
+  const закупка = await И.исполнить({ kind: "purchase", payload: { товары: [{ код: "X" }] } });
+  ok("одобренная закупка не совершается автоматически",
+    закупка.ок && /Заказ поставщику/.test(закупка.что) && телеграм.length === 0);
+
+  const безопасность = await И.исполнить({ kind: "security_action", payload: {} });
+  ok("действия безопасности не выполняются автоматически", /вручную/.test(безопасность.что));
+}
+
+// ======================================================================
+//  7. ЗАПЛАНИРОВАННОЕ ИСПОЛНЯЕТСЯ В СРОК И РОВНО ОДИН РАЗ
+// ======================================================================
+{
+  телеграм.length = 0;
+  const пост = база.agent_approvals.find((a) => a.kind === "post" && a.status === "pending");
+  await C.решить(пост.id, "scheduled", { кто: "тест", когда: Date.now() + 3600e3 });
+  ok("до срока ничего не публикуется", (await C.исполнитьЗапланированное(Date.now())) === 0);
+
+  const n = await C.исполнитьЗапланированное(Date.now() + 2 * 3600e3);
+  ok("в срок публикуется", n === 1 && телеграм.some((x) => /send/.test(x.метод)));
+  ok("статус стал «одобрено», результат записан",
+    пост.status === "approved" && !!пост.result);
+  const ещё = await C.исполнитьЗапланированное(Date.now() + 3 * 3600e3);
+  ok("второй раз тот же пост не уходит", ещё === 0);
+}
+
+// ======================================================================
+//  8. КНОПКИ В БОТЕ — ТОЛЬКО ВЛАДЕЛЬЦУ
+// ======================================================================
+{
+  const бот = (await import(new URL("api/bot.js", корень))).default;
+  const ответ = () => { const r = { код: 0, status(c) { r.код = c; return r; }, send() { return r; }, json() { return r; }, setHeader() {} }; return r; };
+  const нажатие = (кто, data) => ({
+    method: "POST",
+    headers: { "x-telegram-bot-api-secret-token": process.env.TELEGRAM_WEBHOOK_SECRET },
+    body: { update_id: Math.floor(Math.random() * 1e9), callback_query: {
+      id: "cq1", data, from: { id: кто }, message: { message_id: 5, chat: { id: кто } },
+    } },
+  });
+
+  const ждёт = база.agent_approvals.find((a) => a.kind === "post" && a.status === "pending");
+  await бот(нажатие(111222333, `ag:ok:${ждёт.id}`), ответ());
+  ok("чужое нажатие «Одобрить» ничего не меняет", ждёт.status === "pending");
+
+  const безСекрета = нажатие(837138321, `ag:ok:${ждёт.id}`);
+  безСекрета.headers = {};
+  await бот(безСекрета, ответ());
+  ok("без секрета вебхука нажатие не принимается", ждёт.status === "pending");
+
+  телеграм.length = 0;
+  await бот(нажатие(837138321, `ag:no:${ждёт.id}`), ответ());
+  ok("владелец отклоняет", ждёт.status === "rejected");
+  ok("после решения кнопки убираются", телеграм.some((x) => x.метод === "editMessageReplyMarkup"));
+
+  телеграм.length = 0;
+  await бот(нажатие(837138321, `ag:ok:${ждёт.id}`), ответ());
+  ok("повторное нажатие по решённому ничего не публикует",
+    ждёт.status === "rejected" && !телеграм.some((x) => /sendPhoto/.test(x.метод)));
+  ok("и честно говорит, что уже решено",
+    телеграм.some((x) => x.метод === "sendMessage" && /уже решено/.test(x.тело.text)));
+
+  await бот(нажатие(837138321, "ag:ok:не-uuid"), ответ());
+  ok("кривой номер предложения отбрасывается без ошибки", true);
+}
+
+console.log(плохо ? `\n❌ Провалено проверок: ${плохо}` : "\n✅ Всё сошлось");
+process.exit(плохо ? 1 : 0);

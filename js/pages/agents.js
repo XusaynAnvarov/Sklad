@@ -12,9 +12,9 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261123c";
-import { icon } from "../icons.js?v=20261123c";
-import { authHeaders } from "../db.js?v=20261123c";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261123d";
+import { icon } from "../icons.js?v=20261123d";
+import { authHeaders } from "../db.js?v=20261123d";
 
 const API = "/api/admin/agents";
 const ОПРОС_МС = 45000;
@@ -336,7 +336,7 @@ export default async function render(page, ctx) {
             const к = e.currentTarget;
             к.disabled = true; к.textContent = "Собираю…";
             try {
-              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261123c");
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261123d");
               await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
               toast("Файл собран");
             } catch (err) {
@@ -424,9 +424,18 @@ export default async function render(page, ctx) {
       : `Отклонить: «${с.title}»?`;
     confirmDialog(вопрос, async () => {
       try {
-        await запрос("POST", { action: действие, id: с.id });
+        const ответ = await запрос("POST", { action: действие, id: с.id });
         await обновить(false);
-        toast(действие === "approve" ? "Одобрено" : "Отклонено");
+        // После одобрения сервер сразу исполняет — показываем, что вышло,
+        // а не просто «Одобрено»: публикация могла и не пройти.
+        // toast выводит текст через textContent (js/ui.js), так что разметка
+        // из ответа исполниться не может. Длину всё равно режем: сырое
+        // сообщение об ошибке на экране владельцу ни к чему.
+        const и = ответ?.итог;
+        const коротко = (s) => String(s ?? "").slice(0, 200);
+        if (действие !== "approve") toast("Отклонено");
+        else if (и && !и.ок) toast("Одобрено, но не исполнено: " + коротко(и.причина || (и.ошибки || [])[0] || "ошибка"), "err");
+        else toast(коротко(и?.всего ? `${и.что}: ${Number(и.успешно) || 0} из ${Number(и.всего) || 0}` : (и?.что || "Одобрено")));
       } catch (e) { toast(e.message, "err"); }
     });
   }

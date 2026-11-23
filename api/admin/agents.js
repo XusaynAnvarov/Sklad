@@ -21,8 +21,9 @@
 import { getUser } from "../lib/auth.js";
 import {
   состояние, отчётПрогона, запустить, включить, сменитьРасписание,
-  сменитьНастройки, отметитьПрочитанным, решить, таблицыГотовы,
+  сменитьНастройки, отметитьПрочитанным, решить, таблицыГотовы, записатьРезультат,
 } from "../lib/agents/core.js";
+import { исполнить } from "../lib/agents/исполнение.js";
 
 const okId = (v) => /^[a-z_]{2,32}$/.test(String(v || ""));
 const okUuid = (v) => /^[0-9a-fA-F-]{10,40}$/.test(String(v || ""));
@@ -101,6 +102,13 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Не разобрал дату публикации" });
         const строка = await решить(body.id, решение, { кто: "admin", через: "admin", когда });
         if (!строка) return res.status(409).json({ error: "Это предложение уже решено", code: "уже_решено" });
+        // Исполняем только одобренное. «Запланировать» ждёт своего часа,
+        // «Отклонить» не делает ничего — так и задумано.
+        if (решение === "approved") {
+          const итог = await исполнить(строка).catch((e) => ({ ок: false, причина: e.message }));
+          await записатьРезультат(строка.id, итог).catch(() => {});
+          return res.status(200).json({ строка, итог });
+        }
         return res.status(200).json({ строка });
       }
       default:

@@ -3,14 +3,14 @@
 // Осторожно с удалением накладной: товар из неё уже списан со склада,
 // поэтому при удалении его надо ВЕРНУТЬ обратно — иначе остатки разъедутся.
 // Возврат делает returnItems из js/sklad/stock.js, теми же партиями FIFO.
-import { el } from "../app.js?v=20261123c";
-import { списанные } from "../../stockcheck.js?v=20261123c";
-import { icon } from "../../icons.js?v=20261123c";
-import { toast, modal, confirmDialog } from "../../ui.js?v=20261123c";
-import { fmt } from "../../fx.js?v=20261123c";
-import { returnItems } from "../stock.js?v=20261123c";
-import { applyQtyChange, applyPriceChange } from "../issue.js?v=20261123c";
-import { methodOptions, methodLabel, DEFAULT_METHOD } from "../../payment.js?v=20261123c";
+import { el } from "../app.js?v=20261123d";
+import { списанные } from "../../stockcheck.js?v=20261123d";
+import { icon } from "../../icons.js?v=20261123d";
+import { toast, modal, confirmDialog } from "../../ui.js?v=20261123d";
+import { fmt } from "../../fx.js?v=20261123d";
+import { returnItems } from "../stock.js?v=20261123d";
+import { applyQtyChange, applyPriceChange } from "../issue.js?v=20261123d";
+import { methodOptions, methodLabel, DEFAULT_METHOD } from "../../payment.js?v=20261123d";
 
 // Сум первым — им торгуют каждый день, юань вторым, доллар последним.
 const CURS = [{ value: "som", label: "сум" }, { value: "yuan", label: "¥" }, { value: "usd", label: "$" }];
