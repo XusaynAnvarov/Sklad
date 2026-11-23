@@ -30,13 +30,12 @@ const ЗАПИСЬ = {
   security:  [],
   telegram:  [],
   design:    [],
-  images:    [],                   // фото подменяет человек, одобрив карточку
 };
 
 // Что агент имеет право читать. "*" — весь склад на чтение; это
 // безопасно, данные и так видны администратору в складе.
 const ЧТЕНИЕ = {
-  warehouse: "*", orders: "*", security: "*", telegram: "*", design: "*", images: "*",
+  warehouse: "*", orders: "*", security: "*", telegram: "*", design: "*",
 };
 
 export class ОтказДоступа extends Error {

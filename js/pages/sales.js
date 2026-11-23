@@ -1,24 +1,24 @@
 // ========================================================================
 //  СТРАНИЦА «ПРОДАЖИ» — накладные: создание, редактирование, Telegram
 // ========================================================================
-import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261122a";
-import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261122a";
-import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261122a";
-import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261122a";
-import { suggestPrice, priceNote } from "../prices.js?v=20261122a";
-import { списанные } from "../stockcheck.js?v=20261122a";
-import { этоВозврат } from "../refund.js?v=20261122a";
-import { пересчитатьСклад } from "../saleedit.js?v=20261122a";
-import { placeholder } from "./products.js?v=20261122a";
-import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261122a";
-import { icon } from "../icons.js?v=20261122a";
-import { showLoader, hideLoader } from "../ui.js?v=20261122a";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261122a";
-import { exportInvoice } from "../xlsx-export.js?v=20261122a";
-import { showNotFound } from "./purchases.js?v=20261122a";
-import { thumb, поставитьСнимок } from "../img.js?v=20261122a";
+import { el, $, toast, modal, confirmDialog, field, input, select, inputList, lightbox } from "../ui.js?v=20261123a";
+import { fmt, convert, CUR, sumByCur, curStr } from "../fx.js?v=20261123a";
+import { sendInvoice, sendInvoicePDF } from "../telegram.js?v=20261123a";
+import { наПодтверждение, отправитьНакладную } from "../orderconfirm.js?v=20261123a";
+import { suggestPrice, priceNote } from "../prices.js?v=20261123a";
+import { списанные } from "../stockcheck.js?v=20261123a";
+import { этоВозврат } from "../refund.js?v=20261123a";
+import { пересчитатьСклад } from "../saleedit.js?v=20261123a";
+import { placeholder } from "./products.js?v=20261123a";
+import { consumeFIFO, returnToStock, ensureBatches, sumQty, currentCost, costAfter } from "../inventory.js?v=20261123a";
+import { icon } from "../icons.js?v=20261123a";
+import { showLoader, hideLoader } from "../ui.js?v=20261123a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261123a";
+import { exportInvoice } from "../xlsx-export.js?v=20261123a";
+import { showNotFound } from "./purchases.js?v=20261123a";
+import { thumb, поставитьСнимок } from "../img.js?v=20261123a";
 // причина изменения остатка — её записывает журнал на сервере
-import { изменениеСклада } from "../db.js?v=20261122a";
+import { изменениеСклада } from "../db.js?v=20261123a";
 
 const cfg = window.APP_CONFIG || {};
 
@@ -237,6 +237,10 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
       if (!it.currency) it.currency = state.currency;
       const p = pmap[it.product_id] || { name: "?", photo_url: "" };
       const stock = Number(p.stock_qty) || 0;
+      // Номер коробки, в которую уложили эту позицию. Не обязателен:
+      // пока его нигде не проставили, в накладной колонки не будет.
+      // Поле текстовое, а не числовое, — коробки подписывают и буквами.
+      const bx = input({ value: it.box ?? "", placeholder: "—", maxlength: "6", style: { width: "58px", textAlign: "center" } });
       const q = input({ type: "number", value: it.qty, style: { width: "70px" } });
       const pr = input({ type: "number", step: "0.01", value: it.unit_price, style: { width: "100px" } });
       const fCur = select(Object.values(CUR).map(c => ({ value: c.code, label: c.sign })), it.currency, { style: { width: "76px" } });
@@ -261,12 +265,21 @@ export function openEditor(ctx, sale, customers, products, preselectId) {
         el("span", { text: lastTxt }),
       ]);
       const upd = () => { lt.textContent = fmt(it.qty * it.unit_price, it.currency); paintStock(); recalc(); };
+      bx.addEventListener("input", () => {
+        const v = bx.value.trim();
+        if (v) it.box = v; else delete it.box;
+        // Число мест поднимаем до числа разных коробок, но не опускаем:
+        // владелец мог посчитать места сам, и затирать его цифру нельзя.
+        const разных = new Set(state.items.map(i => String(i.box ?? "").trim()).filter(Boolean)).size;
+        if (разных > (+state.boxes || 0)) { state.boxes = разных; fBoxes.value = разных; }
+      });
       q.addEventListener("input", () => { it.qty = +q.value || 0; upd(); });
       pr.addEventListener("input", () => { it.unit_price = +pr.value || 0; it.price_yuan_norm = round(convert(it.unit_price, it.currency, "yuan")); upd(); });
       fCur.addEventListener("change", () => { it.currency = fCur.value; it.price_yuan_norm = round(convert(it.unit_price, it.currency, "yuan")); upd(); });
       itemsBox.append(el("div.card.sale-item", { style: { padding: "10px 12px", marginBottom: "9px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } }, [
         el("img.thumb", { src: p.photo_url ? thumb(p.photo_url, 60) : placeholder(p.name), loading: "lazy", decoding: "async", style: { cursor: "zoom-in" }, onclick: () => p.photo_url && lightbox(p.photo_url), onerror: function () { this.src = placeholder(p.name); } }),
         el("div", { style: { flex: "1", minWidth: "130px" } }, [el("div", { text: p.name, style: { fontWeight: "600" } }), stockEl, infoEl]),
+        el("div", {}, [el("div.field-label", { text: "Кор." }), bx]),
         el("div", {}, [el("div.field-label", { text: "Кол-во" }), q]),
         el("div", {}, [el("div.field-label", { text: "Цена" }), pr]),
         el("div", {}, [el("div.field-label", { text: "Валюта" }), fCur]),
@@ -566,7 +579,9 @@ export function buildText(s, cust, products) {
     const c = i.currency || s.currency;
     // У возврата деньгами товара нет вовсе — название лежит в самой позиции
     const имя = pmap[i.product_id]?.name || i.name || "?";
-    return `${n + 1}. ${имя} — ${i.qty} × ${fmt(i.unit_price, c)} = ${fmt(i.qty * i.unit_price, c)}`;
+    // Номер коробки ставим перед названием: по нему клиент разбирает груз.
+    const кор = String(i.box ?? "").trim();
+    return `${n + 1}. ${кор ? `[кор. ${кор}] ` : ""}${имя} — ${i.qty} × ${fmt(i.unit_price, c)} = ${fmt(i.qty * i.unit_price, c)}`;
   });
   return [
     "🧾 *НАКЛАДНАЯ*",

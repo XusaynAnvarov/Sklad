@@ -9,14 +9,14 @@
 //  Цен в каталоге нет и не будет: цену клиент видит только в своём заказе,
 //  и только после того, как владелец её проставил.
 // ========================================================================
-import { el } from "../el.js?v=20261122a";
-import { icon } from "../icons.js?v=20261122a";
-import { toast } from "../ui.js?v=20261122a";
-import { setLang, applyI18n } from "../i18n.js?v=20261122a";
-import { кнопкаРазвернуть } from "../miniapp.js?v=20261122a";
-import { мои, каталог, подпись } from "./api.js?v=20261122a";
-import * as корзина from "./cart.js?v=20261122a";
-import { отметитьВизит } from "../site/visit.js?v=20261122a";
+import { el } from "../el.js?v=20261123a";
+import { icon } from "../icons.js?v=20261123a";
+import { toast } from "../ui.js?v=20261123a";
+import { setLang, applyI18n } from "../i18n.js?v=20261123a";
+import { кнопкаРазвернуть } from "../miniapp.js?v=20261123a";
+import { мои, каталог, подпись } from "./api.js?v=20261123a";
+import * as корзина from "./cart.js?v=20261123a";
+import { отметитьВизит } from "../site/visit.js?v=20261123a";
 
 const TG = window.Telegram && window.Telegram.WebApp;
 const корень = () => document.getElementById("ord-root");
@@ -40,11 +40,11 @@ export const ctx = {
 };
 
 const ЭКРАНЫ = {
-  catalog: { title: "Каталог", mod: () => import("./screens/catalog.js?v=20261122a") },
-  cart:    { title: "Корзина", mod: () => import("./screens/cart.js?v=20261122a") },
-  orders:  { title: "Мои заказы", mod: () => import("./screens/myorders.js?v=20261122a") },
+  catalog: { title: "Каталог", mod: () => import("./screens/catalog.js?v=20261123a") },
+  cart:    { title: "Корзина", mod: () => import("./screens/cart.js?v=20261123a") },
+  orders:  { title: "Мои заказы", mod: () => import("./screens/myorders.js?v=20261123a") },
   // все оформленные накладные — в чате бота видны только последние десять
-  invoices: { title: "Накладные", mod: () => import("./screens/invoices.js?v=20261122a") },
+  invoices: { title: "Накладные", mod: () => import("./screens/invoices.js?v=20261123a") },
 };
 const ВКЛАДКИ = [
   { id: "catalog", label: "Каталог",    ic: "box" },

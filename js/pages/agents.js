@@ -12,9 +12,9 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261122a";
-import { icon } from "../icons.js?v=20261122a";
-import { authHeaders } from "../db.js?v=20261122a";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261123a";
+import { icon } from "../icons.js?v=20261123a";
+import { authHeaders } from "../db.js?v=20261123a";
 
 const API = "/api/admin/agents";
 const ОПРОС_МС = 45000;

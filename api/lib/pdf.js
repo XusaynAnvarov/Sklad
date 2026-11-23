@@ -45,23 +45,31 @@ export function колонкиНакладной({ позиции, reg, bold, M,
   const ш = (s, size, f) => f.widthOfTextAtSize(String(s == null ? "" : s), size);
   const макс = (тексты, size, f, минимум) => Math.max(минимум, ...тексты.map(t => ш(t, size, f)));
 
+  // Колонка «КОР.» появляется только если коробки вообще проставлены.
+  // У накладной на три позиции, которую везут в одном пакете, пустой
+  // столбец — это просто отнятое у названия место.
+  const естьКор = позиции.some(p => String(p.кор ?? "").trim() !== "");
+
   const шN = макс([...позиции.map(p => p.n), "№"], 9.5, reg, 12) + PAD * 2;
+  const шКор = естьКор ? макс([...позиции.map(p => p.кор), "КОР."], 9.5, bold, 26) + PAD * 2 : 0;
   const шКво = макс([...позиции.map(p => p.кво), "КОЛ-ВО"], 9.5, bold, 30) + PAD * 2;
   const шЦена = макс([...позиции.map(p => p.цена), "ЦЕНА"], 9.5, bold, 40) + PAD * 2;
   const шСумма = макс([...позиции.map(p => p.сумма), "СУММА"], 9.5, bold, 50) + PAD * 2;
   // Названию — всё, что осталось. Если товаров с длинными ценами много,
   // места под название становится меньше, и оно обрезается многоточием.
-  const шИмя = (R - M) - шN - шКво - шЦена - шСумма;
+  const шИмя = (R - M) - шN - шКор - шКво - шЦена - шСумма;
 
-  const xИмя = M + шN + PAD;
+  const xИмя = M + шN + шКор + PAD;
   return {
     n: M + PAD,
+    // null — колонки нет; по этому полю её и рисуют
+    кор: естьКор ? M + шN + PAD : null,
     имя: xИмя,
     имяПредел: xИмя + шИмя - PAD * 2,
-    квоR: M + шN + шИмя + шКво - PAD,
-    ценаR: M + шN + шИмя + шКво + шЦена - PAD,
+    квоR: M + шN + шКор + шИмя + шКво - PAD,
+    ценаR: M + шN + шКор + шИмя + шКво + шЦена - PAD,
     суммаR: R - PAD,
-    ширины: { шN, шИмя, шКво, шЦена, шСумма },
+    ширины: { шN, шКор, шИмя, шКво, шЦена, шСумма },
   };
 }
 
@@ -188,6 +196,9 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
     const сумма = (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
     return {
       n: String(i + 1), имя: p.name || "?", кво: String(it.qty ?? ""),
+      // Номер коробки, в которую этот товар уложили при сборке.
+      // Пусто у всех позиций — колонки в накладной не будет вовсе.
+      кор: String(it.box ?? "").trim(),
       цена: money(it.unit_price, cur), сумма: money(сумма, cur), cur, число: сумма,
     };
   });
@@ -242,6 +253,7 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
   function шапкаТаблицы(y) {
     const b = y - 13;
     T("№", кол.n, b, 8, bold, GREY);
+    if (кол.кор !== null) T("КОР.", кол.кор, b, 8, bold, GREY);
     T("НАИМЕНОВАНИЕ", кол.имя, b, 8, bold, GREY);
     TR("КОЛ-ВО", кол.квоR, b, 8, bold, GREY);
     TR("ЦЕНА", кол.ценаR, b, 8, bold, GREY);
@@ -261,6 +273,8 @@ export async function buildInvoicePDF({ sale, customer, products, company = "GEN
     if (i % 2) pg.drawRectangle({ x: M, y: y - ROW + 2, width: R - M, height: ROW, color: ЗЕБРА });
     const b = y - 13;
     T(поз.n, кол.n, b, 9, reg, GREY);
+    // Номер коробки — жирным: по нему глаз ищет, когда разбирают груз.
+    if (кол.кор !== null && поз.кор) T(поз.кор, кол.кор, b, 9.5, bold);
     T(вместить(поз.имя, кол.имяПредел - кол.имя, 9.5), кол.имя, b, 9.5);
     TR(поз.кво, кол.квоR, b, 9.5);
     TR(поз.цена, кол.ценаR, b, 9.5);
