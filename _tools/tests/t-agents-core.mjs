@@ -256,14 +256,16 @@ const C = await import(new URL("api/lib/agents/core.js", корень));
 }
 
 // Ручной прогон неподключённого агента: ядро работает, результат честный.
+// Берём Telegram: его работа появится на пятом этапе. Склад с этапа 2
+// уже подключён и прогоняется по-настоящему — это проверяется ниже.
 {
-  const r = await C.запустить("warehouse", { trigger: "manual" });
+  const r = await C.запустить("telegram", { trigger: "manual" });
   ok("ручной прогон берётся", r.взято === true);
   ok("неподключённый агент честно отмечается пропущенным", r.статус === "skipped");
   const прогон = база.agent_runs.find((п) => п.id === r.runId);
   ok("прогон записан в журнал", !!прогон && прогон.status === "skipped" && !!прогон.finished_at);
-  ok("результат не выдуман", /этапе 2/.test(прогон.summary));
-  const состояние = база.agent_state.find((с) => с.id === "warehouse");
+  ok("результат не выдуман", /этапе 5/.test(прогон.summary));
+  const состояние = база.agent_state.find((с) => с.id === "telegram");
   ok("аренда отпущена после прогона", new Date(состояние.running_until) < new Date());
   ok("после успеха счётчик неудач обнулён", состояние.fails === 0);
 }
@@ -381,6 +383,10 @@ const C = await import(new URL("api/lib/agents/core.js", корень));
   цель.next_run_at = new Date(Date.now() - 1000).toISOString();
   const r = await C.тик();
   ok("тик запускает того, кому пришёл срок", r.запущено.some((з) => з.id === "warehouse"));
+  // Склад подключён по-настоящему (api/lib/agents/warehouse.js) —
+  // значит прогон не «пропущен», а выполнен на тех данных, что есть.
+  ok("подключённый склад прогоняется, а не пропускается",
+    r.запущено.find((з) => з.id === "warehouse")?.статус === "ok");
   const после = база.agent_state.find((с) => с.id === "warehouse");
   ok("после прогона срок сдвинулся вперёд", Date.parse(после.next_run_at) > Date.now());
 
