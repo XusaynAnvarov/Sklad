@@ -144,26 +144,56 @@ export async function прогон(ctx) {
     категория: корзины.категория.length, ручной: 0,
   });
 
-  // ---------- черновики ----------
+  // ---------- факты карточек ----------
+  // Нужны и для новых черновиков, и для ещё не одобренных старых.
   const неделя = неделяКлюч(сейчас);
+  const ждут = await ctx.читать(
+    "agent_approvals?agent_id=eq.telegram&kind=eq.post&status=eq.pending&select=id,title,payload,created_at",
+  ).catch(() => []);
+  const нужныId = new Set();
+  for (const р of РУБРИКИ) for (const т of (корзины[р.откуда] || []).slice(0, р.сколько)) нужныId.add(String(т.id));
+  for (const з of ждут || []) for (const т of з?.payload?.товары || []) if (т.id) нужныId.add(String(т.id));
+  const факты = await читатьФакты(ctx, [...нужныId]);
+
+  const поId = new Map(товары.map((т) => [String(т.id), т]));
+  const собрать = (т) => {
+    const в = видео.find((x) => String(x.product_id) === String(т.id));
+    return {
+      id: String(т.id), код: т.code || "", name: т.name || "",
+      фото: т.photo_url || "",
+      // Ролик кладём рядом с фото (альбомом). Путь в закрытом хранилище,
+      // наружу ссылкой не отдаётся — telegram.js шлёт файл.
+      видео: в?.path ? { id: String(в.id), path: String(в.path), title: в.title || "" } : null,
+      ...постТовара(т, {
+        ссылка: `${сайт}/p/${slug(т)}`, показыватьЦену, видео: в?.path ? true : null,
+        факты: факты.get(String(т.id)) || [],
+      }),
+    };
+  };
+
+  // ---------- обновить ещё не одобренные черновики ----------
+  // Появились факты в карточке или видео — черновик, который ещё ждёт
+  // решения, пересобирается из тех же товаров, и владельцу приходит
+  // свежая карточка. Одобренные и отклонённые не трогаем никогда.
+  let обновлено = 0;
+  for (const з of ждут || []) {
+    const старые = з?.payload?.товары || [];
+    const новые = старые.map((с) => (поId.has(String(с.id)) ? собрать(поId.get(String(с.id))) : с));
+    const изменились = новые.some((н, i) => н.текст !== старые[i]?.текст || (н.видео?.path || "") !== (старые[i]?.видео?.path || ""));
+    if (!изменились || !ctx.обновитьСогласование) continue;
+    const payload = { ...з.payload, товары: новые, пропуски: сводкаПропусков(новые) };
+    const строка = await ctx.обновитьСогласование(з.id, payload);
+    if (строка) { обновлено++; await отправитьНаОдобрение({ ...з, ...строка, payload }, { обновлён: true }); }
+  }
+
+  // ---------- черновики ----------
   const черновики = [];
   for (const р of РУБРИКИ) {
     if (р.откуда === "ручной") continue;               // это пишете вы сами
     const список = (корзины[р.откуда] || []).slice(0, р.сколько);
     if (!список.length) continue;
 
-    const посты = список.map((т) => {
-      const в = видео.find((x) => String(x.product_id) === String(т.id));
-      const ссылка = `${сайт}/p/${slug(т)}`;
-      return {
-        id: String(т.id), код: т.code || "", name: т.name || "",
-        фото: т.photo_url || "",
-        ...постТовара(т, {
-          ссылка, показыватьЦену,
-          видео: в ? { ссылка: `${сайт}${String(в.path || "").startsWith("/") ? "" : "/"}${в.path || ""}` } : null,
-        }),
-      };
-    });
+    const посты = список.map(собрать);
 
     черновики.push(await ctx.согласовать({
       kind: "post",
@@ -176,8 +206,8 @@ export async function прогон(ctx) {
         канал: тест ? "личные сообщения (тестовый режим)" : канал,
         тест, показыватьЦену,
         категория: р.откуда === "категория" ? корзины.имяКатегории : null,
-        товары: посты.map(({ id, код, name, фото, текст, кнопки, пропуски }) =>
-          ({ id, код, name, фото, текст, кнопки, пропуски })),
+        товары: посты.map(({ id, код, name, фото, видео, текст, кнопки, пропуски, источники }) =>
+          ({ id, код, name, фото, видео, текст, кнопки, пропуски, источники })),
         // Сводно: чего не хватило по всем товарам рубрики.
         пропуски: сводкаПропусков(посты),
       },
@@ -202,10 +232,12 @@ export async function прогон(ctx) {
   }
 
   return {
-    сводка: готовых
+    сводка: (готовых
       ? `Черновиков на неделю: ${готовых}. Ждут вашего одобрения`
-      : "Новых товаров для постов не нашлось",
+      : "Новых товаров для постов не нашлось")
+      + (обновлено ? `. Обновлено ждущих черновиков: ${обновлено}` : ""),
     детали: {
+      обновленоЧерновиков: обновлено,
       канал: тест ? "тестовый режим — в личные сообщения" : канал,
       доступБота: доступ,
       план,
@@ -223,6 +255,23 @@ export async function прогон(ctx) {
       ],
     },
   };
+}
+
+// Факты карточек одним запросом. Таблицы product_fact может не быть
+// (миграция не применена) — тогда постов без фактов, а не ошибка.
+async function читатьФакты(ctx, ids) {
+  const итог = new Map();
+  const чистые = ids.filter((id) => /^[0-9a-f-]{8,40}$/i.test(id));
+  if (!чистые.length) return итог;
+  const строки = await ctx.читать(
+    `product_fact?product_id=in.(${чистые.join(",")})&select=product_id,key,value,sort,confidence,source`,
+  ).catch(() => []);
+  for (const ф of строки || []) {
+    const к = String(ф.product_id);
+    if (!итог.has(к)) итог.set(к, []);
+    итог.get(к).push(ф);
+  }
+  return итог;
 }
 
 const slug = (т) => String(т.code || т.id).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -245,26 +294,34 @@ export const кнопкиОдобрения = (id) => [
   [{ text: "❌ Отклонить", callback_data: `ag:no:${id}` }, { text: "📅 Завтра 10:00", callback_data: `ag:later:${id}` }],
 ];
 
-// Карточка черновика владельцу: как будет выглядеть пост + кнопки.
-// С фотографией первого товара — так же, как пост выйдет в канале.
-export async function отправитьНаОдобрение(заявка, { токен = ботМагазина(), чат = process.env.ADMIN_CHAT_ID } = {}) {
+// Карточка черновика владельцу. Сначала — первый пост ровно так, как он
+// выйдет в канале (фото, видео рядом, описание), потом отдельным
+// сообщением — что это за черновик и кнопки решения. Так подпись поста
+// не съедается служебной шапкой, а предпросмотр честный.
+export async function отправитьНаОдобрение(заявка, { токен = ботМагазина(), чат = process.env.ADMIN_CHAT_ID, обновлён = false } = {}) {
   if (!токен || !чат || !заявка?.id) return false;
   const п = заявка.payload || {};
   const товары = п.товары || [];
   const первый = товары[0];
+  if (первый?.текст && (первый.фото || первый.видео)) {
+    await послатьПост(токен, { chat_id: String(чат), текст: первый.текст, фото: первый.фото || "", видео: первый.видео || null });
+  }
   const остальные = товары.slice(1).map((т) => т.name).filter(Boolean);
-  const шапка = `📝 <b>Черновик: ${escHtml(п.рубрика || заявка.title || "пост")}</b>\n`
-    + `Куда: ${escHtml(п.канал || "—")}\n`
+  const сВидео = товары.filter((т) => т.видео).length;
+  const источники = [...new Set(товары.flatMap((т) => т.источники || []))];
+  const шапка = `${обновлён ? "🔄" : "📝"} <b>${обновлён ? "Черновик обновлён" : "Черновик"}: ${escHtml(п.рубрика || заявка.title || "пост")}</b>\n`
+    + (первый?.фото || первый?.видео ? "⬆️ Выше — первый пост, как он выйдет в канале.\n" : "")
     + `Товаров: ${товары.length}`
-    + (остальные.length ? ` (ещё: ${escHtml(остальные.join(", ").slice(0, 160))})` : "")
+    + (остальные.length ? ` (ещё: ${escHtml(остальные.join(", ").slice(0, 200))})` : "")
+    + (сВидео ? `\n🎬 С видео: ${сВидео}` : "")
+    + (источники.length ? `\n📚 Сведения взяты: ${escHtml(источники.join("; ").slice(0, 300))}` : "")
     + (Object.keys(п.пропуски || {}).length ? `\nНе хватает в карточках: ${escHtml(Object.keys(п.пропуски).join(", "))}` : "")
-    + `\n\n— первый пост —\n`;
-  const текст = шапка + (первый?.текст || "");
-  const р = await послатьПост(токен, {
-    chat_id: String(чат), текст, фото: первый?.фото || "",
+    + (первый?.фото || первый?.видео ? "" : `\n\n${первый?.текст || ""}`);
+  const р = await вызвать(токен, "sendMessage", {
+    chat_id: String(чат), text: шапка.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true,
     reply_markup: { inline_keyboard: кнопкиОдобрения(заявка.id) },
   });
-  return р.ok;
+  return !!р?.ok;
 }
 const escHtml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -299,16 +356,33 @@ async function файлФото(url) {
   } catch { return null; }
 }
 
-async function вызвать(токен, метод, тело, файл) {
+// Ролик товара — с диска сервера (api/lib/videocache.js качает его из
+// закрытого хранилища один раз). Больше 50 МБ бот загрузить не может.
+const ВИДЕО_МАКС = 49 * 1024 * 1024;
+async function файлВидео(видео) {
+  if (!видео?.path) return null;
+  try {
+    const { положитьНаДиск } = await import("../videocache.js");
+    const { файл } = await положитьНаДиск(видео.path);
+    const { readFileSync, statSync } = await import("fs");
+    if (statSync(файл).size > ВИДЕО_МАКС) return null;
+    const имя = String(видео.path).split("/").pop() || "video.mp4";
+    return { байты: readFileSync(файл), тип: /\.mov$/i.test(имя) ? "video/quicktime" : "video/mp4", имя };
+  } catch { return null; }
+}
+
+// файлы: один { байты, тип, имя } (поле photo) или { поле: файл, … }.
+async function вызвать(токен, метод, тело, файлы) {
   try {
     let r;
-    if (файл) {
+    if (файлы) {
+      const набор = файлы.байты ? { photo: файлы } : файлы;
       const форма = new FormData();
       for (const [к, з] of Object.entries(тело)) {
         if (з === undefined || з === null) continue;
         форма.append(к, typeof з === "object" ? JSON.stringify(з) : String(з));
       }
-      форма.append("photo", new Blob([файл.байты], { type: файл.тип }), файл.имя);
+      for (const [поле, ф] of Object.entries(набор)) if (ф) форма.append(поле, new Blob([ф.байты], { type: ф.тип }), ф.имя);
       r = await fetch(`https://api.telegram.org/bot${токен}/${метод}`, { method: "POST", body: форма });
     } else {
       r = await fetch(`https://api.telegram.org/bot${токен}/${метод}`, {
@@ -319,11 +393,32 @@ async function вызвать(токен, метод, тело, файл) {
   } catch (e) { return { ok: false, description: "сеть" }; }
 }
 
-// Один пост: фото + текст + кнопки. Возвращает ответ Telegram.
-export async function послатьПост(токен, { chat_id, текст, фото, reply_markup }) {
+// Один пост: фото (и видео рядом) + текст + кнопки. Возвращает ответ Telegram.
+export async function послатьПост(токен, { chat_id, текст, фото, видео = null, reply_markup }) {
   const текстом = () => вызвать(токен, "sendMessage", {
     chat_id, text: текст, parse_mode: "HTML", disable_web_page_preview: true, reply_markup,
   });
+
+  // ФОТО + ВИДЕО ОДНИМ АЛЬБОМОМ. У альбома в Telegram не бывает кнопок,
+  // поэтому ссылка «Заказать» стоит в самом тексте поста. Подпись —
+  // под альбомом; не влезает в 1024 знака — текст идёт следом.
+  const ролик = видео ? await файлВидео(видео) : null;
+  if (ролик) {
+    const снимок = фото ? await файлФото(фото) : null;
+    const влезает = текст.length <= ПОДПИСЬ;
+    const подпись = влезает ? { caption: текст, parse_mode: "HTML" } : {};
+    const media = [];
+    if (снимок || фото) media.push({ type: "photo", media: снимок ? "attach://photo" : фото, ...подпись });
+    media.push({ type: "video", media: "attach://video", supports_streaming: true, ...(media.length ? {} : подпись) });
+    const р = await вызвать(токен, media.length > 1 ? "sendMediaGroup" : "sendVideo",
+      media.length > 1
+        ? { chat_id, media }
+        : { chat_id, supports_streaming: true, ...подпись, reply_markup },   // файл — полем video
+      media.length > 1 ? { photo: снимок, video: ролик } : { video: ролик });
+    if (р?.ok && влезает) return р;
+    if (р?.ok) return текстом();                // альбом ушёл, длинный текст — следом
+    // Альбом не прошёл — дальше обычный путь: фото с текстом.
+  }
   if (!фото) return текстом();
 
   const файл = await файлФото(фото);
@@ -402,7 +497,7 @@ export async function опубликовать(заявка, { токен = бо
   for (const т of п.товары || []) {
     // Каждый товар — отдельным постом с его фото.
     const j = await послатьПост(токен, {
-      chat_id: куда, текст: т.текст || "", фото: т.фото || "",
+      chat_id: куда, текст: т.текст || "", фото: т.фото || "", видео: т.видео || null,
       reply_markup: т.кнопки?.length ? { inline_keyboard: т.кнопки } : undefined,
     });
     послано.push({ код: т.код, ок: !!j?.ok, ошибка: j?.ok ? null : String(j?.description || "").slice(0, 160) });

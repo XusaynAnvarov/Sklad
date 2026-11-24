@@ -356,6 +356,19 @@ export async function согласовать({ agent_id, kind, title, payload = 
 
 // Решение владельца. Применяется, только если запись ещё ждёт: двойное
 // нажатие кнопки в Telegram безопасно и второй раз ничего не делает.
+// Пересобрать содержимое предложения, которое ЕЩЁ ЖДЁТ решения (появились
+// факты в карточке, видео). Решённое не меняется никогда: условие
+// status=pending стоит в самом запросе, и одобренное задним числом
+// переписать нельзя. Только своё: agent_id тоже в условии.
+export async function обновитьСогласование(agent_id, id, payload) {
+  if (!id || !payload) return null;
+  const строки = await мягко(() => spatch(
+    `agent_approvals?id=eq.${q(id)}&agent_id=eq.${q(agent_id)}&status=eq.pending`,
+    { payload: безопасныйОбъект(payload) },
+  ), []);
+  return Array.isArray(строки) && строки[0] ? строки[0] : null;
+}
+
 export async function решить(id, решение, { кто = "admin", через = "admin", когда = null, результат = null } = {}) {
   const допустимо = { approved: "approved", rejected: "rejected", scheduled: "scheduled" };
   const статусНовый = допустимо[String(решение)];
@@ -499,6 +512,7 @@ function собратьКонтекст(agentId, runId, строка) {
 
     уведомить: (о) => уведомить({ ...о, agent_id: agentId }),
     согласовать: (о) => согласовать({ ...о, agent_id: agentId }),
+    обновитьСогласование: (id, payload) => обновитьСогласование(agentId, id, payload),
     проверитьПотолок: (сумма) => проверитьПотолок(agentId, сумма, config),
     записатьРасход: (сумма) => записатьРасход(agentId, сумма),
   };

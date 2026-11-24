@@ -14,12 +14,12 @@
 // ========================================================================
 export const CSP_НАБЛЮДЕНИЕ = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://esm.sh https://telegram.org https://cdn.jsdelivr.net https://www.googletagmanager.com",
+  "script-src 'self' 'unsafe-inline' https://esm.sh https://telegram.org https://cdn.jsdelivr.net https://www.googletagmanager.com https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh https://open.er-api.com https://*.google-analytics.com https://www.googletagmanager.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh https://open.er-api.com https://*.google-analytics.com https://www.googletagmanager.com https://cloudflareinsights.com",
   "worker-src 'self' blob:",
   "frame-src 'self' https://t.me https://telegram.org",
   "object-src 'none'",
