@@ -15,17 +15,17 @@
 //  и тот же план показывается в предпросмотре и записывается. Поэтому
 //  предпросмотр не может разойтись с тем, что произойдёт.
 // ========================================================================
-import { el, toast, modal, field, input, select, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261124c";
-import { icon } from "../icons.js?v=20261124c";
-import { thumb } from "../img.js?v=20261124c";
-import { placeholder, openForm } from "./products.js?v=20261124c";
-import { подходит } from "../productsearch.js?v=20261124c";
-import { главноеФото } from "../photo.js?v=20261124c";
-import { ЕДИНИЦЫ } from "../unit.js?v=20261124c";
-import { настройки, статус, цепочка, ПРАВИЛА_ОСТАТКА, СТАТУС, естьКолонки } from "../packing.js?v=20261124c";
-import { планПравки, сводка, строкиДляЗаписи, объяснитьПеревод, однофамильцы } from "../packingbulk.js?v=20261124c";
-import { записатьПачкой } from "../arrival.js?v=20261124c";
-import { изменениеСклада } from "../db.js?v=20261124c";
+import { el, toast, modal, field, input, select, showLoader, hideLoader, setLoaderText } from "../ui.js?v=20261124d";
+import { icon } from "../icons.js?v=20261124d";
+import { thumb } from "../img.js?v=20261124d";
+import { placeholder, openForm } from "./products.js?v=20261124d";
+import { подходит } from "../productsearch.js?v=20261124d";
+import { главноеФото } from "../photo.js?v=20261124d";
+import { ЕДИНИЦЫ } from "../unit.js?v=20261124d";
+import { настройки, статус, цепочка, ПРАВИЛА_ОСТАТКА, СТАТУС, естьКолонки } from "../packing.js?v=20261124d";
+import { планПравки, сводка, строкиДляЗаписи, объяснитьПеревод, однофамильцы } from "../packingbulk.js?v=20261124d";
+import { записатьПачкой } from "../arrival.js?v=20261124d";
+import { изменениеСклада } from "../db.js?v=20261124d";
 
 const НЕ_МЕНЯТЬ = { value: "", label: "— не менять —" };
 const вариантыЕдиниц = () => ЕДИНИЦЫ.map(e => ({ value: e.value, label: e.label }));

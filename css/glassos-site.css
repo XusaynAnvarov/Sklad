@@ -563,6 +563,11 @@ html[data-site-theme="dark"] .btn-add-cart.need-login:hover { background: rgba(2
 .btn-add-cart.unavailable { background: var(--bg2); color: var(--muted); cursor: not-allowed; }
 .btn-add-cart.soon-btn { background: transparent; color: var(--soon); border-color: rgba(180, 83, 9, .35); cursor: not-allowed; }
 html[data-site-theme="dark"] .btn-add-cart.soon-btn { border-color: rgba(251, 191, 36, .35); }
+/* «Сообщить о поступлении»: товара нет, но кнопка живая — ведёт в бота. */
+.btn-add-cart.notify-btn { background: transparent; color: var(--navy); border-color: var(--navy); font-size: .78rem; }
+.btn-add-cart.notify-btn:hover { background: rgba(28, 43, 74, .06); }
+html[data-site-theme="dark"] .btn-add-cart.notify-btn { color: var(--gold); border-color: var(--gold); }
+html[data-site-theme="dark"] .btn-add-cart.notify-btn:hover { background: rgba(217, 180, 90, .10); }
 
 /* Скелетоны — той же формы, что и карточки */
 .skeleton-img { margin: 8px 8px 0; border-radius: 12px; width: auto; }

@@ -1,18 +1,18 @@
 // SPA-роутер публичного сайта: шапка, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, saveToken as _saveToken, api } from "./api.js?v=20261124c";
-import { renderCatalog } from "./catalog.js?v=20261124c";
-import { renderVideos } from "./videos.js?v=20261124c";
-import { renderCabinet } from "./cabinet.js?v=20261124c";
-import { renderAdminPanel } from "./admin-panel.js?v=20261124c";
-import { renderOrder } from "./order.js?v=20261124c";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261124c";
-import { сменитьТемуВолной } from "../temavolna.js?v=20261124c";
-import { обновитьЕслиУстарело } from "../version.js?v=20261124c";
-import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261124c";
+import { isLoggedIn, clearToken as _clearToken, saveToken as _saveToken, api } from "./api.js?v=20261124d";
+import { renderCatalog } from "./catalog.js?v=20261124d";
+import { renderVideos } from "./videos.js?v=20261124d";
+import { renderCabinet } from "./cabinet.js?v=20261124d";
+import { renderAdminPanel } from "./admin-panel.js?v=20261124d";
+import { renderOrder } from "./order.js?v=20261124d";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261124d";
+import { сменитьТемуВолной } from "../temavolna.js?v=20261124d";
+import { обновитьЕслиУстарело } from "../version.js?v=20261124d";
+import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261124d";
 // Экскурсия по сайту: приглашение новым посетителям и кнопка «▶ Как заказать»
-import { maybeInviteTour, openTour } from "./tour.js?v=20261124c";
+import { maybeInviteTour, openTour } from "./tour.js?v=20261124d";
 // Короткий ролик при входе (js/site/intro.js) — новым посетителям
-import { maybeShowIntro } from "./intro.js?v=20261124c";
+import { maybeShowIntro } from "./intro.js?v=20261124d";
 // Кнопка «▶ Как заказать» видна, пока владелец не выключил её в складе
 export function кнопкаКакЗаказать() { try { const c = JSON.parse(localStorage.getItem("gm_intro_cfg") || "null"); return !c || c.howto_button !== false; } catch { return true; } }
 
@@ -24,7 +24,7 @@ const TRANSLATIONS = {
     warehouse: "Склад", adminPanel: "Панель", order: "Заказать",
     priceNote: "Цены уточнит менеджер",
     noStock: "Нет в наличии", loginToOrder: "Войти для заказа",
-    inStockBadge: "В наличии", noStockBadge: "Нет в наличии", soonBadge: "Скоро", newBadge: "Новинка",
+    inStockBadge: "В наличии", noStockBadge: "Нет в наличии", notifyMe: "🔔 Сообщить о поступлении", soonBadge: "Скоро", newBadge: "Новинка",
     heroTitle: "Запчасти для швейных машин",
     heroSub: "Иглы, лапки, челноки, ножи и детали для промышленных и бытовых машин. Магазин в Ташкенте, заказ онлайн",
     heroCta: "Смотреть каталог", heroHits: "Хиты недели", hitBadge: "Хит недели",
@@ -37,7 +37,7 @@ const TRANSLATIONS = {
     warehouse: "Ombor", adminPanel: "Panel", order: "Buyurtma berish",
     priceNote: "Narxni menejer aniqlashtiradi",
     noStock: "Mavjud emas", loginToOrder: "Kirish va buyurtma berish",
-    inStockBadge: "Mavjud", noStockBadge: "Mavjud emas", soonBadge: "Tez kunda", newBadge: "Yangi",
+    inStockBadge: "Mavjud", noStockBadge: "Mavjud emas", notifyMe: "🔔 Kelganda xabar bering", soonBadge: "Tez kunda", newBadge: "Yangi",
     heroTitle: "Tikuv mashinalari uchun ehtiyot qismlar",
     heroSub: "Sanoat va maishiy mashinalar uchun igna, lapka, moki, pichoq va detallar. Toshkentdagi do‘kon, onlayn buyurtma",
     heroCta: "Katalogni ko'rish", heroHits: "Hafta xitlari", hitBadge: "Hafta xiti",
@@ -50,7 +50,7 @@ const TRANSLATIONS = {
     warehouse: "Warehouse", adminPanel: "Panel", order: "Order",
     priceNote: "Manager will confirm prices",
     noStock: "Out of Stock", loginToOrder: "Login to Order",
-    inStockBadge: "In Stock", noStockBadge: "Out of Stock", soonBadge: "Coming Soon", newBadge: "New",
+    inStockBadge: "In Stock", noStockBadge: "Out of Stock", notifyMe: "🔔 Notify me when in stock", soonBadge: "Coming Soon", newBadge: "New",
     heroTitle: "Sewing machine spare parts",
     heroSub: "Needles, presser feet, hooks, knives and parts for industrial and household machines. Shop in Tashkent, order online",
     heroCta: "Browse catalog", heroHits: "Top this week", hitBadge: "Top this week",
@@ -784,7 +784,7 @@ function startSessionWatch() {
 // Без него сайт держал старый JS (nginx отдаёт .js с Cache-Control: immutable на 7 дней).
 const _isTGWebApp = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
 if (!_isTGWebApp && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=282", { updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=283", { updateViaCache: "none" }).catch(() => {}));
   // когда активируется новый SW — страница сама перезагружается со свежим кодом.
   // Только при ОБНОВЛЕНИИ: на самом первом визите работника ещё не было, и
   // clients.claim() тоже вызывает controllerchange — страница и так свежая,

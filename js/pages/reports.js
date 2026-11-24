@@ -2,18 +2,18 @@
 //  ОТЧЁТЫ: итоги, диаграммы (месяцы · категории · сезоны · топ-полосы),
 //  сезонность товаров, советы, топ товаров/клиентов, долги и оборот.
 // ========================================================================
-import { el, modal, select } from "../ui.js?v=20261124c";
-import { curStr, toUSD } from "../fx.js?v=20261124c";
-import { SEASON_LABEL, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20261124c";
-import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20261124c";
-import { debtByCur, onlyPositive } from "../debt.js?v=20261124c";
-import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20261124c";
-import { buildAdvice } from "../advice.js?v=20261124c";
-import { placeholder } from "./products.js?v=20261124c";
-import { icon } from "../icons.js?v=20261124c";
-import { thumb } from "../img.js?v=20261124c";
-import { byMethod, methodText } from "../payment.js?v=20261124c";
-import { isShop } from "../purchase.js?v=20261124c";
+import { el, modal, select } from "../ui.js?v=20261124d";
+import { curStr, toUSD } from "../fx.js?v=20261124d";
+import { SEASON_LABEL, matchPeriod, buildPeriodOptions, monthsWithData, monthKey, monthShort, seasonOf } from "../period.js?v=20261124d";
+import { loadRules, aggregate, itemRevenueUSD, itemProfitUSD, ruleFor, ruleText, ruleGroups } from "../profit.js?v=20261124d";
+import { debtByCur, onlyPositive } from "../debt.js?v=20261124d";
+import { barChart, donutChart, hBars, seasonChart, miniSeason, noData } from "../charts.js?v=20261124d";
+import { buildAdvice } from "../advice.js?v=20261124d";
+import { placeholder } from "./products.js?v=20261124d";
+import { icon } from "../icons.js?v=20261124d";
+import { thumb } from "../img.js?v=20261124d";
+import { byMethod, methodText } from "../payment.js?v=20261124d";
+import { isShop } from "../purchase.js?v=20261124d";
 
 const usd = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("ru-RU");
 

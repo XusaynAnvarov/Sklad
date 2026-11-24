@@ -12,11 +12,11 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261124c";
-import { icon } from "../icons.js?v=20261124c";
-import { authHeaders } from "../db.js?v=20261124c";
-import { thumb } from "../img.js?v=20261124c";
-import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261124c";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261124d";
+import { icon } from "../icons.js?v=20261124d";
+import { authHeaders } from "../db.js?v=20261124d";
+import { thumb } from "../img.js?v=20261124d";
+import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261124d";
 
 const API = "/api/admin/agents";
 const API_СВЕДЕНИЯ = "/api/admin/facts";
@@ -192,6 +192,7 @@ export default async function render(page, ctx) {
       кнопкаВкладки("note", `Уведомления${непрочитано ? " · " + непрочитано : ""}`),
       кнопкаВкладки("hist", "История"),
       кнопкаВкладки("facts", "Сведения о товарах"),
+      кнопкаВкладки("waits", "Ждут товар"),
     ]);
     кусок.append(табы, el("div.card.agents-panel", {}, [телоВкладки()]));
 
@@ -455,7 +456,7 @@ export default async function render(page, ctx) {
             const к = e.currentTarget;
             к.disabled = true; к.textContent = "Собираю…";
             try {
-              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261124c");
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261124d");
               await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
               toast("Файл собран");
             } catch (err) {
@@ -499,6 +500,7 @@ export default async function render(page, ctx) {
     if (вкладка === "appr") return вкладкаСогласований();
     if (вкладка === "note") return вкладкаУведомлений();
     if (вкладка === "facts") return вкладкаСведений();
+    if (вкладка === "waits") return вкладкаОжиданий();
     return вкладкаИстории();
   }
 
@@ -585,6 +587,42 @@ export default async function render(page, ctx) {
 
     загрузитьСведения().then(показать);
     return узелСведений;
+  }
+
+  // ------------------------------------------------------------------
+  //  «ЖДУТ ТОВАР»: клиенты нажали «Сообщить о поступлении». Лучшая
+  //  подсказка, что заказывать первым: сколько людей ждёт товар.
+  // ------------------------------------------------------------------
+  function вкладкаОжиданий() {
+    const узел = el("div.facts-tab", {}, [el("div.empty", { text: "Загружаю…" })]);
+    запрос("GET", null, "?waits=1").then((о) => {
+      if (о.нетТаблицы) {
+        узел.replaceChildren(el("div.empty", {}, [
+          el("div", { text: "Таблица ожиданий ещё не создана." }),
+          el("div.muted", { text: "Выполните db/stock-wait-migration.sql в SQL-редакторе Supabase. До этого кнопка «Сообщить о поступлении» отвечает клиенту, что подписка пока недоступна." }),
+        ]));
+        return;
+      }
+      const товары = о.товары || [];
+      if (!товары.length) {
+        узел.replaceChildren(el("div.empty", {}, [
+          el("div", { text: "Пока никто не ждёт товар." }),
+          el("div.muted", { text: "Когда клиент нажмёт «Сообщить о поступлении» у товара, которого нет, он появится здесь. Бот напишет ему сам, как только товар снова будет на складе." }),
+        ]));
+        return;
+      }
+      const всего = товары.reduce((с, т) => с + т.ждут, 0);
+      узел.replaceChildren(
+        el("div.agent-hint", { text: `Сейчас ждут: ${всего} — по ${товары.filter((т) => т.ждут).length} товарам. Бот напишет каждому сам, когда товар появится, один раз.` }),
+        таблица(["Товар", "Ждут", "Уже сообщили", "Остаток"], товары.map((т) => [
+          `${т.код ? т.код + " · " : ""}${т.имя || "—"}`,
+          el("span.badge" + (т.ждут ? ".warn" : ".muted"), { text: String(т.ждут) }),
+          String(т.сообщено),
+          т.остаток > 0 ? el("span.badge.ok", { text: String(т.остаток) }) : "0",
+        ])),
+      );
+    }).catch((e) => узел.replaceChildren(el("div.empty", { text: e.message })));
+    return узел;
   }
 
   // Окно сведений одного товара: каждая строка — вид, текст, источник,

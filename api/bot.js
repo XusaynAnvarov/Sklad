@@ -812,6 +812,37 @@ export default async function handler(req, res) {
         await tg("sendMessage", { chat_id: chatId, text: "Для подтверждения регистрации на generalmodern.uz нажмите кнопку ниже и поделитесь номером телефона.", reply_markup: { keyboard: [[{ text: "Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
         return res.status(200).send("ok");
       }
+      // /start wait_<КОД> — «Сообщить, когда появится» со страницы товара.
+      // Работает и для тех, кто ещё не регистрировался: храним только номер
+      // этого чата, сам клиент его и открыл. Сверяем по raw: код товара
+      // в верхнем регистре, а text уже приведён к нижнему.
+      const мОжид = raw.match(/^\/start(?:@\w+)?\s+(wait_[A-Za-z]{1,6}-\d{1,6})$/);
+      if (мОжид) {
+        const { ждать, разобратьПараметр, текстВНаличии } = await import("./lib/stockwait.js");
+        let lang = await getLang(chatId, existing);
+        if (!existing && lang === "ru" && /^uz/i.test(u.message.from?.language_code || "")) lang = "uz";
+        if (lang !== "uz") lang = "ru";
+        const р = await ждать({ chatId, код: разобратьПараметр(мОжид[1]), source: "site", lang });
+        const имя = р.товар ? `${р.товар.name} (${р.товар.code})` : "";
+        const Т = lang === "uz"
+          ? { есть: `✅ ${имя} hozir sotuvda bor!`, уже: `Siz allaqachon ${имя} ni kutyapsiz. Kelishi bilan yozaman.`, ок: `🔔 Yaxshi! ${имя} omborga kelishi bilan shu yerga yozaman. Boshqa hech narsa yubormayman.`, нет: "Bunday mahsulot topilmadi. Katalog: " + PUBLIC_URL, сбой: "Hozircha bu imkoniyat ishlamayapti. Bizga yozing — qo‘lda xabar beramiz.", отказ: "Kutmaslik" }
+          : { есть: `✅ ${имя} уже есть в наличии!`, уже: `Вы уже ждёте ${имя}. Как только появится — напишу.`, ок: `🔔 Хорошо! Как только ${имя} снова будет на складе, я напишу сюда. Больше ничего присылать не буду.`, нет: "Такого товара не нашёл. Каталог: " + PUBLIC_URL, сбой: "Сейчас подписка недоступна. Напишите нам — сообщим вручную.", отказ: "Не ждать" };
+        if (р.ок && р.вНаличии) {
+          const { кнопки } = текстВНаличии(р.товар, { lang, сайт: PUBLIC_URL });
+          await tg("sendMessage", { chat_id: chatId, text: Т.есть, reply_markup: { inline_keyboard: кнопки } });
+        } else if (р.ок && р.уже) {
+          await tg("sendMessage", { chat_id: chatId, text: Т.уже });
+        } else if (р.ок) {
+          await tg("sendMessage", {
+            chat_id: chatId, text: Т.ок,
+            ...(р.id ? { reply_markup: { inline_keyboard: [[{ text: Т.отказ, callback_data: `wt:no:${р.id}` }]] } } : {}),
+          });
+        } else {
+          await tg("sendMessage", { chat_id: chatId, text: р.нетТовара ? Т.нет : Т.сбой });
+        }
+        return res.status(200).send("ok");
+      }
+
       if (text === "/start" || !existing) {
         if (text === "/start") await sendIntro(chatId);   // показать логотип-анимацию при входе
         await askLang(chatId);
@@ -894,6 +925,21 @@ export default async function handler(req, res) {
           chat_id: chatId, text: ответ, disable_web_page_preview: true,
           ...(кнопки ? { reply_markup: { inline_keyboard: кнопки } } : {}),
         });
+        return res.status(200).send("ok");
+      }
+
+      // «Не ждать» — отказ от «Сообщить, когда появится». Только своё
+      // ожидание: номер чата стоит в условии записи (api/lib/stockwait.js).
+      if (data.startsWith("wt:no:")) {
+        const id = data.slice(6);
+        const { неЖдать } = await import("./lib/stockwait.js");
+        const снято = await неЖдать(id, chatId);
+        const lang = (await getLang(chatId, await findByChat(chatId))) === "uz" ? "uz" : "ru";
+        const ответ = lang === "uz"
+          ? (снято ? "Xo‘p, endi kutmayman va yozmayman." : "Bu kutish allaqachon yopilgan.")
+          : (снято ? "Хорошо, больше не жду и не напишу." : "Это ожидание уже закрыто.");
+        try { await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [] } }); } catch {}
+        await tg("sendMessage", { chat_id: chatId, text: ответ });
         return res.status(200).send("ok");
       }
 

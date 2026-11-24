@@ -271,6 +271,17 @@ ${все.map(c => `<a class="rail-item${c.slug === текущая ? " active" : 
 }
 
 // ---------- товар ----------
+// «Сообщить о поступлении»: товара нет — главная кнопка ведёт в бота
+// магазина с кодом товара (api/lib/stockwait.js). Код проверяем: в
+// параметр Telegram пускает только латиницу, цифры, «_» и «-».
+const СООБЩИТЬ = { ru: "🔔 Сообщить о поступлении", uz: "🔔 Kelganda xabar bering", en: "🔔 Notify me when in stock" };
+function ссылкаОжидания(код) {
+  const к = String(код || "");
+  const бот = String(process.env.CLIENT_BOT_USERNAME || "generalmodernbot");
+  if (!/^[A-Za-z]{1,6}-\d{1,6}$/.test(к) || !/^[A-Za-z0-9_]{5,32}$/.test(бот)) return "";
+  return `https://t.me/${бот}?start=wait_${к}`;
+}
+
 export function страницаТовара(т, lang, кат) {
   const t = T[lang];
   const s = настройки();
@@ -310,7 +321,7 @@ export function страницаТовара(т, lang, кат) {
 <p>${esc(descr)}</p>
 <h2 class="ssr-h3">${esc(t.howTitle)}</h2>
 <ol class="how">${t.how.map(x => `<li>${esc(x)}</li>`).join("")}</ol>
-<div class="cta"><a class="btn-primary ssr-btn" href="/#catalog?q=${encodeURIComponent(т.code)}">${esc(t.order)}</a>${s.telegram ? `<a class="ssr-ghost" href="${esc(s.telegram)}" rel="noopener">${esc(t.orderTg)}</a>` : ""}</div>
+<div class="cta">${т.status !== "in_stock" && ссылкаОжидания(т.code) ? `<a class="btn-primary ssr-btn" href="${esc(ссылкаОжидания(т.code))}" rel="noopener">${esc(СООБЩИТЬ[lang] || СООБЩИТЬ.ru)}</a>` : `<a class="btn-primary ssr-btn" href="/#catalog?q=${encodeURIComponent(т.code)}">${esc(t.order)}</a>`}${s.telegram ? `<a class="ssr-ghost" href="${esc(s.telegram)}" rel="noopener">${esc(t.orderTg)}</a>` : ""}</div>
 </div>
 </article>
 ${похожие.length ? `<h2 class="ssr-h2">${esc(t.related)}: ${esc(catName.toLowerCase())}</h2><div class="product-grid gm-smena">${похожие.map(x => плитка(x, lang)).join("")}</div>` : ""}`;

@@ -40,6 +40,11 @@ export default async function handler(req, res) {
     const user = await getUser(req, { allowGuest: true });
     if (!user) return res.status(401).json({ error: "Нужен вход в склад" });
     try {
+      // ?waits=1 — «Ждут товар»: кто ждёт поступления (api/lib/stockwait.js).
+      if (String(req.query?.waits || "") === "1") {
+        const { сводкаОжиданий } = await import("../lib/stockwait.js");
+        return res.status(200).json(await сводкаОжиданий());
+      }
       const run = String(req.query?.run || "");
       if (run) {
         if (!okUuid(run)) return res.status(400).json({ error: "Неверный номер прогона" });

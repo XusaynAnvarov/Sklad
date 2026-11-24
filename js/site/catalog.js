@@ -1,16 +1,26 @@
 // Каталог товаров: витрина, карточки, поиск, категории
-import { api, isLoggedIn } from "./api.js?v=20261124c";
-import { t, sToast, кнопкаКакЗаказать } from "./app.js?v=20261124c";
-import { openTour } from "./tour.js?v=20261124c";
-import { openLogin } from "./auth.js?v=20261124c";
-import { thumb, full } from "../img.js?v=20261124c";
-import { подходит } from "../productsearch.js?v=20261124c";
-import { подписьКода } from "../catalogcode.js?v=20261124c";
+import { api, isLoggedIn } from "./api.js?v=20261124d";
+import { t, sToast, кнопкаКакЗаказать } from "./app.js?v=20261124d";
+import { openTour } from "./tour.js?v=20261124d";
+import { openLogin } from "./auth.js?v=20261124d";
+import { thumb, full } from "../img.js?v=20261124d";
+import { подходит } from "../productsearch.js?v=20261124d";
+import { подписьКода } from "../catalogcode.js?v=20261124d";
+
+// «Сообщить о поступлении»: ссылка в бота магазина с кодом товара.
+// Бот сам запишет ожидание и напишет, когда товар снова будет на складе.
+function ссылкаСообщить(p) {
+  const код = String(p?.code || "");
+  if (!/^[A-Za-z]{1,6}-\d{1,6}$/.test(код)) return "";
+  const бот = String(window.APP_CONFIG?.TELEGRAM_BOT_URL || "https://t.me/generalmodernbot").replace(/[?#].*$/, "");
+  if (!/^https:\/\/t\.me\/[A-Za-z0-9_]{5,32}$/.test(бот)) return "";
+  return `${бот}?start=wait_${код}`;
+}
 // Главное фото товара выбирает владелец (звезда в карточке товара на
 // складе), и это не обязательно первый снимок: см. js/photo.js.
-import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261124c";
+import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261124d";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261124c";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261124d";
 
 const ЗНАЧОК_ФОТО = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
 
@@ -563,7 +573,14 @@ function buildCard(p) {
   const footer = mkEl("div", "product-card-footer");
 
   const btn = document.createElement("button");
-  if (!inStock && !isSoon) {
+  const ссылкаОжидания = ссылкаСообщить(p);
+  if ((!inStock || isSoon) && ссылкаОжидания) {
+    // Товара нет — вместо мёртвой кнопки «Нет в наличии» предлагаем
+    // подождать: бот магазина напишет, когда товар появится.
+    btn.className = "btn-add-cart notify-btn"; btn.textContent = t("notifyMe");
+    btn.title = isSoon ? t("soonBadge") : t("noStockBadge");
+    btn.addEventListener("click", (e) => { e.stopPropagation(); window.open(ссылкаОжидания, "_blank", "noopener"); });
+  } else if (!inStock && !isSoon) {
     btn.className = "btn-add-cart unavailable"; btn.textContent = t("noStockBadge"); btn.disabled = true;
   } else if (isSoon) {
     btn.className = "btn-add-cart soon-btn"; btn.textContent = t("soonBadge"); btn.disabled = true;
