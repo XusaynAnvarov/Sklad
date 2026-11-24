@@ -105,6 +105,33 @@
 .post-ed-body { padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 html[data-theme="light"] .post-ed-bubble { background: #fff; }
 
+/* Сведения о товарах: список и окно товара. */
+.facts-tab { display: flex; flex-direction: column; gap: 10px; }
+.facts-search .inp { width: 100%; }
+.facts-list { display: flex; flex-direction: column; gap: 6px; }
+.facts-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 10px; background: rgba(255, 255, 255, .025);
+  transition: border-color var(--t-micro, .15s);
+}
+.facts-row:hover { border-color: var(--accent); }
+.facts-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: rgba(255, 255, 255, .06); flex: 0 0 auto; }
+.facts-txt { flex: 1 1 auto; min-width: 0; }
+.facts-name { font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+.facts-txt .muted { font-size: .75rem; color: var(--muted); }
+.facts-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.facts-editor { display: flex; flex-direction: column; gap: 12px; }
+.facts-head { display: flex; gap: 12px; align-items: flex-start; }
+.facts-photo { width: 120px; height: 120px; object-fit: contain; border-radius: 10px; background: #fff; flex: 0 0 auto; }
+.facts-rows { display: flex; flex-direction: column; gap: 10px; }
+.facts-item { border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.facts-item-top { display: flex; gap: 10px; align-items: center; }
+.facts-item-top select { flex: 1 1 auto; min-width: 0; }
+.facts-check { display: flex; align-items: center; gap: 6px; font-size: .8125rem; white-space: nowrap; cursor: pointer; }
+.facts-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.facts-del { padding: 4px 10px; }
+.facts-value { width: 100%; resize: vertical; font-family: inherit; font-size: .8125rem; }
+
 .agent-tochannel { margin-top: 16px; }
 .agent-tochannel h4 { margin: 0 0 8px; font-size: .875rem; font-weight: 600; }
 
@@ -149,5 +176,8 @@ html[data-theme="light"] .agent-json { background: rgba(0, 0, 0, .04); }
   .agents-tabs { align-self: stretch; }
   .agent-row2 { grid-template-columns: 1fr; }
   .post-ed-grid { grid-template-columns: 1fr; }
+  .facts-head { flex-direction: column; }
+  .facts-row { flex-wrap: wrap; }
+  .facts-badges { width: 100%; justify-content: flex-start; padding-left: 54px; }
   .agent-form { min-width: 0; }
 }

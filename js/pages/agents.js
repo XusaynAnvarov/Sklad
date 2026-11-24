@@ -12,13 +12,14 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261124b";
-import { icon } from "../icons.js?v=20261124b";
-import { authHeaders } from "../db.js?v=20261124b";
-import { thumb } from "../img.js?v=20261124b";
-import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261124b";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261124c";
+import { icon } from "../icons.js?v=20261124c";
+import { authHeaders } from "../db.js?v=20261124c";
+import { thumb } from "../img.js?v=20261124c";
+import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261124c";
 
 const API = "/api/admin/agents";
+const API_СВЕДЕНИЯ = "/api/admin/facts";
 const ОПРОС_МС = 45000;
 
 const ЗНАЧКИ = { ok: "ok", busy: "cur", wait: "order", err: "danger", off: "muted", нет: "muted" };
@@ -190,6 +191,7 @@ export default async function render(page, ctx) {
       кнопкаВкладки("appr", `Согласования${ждут ? " · " + ждут : ""}`),
       кнопкаВкладки("note", `Уведомления${непрочитано ? " · " + непрочитано : ""}`),
       кнопкаВкладки("hist", "История"),
+      кнопкаВкладки("facts", "Сведения о товарах"),
     ]);
     кусок.append(табы, el("div.card.agents-panel", {}, [телоВкладки()]));
 
@@ -453,7 +455,7 @@ export default async function render(page, ctx) {
             const к = e.currentTarget;
             к.disabled = true; к.textContent = "Собираю…";
             try {
-              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261124b");
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261124c");
               await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
               toast("Файл собран");
             } catch (err) {
@@ -496,7 +498,166 @@ export default async function render(page, ctx) {
   function телоВкладки() {
     if (вкладка === "appr") return вкладкаСогласований();
     if (вкладка === "note") return вкладкаУведомлений();
+    if (вкладка === "facts") return вкладкаСведений();
     return вкладкаИстории();
+  }
+
+  // ------------------------------------------------------------------
+  //  СВЕДЕНИЯ О ТОВАРАХ (product_fact)
+  //
+  //  Раздел перерисовывается каждые 45 секунд. Чтобы не сбрасывать
+  //  поле поиска посреди набора, вкладка держит свой узел и при
+  //  перерисовке возвращает его же, а не строит заново.
+  // ------------------------------------------------------------------
+  let узелСведений = null;
+  let сведения = { сводка: [], виды: {}, товары: [], загружено: false, ошибка: "" };
+
+  async function запросСведений(method, body, query = "") {
+    let r;
+    try {
+      r = await fetch(API_СВЕДЕНИЯ + query, {
+        method, cache: "no-store",
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch { throw new Error("Нет связи с сервером. Ничего не изменилось."); }
+    let j = {};
+    try { j = await r.json(); } catch {}
+    if (!r.ok) throw new Error(j.error || "Ошибка сервера " + r.status);
+    return j;
+  }
+
+  async function загрузитьСведения() {
+    try {
+      const [ответ, товары] = await Promise.all([
+        запросСведений("GET"),
+        ctx?.db?.products?.list ? ctx.db.products.list() : Promise.resolve([]),
+      ]);
+      сведения = { ...сведения, сводка: ответ.сводка || [], виды: ответ.виды || {}, товары: товары || [], загружено: true, ошибка: ответ.нетТаблицы ? "Таблица сведений не создана — выполните db/product-card-migration.sql" : "" };
+    } catch (e) {
+      сведения = { ...сведения, загружено: true, ошибка: e.message };
+    }
+  }
+
+  function вкладкаСведений() {
+    if (узелСведений) return узелСведений;
+    const поиск = input({ placeholder: "Найти товар: код или название", type: "search" });
+    const список = el("div.facts-list", {}, [el("div.empty", { text: "Загружаю…" })]);
+    узелСведений = el("div.facts-tab", {}, [
+      el("div.agent-hint", { text: "Здесь видно, что известно о каждом товаре. Эти сведения агент Telegram ставит в посты: понятное название, описание, к каким машинам подходит, свойства. В пост идут только сведения с указанным источником." }),
+      el("div.facts-search", {}, [поиск]),
+      список,
+    ]);
+
+    const показать = () => {
+      if (сведения.ошибка) { список.replaceChildren(el("div.empty", { text: сведения.ошибка })); return; }
+      const сводка = new Map(сведения.сводка.map((с) => [String(с.product_id), с]));
+      const q = поиск.value.trim().toLowerCase();
+      let товары = сведения.товары;
+      if (q) товары = товары.filter((т) => `${т.code || ""} ${т.name || ""} ${сводка.get(String(т.id))?.название || ""}`.toLowerCase().includes(q));
+      else товары = товары.filter((т) => сводка.has(String(т.id)));
+      товары = [...товары].sort((а, б) => String(а.code || "").localeCompare(String(б.code || ""), "ru")).slice(0, 40);
+
+      if (!товары.length) {
+        список.replaceChildren(el("div.empty", { text: q ? "Ничего не нашлось" : "Сведений пока нет ни у одного товара. Найдите товар поиском и добавьте." }));
+        return;
+      }
+      список.replaceChildren(...товары.map((т) => {
+        const с = сводка.get(String(т.id));
+        const значки = с
+          ? [
+              el("span.badge" + (с.проверено === с.всего ? ".ok" : ".warn"), { text: `проверено ${с.проверено} из ${с.всего}` }),
+              !с.описание ? el("span.badge.muted", { text: "нет описания" }) : null,
+            ]
+          : [el("span.badge.muted", { text: "нет сведений" })];
+        return el("div.facts-row", { onclick: () => окноСведений(т) }, [
+          т.photo_url ? el("img.facts-thumb", { src: thumb(т.photo_url, 96), alt: "", loading: "lazy" }) : el("div.facts-thumb"),
+          el("div.facts-txt", {}, [
+            el("div.facts-name", { text: `${т.code ? т.code + " · " : ""}${т.name || "без названия"}` }),
+            с?.название ? el("div.muted", { text: "В постах: " + с.название }) : null,
+          ]),
+          el("div.facts-badges", {}, значки),
+        ]);
+      }));
+    };
+    поиск.addEventListener("input", показать);
+    узелСведений._показать = показать;
+
+    загрузитьСведения().then(показать);
+    return узелСведений;
+  }
+
+  // Окно сведений одного товара: каждая строка — вид, текст, источник,
+  // «проверено». Пустая строка при сохранении удаляется.
+  async function окноСведений(т) {
+    let данныеТовара;
+    try { данныеТовара = await запросСведений("GET", null, "?product=" + encodeURIComponent(т.id)); }
+    catch (e) { return toast(e.message, "err"); }
+    const виды = данныеТовара.виды || сведения.виды || {};
+    const порядок = Object.keys(виды);
+
+    const строкиУзел = el("div.facts-rows");
+    const строки = [];
+    const добавить = (ф = {}) => {
+      const вид = select(порядок.map((к) => ({ value: к, label: виды[к].подпись })), ф.key || "свойство");
+      const текст = el("textarea.inp.facts-value", { rows: "2", maxlength: "600", placeholder: "Текст сведения" });
+      текст.value = ф.value || "";
+      const источник = input({ value: ф.source || "", placeholder: "Откуда: упаковка, сайт производителя, владелец…", maxlength: "200" });
+      const проверено = el("input", { type: "checkbox", checked: ф.confidence === "подтверждено" });
+      const строка = { вид, текст, источник, проверено };
+      const узел = el("div.facts-item", {}, [
+        el("div.facts-item-top", {}, [
+          вид,
+          el("label.facts-check", {}, [проверено, el("span", { text: "проверено" })]),
+          el("button.btn.btn-outline.facts-del", { type: "button", title: "Убрать", text: "✕", onclick: () => { узел.remove(); строки.splice(строки.indexOf(строка), 1); } }),
+        ]),
+        текст, источник,
+      ]);
+      строки.push(строка);
+      строкиУзел.append(узел);
+    };
+    const есть = (данныеТовара.факты || []).filter((ф) => виды[ф.key]);
+    есть.sort((а, б) => порядок.indexOf(а.key) - порядок.indexOf(б.key) || (а.sort - б.sort));
+    есть.forEach(добавить);
+    if (!есть.length) { добавить({ key: "название" }); добавить({ key: "описание" }); добавить({ key: "совместимость" }); }
+
+    modal({
+      title: `Сведения · ${т.code ? т.code + " · " : ""}${т.name || ""}`,
+      wide: true,
+      body: el("div.facts-editor", {}, [
+        el("div.facts-head", {}, [
+          т.photo_url ? el("img.facts-photo", { src: thumb(т.photo_url, 300), alt: "" }) : null,
+          el("div.agent-hint", { text: "«Понятное название» станет заголовком поста, складское название останется строкой ниже. В пост идут только сведения с источником. «Проверено» — вы сами убедились, что это верно. Пустую строку можно не удалять: при сохранении она уберётся сама." }),
+        ]),
+        строкиУзел,
+        el("button.btn.btn-outline", { type: "button", text: "+ Добавить сведение", onclick: () => добавить({ key: "свойство" }) }),
+      ]),
+      actions: [
+        { label: "Отмена", onClick: (закрыть) => закрыть() },
+        {
+          label: "Всё проверено", onClick: () => {
+            let без = 0;
+            строки.forEach((с) => { if (с.текст.value.trim() && с.источник.value.trim()) с.проверено.checked = true; else if (с.текст.value.trim()) без++; });
+            toast(без ? `Отмечено. Без источника осталось: ${без} — их нельзя отметить проверенными` : "Все сведения отмечены проверенными", без ? "err" : undefined);
+          },
+        },
+        {
+          label: "Сохранить", kind: "btn-primary", onClick: async (закрыть) => {
+            const факты = строки.map((с) => ({
+              key: с.вид.value, value: с.текст.value, source: с.источник.value,
+              confidence: с.проверено.checked ? "подтверждено" : "требует проверки",
+            }));
+            try {
+              const r = await запросСведений("POST", { product: т.id, факты });
+              закрыть();
+              toast(`Сохранено: ${r.сохранено}` + (r.удалено ? `, убрано: ${r.удалено}` : ""));
+              await загрузитьСведения();
+              узелСведений?._показать?.();
+            } catch (e) { toast(e.message, "err"); }
+          },
+        },
+      ],
+    });
   }
 
   function вкладкаСогласований() {
