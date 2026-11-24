@@ -40,6 +40,19 @@ export default async function handler(req, res) {
     const user = await getUser(req, { allowGuest: true });
     if (!user) return res.status(401).json({ error: "Нужен вход в склад" });
     try {
+      // ?purchases=1 — одобренные списки закупки агента склада за 45 дней:
+      // из них страница «Заказ поставщику» собирает черновики по поставщикам.
+      if (String(req.query?.purchases || "") === "1") {
+        const { sget } = await import("../lib/supa.js");
+        const с = new Date(Date.now() - 45 * 864e5).toISOString();
+        const строки = await sget(`agent_approvals?agent_id=eq.warehouse&kind=eq.purchase&status=eq.approved&decided_at=gte.${encodeURIComponent(с)}&select=id,title,decided_at,payload&order=decided_at.desc&limit=5`).catch(() => []);
+        return res.status(200).json({
+          черновики: (строки || []).map((з) => ({
+            id: з.id, title: з.title, decided_at: з.decided_at,
+            товары: (з.payload?.товары || []).map((т) => ({ id: т.id || null, код: т.код || "", имя: т.имя || "", заказать: Number(т.заказать) || 0, поставщик: т.поставщик || "не определён" })),
+          })),
+        });
+      }
       // ?waits=1 — «Ждут товар»: кто ждёт поступления (api/lib/stockwait.js).
       if (String(req.query?.waits || "") === "1") {
         const { сводкаОжиданий } = await import("../lib/stockwait.js");

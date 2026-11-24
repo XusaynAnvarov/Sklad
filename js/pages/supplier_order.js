@@ -3,16 +3,16 @@
 //  себестоимость) и выгрузить в PDF (с реальными фото) или Excel (с фото),
 //  чтобы отправить поставщику. Можно сохранить как «приход (в дороге)».
 // ========================================================================
-import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader } from "../ui.js?v=20261124d";
-import { fmt, CUR, convert } from "../fx.js?v=20261124d";
-import { placeholder } from "./products.js?v=20261124d";
-import { картаДороги, вДороге, подписьДороги } from "../transit.js?v=20261124d";
-import { icon } from "../icons.js?v=20261124d";
-import { authHeaders } from "../db.js?v=20261124d";
-import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20261124d";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261124d";
-import { showNotFound } from "./purchases.js?v=20261124d";
-import { thumb, поставитьСнимок } from "../img.js?v=20261124d";
+import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader, confirmDialog } from "../ui.js?v=20261124e";
+import { fmt, CUR, convert } from "../fx.js?v=20261124e";
+import { placeholder } from "./products.js?v=20261124e";
+import { картаДороги, вДороге, подписьДороги } from "../transit.js?v=20261124e";
+import { icon } from "../icons.js?v=20261124e";
+import { authHeaders } from "../db.js?v=20261124e";
+import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20261124e";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261124e";
+import { showNotFound } from "./purchases.js?v=20261124e";
+import { thumb, поставитьСнимок } from "../img.js?v=20261124e";
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 
@@ -234,7 +234,65 @@ export default async function render(page, ctx) {
     finally { hideLoader(); }
   }
 
-  page.append(el("div.card", { style: { padding: "16px" } }, [
+  // ----- черновики от агента склада -----
+  // Одобренный в «ИИ-Агентах» список закупки, разбитый по поставщикам.
+  // Нажатие заполняет форму ниже: поставщик, товары, количества,
+  // себестоимость. Дальше — как обычно: поправить, PDF/Excel, приход.
+  // Само по себе ничего не сохраняется и не отправляется.
+  const блокЧерновиков = el("div");
+  function открытьЧерновик(товары, поставщик) {
+    const заполнить = () => {
+      const поКоду = Object.fromEntries(products.filter(p => p.code).map(p => [String(p.code).toUpperCase(), p]));
+      const ненайдены = [];
+      state.items = [];
+      for (const т of товары) {
+        const p = (т.id && pmap[т.id]) || поКоду[String(т.код || "").toUpperCase()];
+        if (!p) { ненайдены.push(т.имя || т.код); continue; }
+        if (state.items.some(it => it.product_id === p.id)) continue;
+        state.items.push({ product_id: p.id, qty: Math.max(1, Math.ceil(Number(т.заказать) || 1)), cost: defCost(p) || 0, currency: state.currency });
+      }
+      state.supplier = поставщик && поставщик !== "не определён" && поставщик !== "Все поставщики" ? поставщик : "";
+      fSupplier.value = state.supplier;
+      drawItems(); drawOOS();
+      toast(`В заказ добавлено: ${товаров(state.items.length)}` + (ненайдены.length ? ` · не найдено: ${ненайдены.length}` : "") + ". Проверьте количества и цены.", "ok");
+      if (ненайдены.length) showNotFound(ненайдены);
+      itemsBox.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    if (state.items.length) confirmDialog(`В заказе уже ${товаров(state.items.length)}. Заменить их черновиком «${поставщик}»?`, заполнить);
+    else заполнить();
+  }
+  (async () => {
+    try {
+      const r = await fetch("/api/admin/agents?purchases=1", { cache: "no-store", headers: { ...(await authHeaders()) } });
+      if (!r.ok) return;
+      const { черновики = [] } = await r.json();
+      if (!черновики.length) return;
+      const когда = (s) => new Date(s).toLocaleString("ru-RU", { timeZone: "Asia/Tashkent", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+      блокЧерновиков.replaceChildren(el("div.card", { style: { padding: "14px 16px", marginBottom: "14px" } }, [
+        el("div.section-h", { text: "Черновики от агента склада", style: { marginTop: "0" } }),
+        el("div.hint", { text: "Списки закупки, которые вы одобрили в «ИИ-Агентах». Нажмите поставщика — форма ниже заполнится его товарами и количествами. Ничего не сохраняется и не отправляется, пока вы сами не нажмёте PDF, Excel или «Сохранить как приход»." }),
+        ...черновики.slice(0, 3).map((ч) => {
+          const группы = new Map();
+          for (const т of ч.товары) {
+            const к = т.поставщик || "не определён";
+            if (!группы.has(к)) группы.set(к, []);
+            группы.get(к).push(т);
+          }
+          const кнопки = [...группы.entries()].sort((а, б) => б[1].length - а[1].length).map(([имя, список]) =>
+            el("button.btn.btn-outline.btn-sm", { onclick: () => открытьЧерновик(список, имя) }, [`${имя} · ${список.length}`]));
+          return el("div", { style: { marginTop: "10px" } }, [
+            el("div", { style: { fontWeight: "600", fontSize: "14px" }, text: `${ч.title} · одобрено ${когда(ч.decided_at)}` }),
+            el("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "6px" } }, [
+              ...кнопки,
+              el("button.btn.btn-primary.btn-sm", { onclick: () => открытьЧерновик(ч.товары, "Все поставщики") }, [`Все сразу · ${ч.товары.length}`]),
+            ]),
+          ]);
+        }),
+      ]));
+    } catch { /* нет связи — блок просто не появится */ }
+  })();
+
+  page.append(блокЧерновиков, el("div.card", { style: { padding: "16px" } }, [
     el("div.row3", {}, [field("Поставщик", fSupplier), field("Валюта", fCurrency), field("Язык документа", fLang)]),
     el("div.hint", { text: "Язык применяется к PDF и Excel (кроме названия товара). Китайский (中文) работает и в PDF, и в Excel." }),
     el("div", { style: { marginTop: "12px" } }, [oosToggle, oosBox]),
