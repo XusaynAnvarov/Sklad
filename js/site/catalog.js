@@ -1,16 +1,16 @@
 // Каталог товаров: витрина, карточки, поиск, категории
-import { api, isLoggedIn } from "./api.js?v=20261124a";
-import { t, sToast, кнопкаКакЗаказать } from "./app.js?v=20261124a";
-import { openTour } from "./tour.js?v=20261124a";
-import { openLogin } from "./auth.js?v=20261124a";
-import { thumb, full } from "../img.js?v=20261124a";
-import { подходит } from "../productsearch.js?v=20261124a";
-import { подписьКода } from "../catalogcode.js?v=20261124a";
+import { api, isLoggedIn } from "./api.js?v=20261124b";
+import { t, sToast, кнопкаКакЗаказать } from "./app.js?v=20261124b";
+import { openTour } from "./tour.js?v=20261124b";
+import { openLogin } from "./auth.js?v=20261124b";
+import { thumb, full } from "../img.js?v=20261124b";
+import { подходит } from "../productsearch.js?v=20261124b";
+import { подписьКода } from "../catalogcode.js?v=20261124b";
 // Главное фото товара выбирает владелец (звезда в карточке товара на
 // складе), и это не обязательно первый снимок: см. js/photo.js.
-import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261124a";
+import { снимки, главноеФото, индексГлавного } from "../photo.js?v=20261124b";
 // Пружина, бросок, сопротивление на краю и ведение пальцем (js/spring.js).
-import { пустить, проекция, резинка, вести } from "../spring.js?v=20261124a";
+import { пустить, проекция, резинка, вести } from "../spring.js?v=20261124b";
 
 const ЗНАЧОК_ФОТО = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
 

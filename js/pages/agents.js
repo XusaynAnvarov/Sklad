@@ -12,9 +12,11 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261124a";
-import { icon } from "../icons.js?v=20261124a";
-import { authHeaders } from "../db.js?v=20261124a";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261124b";
+import { icon } from "../icons.js?v=20261124b";
+import { authHeaders } from "../db.js?v=20261124b";
+import { thumb } from "../img.js?v=20261124b";
+import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261124b";
 
 const API = "/api/admin/agents";
 const ОПРОС_МС = 45000;
@@ -451,7 +453,7 @@ export default async function render(page, ctx) {
             const к = e.currentTarget;
             к.disabled = true; к.textContent = "Собираю…";
             try {
-              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261124a");
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261124b");
               await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
               toast("Файл собран");
             } catch (err) {
@@ -549,11 +551,97 @@ export default async function render(page, ctx) {
         el("div.muted", { text: `${имяАгента(с.agent_id)} · ${когда(с.created_at)}` }),
       ]),
       el("div.appr-acts", {}, [
-        el("button.btn.btn-outline", { text: "Посмотреть", onclick: () => показатьПредложение(с) }),
+        с.kind === "post"
+          ? el("button.btn.btn-outline", { text: "Изменить", onclick: () => редакторПоста(с) })
+          : el("button.btn.btn-outline", { text: "Посмотреть", onclick: () => показатьПредложение(с) }),
         el("button.btn.btn-primary", { text: "Одобрить", onclick: () => решить(с, "approve") }),
         el("button.btn.btn-outline", { text: "Отклонить", onclick: () => решить(с, "reject") }),
       ]),
     ])));
+  }
+
+  // ------------------------------------------------------------------
+  //  РЕДАКТОР ЧЕРНОВИКА ПОСТА
+  //
+  //  Владелец правит обычный текст: первая строка — заголовок (в посте
+  //  жирным), строка «Артикул: …» — код. Разметку ставит сервер
+  //  (js/post-text.js), так что ни один символ из текста не сломает пост.
+  //  Предпросмотр собирается через textContent — разметку из текста
+  //  браузер не исполняет никогда.
+  //  Фото, видео и ссылку «Заказать» правка не меняет: их даёт склад.
+  // ------------------------------------------------------------------
+  function редакторПоста(с) {
+    const товары = с.payload?.товары || [];
+    if (!товары.length) return показатьПредложение(с);
+
+    const поля = товары.map((т) => {
+      const включён = el("input", { type: "checkbox", checked: true });
+      const текст = el("textarea.inp.post-ed-text", { rows: "11", maxlength: String(ДЛИНА_МАКС) });
+      текст.value = вТекст(т.текст || "");
+      const счётчик = el("div.post-ed-count");
+      const пузырь = el("div.post-ed-bubble");
+
+      const нарисовать = () => {
+        const v = текст.value;
+        const n = v.trim().length;
+        счётчик.textContent = n > 1024
+          ? `${n} знаков — длиннее подписи к фото (1024): фото уйдёт, а текст отдельным сообщением под ним`
+          : `${n} знаков — помещается под фото`;
+        счётчик.classList.toggle("warn", n > 1024);
+        const строки = v.replace(/\r\n?/g, "\n").trim().split("\n");
+        пузырь.replaceChildren(
+          т.фото ? el("img.post-ed-photo", { src: thumb(т.фото, 480), alt: "", loading: "lazy" }) : null,
+          т.видео ? el("div.post-ed-video", { text: "🎬 + видео товара рядом с фото (альбомом)" }) : null,
+          el("div.post-ed-body", {}, строки.map((стр, i) => i === 0
+            ? el("div", {}, [el("b", { text: стр })])
+            : el("div", { text: стр || " " }))),
+        );
+        карточка.classList.toggle("off", !включён.checked);
+      };
+
+      const карточка = el("div.post-ed-item", {}, [
+        el("label.post-ed-head", {}, [
+          включён,
+          el("span", {}, [el("b", { text: т.name || "Товар" }), т.код ? el("span.muted", { text: " · " + т.код }) : null]),
+        ]),
+        el("div.post-ed-grid", {}, [
+          el("div", {}, [
+            el("div.agent-hint", { text: "Первая строка — заголовок поста (жирным). Остальное — как напишете." }),
+            текст, счётчик,
+          ]),
+          el("div", {}, [el("div.agent-hint", { text: "Так увидят в канале" }), пузырь]),
+        ]),
+      ]);
+      текст.addEventListener("input", нарисовать);
+      включён.addEventListener("change", нарисовать);
+      нарисовать();
+      return { т, включён, текст, карточка };
+    });
+
+    modal({
+      title: "Изменить черновик · " + (с.payload?.рубрика || с.title),
+      wide: true,
+      body: el("div.post-ed", {}, [
+        el("div.agent-hint", { text: "Снимите галочку «В посте», чтобы убрать товар. Фото, видео и кнопку «Заказать» агент берёт из склада — здесь они не меняются. После сохранения кнопки в Telegram одобрят уже исправленный вариант." }),
+        ...поля.map((п) => п.карточка),
+      ]),
+      actions: [
+        { label: "Отмена", onClick: (закрыть) => закрыть() },
+        {
+          label: "Сохранить", kind: "btn-primary", onClick: async (закрыть) => {
+            const оставить = поля.filter((п) => п.включён.checked);
+            if (!оставить.length) return toast("В посте должен остаться хотя бы один товар", "err");
+            if (оставить.some((п) => !п.текст.value.trim())) return toast("У товара пустой текст", "err");
+            try {
+              await запрос("POST", { action: "edit_post", id: с.id, товары: оставить.map((п) => ({ id: п.т.id, текст: п.текст.value })) });
+              закрыть();
+              await обновить(false);
+              toast("Черновик сохранён. Одобрить можно здесь или кнопкой в Telegram");
+            } catch (e) { toast(e.message, "err"); }
+          },
+        },
+      ],
+    });
   }
 
   function показатьПредложение(с) {
