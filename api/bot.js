@@ -843,10 +843,11 @@ export default async function handler(req, res) {
         const [, действие, id] = data.split(":");
         if (!/^[0-9a-f-]{36}$/i.test(id || "")) return res.status(200).send("ok");
 
-        const { решить, записатьРезультат } = await import("./lib/agents/core.js");
+        const { решить, записатьРезультат, отправитьВКанал } = await import("./lib/agents/core.js");
         const { исполнить, итогСловами } = await import("./lib/agents/исполнение.js");
         const уже = "Это предложение уже решено — повторно ничего не сделано.";
         let ответ = null;
+        let кнопки = null;
 
         if (действие === "ok") {
           const строка = await решить(id, "approved", { кто: "владелец (Telegram)", через: "telegram" });
@@ -855,7 +856,18 @@ export default async function handler(req, res) {
             const итог = await исполнить(строка).catch((e) => ({ ок: false, причина: e.message }));
             await записатьРезультат(id, итог).catch(() => {});
             ответ = "✅ Одобрено. " + итогСловами(итог);
+            // Ушло в личку (тестовый режим) — сразу предлагаем отправить
+            // этот же пост в канал, когда владелец посмотрит его.
+            if (итог?.ок && /тестов/i.test(String(итог.что || ""))) {
+              ответ += "\n\nПосмотрите посты выше. Если всё верно — отправьте их в канал:";
+              кнопки = [[{ text: "📢 Отправить в канал", callback_data: `ag:ch:${id}` }]];
+            }
           }
+        } else if (действие === "ch") {
+          const итог = await отправитьВКанал(id, { кто: "владелец (Telegram)" }).catch((e) => ({ ок: false, причина: e.message }));
+          ответ = итог.ок
+            ? `📢 Отправлено в канал ${итог.канал}: ${итог.успешно} из ${итог.всего}` + (итог.ошибки?.length ? `\nНе ушло: ${итог.ошибки.slice(0, 3).join("; ")}` : "")
+            : итог.уже ? "Этот пост уже в канале — второй раз не отправляю." : "Не отправлено: " + String(итог.причина || "ошибка").slice(0, 200);
         } else if (действие === "no") {
           const строка = await решить(id, "rejected", { кто: "владелец (Telegram)", через: "telegram" });
           ответ = строка ? "❌ Отклонено. Ничего не опубликовано." : уже;
@@ -876,7 +888,10 @@ export default async function handler(req, res) {
         if (действие !== "ed") {
           try { await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [] } }); } catch {}
         }
-        await tg("sendMessage", { chat_id: chatId, text: ответ, disable_web_page_preview: true });
+        await tg("sendMessage", {
+          chat_id: chatId, text: ответ, disable_web_page_preview: true,
+          ...(кнопки ? { reply_markup: { inline_keyboard: кнопки } } : {}),
+        });
         return res.status(200).send("ok");
       }
 

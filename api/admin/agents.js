@@ -14,6 +14,7 @@
 //     approve  { id }                       одобрить предложение
 //     reject   { id }                       отклонить
 //     plan     { id, when }                 запланировать на время
+//     channel  { id }                       одобренный в тестовом режиме пост — в канал (один раз)
 //
 //  Гость (просмотр) сюда не проходит: решения принимает только владелец.
 //  Любое решение попадает в журнал действий (crm_audit).
@@ -22,14 +23,14 @@ import { getUser } from "../lib/auth.js";
 import {
   состояние, отчётПрогона, запустить, включить, сменитьРасписание,
   сменитьНастройки, отметитьПрочитанным, решить, таблицыГотовы, записатьРезультат,
-  текущиеНастройки,
+  текущиеНастройки, отправитьВКанал,
 } from "../lib/agents/core.js";
 import { проверитьНастройки } from "../lib/agents/настройки.js";
 import { sget } from "../lib/supa.js";
 import { исполнить } from "../lib/agents/исполнение.js";
 
 const okId = (v) => /^[a-z_]{2,32}$/.test(String(v || ""));
-const okUuid = (v) => /^[0-9a-fA-F-]{10,40}$/.test(String(v || ""));
+const okUuid = (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || ""));
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -99,6 +100,14 @@ export default async function handler(req, res) {
         await сменитьНастройки(body.id, п.config);
         return res.status(200).json(await состояние());
       }
+      case "channel": {
+        // Пост, одобренный в тестовом режиме, — теперь в канал. Ровно один
+        // раз: защита от повтора — в самом отправитьВКанал (core.js).
+        if (!okUuid(body.id)) return res.status(400).json({ error: "Не указан пост" });
+        const итог = await отправитьВКанал(body.id, { кто: "владелец (склад)" });
+        if (!итог.ок) return res.status(итог.уже ? 409 : 400).json({ error: итог.причина || "Не отправлено", code: итог.уже ? "уже_в_канале" : "не_отправлено" });
+        return res.status(200).json({ итог });
+      }
       case "seen": {
         const n = await отметитьПрочитанным(body.ids || body.id);
         return res.status(200).json({ отмечено: n });
@@ -126,7 +135,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Непонятное действие: " + действие });
     }
   } catch (e) {
+    // Подробности — в журнал сервера, наружу — общая фраза.
     console.error("[агенты] действие " + действие + ":", e.message);
-    return res.status(500).json({ error: e.message || "Не удалось выполнить действие" });
+    return res.status(500).json({ error: "Не удалось выполнить действие. Подробности — в журнале сервера" });
   }
 }

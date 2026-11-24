@@ -12,9 +12,9 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261123f";
-import { icon } from "../icons.js?v=20261123f";
-import { authHeaders } from "../db.js?v=20261123f";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261124a";
+import { icon } from "../icons.js?v=20261124a";
+import { authHeaders } from "../db.js?v=20261124a";
 
 const API = "/api/admin/agents";
 const ОПРОС_МС = 45000;
@@ -451,7 +451,7 @@ export default async function render(page, ctx) {
             const к = e.currentTarget;
             к.disabled = true; к.textContent = "Собираю…";
             try {
-              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261123f");
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261124a");
               await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
               toast("Файл собран");
             } catch (err) {
@@ -499,12 +499,50 @@ export default async function render(page, ctx) {
 
   function вкладкаСогласований() {
     const список = данные.согласования || [];
+    const вКанал = блокВКанал();
     if (!список.length) {
-      return el("div.empty", {}, [
-        el("div", { text: "Ничего не ждёт вашего решения." }),
-        el("div.muted", { text: "Когда агент что-то предложит — закупку, пост, замену фото — предложение появится здесь и будет ждать. Само оно не выполнится." }),
+      return el("div", {}, [
+        el("div.empty", {}, [
+          el("div", { text: "Ничего не ждёт вашего решения." }),
+          el("div.muted", { text: "Когда агент что-то предложит — закупку, пост, замену фото — предложение появится здесь и будет ждать. Само оно не выполнится." }),
+        ]),
+        вКанал,
       ]);
     }
+    return el("div", {}, [списокСогласований(список), вКанал]);
+  }
+
+  // Посты, одобренные в тестовом режиме: ушли владельцу в личку. Здесь их
+  // можно отправить в канал — один раз, повтор сервер не пропустит.
+  function блокВКанал() {
+    const посты = данные.вКаналМожно || [];
+    if (!посты.length) return null;
+    return el("div.agent-tochannel", {}, [
+      el("h4", { text: "Одобрено в тестовом режиме — можно отправить в канал" }),
+      el("div.agent-appr", {}, посты.map((п) => el("div.appr-row", {}, [
+        el("div.appr-txt", {}, [
+          el("div.appr-ttl", { text: п.title }),
+          el("div.muted", { text: `Одобрено ${когда(п.decided_at)} · сейчас только у вас в личке` }),
+        ]),
+        el("div.appr-acts", {}, [
+          el("button.btn.btn-primary", { text: "📢 В канал", onclick: () => вКаналПост(п) }),
+        ]),
+      ]))),
+    ]);
+  }
+
+  function вКаналПост(п) {
+    confirmDialog(`Отправить в канал: «${п.title}»? Посты увидят все подписчики.`, async () => {
+      try {
+        const ответ = await запрос("POST", { action: "channel", id: п.id });
+        const и = ответ?.итог || {};
+        await обновить(false);
+        toast(`Отправлено в канал ${String(и.канал || "").slice(0, 40)}: ${Number(и.успешно) || 0} из ${Number(и.всего) || 0}`);
+      } catch (e) { toast(e.message, "err"); await обновить(false); }
+    });
+  }
+
+  function списокСогласований(список) {
     return el("div.agent-appr", {}, список.map((с) => el("div.appr-row", {}, [
       el("div.appr-txt", {}, [
         el("div.appr-ttl", { text: с.title }),

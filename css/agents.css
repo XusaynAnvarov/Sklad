@@ -85,6 +85,9 @@
   border-radius: 50%; background: var(--accent); vertical-align: middle;
 }
 
+.agent-tochannel { margin-top: 16px; }
+.agent-tochannel h4 { margin: 0 0 8px; font-size: .875rem; font-weight: 600; }
+
 .agent-report h4 { margin: 16px 0 8px; font-size: .875rem; font-weight: 600; }
 .agent-report h4:first-of-type { margin-top: 10px; }
 

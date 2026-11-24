@@ -1,14 +1,12 @@
 // ========================================================================
 //  Серверная проверка авторизации для эндпоинтов /api/*.
 //  Принимает:
-//    1. Кастомный admin JWT (выдаётся /api/admin-auth по логину+паролю из .env)
-//    2. Суpabase Auth JWT (legacy, если Supabase-аккаунт настроен)
+//    только наш JWT (выдаётся /api/admin-auth по логину, паролю и коду).
+//    Вход через Supabase Auth больше не принимается — см. getUser.
 // ========================================================================
 import crypto from "crypto";
 import { секретПодписи } from "./jwtsecret.js";
 
-const SUPA_URL = process.env.SUPABASE_URL;
-const KEY      = process.env.SUPABASE_SERVICE_KEY;
 
 // Разбирает наш токен и возвращает роль ("admin" | "guest") либо null.
 function verifyOurJWT(token) {
@@ -41,16 +39,11 @@ export async function getUser(req, { allowGuest = false } = {}) {
   if (role === "admin") return { id: "admin", role: "admin" };
   if (role === "guest") return allowGuest ? { id: "guest", role: "guest" } : null;
 
-  // Supabase Auth JWT (legacy)
-  if (!SUPA_URL || !KEY) return null;
-  try {
-    const r = await fetch(`${SUPA_URL}/auth/v1/user`, {
-      headers: { apikey: KEY, Authorization: "Bearer " + token },
-    });
-    if (!r.ok) return null;
-    const u = await r.json();
-    return u && u.id ? u : null;
-  } catch {
-    return null;
-  }
+  // Раньше здесь принимался ЛЮБОЙ вход через Supabase Auth — и пускал его
+  // как администратора. Закрыто 24.11.2026: в проекте 0 пользователей
+  // Supabase Auth, сайт этим входом не пользуется, а регистрация в
+  // Supabase открыта по умолчанию и делается публичным ключом, который
+  // лежит в коде сайта. То есть любой мог завести себе аккаунт и получить
+  // права владельца склада. Вход в склад — только нашим токеном выше.
+  return null;
 }
