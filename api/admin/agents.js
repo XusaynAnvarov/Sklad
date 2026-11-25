@@ -93,7 +93,10 @@ export default async function handler(req, res) {
     switch (действие) {
       case "run": {
         if (!okId(body.id)) return res.status(400).json({ error: "Не указан агент" });
-        const r = await запустить(body.id, { trigger: "manual" });
+        // «Собрать посты заново» — только у агента Telegram; прочие опции
+        // из браузера не принимаются.
+        const опции = body.id === "telegram" && body.заново === true ? { заново: true } : {};
+        const r = await запустить(body.id, { trigger: "manual", опции });
         return res.status(200).json(r);
       }
       case "enable":

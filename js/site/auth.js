@@ -1,8 +1,8 @@
 // Модуль авторизации: вход, регистрация, верификация через Telegram
-import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261125a";
-import { sToast, openModal, closeModal } from "./app.js?v=20261125a";
+import { api, saveToken, clearToken, isLoggedIn } from "./api.js?v=20261125b";
+import { sToast, openModal, closeModal } from "./app.js?v=20261125b";
 // Код из Telegram подставляется из буфера сам — см. js/kodizbufera.js
-import { следитьЗаБуфером } from "../kodizbufera.js?v=20261125a";
+import { следитьЗаБуфером } from "../kodizbufera.js?v=20261125b";
 
 let onAuthChange = null;
 export function setAuthChangeCallback(fn) { onAuthChange = fn; }

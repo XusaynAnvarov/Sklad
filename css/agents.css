@@ -132,6 +132,10 @@ html[data-theme="light"] .post-ed-bubble { background: #fff; }
 .facts-del { padding: 4px 10px; }
 .facts-value { width: 100%; resize: vertical; font-family: inherit; font-size: .8125rem; }
 
+/* Окно «Как работает». */
+.agent-how ul { margin: 0 0 12px; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: .875rem; line-height: 1.5; }
+.agent-how .agent-hint { margin-top: 6px; }
+
 .agent-tochannel { margin-top: 16px; }
 .agent-tochannel h4 { margin: 0 0 8px; font-size: .875rem; font-weight: 600; }
 

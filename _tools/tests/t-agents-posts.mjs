@@ -162,5 +162,27 @@ globalThis.fetch = async (url, opts = {}) => {
     обновления.length === 0 && !телеграм.some((x) => /Черновик обновлён/.test(x.поля.text || "")));
 }
 
+// ------------------------------------------------ «Собрать посты заново»
+{
+  const ключи = [];
+  const товар = { id: "22222222-2222-3333-4444-555555555555", code: "NV-1", name: "Новинка", category: "Лапки", stock_qty: 5, photo_url: "https://example.com/n.jpg", last_arrival_at: new Date().toISOString() };
+  const ctx = (опции) => ({
+    config: { канал: "@generalmodern_test" }, опции,
+    читать: async (путь) => (путь.startsWith("products") ? [товар] : []),
+    уведомить: async (у) => у,
+    согласовать: async (о) => { ключи.push(о.idem_key); return { id: "x" + ключи.length, status: "pending", новое: true, payload: о.payload }; },
+  });
+  await А.прогон(ctx({}));
+  await А.прогон(ctx({}));
+  const обычные = ключи.splice(0);
+  const пол = обычные.length / 2;
+  ok("обычный запуск дважды за неделю — те же ключи (копий не будет)", пол > 0 && обычные.slice(0, пол).join() === обычные.slice(пол).join());
+  await А.прогон(ctx({ заново: true }));
+  await new Promise((r) => setTimeout(r, 5));
+  await А.прогон(ctx({ заново: true }));
+  const п2 = ключи.length / 2;
+  ok("«Собрать заново» — каждый раз новый набор", п2 > 0 && ключи.every((к) => /:заново:/.test(к)) && !ключи.slice(0, п2).some((к) => ключи.slice(п2).includes(к)));
+}
+
 console.log(плохо ? `\n❌ Провалено проверок: ${плохо}` : "\n✅ Всё сошлось");
 process.exit(плохо ? 1 : 0);
