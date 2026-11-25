@@ -12,11 +12,11 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261124e";
-import { icon } from "../icons.js?v=20261124e";
-import { authHeaders } from "../db.js?v=20261124e";
-import { thumb } from "../img.js?v=20261124e";
-import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261124e";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261125a";
+import { icon } from "../icons.js?v=20261125a";
+import { authHeaders } from "../db.js?v=20261125a";
+import { thumb } from "../img.js?v=20261125a";
+import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261125a";
 
 const API = "/api/admin/agents";
 const API_СВЕДЕНИЯ = "/api/admin/facts";
@@ -456,7 +456,7 @@ export default async function render(page, ctx) {
             const к = e.currentTarget;
             к.disabled = true; к.textContent = "Собираю…";
             try {
-              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261124e");
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261125a");
               await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
               toast("Файл собран");
             } catch (err) {
@@ -727,9 +727,19 @@ export default async function render(page, ctx) {
         ]),
         el("div.appr-acts", {}, [
           el("button.btn.btn-primary", { text: "📢 В канал", onclick: () => вКаналПост(п) }),
+          el("button.btn.btn-outline", { text: "Убрать", title: "Не отправлять в канал и убрать из этого списка", onclick: () => убратьОдобренное(п, "Не отправлять в канал") }),
         ]),
       ]))),
     ]);
+  }
+
+  // «Убрать»: одобренное больше не предлагается. Не удаление — в истории
+  // запись остаётся с отметкой.
+  function убратьОдобренное(п, вопрос) {
+    confirmDialog(`${вопрос}: «${п.title}»? Запись останется в истории.`, async () => {
+      try { await запрос("POST", { action: "dismiss", id: п.id }); await обновить(false); toast("Убрано"); }
+      catch (e) { toast(e.message, "err"); }
+    });
   }
 
   function вКаналПост(п) {

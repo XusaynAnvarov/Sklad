@@ -431,8 +431,23 @@ export async function правитьЧерновик(id, товары, { кто 
 // Только то, что при одобрении ушло в личку (тестовый режим). Пост,
 // сразу опубликованный в канал, второй раз туда не предлагается.
 export const можноВКанал = (з) =>
-  !!з && з.kind === "post" && з.status === "approved" && !з.result?.вКанале
+  !!з && з.kind === "post" && з.status === "approved" && !з.result?.вКанале && !з.result?.скрыто
   && /тестов/i.test(String(з.result?.что || ""));
+
+// «Убрать»: одобренный пост больше не предлагается отправить в канал,
+// одобренный список закупки — не показывается в черновиках заказа
+// поставщику. Ничего не удаляется: в истории запись остаётся с отметкой.
+export async function скрытьОдобренное(id, { кто = "владелец" } = {}) {
+  const [з] = (await мягко(() => sget(`agent_approvals?id=eq.${q(id)}&select=*`), [])) || [];
+  if (!з) return { ок: false, причина: "не найдено" };
+  if (з.status !== "approved" || !["post", "purchase"].includes(з.kind)) return { ок: false, причина: "убрать можно только одобренный пост или список закупки" };
+  if (з.result?.скрыто) return { ок: true, уже: true };
+  const строки = await мягко(() => spatch(
+    `agent_approvals?id=eq.${q(id)}&status=eq.approved`,
+    { result: безопасныйОбъект({ ...(з.result || {}), скрыто: { когда: iso(Date.now()), кто: String(кто).slice(0, 100) } }) },
+  ), []);
+  return { ок: Array.isArray(строки) && строки.length > 0 };
+}
 
 export async function отправитьВКанал(id, { кто = "владелец" } = {}) {
   const [з] = (await мягко(() => sget(`agent_approvals?id=eq.${q(id)}&select=*`), [])) || [];

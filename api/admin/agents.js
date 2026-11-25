@@ -16,6 +16,7 @@
 //     plan     { id, when }                 запланировать на время
 //     channel  { id }                       одобренный в тестовом режиме пост — в канал (один раз)
 //     edit_post { id, товары:[{id,текст}] } правка ждущего черновика поста (текст обычный)
+//     dismiss  { id }                       «Убрать» одобренный пост / список закупки (отметка, не удаление)
 //
 //  Гость (просмотр) сюда не проходит: решения принимает только владелец.
 //  Любое решение попадает в журнал действий (crm_audit).
@@ -24,7 +25,7 @@ import { getUser } from "../lib/auth.js";
 import {
   состояние, отчётПрогона, запустить, включить, сменитьРасписание,
   сменитьНастройки, отметитьПрочитанным, решить, таблицыГотовы, записатьРезультат,
-  текущиеНастройки, отправитьВКанал, правитьЧерновик,
+  текущиеНастройки, отправитьВКанал, правитьЧерновик, скрытьОдобренное,
 } from "../lib/agents/core.js";
 import { проверитьНастройки } from "../lib/agents/настройки.js";
 import { sget } from "../lib/supa.js";
@@ -45,9 +46,9 @@ export default async function handler(req, res) {
       if (String(req.query?.purchases || "") === "1") {
         const { sget } = await import("../lib/supa.js");
         const с = new Date(Date.now() - 45 * 864e5).toISOString();
-        const строки = await sget(`agent_approvals?agent_id=eq.warehouse&kind=eq.purchase&status=eq.approved&decided_at=gte.${encodeURIComponent(с)}&select=id,title,decided_at,payload&order=decided_at.desc&limit=5`).catch(() => []);
+        const строки = await sget(`agent_approvals?agent_id=eq.warehouse&kind=eq.purchase&status=eq.approved&decided_at=gte.${encodeURIComponent(с)}&select=id,title,decided_at,payload,result&order=decided_at.desc&limit=10`).catch(() => []);
         return res.status(200).json({
-          черновики: (строки || []).map((з) => ({
+          черновики: (строки || []).filter((з) => !з.result?.скрыто).slice(0, 5).map((з) => ({
             id: з.id, title: з.title, decided_at: з.decided_at,
             товары: (з.payload?.товары || []).map((т) => ({ id: т.id || null, код: т.код || "", имя: т.имя || "", заказать: Number(т.заказать) || 0, поставщик: т.поставщик || "не определён" })),
           })),
@@ -119,6 +120,14 @@ export default async function handler(req, res) {
         await сменитьНастройки(body.id, п.config);
         return res.status(200).json(await состояние());
       }
+      case "dismiss": {
+        // «Убрать» одобренный пост из «В канал» или список закупки из
+        // черновиков заказа поставщику. Не удаление — отметка в истории.
+        if (!okUuid(body.id)) return res.status(400).json({ error: "Не указано, что убрать" });
+        const итог = await скрытьОдобренное(body.id, { кто: "владелец (склад)" });
+        if (!итог.ок) return res.status(400).json({ error: итог.причина || "Не получилось убрать" });
+        return res.status(200).json(await состояние());
+      }
       case "edit_post": {
         // Правка черновика поста: текст товаров и состав. Разметку ставит
         // сервер сам (js/post-text.js) — из браузера приходит обычный текст.
@@ -137,7 +146,10 @@ export default async function handler(req, res) {
         return res.status(200).json({ итог });
       }
       case "seen": {
-        const n = await отметитьПрочитанным(body.ids || body.id);
+        // Только номера правильного вида и не больше 200 за раз.
+        const ids = [].concat(body.ids || body.id || []).filter(okUuid).slice(0, 200);
+        if (!ids.length) return res.status(400).json({ error: "Не указаны уведомления" });
+        const n = await отметитьПрочитанным(ids);
         return res.status(200).json({ отмечено: n });
       }
       case "approve":

@@ -3,16 +3,16 @@
 //  себестоимость) и выгрузить в PDF (с реальными фото) или Excel (с фото),
 //  чтобы отправить поставщику. Можно сохранить как «приход (в дороге)».
 // ========================================================================
-import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader, confirmDialog } from "../ui.js?v=20261124e";
-import { fmt, CUR, convert } from "../fx.js?v=20261124e";
-import { placeholder } from "./products.js?v=20261124e";
-import { картаДороги, вДороге, подписьДороги } from "../transit.js?v=20261124e";
-import { icon } from "../icons.js?v=20261124e";
-import { authHeaders } from "../db.js?v=20261124e";
-import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20261124e";
-import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261124e";
-import { showNotFound } from "./purchases.js?v=20261124e";
-import { thumb, поставитьСнимок } from "../img.js?v=20261124e";
+import { el, toast, field, input, select, inputList, lightbox, showLoader, hideLoader, confirmDialog } from "../ui.js?v=20261125a";
+import { fmt, CUR, convert } from "../fx.js?v=20261125a";
+import { placeholder } from "./products.js?v=20261125a";
+import { картаДороги, вДороге, подписьДороги } from "../transit.js?v=20261125a";
+import { icon } from "../icons.js?v=20261125a";
+import { authHeaders } from "../db.js?v=20261125a";
+import { exportSupplierOrderExcel } from "../xlsx-export.js?v=20261125a";
+import { downloadTemplate, parseRows, pickFile } from "../xlsx-import.js?v=20261125a";
+import { showNotFound } from "./purchases.js?v=20261125a";
+import { thumb, поставитьСнимок } from "../img.js?v=20261125a";
 
 const PCUR = [{ value: "yuan", label: "Юань ¥" }, { value: "usd", label: "Доллар $" }, { value: "som", label: "Сум" }];
 
@@ -280,13 +280,27 @@ export default async function render(page, ctx) {
           }
           const кнопки = [...группы.entries()].sort((а, б) => б[1].length - а[1].length).map(([имя, список]) =>
             el("button.btn.btn-outline.btn-sm", { onclick: () => открытьЧерновик(список, имя) }, [`${имя} · ${список.length}`]));
-          return el("div", { style: { marginTop: "10px" } }, [
-            el("div", { style: { fontWeight: "600", fontSize: "14px" }, text: `${ч.title} · одобрено ${когда(ч.decided_at)}` }),
+          const строка = el("div", { style: { marginTop: "10px" } });
+          const убрать = () => confirmDialog(`Убрать черновик «${ч.title}» из этого списка? Запись останется в истории агента.`, async () => {
+            try {
+              const r = await fetch("/api/admin/agents", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaders()) }, body: JSON.stringify({ action: "dismiss", id: ч.id }) });
+              const j = await r.json().catch(() => ({}));
+              if (!r.ok) throw new Error(j.error || "Не получилось убрать");
+              строка.remove();
+              toast("Черновик убран", "ok");
+            } catch (e) { toast(e.message, "err"); }
+          });
+          строка.append(
+            el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" } }, [
+              el("div", { style: { fontWeight: "600", fontSize: "14px", flex: "1", minWidth: "200px" }, text: `${ч.title} · одобрено ${когда(ч.decided_at)}` }),
+              el("button.btn.btn-outline.btn-sm", { onclick: убрать, title: "Больше не показывать этот черновик" }, ["Убрать"]),
+            ]),
             el("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "6px" } }, [
               ...кнопки,
               el("button.btn.btn-primary.btn-sm", { onclick: () => открытьЧерновик(ч.товары, "Все поставщики") }, [`Все сразу · ${ч.товары.length}`]),
             ]),
-          ]);
+          );
+          return строка;
         }),
       ]));
     } catch { /* нет связи — блок просто не появится */ }
