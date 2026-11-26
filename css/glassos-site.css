@@ -1068,3 +1068,16 @@ html:not([data-site-theme="dark"]) #mo-auth-modal .s-modal {
 .gm-код-схлопнулся .gm-орбита { opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) { .gm-орбита { display: none; } }
+
+/* ===================================================================
+   СТРОКА ПОИСКА НЕ ВЫЛЕЗАЕТ ЗА КРАЙ
+   Кнопка поиска каталога однажды вышла на 18px за правый край экрана,
+   и страница начинала ездить вбок. Строку фильтров и поле поиска держим
+   в ширине колонки, а саму страницу — без горизонтальной прокрутки.
+   overflow-x: clip, а не hidden: clip не ломает «липкую» шапку.
+   =================================================================== */
+.catalog-toolbar { min-width: 0; max-width: 100%; }
+.gm-search-cat { min-width: 0; max-width: 100%; }
+@supports (overflow-x: clip) {
+  html, body { overflow-x: clip; }
+}
