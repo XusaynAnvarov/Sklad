@@ -578,7 +578,7 @@ async function обновитьПосты(ids, кто, сейчас) {
   const список = товары.map((т) => т.id).join(",");
   const [карточки, факты, видео, настр] = await Promise.all([
     мягко(() => sget(`products?id=in.(${список})&select=id,code,name,category,sku,stock_qty,price_som,price_usd,photo_url`), []),
-    мягко(() => sget(`product_fact?product_id=in.(${список})&select=product_id,key,value,sort,confidence,source`), []),
+    мягко(() => sget(`product_fact?product_id=in.(${список})&select=product_id,key,value,sort,confidence,source,created_at,updated_at`), []),
     мягко(() => sget(`videos?product_id=in.(${список})&select=id,title,path,product_id`), []),
     настройки("telegram"),
   ]);
@@ -618,6 +618,12 @@ async function обновитьПосты(ids, кто, сейчас) {
     // В канале уже ровно этот текст — удалять и слать то же самое незачем.
     const былТекст = свои.flatMap((з) => з.payload?.товары || []).find((x) => String(x?.id) === т.id)?.текст || "";
     if (былТекст && былТекст === пост.текст) { пропущено.push({ код: т.код, причина: "без изменений", такой: true }); continue; }
+    // Уже переотправляли, и с тех пор «Сведения» не менялись — второй
+    // раз то же самое не шлём (иначе подписчики получают повтор).
+    const последний = Math.max(0, ...свои.flatMap((з) => з.result?.обновления || [])
+      .filter((о) => (о.обновлено || []).includes(т.код)).map((о) => Date.parse(о.когда || 0) || 0));
+    const свежесть = Math.max(0, ...поТовару(т.id).map((ф) => Date.parse(ф.updated_at || ф.created_at || 0) || 0));
+    if (последний && свежесть <= последний) { пропущено.push({ код: т.код, причина: "без изменений", такой: true }); continue; }
     const старые = старыеСообщения(т);
     if (!старые.length) { пропущено.push({ код: т.код, причина: "не нашёл старое сообщение в канале — новое не отправлено, чтобы не было двух постов" }); continue; }
     const неУдалось = [];
@@ -628,7 +634,7 @@ async function обновитьПосты(ids, кто, сейчас) {
       reply_markup: пост.кнопки?.length ? { inline_keyboard: пост.кнопки } : undefined,
     });
     if (!р?.ok) { пропущено.push({ код: т.код, причина: "старое удалено, новое не ушло: " + String(р?.description || "ошибка").slice(0, 120) }); continue; }
-    новыеНомера.set(т.id, { код: т.код, ids: (р.ids || []).slice(0, 12) });
+    новыеНомера.set(т.id, { код: т.код, ids: (р.ids || []).slice(0, 12), текст: пост.текст });
     обновлено.push(т.код);
   }
 
@@ -636,13 +642,23 @@ async function обновитьПосты(ids, кто, сейчас) {
   const отметка = { когда: iso(Date.now()), кто, обновлено, пропущено: пропущено.map((п) => `${п.код}: ${п.причина}`) };
   for (const з of свои) {
     const было = з.result || {};
-    const сообщения = (з.payload?.товары || []).map((x) => новыеНомера.get(String(x?.id))
-      || (было.вКанале.сообщения || []).find((с) => с.код === x?.код)).filter(Boolean);
-    await мягко(() => spatch(`agent_approvals?id=eq.${q(з.id)}`, { result: безопасныйОбъект({
-      ...было,
-      вКанале: { ...было.вКанале, сообщения, когда: обновлено.length ? iso(Date.now()) : было.вКанале.когда },
-      обновления: [...(было.обновления || []).slice(-9), отметка],
-    }) }), null);
+    const сообщения = (з.payload?.товары || []).map((x) => {
+      const н = новыеНомера.get(String(x?.id));
+      return н ? { код: н.код, ids: н.ids } : (было.вКанале.сообщения || []).find((с) => с.код === x?.код);
+    }).filter(Boolean);
+    // Текст в посте — теперь тот, что в канале: следующее нажатие сравнит с ним.
+    const payload = { ...(з.payload || {}), товары: (з.payload?.товары || []).map((x) => {
+      const н = новыеНомера.get(String(x?.id));
+      return н ? { ...x, текст: н.текст } : x;
+    }) };
+    await мягко(() => spatch(`agent_approvals?id=eq.${q(з.id)}`, {
+      ...(новыеНомера.size ? { payload: безопасныйОбъект(payload) } : {}),
+      result: безопасныйОбъект({
+        ...было,
+        вКанале: { ...было.вКанале, сообщения, когда: обновлено.length ? iso(Date.now()) : было.вКанале.когда },
+        обновления: [...(было.обновления || []).slice(-9), отметка],
+      }),
+    }), null);
   }
   await audit(кто, "agent_channel_repost", "telegram:post", { посты: свои.map((з) => з.id), обновлено, пропущено: пропущено.length }).catch(() => {});
   return { ок: обновлено.length > 0, канал, обновлено, пропущено, причина: обновлено.length ? null : (пропущено[0] ? `${пропущено[0].код}: ${пропущено[0].причина}` : "нечего обновлять") };
