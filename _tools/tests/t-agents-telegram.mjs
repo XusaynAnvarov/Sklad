@@ -78,7 +78,11 @@ const товары = [
   { id: "o1", code: "O-1", name: "Старый ходовой", category: "Ножи", stock_qty: 50, photo_url: "u", last_arrival_at: назад(120) },
   { id: "o2", code: "O-2", name: "Уже был в канале", category: "Ножи", stock_qty: 50, photo_url: "u", last_arrival_at: назад(120) },
   { id: "v1", code: "V-1", name: "С видео", category: "Аппараты", stock_qty: 2, photo_url: "u", last_arrival_at: назад(200) },
+  { id: "b1", code: "B-1", name: "Новинка без описания", category: "Лапки", stock_qty: 10, photo_url: "u", last_arrival_at: назад(1) },
 ];
+// «Сведения»: описание есть у всех, кроме b1.
+const описания = товары.filter((т) => т.id !== "b1")
+  .map((т) => ({ product_id: т.id, key: "описание", value: `Описание ${т.code}`, source: "карточка товара", confidence: "требует проверки" }));
 const продажи = [
   { date: назад(5), status: "final", items: [{ product_id: "o1", qty: 30 }, { product_id: "o2", qty: 50 }] },
   { date: назад(200), status: "final", items: [{ product_id: "v1", qty: 99 }] },   // за кварталом
