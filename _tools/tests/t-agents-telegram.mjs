@@ -131,14 +131,21 @@ function подходит(с, фильтры) {
   return true;
 }
 let id_ = 0;
+let номер = 100;                       // номера сообщений, которые «выдаёт» Telegram
+let страницаКанала = "";              // то, что отдаёт t.me/s/<канал>
 globalThis.fetch = async (адрес, опции = {}) => {
   const u = new URL(String(адрес));
+  if (u.hostname === "t.me") return { ok: true, status: 200, text: async () => страницаКанала };
   if (u.hostname === "api.telegram.org") {
     const метод = u.pathname.split("/").pop();
     const тело = опции.body ? JSON.parse(опции.body) : {};
     const токен = u.pathname.split("/")[1].replace(/^bot/, "");
     телеграм.push({ метод, тело, токен });
-    return { ok: true, status: 200, json: async () => ({ ok: true, result: метод === "getMe" ? { id: 999 } : [] }) };
+    const result = метод === "getMe" ? { id: 999 }
+      : /^send(Photo|Message|Video)$/.test(метод) ? { message_id: ++номер }
+      : метод === "sendMediaGroup" ? [{ message_id: ++номер }, { message_id: ++номер }]
+      : метод === "deleteMessage" ? true : [];
+    return { ok: true, status: 200, json: async () => ({ ok: true, result }) };
   }
   const таблица = u.pathname.replace("/rest/v1/", "");
   база[таблица] ||= [];
@@ -172,6 +179,7 @@ const ctx = (config) => ({
     if (путь.startsWith("products")) return товары;
     if (путь.startsWith("sales")) return продажи;
     if (путь.startsWith("videos")) return видео;
+    if (путь.startsWith("product_fact")) return описания;
     if (путь.startsWith("agent_approvals")) return база.agent_approvals.filter((a) => a.kind === "post");
     return [];
   },
@@ -212,6 +220,9 @@ const ctx = (config) => ({
   ok("черновики созданы", посты.length > 0 && р.детали.черновиков === посты.length);
   ok("все черновики ждут решения", посты.every((a) => a.status === "pending"));
   ok("по умолчанию — тестовый режим", посты.every((a) => a.payload.тест === true));
+  ok("товар без описания в посты не берётся",
+    !посты.some((a) => a.payload.товары.some((т) => т.id === "b1")));
+  ok("сводка говорит, сколько товаров ждут описания", р.детали.безОписания >= 1 && /Без описания/.test(р.сводка));
   // Карточка на одобрение = предпросмотр первого поста (с фото) + сообщение
   // с кнопками. «Опубликовано» = ушло куда-то, кроме лички владельца.
   const сКнопками = (x) => x.тело?.reply_markup?.inline_keyboard?.flat().some((к) => /^ag:ok:/.test(к.callback_data));
@@ -445,6 +456,92 @@ const ctx = (config) => ({
   база.agent_approvals.find((a) => a.id === правка.id).status = "approved";
   const поздно = await C.правитьЧерновик(правка.id, [{ id: "e1", текст: "после решения" }]);
   ok("решённый черновик править нельзя", !поздно.ок && поздно.уже === true);
+}
+
+// ======================================================================
+//  11. ПОСТЫ, УЖЕ ВЫШЕДШИЕ В КАНАЛ: УДАЛИТЬ И ОТПРАВИТЬ С ОПИСАНИЕМ
+// ======================================================================
+{
+  const р = await А.послатьПост(process.env.CLIENT_BOT_TOKEN, { chat_id: "@gm_test", текст: "<b>т</b>", фото: "https://x/1.jpg" });
+  ok("отправка поста возвращает номер сообщения", р.ok && р.ids.length === 1);
+
+  const сообщение = (канал, id, код, время, { части = [], текст = true } = {}) =>
+    `<div class="tgme_widget_message_wrap js-widget_message_wrap"><div class="tgme_widget_message" data-post="${канал}/${id}">`
+    + части.map((ч) => `<a class="tgme_widget_message_photo_wrap" href="https://t.me/${канал}/${ч}?single"></a>`).join("")
+    + (текст ? `<div class="tgme_widget_message_text">Товар<br/>Артикул: <code>${код}</code></div>` : "")
+    + `<time datetime="${new Date(время).toISOString().replace(".000Z", "+00:00")}"></time></div></div>`;
+
+  const разбор = А.разобратьСтраницуКанала(
+    сообщение("gm_test", 15, "LP-111", Date.now()) + сообщение("gm_test", 16, "LP-193", Date.now(), { части: [16, 17] }), "gm_test");
+  ok("страница канала разбирается: номер, артикул, части альбома",
+    разбор.length === 2 && разбор[0].коды[0] === "LP-111" && разбор[1].ids.join(",") === "16,17");
+
+  const A_ = "b0000000-0000-4000-8000-00000000000a", B_ = "b0000000-0000-4000-8000-00000000000b", C_ = "b0000000-0000-4000-8000-00000000000c";
+  база.products = [
+    { id: A_, code: "LP-111", name: "Лапка ролик", category: "Лапки", stock_qty: 5, photo_url: "https://x/a.jpg" },
+    { id: B_, code: "LP-024", name: "Лапка бека", category: "Лапки", stock_qty: 5, photo_url: "https://x/b.jpg" },
+    { id: C_, code: "LP-193", name: "Сборка", category: "Лапки", stock_qty: 5, photo_url: "https://x/c.jpg" },
+  ];
+  база.product_fact = [
+    { product_id: A_, key: "описание", value: "Роликовая лапка с направителем", source: "wawak.com", confidence: "требует проверки", sort: 0 },
+    { product_id: C_, key: "описание", value: "Лапка для сборки", source: "amazon.com", confidence: "требует проверки", sort: 0 },
+  ];
+  база.videos = [];
+  база.agent_state.push({ id: "telegram", config: { канал: "@gm_test", тест: true } });
+
+  const когда = Date.now() - 3600e3;
+  // Товар C попал в два поста — в канале две его копии (16-17 и 20-21).
+  const пост1 = { id: "c0000000-0000-4000-8000-000000000001", agent_id: "telegram", kind: "post", status: "approved", title: "Пост 1",
+    payload: { товары: [{ id: A_, код: "LP-111" }, { id: B_, код: "LP-024" }, { id: C_, код: "LP-193" }] },
+    result: { вКанале: { статус: "отправлен", канал: "@gm_test", когда: new Date(когда).toISOString(), успешно: 3 } } };
+  const пост2 = { id: "c0000000-0000-4000-8000-000000000002", agent_id: "telegram", kind: "post", status: "approved", title: "Пост 2",
+    payload: { товары: [{ id: C_, код: "LP-193" }] },
+    result: { вКанале: { статус: "отправлен", канал: "@gm_test", когда: new Date(когда + 10e3).toISOString(), успешно: 1 } } };
+  const старый = { id: "c0000000-0000-4000-8000-000000000003", agent_id: "telegram", kind: "post", status: "approved", title: "Старый",
+    payload: { товары: [{ id: A_, код: "LP-111" }] },
+    result: { вКанале: { статус: "отправлен", канал: "@gm_test", когда: new Date(Date.now() - 50 * 3600e3).toISOString(), успешно: 1 } } };
+  база.agent_approvals.push(пост1, пост2, старый);
+  страницаКанала = сообщение("gm_test", 9, "LP-111", Date.now() - 30 * 3600e3)     // тот же товар, но давний пост — не трогать
+    + сообщение("gm_test", 12, "LP-024", когда)
+    + сообщение("gm_test", 15, "LP-111", когда)
+    + сообщение("gm_test", 16, "LP-193", когда, { части: [16, 17] })
+    + сообщение("gm_test", 20, "LP-193", когда + 10e3, { части: [20, 21] });
+
+  const сост = await C.состояние();
+  ok("в списке «уже в канале» свежие посты есть, а старше 47 часов — нет",
+    сост.вКаналеНедавно.some((п) => п.id === пост1.id) && !сост.вКаналеНедавно.some((п) => п.id === старый.id));
+
+  телеграм.length = 0;
+  const и = await C.обновитьВКанале([пост1.id, пост2.id]);
+  const удалены = телеграм.filter((x) => x.метод === "deleteMessage").map((x) => x.тело.message_id).sort((a, b) => a - b);
+  const новые = телеграм.filter((x) => /^send/.test(x.метод) && x.тело.chat_id === "@gm_test");
+  ok("удалены старые сообщения товаров с описанием (и обе копии повтора)", удалены.join(",") === "15,16,17,20,21");
+  ok("давний пост того же товара и товар без описания не тронуты", !удалены.includes(9) && !удалены.includes(12));
+  ok("товар из двух постов ушёл заново один раз", новые.length === 2 && и.обновлено.join(",") === "LP-111,LP-193");
+  ok("в новом посте — описание", новые.some((x) => /Роликовая лапка с направителем/.test(x.тело.caption || x.тело.text || "")));
+  ok("товар без описания пропущен с понятной причиной", и.пропущено.some((п) => п.код === "LP-024" && /описания/.test(п.причина)));
+  const запись = база.agent_approvals.find((a) => a.id === пост1.id).result;
+  ok("новые номера сообщений записаны, отметка об обновлении есть",
+    запись.вКанале.сообщения.some((с) => с.код === "LP-111" && с.ids.length) && запись.обновления?.length === 1);
+
+  // Второй раз: номера уже запомнены — берутся они, а не страница канала.
+  страницаКанала = "";
+  телеграм.length = 0;
+  const и2 = await C.обновитьВКанале([пост1.id]);
+  ok("повторное обновление удаляет по запомненным номерам",
+    и2.обновлено.includes("LP-111") && телеграм.some((x) => x.метод === "deleteMessage"));
+
+  // Старое сообщение не нашлось — новое не шлём, чтобы не было двух постов.
+  база.product_fact.push({ product_id: B_, key: "описание", value: "Пластиковая лапка", source: "фото", confidence: "требует проверки", sort: 0 });
+  телеграм.length = 0;
+  const и3 = await C.обновитьВКанале([пост1.id]);
+  ok("не нашли старое сообщение — новое не отправлено",
+    и3.пропущено.some((п) => п.код === "LP-024" && /не нашёл/.test(п.причина))
+    && !телеграм.some((x) => /^send/.test(x.метод) && /Пластиковая лапка/.test(x.тело.caption || x.тело.text || "")));
+
+  const и4 = await C.обновитьВКанале([старый.id]);
+  ok("пост старше 48 часов обновить нельзя", !и4.ок && /48 часов/.test(и4.причина));
+  база.agent_state.pop();
 }
 
 console.log(плохо ? `\n❌ Провалено проверок: ${плохо}` : "\n✅ Всё сошлось");

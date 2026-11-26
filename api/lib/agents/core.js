@@ -559,7 +559,7 @@ async function обновитьПосты(ids, кто, сейчас) {
   const чистые = [...new Set([].concat(ids || []).map(String))].filter((x) => UUID.test(x)).slice(0, 20);
   if (!чистые.length) return { ок: false, причина: "не указаны посты" };
   const заявки = (await мягко(() => sget(`agent_approvals?id=in.(${чистые.join(",")})&select=*`), [])) || [];
-  const годные = заявки.filter((з) => можноОбновитьВКанале(з, сейчас));
+  const годные = заявки.filter((з) => чистые.includes(String(з.id)) && можноОбновитьВКанале(з, сейчас));
   if (!годные.length) return { ок: false, причина: "Обновить нечего: Telegram даёт удалять сообщения только 48 часов после отправки" };
   const канал = годные[0].result.вКанале.канал;
   const свои = годные.filter((з) => з.result.вКанале.канал === канал);
