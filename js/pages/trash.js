@@ -2,9 +2,9 @@
 //  КОРЗИНА — удалённые товары/клиенты/накладные/приходы/оплаты.
 //  Удаление сначала кладёт копию сюда → можно посмотреть, восстановить или стереть.
 // ========================================================================
-import { el, toast, confirmDialog, modal, showLoader, hideLoader } from "../ui.js?v=20261125b";
-import { fmt } from "../fx.js?v=20261125b";
-import { icon } from "../icons.js?v=20261125b";
+import { el, toast, confirmDialog, modal, showLoader, hideLoader } from "../ui.js?v=20261126b";
+import { fmt } from "../fx.js?v=20261126b";
+import { icon } from "../icons.js?v=20261126b";
 
 const ENTITY_RU = { products: "Товар", customers: "Клиент", sales: "Накладная", purchases: "Приход", payments: "Оплата" };
 

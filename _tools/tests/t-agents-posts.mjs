@@ -168,7 +168,9 @@ globalThis.fetch = async (url, opts = {}) => {
   const товар = { id: "22222222-2222-3333-4444-555555555555", code: "NV-1", name: "Новинка", category: "Лапки", stock_qty: 5, photo_url: "https://example.com/n.jpg", last_arrival_at: new Date().toISOString() };
   const ctx = (опции) => ({
     config: { канал: "@generalmodern_test" }, опции,
-    читать: async (путь) => (путь.startsWith("products") ? [товар] : []),
+    читать: async (путь) => (путь.startsWith("products") ? [товар]
+      : путь.startsWith("product_fact") ? [{ product_id: товар.id, key: "описание", value: "Новая лапка.", source: "карточка товара", confidence: "требует проверки" }]
+      : []),
     уведомить: async (у) => у,
     согласовать: async (о) => { ключи.push(о.idem_key); return { id: "x" + ключи.length, status: "pending", новое: true, payload: о.payload }; },
   });
