@@ -12,11 +12,11 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261126b";
-import { icon } from "../icons.js?v=20261126b";
-import { authHeaders } from "../db.js?v=20261126b";
-import { thumb } from "../img.js?v=20261126b";
-import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261126b";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261126c";
+import { icon } from "../icons.js?v=20261126c";
+import { authHeaders } from "../db.js?v=20261126c";
+import { thumb } from "../img.js?v=20261126c";
+import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261126c";
 
 const API = "/api/admin/agents";
 const API_СВЕДЕНИЯ = "/api/admin/facts";
@@ -481,7 +481,7 @@ export default async function render(page, ctx) {
             const к = e.currentTarget;
             к.disabled = true; к.textContent = "Собираю…";
             try {
-              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261126b");
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261126c");
               await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
               toast("Файл собран");
             } catch (err) {
@@ -727,16 +727,18 @@ export default async function render(page, ctx) {
     const список = данные.согласования || [];
     const вКанал = блокВКанал();
     const уже = блокУжеВКанале();
+    // «Уже в канале» — первым: у него срок (48 часов), его нельзя прятать внизу.
     if (!список.length) {
       return el("div", {}, [
+        уже,
         el("div.empty", {}, [
           el("div", { text: "Ничего не ждёт вашего решения." }),
           el("div.muted", { text: "Когда агент что-то предложит — закупку, пост, замену фото — предложение появится здесь и будет ждать. Само оно не выполнится." }),
         ]),
-        вКанал, уже,
+        вКанал,
       ]);
     }
-    return el("div", {}, [списокСогласований(список), вКанал, уже]);
+    return el("div", {}, [уже, списокСогласований(список), вКанал]);
   }
 
   // Посты, которые уже в канале (последние 47 часов — дольше Telegram
@@ -766,8 +768,11 @@ export default async function render(page, ctx) {
         const ответ = await запрос("POST", { action: "repost", ids: посты.map((п) => п.id) });
         const и = ответ?.итог || {};
         await обновить(false);
-        const пропущено = (и.пропущено || []).map((п) => `${п.код}: ${п.причина}`);
-        toast(`Отправлено заново: ${(и.обновлено || []).length}` + (пропущено.length ? `. Пропущено: ${пропущено.join("; ").slice(0, 300)}` : ""));
+        const такие = (и.пропущено || []).filter((п) => п.такой).length;
+        const пропущено = (и.пропущено || []).filter((п) => !п.такой).map((п) => `${п.код}: ${п.причина}`);
+        toast(`Отправлено заново: ${(и.обновлено || []).length}`
+          + (такие ? `. Уже с описанием, не тронуты: ${такие}` : "")
+          + (пропущено.length ? `. Пропущено: ${пропущено.join("; ").slice(0, 300)}` : ""));
       } catch (e) { toast(e.message, "err"); await обновить(false); }
     });
   }

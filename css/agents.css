@@ -137,6 +137,7 @@ html[data-theme="light"] .post-ed-bubble { background: #fff; }
 .agent-how .agent-hint { margin-top: 6px; }
 
 .agent-tochannel { margin-top: 16px; }
+.agent-tochannel:first-child { margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 12px; }
 .agent-tochannel h4 { margin: 0 0 8px; font-size: .875rem; font-weight: 600; }
 
 .agent-report h4 { margin: 16px 0 8px; font-size: .875rem; font-weight: 600; }
