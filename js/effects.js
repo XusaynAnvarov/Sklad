@@ -3,8 +3,8 @@
 //  Используется и в админке, и в каталоге.
 // ========================================================================
 
-import { iconSvg } from "./icons.js?v=20261127a";
-import { сменитьТемуВолной } from "./temavolna.js?v=20261127a";
+import { iconSvg } from "./icons.js?v=20261127b";
+import { сменитьТемуВолной, безПереходов } from "./temavolna.js?v=20261127b";
 
 const THEME_KEY = "sklad_theme";
 
@@ -180,12 +180,13 @@ export function initTheme() {
   applyTheme(saved);
 }
 export function applyTheme(mode) {
-  const root = document.documentElement;
-  // глушим CSS-переходы на момент смены темы, чтобы не лагало
-  root.classList.add("no-theme-anim");
-  root.setAttribute("data-theme", mode);
-  localStorage.setItem(THEME_KEY, mode);
-  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("no-theme-anim")));
+  // Переходы глушим на момент смены темы, иначе сотни элементов
+  // анимируют цвет разом. Снятие глушилки — в простое: см. безПереходов
+  // в js/temavolna.js, там же замеры.
+  безПереходов(() => {
+    document.documentElement.setAttribute("data-theme", mode);
+    try { localStorage.setItem(THEME_KEY, mode); } catch {}
+  });
 }
 export function currentTheme() {
   return document.documentElement.getAttribute("data-theme") || "light";

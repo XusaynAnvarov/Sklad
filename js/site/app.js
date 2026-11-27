@@ -1,18 +1,18 @@
 // SPA-роутер публичного сайта: шапка, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, saveToken as _saveToken, api } from "./api.js?v=20261127a";
-import { renderCatalog } from "./catalog.js?v=20261127a";
-import { renderVideos } from "./videos.js?v=20261127a";
-import { renderCabinet } from "./cabinet.js?v=20261127a";
-import { renderAdminPanel } from "./admin-panel.js?v=20261127a";
-import { renderOrder } from "./order.js?v=20261127a";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261127a";
-import { сменитьТемуВолной } from "../temavolna.js?v=20261127a";
-import { обновитьЕслиУстарело } from "../version.js?v=20261127a";
-import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261127a";
+import { isLoggedIn, clearToken as _clearToken, saveToken as _saveToken, api } from "./api.js?v=20261127b";
+import { renderCatalog } from "./catalog.js?v=20261127b";
+import { renderVideos } from "./videos.js?v=20261127b";
+import { renderCabinet } from "./cabinet.js?v=20261127b";
+import { renderAdminPanel } from "./admin-panel.js?v=20261127b";
+import { renderOrder } from "./order.js?v=20261127b";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261127b";
+import { сменитьТемуВолной, безПереходов } from "../temavolna.js?v=20261127b";
+import { обновитьЕслиУстарело } from "../version.js?v=20261127b";
+import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261127b";
 // Экскурсия по сайту: приглашение новым посетителям и кнопка «▶ Как заказать»
-import { maybeInviteTour, openTour } from "./tour.js?v=20261127a";
+import { maybeInviteTour, openTour } from "./tour.js?v=20261127b";
 // Короткий ролик при входе (js/site/intro.js) — новым посетителям
-import { maybeShowIntro } from "./intro.js?v=20261127a";
+import { maybeShowIntro } from "./intro.js?v=20261127b";
 // Кнопка «▶ Как заказать» видна, пока владелец не выключил её в складе
 export function кнопкаКакЗаказать() { try { const c = JSON.parse(localStorage.getItem("gm_intro_cfg") || "null"); return !c || c.howto_button !== false; } catch { return true; } }
 
@@ -81,11 +81,13 @@ export function getTheme() {
 }
 export function setTheme(theme) {
   localStorage.setItem("gm_site_theme", theme);
-  const root = document.documentElement;
-  // отключаем CSS-переходы на момент смены темы — иначе сотни элементов анимируются разом и лагает
-  root.classList.add("no-theme-anim");
-  root.setAttribute("data-site-theme", theme);
-  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("no-theme-anim")));
+  // Переходы отключаем на момент смены темы — иначе сотни элементов
+  // анимируются разом и лагает. Снятие глушилки — в простое, чтобы её
+  // собственный пересчёт стилей не вставал сразу за отрисовкой новой
+  // темы (замеры — в js/temavolna.js).
+  безПереходов(() => {
+    document.documentElement.setAttribute("data-site-theme", theme);
+  });
 }
 export function toggleTheme() { setTheme(getTheme() === "dark" ? "light" : "dark"); }
 

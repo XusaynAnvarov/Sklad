@@ -6,8 +6,8 @@
 //  каждый по-своему, но список проблем у обоих обязан быть один, иначе
 //  «на компьютере чисто, а в телефоне десять расхождений».
 // ========================================================================
-import { ensureBatches, sumQty, currentCost, costOutlook } from "./inventory.js?v=20261127a";
-import { isIssued } from "./debt.js?v=20261127a";
+import { ensureBatches, sumQty, currentCost, costOutlook } from "./inventory.js?v=20261127b";
+import { isIssued } from "./debt.js?v=20261127b";
 
 // Накладная оформлена, но товар со склада не сняли.
 //
