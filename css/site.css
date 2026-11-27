@@ -934,12 +934,21 @@ html[data-site-theme="dark"] .loader-progress { background: rgba(255,255,255,.12
   .site-menu { background: var(--white); border: 1px solid var(--border); box-shadow: 0 16px 40px rgba(16,24,40,.16); }
   html[data-site-theme="dark"] .site-menu { background: #141419; border-color: rgba(255,255,255,.12); box-shadow: 0 16px 40px rgba(0,0,0,.6); }
 }
+/* Телефон: размытие — самое дорогое, что есть в CSS. Под полосой категорий
+   (её листают пальцем), плашкой, поиском и бургером лежит ровный фон, и
+   стекло там почти не видно, а каждый кадр прокрутки пересчитывало размытие —
+   отсюда подтормаживание. Здесь сплошные поверхности того же цвета.
+   Размытие шапки снято в css/glassos-site.css. */
 @media (max-width: 760px) {
-  .s-empty, .site-burger, .cat-rail, .feature-tile {
-    backdrop-filter: blur(12px) saturate(140%);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
+  .s-empty, .site-burger, .cat-rail, .feature-tile, .search-input, .lang-dropdown {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    background: rgba(255,255,255,.94);
   }
-  .site-header { backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%); }
+  html[data-site-theme="dark"] .s-empty, html[data-site-theme="dark"] .site-burger,
+  html[data-site-theme="dark"] .cat-rail, html[data-site-theme="dark"] .feature-tile,
+  html[data-site-theme="dark"] .search-input, html[data-site-theme="dark"] .lang-dropdown {
+    background: #16161b;
+  }
 }
 
 /* ---------- 10. Если размытия нет — подложка сплошная ---------- */

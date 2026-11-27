@@ -62,6 +62,12 @@ html[data-site-theme="dark"] {
   position: sticky;
   top: 0;
   z-index: 100;
+  /* Размытие из css/site.css («blur(20px)» на всю ширину) здесь не было
+     отменено: фон убрали, а backdrop-filter остался — и прилипшая полоса
+     продолжала размывать страницу на каждом кадре прокрутки. Стекло
+     шапки — плотная подложка в ::before ниже, размытие ей не нужно. */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .site-header::after { content: none; }   /* растушёвка из site.css больше не нужна */
 /* ---- ВО ВСЮ ШИРИНУ ----
