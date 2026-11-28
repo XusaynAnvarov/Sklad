@@ -12,11 +12,11 @@
 //  Сервер — api/admin/agents.js и api/admin/agents-report.js.
 //  Оформление — css/agents.css, только существующие токены темы.
 // ========================================================================
-import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261127b";
-import { icon } from "../icons.js?v=20261127b";
-import { authHeaders } from "../db.js?v=20261127b";
-import { thumb } from "../img.js?v=20261127b";
-import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261127b";
+import { el, toast, modal, confirmDialog, select, input, field } from "../ui.js?v=20261127d";
+import { icon } from "../icons.js?v=20261127d";
+import { authHeaders } from "../db.js?v=20261127d";
+import { thumb } from "../img.js?v=20261127d";
+import { вТекст, ДЛИНА_МАКС } from "../post-text.js?v=20261127d";
 
 const API = "/api/admin/agents";
 const API_СВЕДЕНИЯ = "/api/admin/facts";
@@ -481,7 +481,7 @@ export default async function render(page, ctx) {
             const к = e.currentTarget;
             к.disabled = true; к.textContent = "Собираю…";
             try {
-              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261127b");
+              const { exportPurchasePlanExcel } = await import("../xlsx-export.js?v=20261127d");
               await exportPurchasePlanExcel(сЛистами.details.листы, { когда: new Date(сЛистами.started_at) });
               toast("Файл собран");
             } catch (err) {

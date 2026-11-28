@@ -1,18 +1,18 @@
 // SPA-роутер публичного сайта: шапка, темы, языки, панель
-import { isLoggedIn, clearToken as _clearToken, saveToken as _saveToken, api } from "./api.js?v=20261127b";
-import { renderCatalog } from "./catalog.js?v=20261127b";
-import { renderVideos } from "./videos.js?v=20261127b";
-import { renderCabinet } from "./cabinet.js?v=20261127b";
-import { renderAdminPanel } from "./admin-panel.js?v=20261127b";
-import { renderOrder } from "./order.js?v=20261127b";
-import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261127b";
-import { сменитьТемуВолной, безПереходов } from "../temavolna.js?v=20261127b";
-import { обновитьЕслиУстарело } from "../version.js?v=20261127b";
-import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261127b";
+import { isLoggedIn, clearToken as _clearToken, saveToken as _saveToken, api } from "./api.js?v=20261127d";
+import { renderCatalog } from "./catalog.js?v=20261127d";
+import { renderVideos } from "./videos.js?v=20261127d";
+import { renderCabinet } from "./cabinet.js?v=20261127d";
+import { renderAdminPanel } from "./admin-panel.js?v=20261127d";
+import { renderOrder } from "./order.js?v=20261127d";
+import { setAuthChangeCallback, openLogin, logout as _logout, pendingAuth, clearPendingAuth } from "./auth.js?v=20261127d";
+import { сменитьТемуВолной, безПереходов } from "../temavolna.js?v=20261127d";
+import { обновитьЕслиУстарело } from "../version.js?v=20261127d";
+import { отметитьВизит, уведомлениеОДанных } from "./visit.js?v=20261127d";
 // Экскурсия по сайту: приглашение новым посетителям и кнопка «▶ Как заказать»
-import { maybeInviteTour, openTour } from "./tour.js?v=20261127b";
+import { maybeInviteTour, openTour } from "./tour.js?v=20261127d";
 // Короткий ролик при входе (js/site/intro.js) — новым посетителям
-import { maybeShowIntro } from "./intro.js?v=20261127b";
+import { maybeShowIntro } from "./intro.js?v=20261127d";
 // Кнопка «▶ Как заказать» видна, пока владелец не выключил её в складе
 export function кнопкаКакЗаказать() { try { const c = JSON.parse(localStorage.getItem("gm_intro_cfg") || "null"); return !c || c.howto_button !== false; } catch { return true; } }
 

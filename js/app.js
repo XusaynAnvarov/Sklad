@@ -3,38 +3,40 @@
 // ========================================================================
 // показатьПоявление больше не зовём: лесенку раздела ведёт js/glassos.js
 // (прийти) — она знает порядок слоёв и умеет отменять незаконченный переход.
-import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261127b";
-import { обновитьЕслиУстарело } from "./version.js?v=20261127b";
-import { icon } from "./icons.js?v=20261127b";
-import { db, rawClient } from "./db.js?v=20261127b";
-import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261127b";
-import { setRates } from "./fx.js?v=20261127b";
+import { el, $, reveal, showLoader, hideLoader, toast, оживитьЧисла } from "./ui.js?v=20261127d";
+import { обновитьЕслиУстарело } from "./version.js?v=20261127d";
+import { icon } from "./icons.js?v=20261127d";
+import { db, rawClient } from "./db.js?v=20261127d";
+import { ensureAccess, alreadyAuthed, logout } from "./auth.js?v=20261127d";
+import { setRates } from "./fx.js?v=20261127d";
 // версия в импорте обязательна: без неё CDN отдаёт старый effects.js (там тема по умолчанию была светлой)
-import { initTheme, makeThemeToggle } from "./effects.js?v=20261127b";
-import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261127b";
+import { initTheme, makeThemeToggle } from "./effects.js?v=20261127d";
+import { applyI18n, makeLangSwitcher } from "./i18n.js?v=20261127d";
 // GlassOS: подсказки правого рейла, поиск в стиле Apple, последовательные переходы
-import { initПодсказкиРейла, создатьПоиск, уйти, прийти, запомнитьЗапрос, применитьЗапрос } from "./glassos.js?v=20261127b";
+import { initПодсказкиРейла, создатьПоиск, уйти, прийти, запомнитьЗапрос, применитьЗапрос } from "./glassos.js?v=20261127d";
+// Окно строк: в длинной таблице в разметке живёт только видимое
+import { окноДлинныхТаблиц } from "./okno.js?v=20261127d";
 
-import dashboard from "./pages/dashboard.js?v=20261127b";
-import products from "./pages/products.js?v=20261127b";
-import sales from "./pages/sales.js?v=20261127b";
-import purchases from "./pages/purchases.js?v=20261127b";
-import customers from "./pages/customers.js?v=20261127b";
-import orders from "./pages/orders.js?v=20261127b";
-import fulfillment from "./pages/fulfillment.js?v=20261127b";
-import reports from "./pages/reports.js?v=20261127b";
-import catalogPage from "./pages/catalog_admin.js?v=20261127b";
-import settings from "./pages/settings.js?v=20261127b";
-import siteClients from "./pages/site_clients.js?v=20261127b";
-import crmPage from "./pages/crm.js?v=20261127b";
-import trash from "./pages/trash.js?v=20261127b";
-import videosAdmin from "./pages/videos_admin.js?v=20261127b";
-import supplierOrder from "./pages/supplier_order.js?v=20261127b";
-import stockCheck from "./pages/stock_check.js?v=20261127b";
-import packingSetup from "./pages/packing_setup.js?v=20261127b";
-import seoPage from "./pages/seo.js?v=20261127b";
-import introAdmin from "./pages/intro_admin.js?v=20261127b";
-import agentsPage from "./pages/agents.js?v=20261127b";
+import dashboard from "./pages/dashboard.js?v=20261127d";
+import products from "./pages/products.js?v=20261127d";
+import sales from "./pages/sales.js?v=20261127d";
+import purchases from "./pages/purchases.js?v=20261127d";
+import customers from "./pages/customers.js?v=20261127d";
+import orders from "./pages/orders.js?v=20261127d";
+import fulfillment from "./pages/fulfillment.js?v=20261127d";
+import reports from "./pages/reports.js?v=20261127d";
+import catalogPage from "./pages/catalog_admin.js?v=20261127d";
+import settings from "./pages/settings.js?v=20261127d";
+import siteClients from "./pages/site_clients.js?v=20261127d";
+import crmPage from "./pages/crm.js?v=20261127d";
+import trash from "./pages/trash.js?v=20261127d";
+import videosAdmin from "./pages/videos_admin.js?v=20261127d";
+import supplierOrder from "./pages/supplier_order.js?v=20261127d";
+import stockCheck from "./pages/stock_check.js?v=20261127d";
+import packingSetup from "./pages/packing_setup.js?v=20261127d";
+import seoPage from "./pages/seo.js?v=20261127d";
+import introAdmin from "./pages/intro_admin.js?v=20261127d";
+import agentsPage from "./pages/agents.js?v=20261127d";
 
 const NAV = [
   { id: "dashboard",    label: "Дашборд",        ic: "dashboard", render: dashboard },
@@ -435,6 +437,9 @@ async function route() {
   labelTableCells(view);   // подписи для «карточного» вида таблиц на телефоне
   применитьЗапрос(page);   // пришли из глобального поиска — подставляем запрос
   view.scrollTop = 0;
+  // Окно строк — последним: подписи ячеек, переводы и оживление чисел
+  // выше должны пройтись по ПОЛНОМУ набору строк, пока он ещё в разметке.
+  окноДлинныхТаблиц(view);
 }
 
 // На узких экранах таблица превращается в карточки (css/theme.css), и каждой ячейке

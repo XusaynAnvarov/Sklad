@@ -6,11 +6,11 @@
 //  публикация сохраняет прежнюю версию — внизу её можно вернуть.
 //  Статистика — обезличенные счётчики по дням (без IP и идентификаторов).
 // ========================================================================
-import { el, toast, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261127b";
-import { icon } from "../icons.js?v=20261127b";
-import { authHeaders, db } from "../db.js?v=20261127b";
-import { ТЕКСТЫ_ТУРА, СЦЕНЫ_ПО_УМОЛЧАНИЮ } from "../site/tour.js?v=20261127b";
-import { ТЕКСТЫ_РОЛИКА } from "../site/intro.js?v=20261127b";
+import { el, toast, confirmDialog, showLoader, hideLoader } from "../ui.js?v=20261127d";
+import { icon } from "../icons.js?v=20261127d";
+import { authHeaders, db } from "../db.js?v=20261127d";
+import { ТЕКСТЫ_ТУРА, СЦЕНЫ_ПО_УМОЛЧАНИЮ } from "../site/tour.js?v=20261127d";
+import { ТЕКСТЫ_РОЛИКА } from "../site/intro.js?v=20261127d";
 
 async function api(method, query = "", body) {
   const r = await fetch("/api/admin/intro" + query, {
